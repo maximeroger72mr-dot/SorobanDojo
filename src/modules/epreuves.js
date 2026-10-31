@@ -38,6 +38,11 @@ function rapport(app, resultats) {
 }
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
+const NOMS_SECTIONS = { mitori: 'Mitorizan', mul: 'Multiplication', div: 'Division' };
+/** Épreuve isolée (« sprint ») : 10 minutes, 7/10 exigés, comme dans le format par épreuve. */
+const MINUTES_SPRINT = 10;
+const SEUIL_SPRINT = 0.7;
+
 function resume(g) {
   const m = g.mitori;
   const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.soustractions ? ', additions et soustractions' : ''}`];
@@ -61,32 +66,45 @@ export default {
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
         h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
           'Du 6e au 1er kyū : tableau de référence retenu (seuils 210/300 puis 240/300, décimaux à partir du 3e kyū, réponses arrondies comme indiqué). Du 10e au 7e kyū : formats publics japonais, seuil indicatif de 70 %. Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.'),
-        h('div', { class: 'liste-paliers' }, GRADES.map((g) => h('button', { class: 'ligne-palier', onclick: () => lancer(g) },
-          h('span', { class: 'icone' }, meilleur(g)?.reussi ? '✓' : '○'),
-          h('span', { class: 'titre' }, h('strong', {}, `${g.nom} (${g.japonais})`), h('div', { class: 'discret', style: 'font-size:0.85rem' }, resume(g))),
-          h('span', { class: 'statut' }, `${g.minutes} min · ${totalPoints(g)} pts · réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points}` : ''}`)))));
+        h('div', { class: 'liste-grades' }, GRADES.map((g) => h('div', { class: 'carte grade' },
+          h('div', { class: 'ligne' },
+            h('span', { class: 'icone' }, meilleur(g)?.reussi ? '✓' : '○'),
+            h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
+            h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g)),
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn principal', onclick: () => lancer(g) }, `Épreuve complète · ${g.minutes} min`),
+            ['mitori', 'mul', 'div'].filter((k) => g[k]).map((k) => {
+              const r = progression().records[`epreuve-${g.id}-${k}`];
+              return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${NOMS_SECTIONS[k]} seule · ${MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
+            }))))));
     }
 
-    function lancer(g) {
-      remplir(el, h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'));
+    /** Lance l'épreuve complète, ou une seule épreuve (section) en 10 minutes. */
+    function lancer(g, section = null) {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'));
       const sujet = genererSujet(g);
-      const max = totalPoints(g);
+      const sections = section ? sujet.sections.filter((x) => x.cle === section) : sujet.sections;
+      const max = sections.reduce((t, x) => t + x.problemes.length * x.points, 0);
+      const seuil = section ? SEUIL_SPRINT : g.seuil;
+      const minutes = section ? MINUTES_SPRINT : g.minutes;
       feuille = creerFeuille(el, {
-        titre: `${g.nom} (${g.japonais}) · ${g.minutes} minutes`,
-        minutes: g.minutes,
-        sections: sujet.sections,
+        titre: `${g.nom} (${g.japonais})${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes`,
+        minutes,
+        sections,
         surFin: (b) => {
-          const reussi = b.points >= g.seuil * max;
-          enregistrerSession({ module: 'epreuves', mode: g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
-          proposerMeilleurScore(`epreuve-${g.id}`, b.points, { reussi, dureeMs: b.dureeMs });
+          const reussi = b.points >= seuil * max;
+          enregistrerSession({ module: 'epreuves', mode: section ? `${g.id}-${section}` : g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          // Seule l'épreuve complète compte pour le grade ; les sprints gardent leur propre record.
+          proposerMeilleurScore(section ? `epreuve-${g.id}-${section}` : `epreuve-${g.id}`, b.points, { reussi, dureeMs: b.dureeMs });
           return h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.points} / ${max} points`),
-            h('p', { class: reussi ? 'retour ok' : 'retour erreur' }, reussi ? `Réussi (seuil ${Math.round(g.seuil * max)} points).` : `Pas encore : il faut ${Math.round(g.seuil * max)} points.`),
+            h('p', { class: reussi ? 'retour ok' : 'retour erreur' }, reussi ? `Réussi (seuil ${Math.round(seuil * max)} points).` : `Pas encore : il faut ${Math.round(seuil * max)} points.`),
             h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points'].map((x) => h('th', {}, x))),
               b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
             rapport(app, b.resultats),
-            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer(g) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
         },
       });
     }

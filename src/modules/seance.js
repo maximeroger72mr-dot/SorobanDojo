@@ -14,7 +14,7 @@ import {
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte,
 } from '../core/progression.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte, placementDuJour } from '../core/parcours.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
@@ -54,6 +54,14 @@ function plan(d, debut) {
     });
   }
   const sp = prochainSousPalier();
+  // Réflexe de placement : seulement une fois arrivé au cours de multiplication, mais alors tous les jours.
+  const placement = placementDuJour(d, aujourdhui(), sp);
+  if (placement && placement.id !== sp?.id) {
+    items.push({
+      titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`,
+      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === placement.id), aller: ['lecons', { sousPalier: placement.id, onglet: 'entrainement' }],
+    });
+  }
   if (sp) {
     items.push({
       titre: 'Leçon', detail: sp.titre,

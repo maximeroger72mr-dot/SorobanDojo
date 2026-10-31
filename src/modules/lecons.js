@@ -23,6 +23,8 @@ import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
+import { creerPlacement } from '../ui/placement.js';
+import { conseilsVitesse, GENERAUX } from '../core/conseils.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Un sous-palier est accessible si le précédent est validé (ou en mode découverte). */
@@ -44,7 +46,16 @@ function demoDe(sp, d) {
   if (sp.type === 'div') return demoDivision(d.a, d.b);
   return d;
 }
-const famille = (sp) => (sp.type === 'addsub' || sp.type === 'anzan' ? 'addsub' : 'muldiv');
+const famille = (sp) => (sp.type === 'placement' ? 'placement' : sp.type === 'addsub' || sp.type === 'anzan' ? 'addsub' : 'muldiv');
+/** Composant d'exercices adapté au type de leçon. */
+const creerExercices = (sp, zone, o) => (sp.type === 'placement' ? creerPlacement : creerSerie)(zone, o);
+
+/** Encadré « Pour aller plus vite ». */
+function encadreVitesse(sp) {
+  const conseils = conseilsVitesse(sp);
+  if (!conseils.length) return null;
+  return h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite'), h('ul', {}, conseils.map((c) => h('li', {}, c))));
+}
 const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
 const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
@@ -74,7 +85,9 @@ export default {
           const ouvert = estDebloque(sp);
           let statut;
           let icone;
-          if (e.valide) { icone = '✓'; statut = `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})`; }
+          if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = 'Lu'; }
+          else if (e.valide) { icone = '✓'; statut = e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
+          else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = 'Verrouillé'; }
           else if (e.reps >= sp.repetitions) { icone = '●'; statut = 'Mini-test disponible'; }
           else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
@@ -95,7 +108,25 @@ export default {
     }
 
     // ---------------------------------------------------------------- sous-palier
+    /** Leçon à lire (Leçon 0) : sections, conseils généraux de vitesse, puis « J'ai lu et compris ». */
+    function vueTheorie(sp) {
+      const suivant = SOUS_PALIERS[sp.ordre + 1];
+      el.append(
+        h('button', { class: 'lien', onclick: () => changer(carte) }, '← Toutes les leçons'),
+        h('h1', {}, sp.titre),
+        h('p', { class: 'discret' }, sp.pourquoi),
+        ...sp.sections.map(([titre, texte]) => h('div', { class: 'carte theorie' }, h('h3', { style: 'margin-top:0' }, titre), h('p', {}, texte))),
+        h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
+        h('div', { class: 'ligne', style: 'margin-top:14px' },
+          h('button', { class: 'btn principal', onclick: async () => {
+            await validerPalier(sp.id, false);
+            changer(() => (suivant ? vueSousPalier(suivant) : carte()));
+          } }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →')));
+      return null;
+    }
+
     function vueSousPalier(sp, ongletInitial) {
+      if (sp.type === 'theorie') return vueTheorie(sp);
       const e = etatPalier(sp.id);
       let nettoyerOnglet = null;
       const zone = h('div', {});
@@ -123,6 +154,12 @@ export default {
         zone.append(h('div', { class: 'carte pourquoi' }, h('strong', {}, 'Pourquoi ce geste ? '), sp.pourquoi));
         if (sp.type === 'addsub') {
           zone.append(h('p', { class: 'discret' }, sp.cumul && sp.cibles.length > 12 ? 'Tous les gestes vus jusqu\'ici.' : `Gestes travaillés : ${sp.cibles.map(nomMotif).join(' · ')}. ${sp.cumul ? '' : 'Les exercices ne contiennent que ces gestes et des gestes directs.'}`));
+        }
+        const vitesse = encadreVitesse(sp);
+        if (vitesse) zone.append(vitesse);
+        if (sp.type === 'placement') {
+          zone.append(h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
+          return null;
         }
         if (sp.type === 'anzan') {
           zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Comment faire : '),
@@ -156,7 +193,11 @@ export default {
             class: v === mode ? 'actif' : '',
             onclick: (ev) => { mode = v; [...choixMode.children].forEach((b) => b.classList.toggle('actif', b === ev.currentTarget)); lancer(); },
           }, t)));
-        zone.append(bandeau, sp.type === 'anzan' ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail);
+        const conseil = h('p', { class: 'conseil-vitesse' });
+        const tous = [...conseilsVitesse(sp), ...GENERAUX];
+        const majConseil = () => { conseil.textContent = `Pour aller plus vite : ${tous[Math.floor(Math.random() * tous.length)]}`; };
+        majConseil();
+        zone.append(bandeau, sp.type === 'anzan' || sp.type === 'placement' ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
 
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -188,12 +229,18 @@ export default {
           courant?.detruire();
           remplir(zoneTravail);
           if (mode === 'une') {
-            courant = creerSerie(zoneTravail, {
+            let n = 0;
+            courant = creerExercices(sp, zoneTravail, {
               generer: () => genererExercice(sp, poidsDe(sp)),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
-              // Un exercice résolu avec « Je suis bloqué » compte comme répétition, pas pour le niveau.
-              surExercice: (res) => compter(res.juste && !res.aide, res.dureeMs, res.t),
+              // Aide « Je suis bloqué » ou réponse auto-évaluée (mode Espace) : compte pour le
+              // volume d'entraînement, pas pour le niveau.
+              surExercice: (res) => {
+                n += 1;
+                if (n % 5 === 0) majConseil();
+                return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);
+              },
             });
           } else {
             const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
@@ -243,7 +290,7 @@ export default {
 
         function lancer() {
           intro.remove();
-          serie = creerSerie(zone, {
+          serie = creerExercices(sp, zone, {
             generer: () => genererExercice(sp, poidsDe(sp)),
             nombre: TEST.exercices,
             chrono: true,
@@ -275,7 +322,7 @@ export default {
         return () => serie?.detruire();
       }
 
-      afficher(ongletInitial ?? (e.reps === 0 ? 'comprendre' : 'entrainement'));
+      afficher(ongletInitial ?? params.onglet ?? (e.reps === 0 ? 'comprendre' : 'entrainement'));
       return () => nettoyerOnglet?.();
     }
 

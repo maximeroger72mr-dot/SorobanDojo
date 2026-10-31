@@ -26,21 +26,22 @@ export const SURCOUT_FEUILLE_S = 1.5;  // feuilles : frappe du résultat, retir�
 export const NIVEAUX = [
   { id: 'decouverte', nom: 'À découvrir' },
   { id: 'progres', nom: 'En progrès' },
-  { id: 'debutant', nom: 'Acquis débutant', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0 } },
-  { id: 'confirme', nom: 'Acquis confirmé', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0 } },
-  { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8 } },
+  { id: 'debutant', nom: 'Acquis débutant', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0, placement: 4.0 } },
+  { id: 'confirme', nom: 'Acquis confirmé', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0, placement: 2.5 } },
+  { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5 } },
 ];
 
 const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').length;
 
 /** Nombre d'unités de travail d'un exercice. */
 export function unites(ex) {
+  if (ex.type === 'placement') return 1;
   if (ex.type === 'mul') return nbChiffres(ex.a) * nbChiffres(ex.b);
   if (ex.type === 'div') return nbChiffres(ex.b) * nbChiffres(ex.resultat);
   return ex.lignes.reduce((s, l) => s + nbChiffres(l.n), 0);
 }
 
-export const familleTemps = (ex) => (ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
+export const familleTemps = (ex) => (ex.type === 'placement' ? 'placement' : ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
 
 /** Secondes par unité pour un exercice fait en dureeMs (surcout : temps fixe à retirer). */
 export function tempsParUnite(ex, dureeMs, surcout = SURCOUT_S) {
@@ -80,7 +81,7 @@ export function evaluer(hist = [], famille = 'addsub') {
   if (prochain?.reussite) {
     if (essais < MIN_ESSAIS) manque.push(`${MIN_ESSAIS - essais} essai${MIN_ESSAIS - essais > 1 ? 's' : ''} de plus`);
     if (reussite < prochain.reussite) manque.push(`réussite ≥ ${Math.round(prochain.reussite * 100)} %`);
-    if (temps === null || temps > prochain.temps[famille]) manque.push(`≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${famille === 'addsub' ? 'chiffre' : 'produit'}`);
+    if (temps === null || temps > prochain.temps[famille]) manque.push(`≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${{ addsub: 'chiffre', muldiv: 'produit', placement: 'placement' }[famille]}`);
   }
   return { niveau: NIVEAUX[index], index, essais, reussite, temps, prochain, manque };
 }

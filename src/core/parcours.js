@@ -19,7 +19,7 @@ import { avecGraine, semaineISO } from './hasard.js';
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
 // Les étapes d'anzan ne bloquent pas l'accès aux épreuves.
-const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => s.type !== 'anzan').map((s) => s.id));
+const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id));
 
 export const estValide = (d, id) => !!d.paliers[id]?.valide;
 export const leconsValidees = (d) => SOUS_PALIERS.filter((sp) => estValide(d, sp.id));
@@ -41,7 +41,7 @@ export const PREREQUIS = {
   8: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p7-1'],
   7: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p6-3', 'p7-1', 'p7-2'],
 };
-const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => s.type !== 'anzan').map((s) => s.id);
+const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 
 /**
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
@@ -109,9 +109,33 @@ export function defiSemaine(d, date) {
 export function anzanAdapte(d) {
   const k = SOUS_PALIERS.filter((sp) => sp.type === 'anzan' && estValide(d, sp.id)).length;
   return {
+    mode: k < 2 ? 'image' : 'flash',
     chiffres: k >= 5 ? 2 : 1,
     termes: [3, 4, 5, 5, 7, 5][k],
     duree: [2, 1.5, 1.5, 1, 1, 1.5][k],
     questions: 5,
   };
+}
+
+/**
+ * Réflexe de placement (multiplication / division) : proposé seulement une fois arrivé au cours de
+ * multiplication, puis maintenu pendant ce cours, celui de division, et 14 jours après la validation
+ * du dernier placement, pour l'ancrer profondément.
+ * @returns {{ id: string, titre: string } | null}  la leçon de placement à travailler
+ */
+export function placementDuJour(d, aujourdhuiDate, prochain) {
+  const debutMul = SOUS_PALIERS.find((s) => s.id === 'p6-0').ordre;
+  const arrive = prochain ? prochain.ordre >= debutMul : true;
+  if (!arrive && !d.paliers['p6-0']) return null;
+  const div = SOUS_PALIERS.find((s) => s.id === 'p7-0');
+  const mul = SOUS_PALIERS.find((s) => s.id === 'p6-0');
+  // Division dès qu'on a atteint ce cours, sinon multiplication.
+  const lecon = prochain && prochain.ordre >= div.ordre ? div : mul;
+  const valideLe = d.paliers['p7-0']?.valide;
+  if (valideLe && prochain && prochain.palier.id === 'p8') {
+    const [a, m, j] = valideLe.split('-').map(Number);
+    const ecart = (new Date(`${aujourdhuiDate}T12:00`) - new Date(a, m - 1, j, 12)) / 86400000;
+    if (ecart > 14) return null;
+  }
+  return lecon;
 }

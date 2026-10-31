@@ -38,3 +38,16 @@ test('défi de la semaine : identique toute la semaine, strict sur les gestes ap
   assert.ok(motifsAppris(d).has('+4:petit'));
   for (const p of a.sections[0].problemes) assert.ok(p.motifs.every((m) => motifsAppris(d).has(m)), String(p.motifs));
 });
+
+import { placementDuJour } from '../src/core/parcours.js';
+import { sousPalier } from '../src/core/curriculum.js';
+
+test('placement proposé seulement à partir du cours de multiplication', () => {
+  const d = vide();
+  assert.equal(placementDuJour(d, '2026-11-10', sousPalier('p3-1')), null);
+  assert.equal(placementDuJour(d, '2026-11-10', sousPalier('p6-1')).id, 'p6-0');
+  assert.equal(placementDuJour(d, '2026-11-10', sousPalier('p7-2')).id, 'p7-0');
+  d.paliers['p7-0'] = { valide: '2026-11-01' };
+  assert.equal(placementDuJour(d, '2026-11-10', sousPalier('p8-1')).id, 'p7-0');
+  assert.equal(placementDuJour(d, '2026-11-30', sousPalier('p8-1')), null);
+});

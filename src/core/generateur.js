@@ -63,25 +63,27 @@ export function analyserOperation(depart, op, n, nbTiges) {
 }
 
 const respecte = (motifs, autorises) => !autorises || motifs.every((m) => autorises.has(m));
+/** Le nombre contient-il un zéro après son premier chiffre (406, 3 050, 70) ? */
+const aUnZero = (n) => String(n).slice(1).includes('0');
 const compter = (motifs, cibles) => motifs.filter((m) => cibles?.includes(m)).length;
 
 /**
  * Génère « départ ± n » (n de `chiffres` chiffres) contenant le motif cible.
  * Le départ a au moins `chiffres` chiffres : c'est la première ligne de la colonne.
  */
-export function genererOperation({ chiffres, autorises = null, cibles, poids = {} }) {
+export function genererOperation({ chiffres, autorises = null, cibles, poids = {}, zeros = false }) {
   // Si une cible se révèle impossible avec ces contraintes, on l'écarte et on en tire une autre.
   let restantes = [...cibles];
   while (restantes.length) {
     const cible = tirerPondere(restantes, poids);
-    const ex = essayerCible(cible, chiffres, autorises, cibles);
+    const ex = essayerCible(cible, chiffres, autorises, cibles, zeros);
     if (ex) return ex;
     restantes = restantes.filter((c) => c !== cible);
   }
   throw new ErreurGeneration(`Impossible de générer une opération pour ${cibles.join(', ')}`);
 }
 
-function essayerCible(cible, chiffres, autorises, cibles) {
+function essayerCible(cible, chiffres, autorises, cibles, zeros = false) {
   const nbTiges = tigesPour(chiffres) + 1;
   const { op, d: dCible } = analyserMotif(cible);
   const departMin = 10 ** (chiffres - 1);
@@ -116,6 +118,7 @@ function essayerCible(cible, chiffres, autorises, cibles) {
     const depart = Number(`${tete}${chiffresDepart.join('')}`);
     if (depart < departMin) continue;
     const n = Number(chiffresN.join(''));
+    if (zeros && (!aUnZero(n) || !aUnZero(depart))) continue;
     const a = analyserOperation(depart, op, n, nbTiges);
     if (!a || !respecte(a.motifs, autorises) || !a.motifs.includes(cible)) continue;
     valides += 1;
@@ -160,7 +163,7 @@ function scoreEquilibre(analyse, cibles, poids, chiffres) {
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
  */
-export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1 }) {
+export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false }) {
   const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
   let meilleur = null;
   let valides = 0;
@@ -195,6 +198,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     }
     if (chiffresN.length < chiffres) continue;
     const n = Number(chiffresN.join(''));
+    if (zeros && !aUnZero(n)) continue;
     const a = analyserOperation(valeur, op, n, nbTiges);
     if (!a || !respecte(a.motifs, autorises)) continue;
     if (cible && !a.motifs.includes(cible)) continue;
@@ -211,13 +215,14 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
 
 /**
  * Colonne complète : première ligne posée, puis (lignes − 1) lignes ± respectant les contraintes.
- * @param {{chiffres:number, lignes:number, autorises?:Set|null, cibles:string[], poids?:object, ops?:string[]}} c
+ * @param {{chiffres:number, lignes:number, autorises?:Set|null, cibles:string[], poids?:object, ops?:string[], zeros?:boolean}} c
+ *   zeros : chaque nombre contient un zéro après son premier chiffre (entraînement aux zéros internes)
  * @returns {{type:'addsub', lignes:Array<{op,n}>, resultat:number, motifs:string[]}}
  */
-export function genererColonne({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'] }) {
+export function genererColonne({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false }) {
   for (let tentative = 0; tentative < 40; tentative++) {
     try {
-      const premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids });
+      const premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids, zeros });
       const liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
       const motifs = [...premiere.motifs];
       let valeur = premiere.resultat;
@@ -227,7 +232,7 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
       compterVus(premiere.motifs);
       while (liste.length < lignes) {
         const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
-        const t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops });
+        const t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros });
         compterVus(t.motifs);
         liste.push({ op: t.op, n: t.n });
         motifs.push(...t.motifs);

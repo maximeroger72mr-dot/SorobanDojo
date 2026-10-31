@@ -32,7 +32,7 @@ const CLE_LOCALE = 'soroban-progression';
 export const SEUIL_DIFFICULTE = 2;
 
 const vide = () => ({
-  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 15 }, avis: [],
+  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 15, modeEspace: false }, avis: [],
   stats: { suite: 0, meilleureSuite: 0 }, succes: {}, seance: null,
 });
 
@@ -204,12 +204,12 @@ export async function compterRepetition(id, juste, t) {
   await sauver();
 }
 
-/** Mini-test réussi : sous-palier validé, carte de révision créée (J+1). */
-export async function validerPalier(id) {
+/** Mini-test réussi : sous-palier validé, carte de révision créée (J+1) sauf leçon de lecture. */
+export async function validerPalier(id, avecRevision = true) {
   const e = palier(id);
   if (!e.valide) {
     e.valide = aujourdhui();
-    e.carte = nouvelleCarte(aujourdhui());
+    e.carte = avecRevision ? nouvelleCarte(aujourdhui()) : null;
   }
   await sauver();
 }

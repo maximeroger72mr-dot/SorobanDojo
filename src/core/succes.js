@@ -50,7 +50,7 @@ export const SUCCES = [
     id: `drill-123-${ms}`, theme: 'Drills', nom: `123456789 en ${t}`, description: `123 456 789 × 9 en moins de ${t}.`, test: (c) => recordSous(c, 'drill-123-9', ms),
   })),
   // Épreuves
-  { id: 'kyu-premier', theme: 'Épreuves', nom: 'Premier kyū', description: 'Réussir une épreuve de kyū.', test: (c) => Object.entries(c.records).some(([k, r]) => k.startsWith('epreuve-') && r.reussi) },
+  { id: 'kyu-premier', theme: 'Épreuves', nom: 'Premier kyū', description: 'Réussir une épreuve de kyū.', test: (c) => Object.entries(c.records).some(([k, r]) => /^epreuve-\d+$/.test(k) && r.reussi) },
   ...[['7', '7e kyū'], ['5', '5e kyū'], ['3', '3e kyū'], ['1', '1er kyū']].map(([g, nom]) => ({
     id: `kyu-${g}`, theme: 'Épreuves', nom, description: `Réussir l'épreuve du ${nom}.`, test: (c) => reussiGrade(c, g),
   })),

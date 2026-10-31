@@ -15,6 +15,7 @@ import {
   motifsEnDifficulte, aujourdhui,
 } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
+import { creerPlacement } from '../ui/placement.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 const FLASH = { exercices: 10, reussitesMin: 9 };
@@ -71,11 +72,11 @@ export default {
       }
     }
 
-    function lancerSerie({ titre, sousTitre, generer, apresBilan }) {
+    function lancerSerie({ titre, sousTitre, generer, apresBilan, placement = false }) {
       remplir(el, 
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
-      serie = creerSerie(el, {
+      serie = (placement ? creerPlacement : creerSerie)(el, {
         generer, nombre: FLASH.exercices, chrono: true, defi: true,
         surFin: async (bilan) => {
           serie.detruire();
@@ -96,6 +97,7 @@ export default {
         titre: `Test flash : ${sp.titre}`,
         sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
         generer: () => genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])),
+        placement: sp.type === 'placement',
         apresBilan: async (b) => {
           const reussi = b.justes >= FLASH.reussitesMin;
           await enregistrerRevision(sp.id, reussi);

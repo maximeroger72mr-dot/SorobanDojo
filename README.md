@@ -63,6 +63,7 @@ Logique (`src/core/`) :
 | `hasard.js` | hasard reproductible (même défi toute la semaine), semaine ISO |
 | `nombres.js` | décimaux : lecture des réponses (virgule ou point), arrondis exacts |
 | `sauvegarde.js` | export / import (remplacer ou fusionner) |
+| `conseils.js` | **conseils « Pour aller plus vite »** (généraux, par palier, par leçon) : à enrichir librement |
 | `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
 Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la liste `ECRANS` de `src/app.js`.

@@ -11,6 +11,8 @@
  * Le temps de calcul s'arrête à la PREMIÈRE TOUCHE tapée : la frappe n'est pas chronométrée.
  * Exercice en flash (anzan) : les nombres s'affichent un par un, puis le chrono démarre.
  * Division par 2 chiffres ou plus : bouton « Je suis bloqué » (estimation pas à pas, table du diviseur).
+ * Mode « mains sur le soroban » : Espace arrête le chrono et montre le résultat ; l'élève répond
+ * O (mon soroban affiche ce nombre) ou N. Compte pour le volume, pas pour le niveau.
  */
 
 import { diagnostiquer, localiserErreur, motifsDeLigne } from '../core/diagnostic.js';
@@ -18,7 +20,9 @@ import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { tempsParUnite, tempsCible, unites, SURCOUT_S, MIN_ESSAIS } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
-import { motifsEnDifficulte, noterGestes, noterReponse } from '../core/progression.js';
+import { Soroban } from '../core/soroban.js';
+import { SorobanVue } from './sorobanVue.js';
+import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
 import { ouvrirDemo } from './panneauDemo.js';
@@ -65,10 +69,14 @@ export function creerSerie(conteneur, o) {
   const fantome = h('span', { class: 'compteur fantome' });
   const chronoExo = h('div', { class: 'chrono-exercice' });
   const pastilles = h('div', { class: 'pastilles' });
+  const caseEspace = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().modeEspace });
+  caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
+  const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono et montre le résultat ; vous répondez O ou N. Compte pour le volume, pas pour le niveau.' },
+    caseEspace, ' Mains sur le soroban (Espace)');
   const retour = h('div', { class: 'retour' });
   const zoneDiag = h('div', {});
   const racine = h('div', { class: 'serie' },
-    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), fantome, chrono, compteur),
+    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), opts.defi ? null : choixEspace, fantome, chrono, compteur),
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
     h('div', { class: 'ligne' }, saisie, btnValider, btnBloque),
     zoneAide, retour, zoneDiag);
@@ -90,6 +98,12 @@ export function creerSerie(conteneur, o) {
   let aideUtilisee = false;
   let aide = null;          // { etapes, index } pour « Je suis bloqué »
   let flashEnCours = false;
+  const modeEspace = () => caseEspace.checked && !opts.defi;
+  function majModeEspace() {
+    saisie.style.display = modeEspace() ? 'none' : '';
+    btnValider.style.display = modeEspace() ? 'none' : '';
+    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, modeEspace() ? 'Calculez sur votre soroban, puis Espace pour voir le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+  }
   let zoneLocalisationCourante = null;
   let timer = null;
   const debut = performance.now();
@@ -149,7 +163,7 @@ export function creerSerie(conteneur, o) {
     btnBloque.style.display = ex.type === 'div' && ex.b >= 10 && !ex.arrondi ? '' : 'none';
     afficherEnonce();
     retour.className = 'retour';
-    remplir(retour, h('span', { class: 'discret' }, 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    majModeEspace();
     saisie.value = '';
     saisie.disabled = false;
     btnValider.disabled = false;
@@ -157,7 +171,7 @@ export function creerSerie(conteneur, o) {
     saisie.inputMode = ex.decimales ? 'decimal' : 'numeric';
     debutExercice = performance.now();
     if (ex.flash) jouerFlash(ex);
-    else saisie.focus();
+    else if (!modeEspace()) saisie.focus();
   }
 
   /** Anzan : montre les nombres un par un, puis lance le chronomètre. */
@@ -166,17 +180,24 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     btnValider.disabled = true;
     const ecran = h('div', { class: 'flash-ecran' });
-    remplir(zoneEnonce, ecran);
+    // Étape visuelle : le nombre est aussi montré en boules sur un petit soroban.
+    const zoneImage = h('div', { class: 'flash-image' });
+    remplir(zoneEnonce, ecran, exo.flash.image ? zoneImage : null);
+    const sorobanImage = exo.flash.image ? new Soroban(Math.max(3, String(Math.max(...exo.lignes.map((l) => l.n))).length + 1)) : null;
+    const vueImage = sorobanImage ? new SorobanVue(zoneImage, sorobanImage, { interactif: false }) : null;
     const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
     for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(350); }
     ecran.classList.remove('decompte');
     for (const l of exo.lignes) {
       if (ex !== exo || phase === 'fin') return;
       ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+      sorobanImage?.definirValeur(l.n);
       await attendre(exo.flash.duree * 850);
       ecran.textContent = '';
+      sorobanImage?.effacer();
       await attendre(exo.flash.duree * 150);
     }
+    vueImage?.detruire();
     if (ex !== exo || phase === 'fin') return;
     ecran.textContent = '?';
     flashEnCours = false;
@@ -279,6 +300,43 @@ export function creerSerie(conteneur, o) {
         h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
   }
 
+  /** Mode Espace : on arrête le chrono et on montre le résultat ; l'élève compare avec son soroban. */
+  function reveler() {
+    if (phase !== 'question' || flashEnCours) return;
+    dureeCalcul ??= performance.now() - debutExercice;
+    majChronoExo(dureeCalcul);
+    phase = 'auto';
+    retour.className = 'retour';
+    remplir(retour, 'Résultat : ', h('strong', { class: 'resultat-drill' }, formaterNombre(ex.resultat)), '. Votre soroban affiche-t-il ce nombre ? ',
+      h('button', { class: 'btn ok-btn', onclick: () => autoEvaluer(true) }, 'Oui ', h('kbd', {}, 'O')), ' ',
+      h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Non ', h('kbd', {}, 'N')));
+  }
+
+  async function autoEvaluer(juste) {
+    if (phase !== 'auto') return;
+    phase = 'traitement';
+    const dureeMs = dureeCalcul;
+    resultats.push({ ex, reponse: null, juste, dureeMs, aide: aideUtilisee, autoEvalue: true });
+    pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
+    await noterReponse(juste);
+    // Auto-évalué : volume oui, niveau et diagnostic des gestes non.
+    await opts.surExercice?.({ juste, reponse: null, dureeMs, t: tempsParUnite(ex, dureeMs), aide: aideUtilisee, autoEvalue: true }, ex, i);
+    if (juste) {
+      retour.className = 'retour ok';
+      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` ${formaterDuree(dureeMs)}`);
+      phase = 'transition';
+      timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 700);
+      return;
+    }
+    phase = 'corrige';
+    retour.className = 'retour erreur';
+    remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Résultat attendu : `, h('strong', {}, formaterNombre(ex.resultat)), '.'),
+      h('div', { class: 'ligne', style: 'margin-top:8px' },
+        ex.type === 'addsub' ? h('button', { class: 'btn', onclick: () => basculerSousTotaux() }, 'Sous-totaux ', h('kbd', {}, 'S')) : null,
+        h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')),
+        h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
+  }
+
   /** L'élève désigne la ligne où son soroban a divergé : on note les gestes de cette ligne. */
   async function designerLigne(ligne) {
     if (attribue || phase !== 'corrige') return;
@@ -312,6 +370,11 @@ export function creerSerie(conteneur, o) {
     S: () => (phase === 'corrige' ? basculerSousTotaux() : false),
     e: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
     b: () => (phase === 'question' && btnBloque.style.display !== 'none' && !saisie.value ? aideSuivante() : false),
+    ' ': () => (phase === 'question' && modeEspace() ? reveler() : false),
+    o: () => (phase === 'auto' ? autoEvaluer(true) : false),
+    O: () => (phase === 'auto' ? autoEvaluer(true) : false),
+    n: () => (phase === 'auto' ? autoEvaluer(false) : false),
+    N: () => (phase === 'auto' ? autoEvaluer(false) : false),
     E: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
   });
 
@@ -336,7 +399,7 @@ export function listeErreurs(resultats) {
   return h('div', {}, h('h2', {}, 'À revoir'),
     h('div', { class: 'liste-erreurs' }, erreurs.map((r) => h('div', { class: 'carte erreur-item' },
       rendreEnonce(r.ex, { compact: true }),
-      h('div', {}, `Votre réponse : ${formaterNombre(r.reponse)} · résultat : `, h('strong', {}, formaterNombre(r.ex.resultat))),
-      h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
+      h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${formaterNombre(r.reponse)} · résultat : `, h('strong', {}, formaterNombre(r.ex.resultat))),
+      r.reponse === null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
       h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer')))));
 }

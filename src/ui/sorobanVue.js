@@ -46,6 +46,7 @@ export class SorobanVue {
    * @param {{interactif?: boolean, etiquettes?: boolean, valeurs?: boolean}} options
    *   etiquettes : affiche le rang sous chaque tige (u, d, c…)
    *   valeurs    : affiche le chiffre de chaque tige (aide pour débutant)
+   *   surTige    : (tige) => void — rend chaque tige cliquable (exercice de placement)
    */
   constructor(conteneur, soroban, options = {}) {
     this.s = soroban;
@@ -121,6 +122,16 @@ export class SorobanVue {
     for (let t = 0; t < this.s.nbTiges; t++) {
       if (this.s.estMarquee(t)) {
         el('circle', { class: 'repere', cx: this.xTige(t), cy: this.yBarre + G.barre / 2, r: 2.2 }, svg);
+      }
+    }
+
+    // Zones de clic par tige (placement) : un rectangle transparent couvrant toute la tige.
+    if (this.options.surTige) {
+      for (let t = 0; t < this.s.nbTiges; t++) {
+        const zone = el('rect', {
+          class: 'zone-tige', 'data-tige': t, x: this.xTige(t) - G.ecart / 2, y: G.haut, width: G.ecart, height: this.yBas + G.cadre - G.haut, fill: 'transparent',
+        }, svg);
+        zone.addEventListener('pointerdown', (e) => { e.preventDefault(); this.options.surTige(t); });
       }
     }
 

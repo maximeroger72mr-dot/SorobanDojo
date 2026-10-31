@@ -12,6 +12,9 @@
  *  - chiffres    : chiffres par ligne ; lignes : lignes par colonne (la 1re est posée)
  *  - repetitions : nombre de colonnes justes ou fausses à faire avant le mini-test
  *  - pourquoi    : explication du geste ; demos : exemples animés
+ *  - type 'theorie'  : leçon à lire (Leçon 0), validée par « J'ai lu et compris » ;
+ *  - type 'placement': réflexe de position (sur quelle tige commence la multiplication / division) ;
+ *  - zeros : exercices avec zéros internes ; chiffresMax : alterne entre chiffres et chiffresMax ;
  *  - type 'anzan' : calcul mental en flash (nombres montrés un par un : `duree` secondes chacun),
  *                   avec les gestes vus jusque-là ; testMin : réussites exigées au mini-test
  *
@@ -21,7 +24,7 @@
 
 import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne } from './generateur.js';
-import { genererMultiplication, genererDivision, aideDivision } from './multiplication.js';
+import { genererMultiplication, genererDivision, aideDivision, genererPlacement } from './multiplication.js';
 
 const DIRECT = famille('direct');
 const PETIT = famille('petit');
@@ -35,6 +38,22 @@ export const TEST = { exercices: 10, reussitesMin: 9 };
 
 export const PALIERS = [
   {
+    id: 'p0', titre: 'Bien commencer',
+    sousPaliers: [
+      { id: 'p0-1', titre: 'Leçon 0 : tenue, lecture et vitesse', type: 'theorie', repetitions: 0,
+        pourquoi: 'Quelques réglages qui changent tout, à lire une fois puis à garder en tête.',
+        sections: [
+          ['Le soroban', 'Posé à plat, la barre horizontale devant vous, les boules célestes en haut. Choisissez une tige marquée d\'un point, vers la droite, comme tige des unités : tous les nombres s\'alignent dessus.'],
+          ['La main gauche', 'Elle tient le bord gauche du soroban pour qu\'il ne glisse pas, sans cacher les tiges. En multiplication et en division, son index sert de repère : il marque la tige où l\'on travaille, pour ne jamais perdre sa place.'],
+          ['La main droite et le crayon', 'Seuls le pouce et l\'index bougent les boules : le pouce MONTE les terrestres ; l\'index les DESCEND et manœuvre la céleste dans les deux sens. Le crayon reste dans la main droite, serré entre la paume et l\'annulaire (ou l\'auriculaire), pointe vers l\'extérieur : on écrit le résultat sans le reprendre et sans lâcher le soroban.'],
+          ['Lire une colonne : nombre par nombre', 'Pour 300 + 156 + 228, on pose 300, puis on AJOUTE 156 en entier (1 aux centaines, 5 aux dizaines, 6 aux unités, de gauche à droite), puis 228 de la même façon. On ne fait PAS colonne par colonne comme sur papier : le total est sur le soroban, il suffit d\'ajouter chaque nombre tel qu\'on le lit.'],
+          ['Pourquoi de gauche à droite', 'On lit un nombre de gauche à droite : on le pose dans le même ordre, sans rien retenir de tête. Les retenues tombent sur des tiges déjà traitées, elles s\'ajoutent simplement.'],
+          ['Remise à zéro', 'Inclinez le soroban vers vous (les terrestres tombent), reposez-le à plat, puis faites glisser l\'index de gauche à droite le long de la barre pour écarter les célestes. Deux secondes.'],
+        ],
+        demos: [] },
+    ],
+  },
+  {
     id: 'p1', titre: 'Gestes directs',
     sousPaliers: [
       { id: 'p1-1', titre: 'Ajouter 1 à 4', cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, ops: ['+'], repetitions: 20, cumul: true,
@@ -44,12 +63,12 @@ export const PALIERS = [
         pourquoi: 'Retirer, c\'est éloigner des boules terrestres de la barre avec l\'INDEX, qui les pousse vers le bas. Pouce pour monter, index pour descendre : les deux doigts ne se gênent jamais.',
         demos: [{ depart: 4, op: '-', n: 3 }, { depart: 8, op: '-', n: 2 }] },
       { id: 'p1-3', titre: 'Le 5 et la pincée (6 à 9)', cibles: [...D('+', [5, 6, 7, 8, 9], 'direct'), ...D('-', [5, 6, 7, 8, 9], 'direct')], chiffres: 1, lignes: 4, repetitions: 20, cumul: true,
-        pourquoi: 'La boule céleste vaut 5 et c\'est toujours l\'INDEX qui la manœuvre. Pour 6 à 9 (5 + 1 … 5 + 4), on fait UN seul geste : l\'index abaisse la céleste pendant que le pouce monte les terrestres, comme une pince. Pour retirer 6 à 9, l\'index relève la céleste et descend les terrestres d\'un même mouvement.',
+        pourquoi: 'La boule céleste vaut 5 et c\'est toujours l\'INDEX qui la manœuvre. Pour 6 à 9 (5 + 1 … 5 + 4), on fait UN seul geste : l\'index abaisse la céleste pendant que le pouce monte les terrestres, comme une pince. Pour retirer 6 à 9, c\'est l\'index seul, en UN SEUL mouvement : il relève la céleste et descend les terrestres dans la même trajectoire, sans s\'arrêter entre les deux.',
         demos: [{ depart: 2, op: '+', n: 5 }, { depart: 0, op: '+', n: 7 }, { depart: 9, op: '-', n: 6 }] },
       { id: 'p1-4', titre: 'Gestes directs à 2 et 3 chiffres', cibles: DIRECT, chiffres: 2, lignes: 4, repetitions: 20, cumul: true,
-        pourquoi: 'On calcule de GAUCHE À DROITE : d\'abord le chiffre le plus fort, dans l\'ordre de lecture du nombre. On pose au fur et à mesure qu\'on lit, sans rien retenir de tête. Chaque tige se traite indépendamment.',
+        pourquoi: 'On calcule NOMBRE PAR NOMBRE et de GAUCHE À DROITE : pour 12 + 35, on pose 12, puis on ajoute 35 en entier, d\'abord le 3 sur les dizaines, puis le 5 sur les unités, dans l\'ordre de lecture. Jamais colonne par colonne comme sur papier : le total courant est sur le soroban. Chaque tige se traite indépendamment.',
         demos: [{ depart: 12, op: '+', n: 35 }, { depart: 87, op: '-', n: 32 }] },
-      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
+      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', image: true, cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
         pourquoi: 'L\'anzan, c\'est calculer avec un soroban imaginaire. Les nombres s\'affichent un par un : à chaque nombre, voyez les boules bouger dans votre tête, et faites le geste avec les doigts dans l\'air (pouce, index), comme sur le vrai soroban. On commence tôt et très simple : la vitesse viendra.',
         demos: [] },
     ],
@@ -78,7 +97,7 @@ export const PALIERS = [
       { id: 'p2-7', titre: 'Tous les petits amis, 3 chiffres', cibles: PETIT, chiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'Additions et soustractions mélangées : si les boules manquent sur une tige, le petit ami s\'impose. Avec la répétition, le geste devient un réflexe associé au chiffre.',
         demos: [{ depart: 342, op: '+', n: 413 }] },
-      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', cibles: PETIT, chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
+      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', image: true, cibles: PETIT, chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
         pourquoi: 'Mêmes gestes qu\'au soroban : le petit ami se « voit » (céleste qui descend, terrestres qui remontent). Gardez les doigts actifs ; si l\'image se brouille, ralentissez plutôt que de deviner.',
         demos: [] },
     ],
@@ -152,6 +171,9 @@ export const PALIERS = [
   {
     id: 'p6', titre: 'Multiplication (両落とし)',
     sousPaliers: [
+      { id: 'p6-0', titre: 'Où poser le premier produit ?', type: 'placement', op: 'mul', repetitions: 40,
+        pourquoi: 'Avant de multiplier, il faut savoir OÙ commencer, sans réfléchir. Règle : comptez les chiffres des deux nombres (37 × 85 : 2 + 2 = 4). La dizaine du premier produit se pose sur la 4e tige en comptant la tige des unités comme la 1re. Cliquez la bonne tige le plus vite possible : ce réflexe doit devenir automatique, c\'est lui qui évite les résultats décalés. L\'index gauche se pose ensuite sur cette tige et la marque pendant tout le calcul.',
+        demos: [] },
       { id: 'p6-1', titre: '2 chiffres × 1 chiffre', type: 'mul', m: 2, n: 1, repetitions: 30,
         pourquoi: 'Méthode japonaise actuelle, 両落とし (« les deux tombent ») : on ne pose ni le multiplicande ni le multiplicateur, on les lit sur la feuille. On ne pose que les produits de la table, chacun sur DEUX tiges (dizaine, unité ; 2 × 3 s\'écrit « 06 »). On commence à gauche. Position du premier produit : 2 + 1 = 3 chiffres au total, donc sa dizaine va sur la 3e tige en partant des unités. Chaque produit suivant se décale d\'une tige vers la droite.',
         demos: [{ a: 37, b: 8 }, { a: 23, b: 3 }] },
@@ -169,6 +191,9 @@ export const PALIERS = [
   {
     id: 'p7', titre: 'Division (片落とし)',
     sousPaliers: [
+      { id: 'p7-0', titre: 'Où poser le premier chiffre du quotient ?', type: 'placement', op: 'div', repetitions: 40,
+        pourquoi: 'Le dividende est posé à droite. On compare son début au diviseur : s\'il est plus grand ou égal (156 ÷ 12 : 15 ≥ 12), le premier chiffre du quotient se pose DEUX tiges à gauche du premier chiffre du dividende ; s\'il est plus petit (108 ÷ 12 : 10 < 12), JUSTE à gauche. Cliquez la bonne tige : ce réflexe doit être immédiat. L\'index gauche se pose ensuite sur cette tige.',
+        demos: [] },
       { id: 'p7-1', titre: '÷ 1 chiffre, quotient 1 chiffre', type: 'div', nd: 1, nq: 1, repetitions: 30,
         pourquoi: 'Méthode 片落とし : on pose seulement le dividende ; le diviseur se lit sur la feuille. On compare le début du dividende au diviseur : plus grand ou égal → le chiffre du quotient se pose DEUX tiges à gauche (une tige libre) ; plus petit → JUSTE à gauche. Puis on retire le produit (quotient × diviseur, sur deux tiges) juste à droite du quotient.',
         demos: [{ a: 14, b: 2 }, { a: 72, b: 8 }] },
@@ -186,6 +211,32 @@ export const PALIERS = [
         demos: [{ a: 156, b: 12 }] },
     ],
   },
+  {
+    id: 'p8', titre: 'Vers le 5e et le 4e kyū',
+    sousPaliers: [
+      { id: 'p8-1', titre: 'Additions et soustractions à 4 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 4, lignes: 10, repetitions: 30, cumul: true,
+        pourquoi: 'Le format des examens : 10 lignes, 4 chiffres. La difficulté n\'est plus le geste mais la lecture et le rythme : lisez chaque nombre d\'un bloc, posez-le de gauche à droite, et lisez déjà le suivant.',
+        demos: [{ depart: 4721, op: '+', n: 3586 }] },
+      { id: 'p8-2', titre: 'Zéros internes', cibles: TOUS_LES_MOTIFS, chiffres: 4, lignes: 8, repetitions: 30, cumul: true, zeros: true,
+        pourquoi: 'Un zéro au milieu d\'un nombre (3 058, 7 040) est le piège n° 1 : on saute une tige de trop ou de moins, et tout le reste est décalé. Le zéro ne se pose pas, mais il se COMPTE : dites-le intérieurement (« trois, zéro, cinq, huit ») et faites avancer le doigt d\'une tige.',
+        demos: [{ depart: 3058, op: '+', n: 4070 }] },
+      { id: 'p8-3', titre: '5 et 6 chiffres, 10 lignes (endurance)', cibles: TOUS_LES_MOTIFS, chiffres: 5, chiffresMax: 6, lignes: 10, repetitions: 20, cumul: true,
+        pourquoi: 'Endurance : 10 lignes de 5 ou 6 chiffres sans perdre le rythme. Repérez les tranches de 3 chiffres avec les points de la barre.',
+        demos: [{ depart: 52708, op: '+', n: 39415 }] },
+      { id: 'p8-4', titre: 'Multiplication avec des zéros (406 × 7)', type: 'mul', m: 3, n: 1, mMax: 4, zeros: true, repetitions: 30,
+        pourquoi: 'Avec 両落とし, un zéro dans un facteur donne un produit « 00 » : on ne pose rien, MAIS on avance d\'une tige. Pour 406 × 7 : 4 × 7 = 28, puis 0 × 7 = 00 (rien, on avance), puis 6 × 7 = 42.',
+        demos: [{ a: 406, b: 7 }, { a: 37, b: 208 }] },
+      { id: 'p8-5', titre: 'Multiplication 3 × 3 et 4 × 3 chiffres', type: 'mul', m: 3, n: 3, mMax: 4, repetitions: 30,
+        pourquoi: 'Même méthode, plus de produits : 6 chiffres au total pour 3 × 3, donc premier produit sur la 6e tige. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; les produits du même chiffre glissent d\'une tige chacun.',
+        demos: [{ a: 246, b: 375 }] },
+      { id: 'p8-6', titre: 'Division : quotient avec un zéro (304)', type: 'div', nd: 1, nq: 3, ndMax: 2, zeros: true, repetitions: 30,
+        pourquoi: 'Quand le reste est plus petit que le diviseur, le chiffre du quotient est 0 : la tige reste vide MAIS elle compte, le chiffre suivant se pose une tige plus à droite. Ne « tassez » jamais le quotient.',
+        demos: [{ a: 2128, b: 7 }, { a: 3672, b: 12 }] },
+      { id: 'p8-7', titre: 'Division par 3 chiffres', type: 'div', nd: 3, nq: 2, repetitions: 30, corrections: true,
+        pourquoi: 'Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare les 3 premiers chiffres du dividende au diviseur pour savoir où poser le quotient.',
+        demos: [{ a: 5832, b: 243 }] },
+    ],
+  },
 ];
 
 /**
@@ -199,6 +250,7 @@ export const SOUS_PALIERS = (() => {
   for (const palier of PALIERS) {
     for (const sp of palier.sousPaliers) {
       const type = sp.type ?? 'addsub';
+      if (type === 'theorie' || type === 'placement') { liste.push({ type, ...sp, autorises: null, palier, ordre: liste.length }); continue; }
       let autorises = null;
       if (type === 'addsub') {
         sp.cibles.forEach((c) => vus.add(c));
@@ -216,8 +268,11 @@ export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 /** Exercice d'un sous-palier (colonne, multiplication ou division). */
 export function genererExercice(sp, poids = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
-  if (sp.type === 'mul') return genererMultiplication(alterner(sp.m), sp.n);
+  const entre = (a, b) => (b && Math.random() < 0.5 ? b : a);
+  if (sp.type === 'placement') return genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
+  if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
+    if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);
     if (!sp.corrections) return genererDivision(sp.nd, alterner(sp.nq));
     // Leçon d'estimation : 2 fois sur 3, une division dont l'estimation demande une correction.
     const voulue = Math.random() < 2 / 3;
@@ -231,9 +286,11 @@ export function genererExercice(sp, poids = {}) {
   if (sp.type === 'anzan') {
     // Anzan : colonne avec les gestes vus, montrée en flash ; pas de suivi par geste (calcul mental).
     const col = genererColonne({ chiffres: sp.chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids });
-    return { ...col, motifs: undefined, flash: { duree: sp.duree } };
+    // Les premiers paliers montrent aussi le nombre en boules (étape visuelle avant le calcul de tête pur).
+    return { ...col, motifs: undefined, flash: { duree: sp.duree, image: !!sp.image } };
   }
   // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
-  const chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
-  return genererColonne({ chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops });
+  let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
+  if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
+  return genererColonne({ chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros });
 }

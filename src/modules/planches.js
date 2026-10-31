@@ -79,8 +79,9 @@ export default {
       h('h1', {}, 'Planches'),
       h('p', { class: 'discret' }, 'Des colonnes à calculer sur votre soroban, puis à corriger. Choisissez un ami pour en répéter le geste : la planche ne contiendra que lui et des gestes directs. Les feuilles s\'impriment.'),
       h('div', { class: 'reglages' },
-        select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres']], Number),
-        select('lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes']], Number),
+        select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres'], [5, '5 chiffres'], [6, '6 chiffres']], Number),
+        select('lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes'], [15, '15 lignes']], Number),
+        h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { reglages.zeros = e.target.checked; } }), ' zéros internes'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes']], Number),
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
@@ -102,7 +103,7 @@ export default {
       const r = { ...reglages };
       const c = contraintes(r.cible);
       const problemes = Array.from({ length: r.colonnes }, () => genererColonne({
-        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles),
+        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles), zeros: !!r.zeros,
       }));
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}`;
       feuille = creerFeuille(zone, {

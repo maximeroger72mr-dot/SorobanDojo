@@ -369,3 +369,18 @@ table.carte-maitrise.selection td.choisi { outline: 3px solid var(--texte); outl
 .pastille-legende.choisi-legende { background: var(--surface); outline: 2px solid var(--texte); outline-offset: -2px; }
 .zone-import { width: 100%; min-height: 120px; margin: 8px 0; font: 0.8rem ui-monospace, monospace; }
 table.carte-maitrise.selection td.choisi { opacity: 1; }
+
+/* ------------------------------------------------------------ leçon 0, vitesse, placement, épreuves */
+.carte.theorie { margin-bottom: 10px; }
+.carte.theorie p { margin: 0; line-height: 1.6; }
+.carte.vitesse { border-left: 3px solid var(--accent); margin: 10px 0; }
+.carte.vitesse ul { margin: 6px 0 0; padding-left: 20px; line-height: 1.6; }
+.conseil-vitesse { color: var(--discret); font-size: 0.9rem; margin-top: 16px; border-top: 1px solid var(--ligne); padding-top: 10px; }
+.mode-espace { font-size: 0.85rem; color: var(--discret); margin-right: 12px; }
+.flash-image { max-width: 260px; margin: 0 auto 10px; }
+.flash-image svg.soroban { max-height: 160px; }
+svg.soroban .zone-tige { cursor: pointer; }
+svg.soroban .zone-tige:hover { fill: #2a78d61a; }
+.zone-soroban.placement svg.soroban { max-height: 300px; }
+.liste-grades { display: flex; flex-direction: column; gap: 8px; }
+.carte.grade .icone { width: 16px; color: var(--accent); }

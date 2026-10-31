@@ -61,12 +61,12 @@ export function nomMotif(cle) {
 function retraitDirect(k) {
   if (k < 5) return `l'index descend ${terr(k)}`;
   if (k === 5) return 'l\'index relève la céleste';
-  return `l'index relève la céleste et descend ${terr(k - 5)}`;
+  return `l'index relève la céleste et descend ${terr(k - 5)} en UN SEUL mouvement`;
 }
 function ajoutDirect(k) {
   if (k < 5) return `le pouce monte ${terr(k)}`;
   if (k === 5) return 'l\'index abaisse la céleste';
-  return `l'index abaisse la céleste pendant que le pouce monte ${terr(k - 5)}`;
+  return `pincée : l'index abaisse la céleste PENDANT que le pouce monte ${terr(k - 5)} (un seul mouvement)`;
 }
 
 /** Geste moteur exact, décrit pas à pas (encadré de remédiation). */

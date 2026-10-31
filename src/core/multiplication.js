@@ -39,18 +39,76 @@ export function facteur(k) {
 
 // ------------------------------------------------------------------ génération
 
-/** Multiplication : a (m chiffres) × b (n chiffres). */
-export function genererMultiplication(m, n) {
-  const a = facteur(m);
-  const b = facteur(n);
+/**
+ * Nombre de `k` chiffres (k ≥ 2) contenant au moins un zéro après le premier chiffre
+ * (zéro interne de préférence : 406, 3 07 5…), le piège classique des examens.
+ */
+export function facteurAvecZero(k) {
+  for (;;) {
+    const n = facteur(k);
+    const s = String(n);
+    // k ≥ 3 : zéro au MILIEU et dernier chiffre non nul (406, pas 400) ; k = 2 : 40, 70…
+    if (k >= 3 && s.endsWith('0')) continue;
+    const interne = k >= 3 ? s.slice(1, -1).includes('0') : s.slice(1).includes('0');
+    if (interne) return n;
+    if (k >= 3) {
+      const pos = entier(1, k - 2);
+      return Number(s.slice(0, pos) + '0' + s.slice(pos + 1));
+    }
+  }
+}
+
+/** Multiplication : a (m chiffres) × b (n chiffres). zeros : un facteur au moins contient un zéro. */
+export function genererMultiplication(m, n, zeros = false) {
+  let a = facteur(m);
+  let b = facteur(n);
+  if (zeros) {
+    if (m >= 2 && (n < 2 || Math.random() < 0.6)) a = facteurAvecZero(m);
+    else b = facteurAvecZero(n);
+  }
   return { type: 'mul', a, b, resultat: a * b };
 }
 
-/** Division exacte : diviseur de `nd` chiffres, quotient de `nq` chiffres. */
-export function genererDivision(nd, nq) {
+/** Division exacte : diviseur de `nd` chiffres, quotient de `nq` chiffres. zeros : quotient avec un zéro. */
+export function genererDivision(nd, nq, zeros = false) {
   const diviseur = facteur(nd);
-  const quotient = facteur(nq);
+  const quotient = zeros && nq >= 2 ? facteurAvecZero(nq) : facteur(nq);
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };
+}
+
+// ------------------------------------------------------------------ placement (réflexe de position)
+
+/**
+ * Exercice de placement : sur quelle tige commence le calcul ?
+ *  - multiplication : la tige de la DIZAINE du premier produit = (m + n)-ième tige depuis les unités ;
+ *  - division : la tige du premier chiffre du quotient (règle « deux tiges / juste à gauche »).
+ * Le rang est compté depuis la tige des unités (unités = rang 0).
+ */
+export function genererPlacement(op, niveau = 1) {
+  if (op === 'mul') {
+    const m = entier(1, Math.min(4, 1 + niveau));
+    const n = entier(1, Math.min(3, niveau));
+    const a = facteur(Math.max(m, 1));
+    const b = facteur(n);
+    const total = String(a).length + String(b).length;
+    return {
+      type: 'placement', op, a, b, rang: total - 1, nbTiges: Math.max(7, total + 2),
+      explication: `${String(a).length} + ${String(b).length} = ${total} chiffres au total : la dizaine du premier produit (${chiffresDe(a)[0]} × ${chiffresDe(b)[0]} = ${deuxChiffres(chiffresDe(a)[0] * chiffresDe(b)[0])}) va sur la ${total}e tige en comptant les unités comme la 1re.`,
+    };
+  }
+  const nd = entier(1, Math.min(3, niveau));
+  const nq = entier(1, Math.min(3, niveau + 1));
+  const { a, b } = genererDivision(nd, nq);
+  const e = etapesDivision(a, b);
+  const nqReel = String(e.resultat).length;
+  const rang = e.rangUniteQuotient + nqReel - 1;
+  const ta = String(a).length;
+  const debut = Number(String(a).slice(0, String(b).length));
+  const deux = debut >= b;
+  return {
+    type: 'placement', op, a, b, rang, nbTiges: Math.max(7, rang + 2),
+    explication: `On compare le début du dividende (${debut}) au diviseur ${b} : ${deux ? `${debut} ≥ ${b}, le premier chiffre du quotient se pose DEUX tiges à gauche du premier chiffre du dividende` : `${debut} < ${b}, il se pose JUSTE à gauche du premier chiffre du dividende`} (le dividende occupe les ${ta} tiges de droite).`,
+  };
 }
 
 // ------------------------------------------------------------------ étapes de démonstration
@@ -75,7 +133,9 @@ export function etapesMultiplication(a, b) {
       const p = x * y;
       const rangDizaine = total - 1 - i - j;
       macros.push({
-        texte: `${x} × ${y} = ${deuxChiffres(p)} : on ajoute « ${deuxChiffres(p)} » sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}${p < 10 ? ' (la dizaine est vide : seul le ' + p + ' se pose, sur la tige de droite)' : ''}.`,
+        texte: p === 0
+          ? `${x} × ${y} = 00 : rien à poser sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}, MAIS on avance quand même d'une tige. Oublier ce décalage est l'erreur n° 1 avec les zéros.`
+          : `${x} × ${y} = ${deuxChiffres(p)} : on ajoute « ${deuxChiffres(p)} » sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}${p < 10 ? ' (la dizaine est vide : seul le ' + p + ' se pose, sur la tige de droite)' : ''}.`,
         op: '+',
         valeur: p * 10 ** (rangDizaine - 1),
       });
@@ -165,7 +225,7 @@ export function etapesDivision(a, b) {
     const puissance = 10 ** (r - nd - 1);
     const resteLocal = Math.floor(reste / puissance);
     if (chiffre === 0) {
-      macros.push({ texte: `À cet endroit le reste (${resteLocal}) est plus petit que ${b} : le chiffre du quotient est 0, la tige reste vide.`, op: '+', valeur: 0 });
+      macros.push({ texte: `À cet endroit le reste (${resteLocal}) est plus petit que ${b} : le chiffre du quotient est 0. La tige reste VIDE, mais elle compte : le chiffre suivant se pose une tige plus à droite. Ne pas « tasser » le quotient.`, op: '+', valeur: 0 });
       return;
     }
     const tete = reste > 0 ? nbChiffres(reste) - 1 : -1;

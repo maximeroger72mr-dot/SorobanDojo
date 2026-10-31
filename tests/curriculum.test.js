@@ -17,13 +17,18 @@ function motifsLignes(col) {
 
 test('chaque sous-palier génère des exercices stricts ; ses démos sont valides', () => {
   for (const sp of SOUS_PALIERS) {
+    if (sp.type === 'theorie') { assert.ok(sp.sections.length >= 4); continue; }
     for (let i = 0; i < 25; i++) {
       const ex = genererExercice(sp);
+      if (sp.type === 'placement') { assert.ok(Number.isInteger(ex.rang) && ex.rang < ex.nbTiges, sp.id); continue; }
+      if (sp.zeros && ex.type === 'mul') assert.ok(/0/.test(`${ex.a}${ex.b}`), sp.id);
+      if (sp.zeros && ex.type === 'div') assert.match(String(ex.resultat), /\d0\d/, sp.id);
       if (sp.type === 'mul') { assert.equal(ex.a * ex.b, ex.resultat); continue; }
       if (sp.type === 'div') { assert.equal(ex.b * ex.resultat, ex.a); continue; }
       assert.equal(ex.lignes.length, sp.lignes, sp.id);
       const lignes = motifsLignes(ex);
       for (const m of lignes) assert.ok(m.every((x) => sp.autorises.has(x)), `${sp.id} : ${m}`);
+      if (sp.zeros) assert.ok(ex.lignes.slice(1).every((l) => String(l.n).slice(1).includes('0')), `${sp.id} zéros`);
       assert.ok(lignes.flat().some((m) => sp.cibles.includes(m)), sp.id);
     }
     if (sp.type === 'addsub') {

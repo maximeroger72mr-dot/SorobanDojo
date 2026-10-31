@@ -64,3 +64,24 @@ test('112 ÷ 14 : estimation trop grande corrigée de tête', () => {
   assert.ok(d.macros.some((m) => /trop grand/.test(m.texte)));
   assert.equal(appliquerMacros(d.depart, d.macros), 8 * 10 ** d.rangUniteQuotient);
 });
+
+import { genererPlacement, facteurAvecZero, genererMultiplication } from '../src/core/multiplication.js';
+
+test('zéros internes et placement', () => {
+  for (let i = 0; i < 200; i++) {
+    assert.match(String(facteurAvecZero(3)), /^\d0\d$/);
+    const m = genererMultiplication(3, 1, true);
+    assert.ok(/0/.test(String(m.a) + String(m.b)));
+    const d = genererDivision(1, 3, true);
+    assert.match(String(d.resultat), /^\d0\d$/);
+  }
+  // 37 × 85 : 4 chiffres → dizaine du premier produit sur le rang 3 (4e tige)
+  for (let i = 0; i < 100; i++) {
+    const p = genererPlacement('mul', 3);
+    assert.equal(p.rang, String(p.a).length + String(p.b).length - 1);
+    const q = genererPlacement('div', 2);
+    const e = etapesDivision(q.a, q.b);
+    assert.equal(q.rang, e.rangUniteQuotient + String(e.resultat).length - 1);
+  }
+  assert.match(etapesMultiplication(406, 7).macros[2].texte, /00 : rien à poser/);
+});
