@@ -7,7 +7,36 @@
 import { GRADES, genererSujet, totalPoints } from '../core/epreuves.js';
 import { enregistrerSession, progression, proposerMeilleurScore } from '../core/progression.js';
 import { creerFeuille } from '../ui/feuille.js';
-import { h, formaterDuree } from '../ui/dom.js';
+import { localiserErreur, diagnostiquer } from '../core/diagnostic.js';
+import { nomMotif } from '../core/motifs.js';
+
+/**
+ * Rapport d'examen blanc : gestes mis en cause (erreurs localisées en mitorizan) et causes
+ * probables en multiplication / division, avec un lien vers une planche ciblée.
+ */
+function rapport(app, resultats) {
+  const gestes = {};
+  const causes = {};
+  for (const r of resultats.filter((x) => !x.juste && x.reponse !== null)) {
+    if (r.ex.type === 'addsub') {
+      for (const m of localiserErreur(r.ex, r.reponse)?.motifs ?? []) gestes[m] = (gestes[m] ?? 0) + 1;
+    } else {
+      const c = diagnostiquer(r.ex, r.reponse)[0];
+      if (c) causes[c] = (causes[c] ?? 0) + 1;
+    }
+  }
+  const vides = resultats.filter((x) => x.reponse === null).length;
+  const elements = [];
+  for (const [m, n] of Object.entries(gestes).sort((a, b) => b[1] - a[1])) {
+    elements.push(h('li', {}, `${nomMotif(m)} (${n} fois) `, h('button', { class: 'lien', onclick: () => app.aller('planches', { cible: m, auto: true }) }, '→ planche de ce geste')));
+  }
+  for (const [c, n] of Object.entries(causes).sort((a, b) => b[1] - a[1])) elements.push(h('li', {}, `${c}${n > 1 ? ` (${n} fois)` : ''}`));
+  if (vides) elements.push(h('li', {}, `${vides} problème${vides > 1 ? 's' : ''} sans réponse : travaillez la vitesse (défis, planches « vitesse »).`));
+  return h('div', {}, h('h3', {}, 'Rapport'),
+    elements.length ? h('ul', {}, elements) : h('p', { class: 'discret' }, 'Rien de particulier à signaler.'),
+    h('p', { class: 'discret' }, 'Les erreurs de mitorizan dont la cause n\'est pas prouvée par le résultat ne sont attribuées à aucun geste.'));
+}
+import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 function resume(g) {
   const p = [];
@@ -21,14 +50,14 @@ function resume(g) {
 export default {
   id: 'epreuves',
   titre: 'Épreuves officielles',
-  monter(el) {
+  monter(el, app) {
     let feuille = null;
     const meilleur = (g) => progression().records[`epreuve-${g.id}`];
 
     function liste() {
       feuille?.detruire();
       feuille = null;
-      el.replaceChildren(h('h1', {}, 'Épreuves officielles'),
+      remplir(el, h('h1', {}, 'Épreuves officielles'),
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
         h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
           'Les formats (nombre de problèmes, chiffres, durée, points) suivent les informations publiques des organisateurs. Les seuils des 4e-10e kyū sont indicatifs (70 %) : à confirmer auprès de la fédération. Aux 1er-3e kyū, l\'examen réel comporte aussi des décimaux et des arrondis ; ici, les nombres sont entiers.'),
@@ -39,7 +68,7 @@ export default {
     }
 
     function lancer(g) {
-      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'));
+      remplir(el, h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'));
       const sujet = genererSujet(g);
       const max = totalPoints(g);
       feuille = creerFeuille(el, {
@@ -56,6 +85,7 @@ export default {
             h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points'].map((x) => h('th', {}, x))),
               b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
+            rapport(app, b.resultats),
             h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer(g) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
         },
       });

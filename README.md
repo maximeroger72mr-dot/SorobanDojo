@@ -56,6 +56,11 @@ Logique (`src/core/`) :
 | `epreuves.js` | formats des examens japonais (10e au 1er kyū) et génération des sujets |
 | `maitrise.js` | **niveaux d'acquisition** (juste ET rapide), vitesse par chiffre, équilibrage des fréquences. Seuils réglables en tête de fichier |
 | `revision.js` | révision espacée (Leitner J+1, J+3, J+7, J+14, J+30) |
+| `parcours.js` | gestes appris, grade obtenu / prochain (leçons prérequises), échauffement, défi de la semaine et gestes lents **adaptés au niveau** |
+| `regularite.js` | minutes par jour, série de jours (un jour de repos par semaine toléré) |
+| `succes.js` | les succès (40, par thème et par palier) |
+| `bilan.js` | bilan de séance (instantané au début, comparaison à la fin) |
+| `hasard.js` | hasard reproductible (même défi toute la semaine), semaine ISO |
 | `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
 Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la liste `ECRANS` de `src/app.js`.

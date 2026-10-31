@@ -11,14 +11,19 @@
  *   records:  { [cle]: { dureeMs | points, date } }        // drills, défis, planches, épreuves
  *   motifs:   { [cleMotif]: { essais, erreurs, dette, hist: [{ ok, t }] } }   // par geste
  *   paliers:  { [idSousPalier]: { reps, justes, valide, carte: { boite, echeance }, hist: [{ ok, t }] } },
- *   reglages: { decouverte: false },
- *   avis:     [ messages à montrer une fois ]
+ *   reglages: { decouverte: false, objectifMinutes: 15 },
+ *   avis:     [ messages à montrer une fois ],
+ *   stats:    { suite, meilleureSuite }                       // réponses justes d'affilée
+ *   succes:   { [idSucces]: 'AAAA-MM-JJ' },
+ *   seance:   { debut, date, instantane } | null               // séance du jour en cours
  * }
  * hist : essais récents ; t = secondes par unité de travail (voir maitrise.js).
  */
 
 import { nouvelleCarte, reviser, estDue } from './revision.js';
 import { evaluer, ajouterEssai, poidsEquilibre } from './maitrise.js';
+import { succesObtenus, SUCCES } from './succes.js';
+import { instantane, bilanSeance } from './bilan.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -26,8 +31,16 @@ const CLE_LOCALE = 'soroban-progression';
 export const SEUIL_DIFFICULTE = 2;
 
 const vide = () => ({
-  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false }, avis: [],
+  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 15 }, avis: [],
+  stats: { suite: 0, meilleureSuite: 0 }, succes: {}, seance: null,
 });
+
+// Écouteurs des succès débloqués (l'interface affiche une notification discrète).
+const ecouteursSucces = new Set();
+export function surSucces(fn) {
+  ecouteursSucces.add(fn);
+  return () => ecouteursSucces.delete(fn);
+}
 
 let donnees = vide();
 
@@ -64,11 +77,17 @@ export async function chargerProgression() {
     await sauver();
   }
   donnees = lu && lu.version === VERSION ? { ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } } : vide();
+  // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
+  for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
   return donnees;
 }
 
 async function sauver() {
+  // Nouveaux succès ? On les date, puis on prévient l'interface.
+  const nouveaux = succesObtenus(donnees, aujourdhui()).filter((id) => !donnees.succes[id]);
+  for (const id of nouveaux) donnees.succes[id] = aujourdhui();
   await backend.ecrire(donnees);
+  for (const id of nouveaux) ecouteursSucces.forEach((fn) => fn(SUCCES.find((x) => x.id === id)));
 }
 
 export function progression() {
@@ -219,4 +238,50 @@ export async function modifierReglages(r) {
 export async function reinitialiserGestes() {
   donnees.motifs = {};
   await sauver();
+}
+
+// ------------------------------------------------------------------ réponses d'affilée
+
+/** Compte les réponses justes d'affilée (toutes activités confondues). */
+export async function noterReponse(juste) {
+  donnees.stats ??= { suite: 0, meilleureSuite: 0 };
+  donnees.stats.suite = juste ? donnees.stats.suite + 1 : 0;
+  donnees.stats.meilleureSuite = Math.max(donnees.stats.meilleureSuite, donnees.stats.suite);
+  await sauver();
+}
+
+// ------------------------------------------------------------------ séance du jour
+
+/** Séance en cours aujourd'hui (ou null). Une séance d'un autre jour est considérée finie. */
+export function seanceEnCours() {
+  const s = donnees.seance;
+  return s && s.date === aujourdhui() ? s : null;
+}
+
+export async function commencerSeance() {
+  donnees.seance = { debut: Date.now(), date: aujourdhui(), instantane: instantane(donnees, Object.keys(donnees.succes)) };
+  await sauver();
+  return donnees.seance;
+}
+
+/** Termine la séance et renvoie son bilan ; l'élève peut ensuite continuer librement. */
+export async function finirSeance() {
+  const s = donnees.seance;
+  if (!s) return null;
+  const bilan = bilanSeance(s.instantane, donnees, s.debut, Object.keys(donnees.succes));
+  donnees.seance = null;
+  await sauver();
+  return bilan;
+}
+
+/** Minutes pratiquées aujourd'hui (toutes activités). */
+export function minutesAujourdhui() {
+  const j = aujourdhui();
+  return donnees.sessions.filter((s) => s.date === j).reduce((t, s) => t + (s.dureeMs ?? 0), 0) / 60000;
+}
+
+/** Activités déjà faites aujourd'hui (modules et modes). */
+export function faitAujourdhui(module, mode) {
+  const j = aujourdhui();
+  return donnees.sessions.some((s) => s.date === j && s.module === module && (mode === undefined || s.mode === mode));
 }

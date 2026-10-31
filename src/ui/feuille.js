@@ -10,7 +10,7 @@
 import { diagnostiquer } from '../core/diagnostic.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
-import { h, formaterDuree, formaterNombre } from './dom.js';
+import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 /**
  * @param {HTMLElement} conteneur
@@ -110,7 +110,7 @@ export function creerFeuille(conteneur, o) {
       resultats,
     };
     const contenu = o.surFin?.(b);
-    if (contenu) bilan.replaceChildren(contenu);
+    if (contenu) remplir(bilan, contenu);
     bilan.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 

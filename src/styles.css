@@ -272,16 +272,86 @@ table.colonne.compacte td { padding: 0 4px; }
 
 /* ------------------------------------------------------------ niveaux d'acquisition et chronomètre */
 .niveau { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
-.niveau-decouverte { background: #eeece8; color: var(--discret); }
-.niveau-progres { background: #fdf0d9; color: #9a6200; }
-.niveau-debutant { background: #e3f1e8; color: #2e7d4f; }
-.niveau-confirme { background: #c9e8d4; color: #1e6b3e; }
-.niveau-expert { background: #1e6b3e; color: white; }
+.niveau-decouverte { background: #eeece8; color: #52514e; }
+.niveau-progres { background: #86b6ef; color: #0b0b0b; }
+.niveau-debutant { background: #5598e7; color: #0b0b0b; }
+.niveau-confirme { background: #256abf; color: #ffffff; }
+.niveau-expert { background: #104281; color: #ffffff; }
 .ligne-palier .niveau { margin-left: 6px; }
-.disposition-enonce { display: flex; gap: 32px; align-items: flex-start; }
-.chrono-exercice { margin-top: 10px; min-width: 190px; }
-.chrono-exercice .temps { font-size: 2.2rem; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--discret); }
-.chrono-exercice .objectif { font-size: 0.85rem; color: var(--discret); }
+.disposition-enonce { display: flex; gap: 32px; align-items: flex-start; max-width: 720px; }
+.chrono-exercice { margin: 10px 0 0 auto; text-align: right; min-width: 130px; }
+.chrono-exercice .temps { font-size: 1rem; font-variant-numeric: tabular-nums; color: #a9a6a0; }
+.chrono-exercice .objectif { font-size: 0.75rem; color: #a9a6a0; line-height: 1.3; }
 .objectif.tenu { color: var(--ok); font-weight: 600; }
 .localisation { margin-top: 6px; color: var(--texte); }
 .avis { border-left: 3px solid #e39b21; margin-bottom: 12px; }
+
+/* ------------------------------------------------------------ menu en sections */
+#navigation .section-menu { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--discret); padding: 14px 10px 4px; }
+#navigation .separateur-menu { border: none; border-top: 1px solid var(--ligne); margin: 12px 10px 8px; }
+
+/* ------------------------------------------------------------ séance du jour, tuiles */
+.tuiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 16px; }
+.tuile { background: var(--surface); border: 1px solid var(--ligne); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.tuile-titre { font-size: 0.8rem; color: var(--discret); display: flex; align-items: center; gap: 6px; }
+.tuile-titre select { font-size: 0.8rem; padding: 2px 4px; }
+.tuile-valeur { font-size: 1.4rem; font-weight: 700; }
+.tuile .jauge { width: 100%; }
+.plan { line-height: 1.8; margin: 10px 0 0; }
+.bilan-seance { border-left: 3px solid var(--accent); margin-bottom: 14px; }
+.bilan-seance ul { padding-left: 18px; line-height: 1.7; }
+.compteur.fantome { color: #a9a6a0; margin-right: 12px; }
+.compteur.fantome.devant { color: var(--accent); }
+
+/* ------------------------------------------------------------ drills */
+.chrono-discret { color: #a9a6a0; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+.fantome-ligne { margin: 8px 0; font-size: 0.85rem; }
+.fantome-barre { width: 260px; height: 6px; background: var(--ligne); border-radius: 3px; overflow: hidden; }
+.fantome-barre > div { height: 100%; width: 0; background: #86b6ef; }
+.fantome-barre.depasse > div { background: #a9a6a0; }
+.drill-op { flex-direction: column; gap: 2px; }
+.drill-op-ligne { display: flex; gap: 10px; align-items: baseline; }
+.drill-operations.avec-doigte { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 14px; }
+.doigte { font-size: 0.78rem; color: var(--discret); padding-left: 36px; line-height: 1.45; }
+.resultat-drill { font-size: 1.3rem; }
+
+/* ------------------------------------------------------------ progression : graphiques */
+.graphique { margin: 6px 0 4px; max-width: 760px; }
+.titre-graphique { font-size: 0.85rem; color: var(--discret); margin-bottom: 4px; }
+svg.calendrier { width: 100%; max-width: 360px; display: block; }
+svg.calendrier .case-jour:hover { stroke: var(--texte); stroke-width: 1; }
+svg .axe-texte { font-size: 9px; fill: #6b6f76; font-family: inherit; }
+svg.courbe { width: 100%; display: block; }
+svg.courbe .axe-texte { font-size: 11px; }
+svg.courbe .grille { stroke: #ebe9e4; stroke-width: 1; }
+svg.courbe .seuil { stroke: #b3b0aa; stroke-width: 1; stroke-dasharray: 4 4; }
+svg.courbe .trace { fill: none; stroke: #2a78d6; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg.courbe .reticule { stroke: #b3b0aa; stroke-width: 1; }
+svg.courbe .point { fill: #2a78d6; stroke: var(--surface); stroke-width: 2; }
+.legende { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 0.8rem; color: var(--discret); margin-top: 6px; }
+.pastille-legende { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.pastille-legende.non-pratique { background: var(--surface); border: 1px dashed #b3b0aa; }
+.infobulle {
+  position: fixed; z-index: 50; display: none; pointer-events: none; max-width: 300px;
+  background: var(--surface); color: var(--texte); border: 1px solid var(--ligne); border-radius: 6px;
+  padding: 6px 9px; font-size: 0.82rem; box-shadow: 0 4px 14px #0002; line-height: 1.4;
+}
+table.carte-maitrise { width: auto; border-collapse: separate; border-spacing: 2px; background: none; }
+table.carte-maitrise th { font-size: 0.75rem; text-align: center; padding: 2px 4px; border: none; }
+table.carte-maitrise th.libelle { text-align: right; padding-right: 8px; white-space: nowrap; }
+table.carte-maitrise td { width: 40px; height: 30px; text-align: center; padding: 0; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+table.carte-maitrise td.vide { background: none; cursor: default; }
+table.carte-maitrise td.non-pratique { background: var(--surface); border: 1px dashed #b3b0aa; color: var(--discret); font-weight: 400; }
+table.carte-maitrise td.pas-vu { opacity: 0.45; }
+table.carte-maitrise td.geste:hover, table.carte-maitrise td.geste:focus { outline: 2px solid var(--texte); outline-offset: 1px; }
+tr.cliquable { cursor: pointer; }
+tr.cliquable:hover td { background: #f3f1ec; }
+.grille-succes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.succes { background: var(--surface); border: 1px dashed #c9c6bf; border-radius: 8px; padding: 8px 10px; font-size: 0.9rem; }
+.succes.obtenu { border-style: solid; border-left: 3px solid var(--accent); }
+h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+
+/* ------------------------------------------------------------ notifications */
+.toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+.toast { background: var(--texte); color: white; border-radius: 8px; padding: 10px 14px; max-width: 320px; font-size: 0.9rem; box-shadow: 0 6px 18px #0003; transition: opacity 0.4s, transform 0.4s; }
+.toast.sortie { opacity: 0; transform: translateY(8px); }

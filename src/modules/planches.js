@@ -8,23 +8,19 @@
  */
 
 import { genererColonne } from '../core/generateur.js';
-import { SOUS_PALIERS } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
-import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, etatPalier } from '../core/progression.js';
+import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
+import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
 import { tempsParUnite } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
-import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
+import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 const reglages = { chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10 };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
-export function motifsAppris() {
-  const s = new Set(DIRECT);
-  for (const sp of SOUS_PALIERS) if (sp.type === 'addsub' && etatPalier(sp.id).valide) sp.cibles.forEach((c) => s.add(c));
-  return s;
-}
+export const motifsAppris = () => motifsApprisDe(progression());
 
 /** Contraintes de génération pour une valeur de cible : { autorises, cibles, libelle }. */
 function contraintes(valeur) {
@@ -36,7 +32,12 @@ function contraintes(valeur) {
   }
   let cibles;
   let libelle;
-  if (valeur === 'faibles') {
+  if (valeur === 'lents') {
+    // Planche « vitesse » : les gestes appris les plus lents, pour les faire passer au niveau supérieur.
+    cibles = gestesLents(progression()).map((g) => g.cle);
+    libelle = 'Vitesse : mes gestes les plus lents';
+    if (!cibles.length) return contraintes('appris');
+  } else if (valeur === 'faibles') {
     cibles = motifsEnDifficulte().map((m) => m.cle);
     libelle = 'Mes points faibles';
     if (!cibles.length) return contraintes('appris');
@@ -54,8 +55,9 @@ function contraintes(valeur) {
 export default {
   id: 'planches',
   titre: 'Planches',
-  monter(el) {
+  monter(el, app, params = {}) {
     let feuille = null;
+    if (params.cible) reglages.cible = params.cible;
     const select = (cle, options, conv = (x) => x) => {
       const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); } },
         options.map(([v, t]) => (Array.isArray(t)
@@ -77,6 +79,7 @@ export default {
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
           ['faibles', 'Mes points faibles'],
+          ['lents', 'Vitesse : mes gestes les plus lents'],
           ['tout', 'Tout mélangé'],
           ['Familles', [['famille:petit', 'Tous les petits amis'], ['famille:grand', 'Tous les grands amis'], ['famille:mixte', 'Toutes les combinaisons'], ['famille:cascade', 'Retenues/emprunts en cascade']]],
           ['Petits amis', motifsPar('petit')],
@@ -88,7 +91,7 @@ export default {
 
     function lancer() {
       feuille?.detruire();
-      zone.replaceChildren();
+      remplir(zone);
       const r = { ...reglages };
       const c = contraintes(r.cible);
       const problemes = Array.from({ length: r.colonnes }, () => genererColonne({
@@ -120,6 +123,7 @@ export default {
       });
     }
 
+    if (params.auto) lancer();
     return () => feuille?.detruire();
   },
 };

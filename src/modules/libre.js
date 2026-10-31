@@ -7,7 +7,7 @@ import { Soroban } from '../core/soroban.js';
 import { calculerGestes, ErreurCalcul } from '../core/gestes.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
 import { LecteurDemo } from '../ui/lecteurDemo.js';
-import { h, raccourcis, formaterNombre } from '../ui/dom.js';
+import { h, raccourcis, formaterNombre, remplir } from '../ui/dom.js';
 
 const NOMS_REGLES = { direct: 'direct', 'petit-ami': 'petit ami', 'grand-ami': 'grand ami' };
 const VITESSES = { lente: 1500, normale: 900, rapide: 450 };
@@ -82,7 +82,7 @@ export default {
     function remettreAZero() {
       if (lecteur) return;
       soroban.effacer('eleve');
-      listeEtapes.replaceChildren();
+      remplir(listeEtapes);
       message.textContent = '';
     }
 
@@ -111,7 +111,7 @@ export default {
 
       const items = resultat.etapes.map((et) => h('li', { class: et.mouvements.length ? '' : 'annonce' },
         h('span', { class: 'regle' }, NOMS_REGLES[et.regle] ?? et.regle), et.texte));
-      listeEtapes.replaceChildren(...items);
+      remplir(listeEtapes, ...items);
 
       vue.definirInteractif(false);
       btnMontrer.disabled = true;

@@ -6,7 +6,7 @@
 
 import { nombreAChiffres } from '../core/aleatoire.js';
 import { enregistrerSession } from '../core/progression.js';
-import { h, raccourcis, formaterNombre, formaterPourcent } from '../ui/dom.js';
+import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
 const reglages = { chiffres: 1, termes: 5, duree: 1, questions: 10 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -53,7 +53,7 @@ export default {
       etat = 'flash';
       btn.style.display = 'none';
       saisie.style.display = 'none';
-      retour.replaceChildren();
+      remplir(retour);
       question = nouvelleQuestion();
       for (const t of ['3', '2', '1']) {
         ecran.textContent = t;
@@ -77,13 +77,13 @@ export default {
       saisie.value = '';
       saisie.focus();
       btn.style.display = '';
-      btn.replaceChildren('Valider ', h('kbd', {}, 'Entrée'));
+      remplir(btn, 'Valider ', h('kbd', {}, 'Entrée'));
     }
 
     async function action() {
       if (etat === 'repos' || etat === 'fin') {
         serie = { index: 0, justes: 0, debut: performance.now() };
-        pastilles.replaceChildren();
+        remplir(pastilles);
         flash();
       } else if (etat === 'reponse') {
         const brut = saisie.value.replace(/\s/g, '');
@@ -94,11 +94,11 @@ export default {
         pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
         ecran.textContent = formaterNombre(question.somme);
         retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
-        retour.replaceChildren(h('span', { class: 'grand-signe' }, juste ? '✓' : '✗'), juste ? ' Juste.' : ` Vous avez répondu ${formaterNombre(Number(brut))}.`,
+        remplir(retour, h('span', { class: 'grand-signe' }, juste ? '✓' : '✗'), juste ? ' Juste.' : ` Vous avez répondu ${formaterNombre(Number(brut))}.`,
           h('div', { class: 'discret' }, `Nombres : ${question.nombres.map(formaterNombre).join(' + ')} = ${formaterNombre(question.somme)}`));
         serie.index += 1;
         etat = 'corrige';
-        btn.replaceChildren(serie.index >= reglages.questions ? 'Voir le bilan ' : 'Question suivante ', h('kbd', {}, 'Entrée'));
+        remplir(btn, serie.index >= reglages.questions ? 'Voir le bilan ' : 'Question suivante ', h('kbd', {}, 'Entrée'));
       } else if (etat === 'corrige') {
         if (serie.index < reglages.questions) { flash(); return; }
         etat = 'fin';
@@ -106,8 +106,8 @@ export default {
         ecran.textContent = `${serie.justes} / ${serie.index}`;
         retour.className = 'retour';
         const conseil = serie.justes === serie.index ? 'Parfait : réduisez la durée d\'affichage ou ajoutez des nombres.' : serie.justes / serie.index < 0.7 ? 'Allongez un peu la durée d\'affichage pour consolider.' : 'Encore une série au même niveau.';
-        retour.replaceChildren(`Réussite ${formaterPourcent(serie.justes, serie.index)}. ${conseil}`);
-        btn.replaceChildren('Nouvelle série ', h('kbd', {}, 'Entrée'));
+        remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${conseil}`);
+        remplir(btn, 'Nouvelle série ', h('kbd', {}, 'Entrée'));
       }
     }
 

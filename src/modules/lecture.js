@@ -14,7 +14,7 @@ import { nomRang } from '../core/gestes.js';
 import { nombreDifferent } from '../core/aleatoire.js';
 import { enregistrerSession, statistiques } from '../core/progression.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
-import { h, raccourcis, formaterDuree, formaterNombre, formaterPourcent } from '../ui/dom.js';
+import { h, raccourcis, formaterDuree, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
 const TAILLE_SERIE = 10;
 const MAX_CHIFFRES = 9;
@@ -101,7 +101,7 @@ export default {
       soroban = new Soroban(Math.max(5, reglages.chiffres + 2));
       vue = new SorobanVue(zoneSoroban, soroban, { interactif: false, etiquettes: reglages.etiquettes });
       serie = { index: 0, justes: 0, durees: [], erreurs: [], debut: performance.now(), cible: null, phase: 'question' };
-      pastilles.replaceChildren();
+      remplir(pastilles);
       zoneExercice.style.display = '';
       zoneBilan.style.display = 'none';
       question();
@@ -115,7 +115,7 @@ export default {
       vue.nettoyer();
       vue.definirOptions({ valeurs: false });
       retour.className = 'retour';
-      retour.replaceChildren();
+      remplir(retour);
       compteur.textContent = `${serie.index + 1} / ${TAILLE_SERIE}`;
       btnOui.style.display = 'none';
       btnNon.style.display = 'none';
@@ -128,7 +128,7 @@ export default {
         saisie.style.display = '';
         saisie.disabled = false;
         saisie.value = '';
-        btnValider.replaceChildren('Valider ', h('kbd', {}, 'Entrée'));
+        remplir(btnValider, 'Valider ', h('kbd', {}, 'Entrée'));
         saisie.focus();
       } else {
         consigne.textContent = 'Posez ce nombre sur votre soroban, puis appuyez sur Entrée pour comparer :';
@@ -136,7 +136,7 @@ export default {
         cible.textContent = formaterNombre(serie.cible);
         zoneSoroban.style.display = 'none';
         saisie.style.display = 'none';
-        btnValider.replaceChildren('Comparer ', h('kbd', {}, 'Entrée'));
+        remplir(btnValider, 'Comparer ', h('kbd', {}, 'Entrée'));
         btnValider.focus();
       }
     }
@@ -172,7 +172,7 @@ export default {
       saisie.disabled = true;
       if (juste) {
         retour.className = 'retour ok';
-        retour.replaceChildren(h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(serie.cible)}`);
+        remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(serie.cible)}`);
         serie.phase = 'transition';
         setTimeout(() => { if (serie?.phase === 'transition') suivant(); }, 900);
         return;
@@ -180,7 +180,7 @@ export default {
       serie.phase = 'corrige';
       vue.definirOptions({ valeurs: true });
       retour.className = 'retour erreur';
-      retour.replaceChildren(
+      remplir(retour, 
         h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez lu ${formaterNombre(reponse)}, le soroban montre `, h('strong', {}, formaterNombre(serie.cible)), '.'),
         h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
         h('span', { class: 'discret' }, 'Entrée pour continuer.'));
@@ -194,7 +194,7 @@ export default {
       btnNon.style.display = 'none';
       if (identique) {
         retour.className = 'retour ok';
-        retour.replaceChildren(h('span', { class: 'grand-signe' }, '✓'), ' Bien posé.');
+        remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ' Bien posé.');
         serie.phase = 'transition';
         setTimeout(() => { if (serie?.phase === 'transition') suivant(); }, 700);
         return;
@@ -202,12 +202,12 @@ export default {
       serie.phase = 'corrige';
       vue.definirOptions({ valeurs: true });
       retour.className = 'retour erreur';
-      retour.replaceChildren(
+      remplir(retour, 
         h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ' Comparez tige par tige :'),
         h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
         h('span', { class: 'discret' }, 'Corrigez votre soroban, puis Entrée pour continuer.'));
       btnValider.style.display = '';
-      btnValider.replaceChildren('Suivant ', h('kbd', {}, 'Entrée'));
+      remplir(btnValider, 'Suivant ', h('kbd', {}, 'Entrée'));
     }
 
     function suivant() {
@@ -224,7 +224,7 @@ export default {
       const parfait = serie.justes === total;
       zoneExercice.style.display = 'none';
       zoneBilan.style.display = '';
-      zoneBilan.replaceChildren(
+      remplir(zoneBilan, 
         h('div', { class: 'grand' }, `${serie.justes} / ${total}`),
         h('p', {}, `Réussite ${formaterPourcent(serie.justes, total)} · temps moyen ${formaterDuree(dureeMs / total)} par nombre`),
         serie.erreurs.length ? h('p', {}, `À revoir : ${serie.erreurs.map(formaterNombre).join(' · ')}`) : null,

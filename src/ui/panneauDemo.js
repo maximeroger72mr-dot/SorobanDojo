@@ -13,7 +13,7 @@ import { Soroban } from '../core/soroban.js';
 import { calculerGestes } from '../core/gestes.js';
 import { SorobanVue } from './sorobanVue.js';
 import { LecteurDemo } from './lecteurDemo.js';
-import { h, formaterNombre } from './dom.js';
+import { h, formaterNombre, remplir } from './dom.js';
 
 const NOMS_REGLES = { direct: 'direct', 'petit-ami': 'petit ami', 'grand-ami': 'grand ami', annonce: '' };
 const signe = (op) => (op === '+' ? '+' : '−');
@@ -88,7 +88,7 @@ export class PanneauDemo {
     this.lecture.textContent = '';
     const items = etapes.map((et) => h('li', { class: et.regle === 'annonce' ? 'annonce' : et.sous ? 'sous' : '' },
       NOMS_REGLES[et.regle] ? h('span', { class: 'regle' }, NOMS_REGLES[et.regle]) : null, et.texte));
-    this.liste.replaceChildren(...items);
+    remplir(this.liste, ...items);
     this.btnSuivant.style.display = mode === 'manuel' ? '' : 'none';
     const lecteur = new LecteurDemo(this.soroban, this.vue, etapes, {
       surEtape: (_e, i) => {

@@ -12,7 +12,7 @@ export function h(tag, attrs = {}, ...enfants) {
     else if (k === 'html') e.innerHTML = v; // réservé à des textes écrits dans le code, jamais à une saisie
     else e.setAttribute(k, v === true ? '' : v);
   }
-  for (const c of enfants.flat()) {
+  for (const c of enfants.flat(Infinity)) {
     if (c == null || c === false) continue;
     e.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }
@@ -49,4 +49,12 @@ export function raccourcis(table) {
   };
   window.addEventListener('keydown', f);
   return () => window.removeEventListener('keydown', f);
+}
+
+/**
+ * Remplace le contenu d'un élément, en ignorant les valeurs vides (null, undefined, false).
+ * À utiliser à la place de element.replaceChildren(), qui afficherait « null ».
+ */
+export function remplir(el, ...enfants) {
+  el?.replaceChildren(...enfants.flat().filter((c) => c != null && c !== false));
 }

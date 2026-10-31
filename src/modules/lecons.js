@@ -23,7 +23,7 @@ import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
-import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
+import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Un sous-palier est accessible si le précédent est validé (ou en mode découverte). */
 export function estDebloque(sp) {
@@ -54,7 +54,7 @@ export default {
   titre: 'Leçons guidées',
   monter(el, app, params = {}) {
     let nettoyerVue = null;
-    const changer = (f) => { nettoyerVue?.(); el.replaceChildren(); el.scrollTop = 0; nettoyerVue = f() ?? null; };
+    const changer = (f) => { nettoyerVue?.(); remplir(el); el.scrollTop = 0; nettoyerVue = f() ?? null; };
 
     // ---------------------------------------------------------------- carte du parcours
     function carte() {
@@ -112,7 +112,7 @@ export default {
       function afficher(id) {
         nettoyerOnglet?.();
         nettoyerOnglet = null;
-        zone.replaceChildren();
+        remplir(zone);
         boutons.forEach((b, i) => b.classList.toggle('actif', ongletsDef[i][0] === id));
         nettoyerOnglet = { comprendre, entrainement, test: miniTest }[id]();
       }
@@ -149,7 +149,7 @@ export default {
 
         const majBandeau = () => {
           const et = etatPalier(sp.id);
-          bandeau.replaceChildren(...[
+          remplir(bandeau, ...[
             h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * et.reps) / sp.repetitions)}%` })),
             h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
@@ -175,7 +175,7 @@ export default {
 
         function lancer() {
           courant?.detruire();
-          zoneTravail.replaceChildren();
+          remplir(zoneTravail);
           if (mode === 'une') {
             courant = creerSerie(zoneTravail, {
               generer: () => genererExercice(sp, poidsDe(sp)),

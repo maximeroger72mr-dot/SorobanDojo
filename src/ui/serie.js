@@ -11,12 +11,12 @@
 
 import { diagnostiquer, localiserErreur, motifsDeLigne } from '../core/diagnostic.js';
 import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
-import { tempsParUnite, tempsCible } from '../core/maitrise.js';
-import { motifsEnDifficulte, noterGestes } from '../core/progression.js';
+import { tempsParUnite, tempsCible, unites, SURCOUT_S, MIN_ESSAIS } from '../core/maitrise.js';
+import { motifsEnDifficulte, noterGestes, noterReponse } from '../core/progression.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
 import { ouvrirDemo } from './panneauDemo.js';
-import { h, raccourcis, formaterDuree, formaterNombre } from './dom.js';
+import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 /**
  * Encadré « Diagnostic & Remédiation » pour les motifs en difficulté.
@@ -42,23 +42,25 @@ export function encadreDiagnostic(filtre = null, max = 2) {
  * @param {boolean} [o.defi=false]          enchaîne sans s'arrêter sur les erreurs
  * @param {Set<string>|null} [o.filtreDiagnostic]  motifs montrés dans l'encadré de remédiation
  * @param {() => object} [o.evaluation]     évaluation actuelle (maitrise.evaluer) pour l'objectif de temps
+ * @param {{msParExercice:number}|null} [o.fantome]  rythme du record : « course contre son fantôme »
  * @param {(res, ex, i) => any} [o.surExercice]
  * @param {(bilan) => void} [o.surFin]      { justes, total, dureeMs, resultats: [{ex, reponse, juste, dureeMs}] }
  * @param {(i) => string} [o.compteur]
  */
 export function creerSerie(conteneur, o) {
-  const opts = { nombre: Infinity, chrono: false, defi: false, filtreDiagnostic: null, evaluation: null, ...o };
+  const opts = { nombre: Infinity, chrono: false, defi: false, filtreDiagnostic: null, evaluation: null, fantome: null, ...o };
   const zoneEnonce = h('div', { class: 'zone-enonce' });
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Résultat', 'aria-label': 'Résultat' });
   const btnValider = h('button', { class: 'btn principal', onclick: () => valider() }, 'Valider ', h('kbd', {}, 'Entrée'));
   const compteur = h('span', { class: 'compteur' });
   const chrono = h('span', { class: 'compteur chrono' });
+  const fantome = h('span', { class: 'compteur fantome' });
   const chronoExo = h('div', { class: 'chrono-exercice' });
   const pastilles = h('div', { class: 'pastilles' });
   const retour = h('div', { class: 'retour' });
   const zoneDiag = h('div', {});
   const racine = h('div', { class: 'serie' },
-    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), chrono, compteur),
+    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), fantome, chrono, compteur),
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
     h('div', { class: 'ligne' }, saisie, btnValider),
     retour, zoneDiag);
@@ -76,29 +78,43 @@ export function creerSerie(conteneur, o) {
   const resultats = [];
 
   const majChrono = () => {
-    if (opts.chrono) chrono.textContent = formaterDuree(performance.now() - debut);
+    const ecoule = performance.now() - debut;
+    if (opts.chrono) chrono.textContent = formaterDuree(ecoule);
+    if (opts.fantome && phase !== 'fin') {
+      // Où en serait votre record à ce moment ? (on ne se mesure qu'à soi-même)
+      const k = Math.min(opts.nombre, Math.floor(ecoule / opts.fantome.msParExercice));
+      fantome.textContent = `fantôme : ${k} / ${opts.nombre}`;
+      fantome.classList.toggle('devant', k < resultats.length);
+    }
     if (phase === 'question') majChronoExo(performance.now() - debutExercice);
   };
   const minuterie = setInterval(majChrono, 100);
 
-  /** Objectif de temps pour l'exercice courant : le niveau suivant de l'élève (ou null). */
+  /**
+   * Objectif de temps de l'exercice courant : battre sa médiane récente (petites marches) ;
+   * tant qu'il n'y a pas assez d'essais, le seuil du niveau suivant.
+   */
   function objectif() {
     const ev = opts.evaluation?.();
-    const niveau = ev?.prochain?.temps ? ev.prochain : ev?.niveau?.temps ? ev.niveau : null;
+    if (!ev) return null;
+    if (ev.essais >= MIN_ESSAIS && ev.temps !== null) return { nom: 'votre médiane', s: SURCOUT_S + ev.temps * unites(ex) };
+    const niveau = ev.prochain?.temps ? ev.prochain : null;
     return niveau ? { nom: niveau.nom, s: tempsCible(ex, niveau) } : null;
   }
   let objectifCourant = null;
   function majChronoExo(ms) {
-    chronoExo.replaceChildren(
+    remplir(chronoExo, ...[
       h('div', { class: 'temps' }, formaterDuree(ms)),
-      objectifCourant ? h('div', { class: `objectif${ms / 1000 <= objectifCourant.s ? ' tenu' : ''}` }, `objectif « ${objectifCourant.nom} » : ${formaterDuree(objectifCourant.s * 1000)}`) : null);
+      objectifCourant ? h('div', { class: `objectif${ms / 1000 <= objectifCourant.s ? ' tenu' : ''}` }, `objectif ${formaterDuree(objectifCourant.s * 1000)}`, h('br'), `(${objectifCourant.nom})`) : null,
+    ].filter(Boolean));
   }
-  const afficherEnonce = () => zoneEnonce.replaceChildren(rendreEnonce(ex, {
+
+  const afficherEnonce = () => remplir(zoneEnonce, rendreEnonce(ex, {
     sousTotaux: sousTotauxVisibles,
     // Après une erreur, les lignes deviennent cliquables pour désigner où le soroban a divergé.
     surLigne: sousTotauxVisibles && phase === 'corrige' && !attribue ? (l) => designerLigne(l) : null,
   }));
-  const majDiag = () => zoneDiag.replaceChildren(encadreDiagnostic(opts.filtreDiagnostic) ?? '');
+  const majDiag = () => remplir(zoneDiag, encadreDiagnostic(opts.filtreDiagnostic) ?? '');
 
   function suivant() {
     clearTimeout(timer);
@@ -110,7 +126,7 @@ export function creerSerie(conteneur, o) {
     objectifCourant = objectif();
     afficherEnonce();
     retour.className = 'retour';
-    retour.replaceChildren(h('span', { class: 'discret' }, 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    remplir(retour, h('span', { class: 'discret' }, 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
     saisie.value = '';
     saisie.disabled = false;
     btnValider.disabled = false;
@@ -137,25 +153,26 @@ export function creerSerie(conteneur, o) {
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
     if (ex.motifs) await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t);
+    await noterReponse(juste);
     await opts.surExercice?.({ juste, reponse, dureeMs, t }, ex, i);
     majDiag();
 
     const temps = h('span', { class: 'discret' }, ` · ${formaterDuree(dureeMs)}`);
     if (objectifCourant) {
       temps.append(dureeMs / 1000 <= objectifCourant.s
-        ? h('span', { class: 'objectif tenu' }, ` · objectif « ${objectifCourant.nom} » tenu`)
+        ? h('span', { class: 'objectif tenu' }, ` · objectif tenu (${objectifCourant.nom})`)
         : ` · objectif ${formaterDuree(objectifCourant.s * 1000)}`);
     }
     if (juste) {
       retour.className = 'retour ok';
-      retour.replaceChildren(h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(ex.resultat)}`, temps);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(ex.resultat)}`, temps);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
     }
     if (opts.defi) {
       retour.className = 'retour erreur';
-      retour.replaceChildren(h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${formaterNombre(ex.resultat)}) : vous le reverrez à la fin.`);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${formaterNombre(ex.resultat)}) : vous le reverrez à la fin.`);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
@@ -166,14 +183,14 @@ export function creerSerie(conteneur, o) {
     const zoneLocalisation = h('div', { class: 'localisation' });
     zoneLocalisationCourante = zoneLocalisation;
     if (localisation) {
-      zoneLocalisation.replaceChildren(h('strong', {}, 'Erreur localisée : '),
+      remplir(zoneLocalisation, h('strong', {}, 'Erreur localisée : '),
         `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). Ce geste est noté à retravailler.`);
     } else if (ex.type === 'addsub') {
-      zoneLocalisation.replaceChildren(h('span', { class: 'discret' },
+      remplir(zoneLocalisation, h('span', { class: 'discret' },
         'Pour un diagnostic juste, refaites la colonne en comparant avec les sous-totaux (S), puis cliquez la ligne où votre soroban a divergé. Sinon, aucun geste n\'est accusé.'));
     }
     retour.className = 'retour erreur';
-    retour.replaceChildren(
+    remplir(retour, 
       h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${formaterNombre(reponse)}, le résultat est `, h('strong', {}, formaterNombre(ex.resultat)), '.'),
       causes.length ? h('ul', { class: 'detail' }, causes.map((c) => h('li', {}, c))) : null,
       zoneLocalisation,
@@ -190,7 +207,7 @@ export function creerSerie(conteneur, o) {
     const motifs = motifsDeLigne(ex, ligne);
     await noterGestes([], motifs, tempsParUnite(ex, resultats.at(-1).dureeMs));
     majDiag();
-    zoneLocalisationCourante?.replaceChildren(h('strong', {}, `Ligne ${ligne + 1} : `),
+    remplir(zoneLocalisationCourante, h('strong', {}, `Ligne ${ligne + 1} : `),
       motifs.length ? `${motifs.map(nomMotif).join(', ')} noté${motifs.length > 1 ? 's' : ''} à retravailler.` : 'noté.');
     afficherEnonce();
   }

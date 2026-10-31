@@ -1,0 +1,40 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { grade, drillEchauffement, defiSemaine, motifsAppris } from '../src/core/parcours.js';
+import { SOUS_PALIERS } from '../src/core/curriculum.js';
+
+const vide = () => ({ paliers: {}, records: {}, motifs: {}, sessions: [] });
+
+test('grade : prochain conseillé et leçons manquantes', () => {
+  const d = vide();
+  const g = grade(d);
+  assert.equal(g.obtenu, null);
+  assert.equal(g.prochain.id, '10');
+  assert.ok(g.manquantes.length > 20 && !g.pret);
+  for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
+  d.records['epreuve-10'] = { reussi: true };
+  d.records['epreuve-9'] = { reussi: true };
+  assert.equal(grade(d).obtenu.id, '9');
+  assert.equal(grade(d).prochain.id, '8');
+  assert.ok(grade(d).pret);
+});
+
+test('échauffement adapté au niveau', () => {
+  const d = vide();
+  assert.equal(drillEchauffement(d).id, '123-1');
+  for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
+  assert.equal(drillEchauffement(d).id, '123-9');
+  d.records['epreuve-6'] = { reussi: true };
+  assert.equal(drillEchauffement(d).id, '123-9-ar');
+});
+
+test('défi de la semaine : identique toute la semaine, strict sur les gestes appris', () => {
+  const d = vide();
+  d.paliers['p2-1'] = { valide: '2026-11-01' };
+  const a = defiSemaine(d, '2026-11-02');
+  const b = defiSemaine(d, '2026-11-06');
+  assert.deepEqual(a.sections, b.sections);
+  assert.notDeepEqual(defiSemaine(d, '2026-11-10').sections, a.sections);
+  assert.ok(motifsAppris(d).has('+4:petit'));
+  for (const p of a.sections[0].problemes) assert.ok(p.motifs.every((m) => motifsAppris(d).has(m)), String(p.motifs));
+});

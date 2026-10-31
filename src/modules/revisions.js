@@ -15,7 +15,7 @@ import {
   motifsEnDifficulte, aujourdhui,
 } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
-import { h, formaterDuree } from '../ui/dom.js';
+import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 const FLASH = { exercices: 10, reussitesMin: 9 };
 const dateFr = (d) => new Date(`${d}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -31,7 +31,7 @@ export default {
     function liste() {
       serie?.detruire();
       serie = null;
-      el.replaceChildren();
+      remplir(el);
       app.majBadges();
       const dues = revisionsDues().map(sousPalier).filter(Boolean);
       const faibles = motifsEnDifficulte();
@@ -72,7 +72,7 @@ export default {
     }
 
     function lancerSerie({ titre, sousTitre, generer, apresBilan }) {
-      el.replaceChildren(
+      remplir(el, 
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
       serie = creerSerie(el, {

@@ -8,7 +8,7 @@ import { enregistrerSession } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
-import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
+import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une' };
 
@@ -22,12 +22,12 @@ export default {
     const selX = h('select', { onchange: (e) => { reglages.x = Number(e.target.value); } });
     const selY = h('select', { onchange: (e) => { reglages.y = Number(e.target.value); } });
     const options = (sel, max, val) => {
-      sel.replaceChildren(...Array.from({ length: max }, (_, i) => h('option', { value: i + 1 }, `${i + 1} chiffre${i ? 's' : ''}`)));
+      remplir(sel, ...Array.from({ length: max }, (_, i) => h('option', { value: i + 1 }, `${i + 1} chiffre${i ? 's' : ''}`)));
       sel.value = String(Math.min(val, max));
     };
     const majLibelles = () => {
       const mul = reglages.type === 'mul';
-      etiquettes.replaceChildren(mul ? 'Multiplicande' : 'Diviseur', ' ', selX, ' ', mul ? 'Multiplicateur' : 'Quotient', ' ', selY);
+      remplir(etiquettes, mul ? 'Multiplicande' : 'Diviseur', ' ', selX, ' ', mul ? 'Multiplicateur' : 'Quotient', ' ', selY);
       options(selX, mul ? 6 : 4, reglages.x);
       options(selY, mul ? 4 : 5, reglages.y);
     };
@@ -55,7 +55,7 @@ export default {
 
     function lancer() {
       courant?.detruire();
-      zone.replaceChildren();
+      remplir(zone);
       const r = { ...reglages };
       if (r.mode === 'feuille') {
         courant = creerFeuille(zone, {
