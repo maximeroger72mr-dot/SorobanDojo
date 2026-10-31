@@ -12,6 +12,7 @@
  *   records:  { [cleDefi]: { dureeMs, date } },
  *   motifs:   { [cleMotif]: { essais, erreurs, dette } },     // diagnostic des faiblesses
  *   paliers:  { [idSousPalier]: { reps, justes, valide, carte: { boite, echeance } } },
+ *   records:  aussi utilisés par les drills, défis et planches (clé → meilleur temps)
  *   reglages: { decouverte: false }
  * }
  */
@@ -181,4 +182,13 @@ export function reglagesUtilisateur() {
 export async function modifierReglages(r) {
   Object.assign(donnees.reglages, r);
   await sauver();
+}
+
+/** Enregistre un score si c'est le meilleur (plus haut = mieux) ; renvoie true si nouveau record. */
+export async function proposerMeilleurScore(cle, points, extra = {}) {
+  const actuel = donnees.records[cle];
+  if (actuel && actuel.points >= points) return false;
+  donnees.records[cle] = { points, date: aujourdhui(), ...extra };
+  await sauver();
+  return true;
 }

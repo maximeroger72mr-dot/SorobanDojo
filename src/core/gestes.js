@@ -166,7 +166,7 @@ class Calculateur {
         // Pas assez de terrestres libres, céleste libre : petit ami (complément à 5).
         const k = 5 - d;
         const et = this.etape('petit-ami', tige,
-          `Ajouter ${d} aux ${nom} : il ne reste que ${boulesT(4 - e.terrestres)} libre${4 - e.terrestres > 1 ? 's' : ''}. `
+          `Ajouter ${d} aux ${nom} : ${4 - e.terrestres === 0 ? 'aucune boule terrestre n\'est libre' : `il ne reste que ${boulesT(4 - e.terrestres)} libre${4 - e.terrestres > 1 ? 's' : ''}`}. `
           + `Petit ami : ajouter ${d}, c'est ajouter 5 et retirer ${k}. `
           + `L'index abaisse la boule céleste (+5), puis descend ${boulesT(k)} (−${k}).`);
         this.mouvoir(et, tige, 'celeste', 5);
@@ -213,7 +213,7 @@ class Calculateur {
         // Pas assez de terrestres en place, mais la céleste est là : petit ami.
         const k = 5 - d;
         const et = this.etape('petit-ami', tige,
-          `Retirer ${d} des ${nom} : il n'y a que ${boulesT(e.terrestres)} contre la barre. `
+          `Retirer ${d} des ${nom} : ${e.terrestres === 0 ? 'aucune boule terrestre n\'est contre la barre' : `il n'y a que ${boulesT(e.terrestres)} contre la barre`}. `
           + `Petit ami : retirer ${d}, c'est ajouter ${k} et retirer 5. `
           + `Le pouce monte ${boulesT(k)} (+${k}), puis l'index relève la boule céleste (−5).`);
         this.mouvoir(et, tige, 'terrestre', k);

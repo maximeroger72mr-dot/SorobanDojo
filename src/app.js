@@ -14,22 +14,26 @@ import lecture from './modules/lecture.js';
 import lecons from './modules/lecons.js';
 import revisions from './modules/revisions.js';
 import planches from './modules/planches.js';
+import drills from './modules/drills.js';
+import muldiv from './modules/muldiv.js';
+import anzan from './modules/anzan.js';
+import defis from './modules/defis.js';
+import epreuves from './modules/epreuves.js';
 import progressionEcran from './modules/progression.js';
 
-/** Écrans disponibles, et ceux annoncés pour les prochaines étapes (désactivés). */
+/** Écrans, dans l'ordre de la navigation. */
 const ECRANS = [
   accueil,
-  libre,
-  lecture,
   lecons,
   revisions,
   planches,
-  { id: 'calcul', titre: 'Addition et soustraction', bientot: true },
-  { id: 'pas-a-pas', titre: 'Pas à pas', bientot: true },
-  { id: 'multiplication', titre: 'Multiplication et division', bientot: true },
-  { id: 'anzan', titre: 'Flash anzan', bientot: true },
-  { id: 'defis', titre: 'Défis chrono', bientot: true },
-  { id: 'epreuves', titre: 'Épreuves officielles', bientot: true },
+  drills,
+  muldiv,
+  anzan,
+  defis,
+  epreuves,
+  lecture,
+  libre,
   progressionEcran,
 ];
 

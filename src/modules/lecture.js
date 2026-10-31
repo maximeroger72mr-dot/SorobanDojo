@@ -1,11 +1,12 @@
 /**
- * Module 1 : lecture et écriture des nombres.
+ * Lecture et écriture des nombres.
  *
- *  - Mode « Lire »  : le soroban affiche un nombre, l'élève le tape.
- *  - Mode « Poser » : l'application donne un nombre, l'élève le pose sur le soroban.
+ *  - « Lire » : l'application montre un soroban, l'élève tape le nombre affiché.
+ *  - « Poser sur mon soroban » : l'application donne un nombre, l'élève le pose sur SON soroban,
+ *    puis appuie sur Entrée : l'application montre la bonne position et l'élève compare
+ *    (O : identique, N : différent). En cas de différence, chaque tige est expliquée.
  *
- * Une série compte 10 nombres. Une réponse juste passe automatiquement à la suivante ;
- * une réponse fausse est expliquée tige par tige, puis l'élève continue avec Entrée.
+ * Le retour reste affiché (✓ / ✗) et une bande de pastilles garde la trace de la série de 10.
  */
 
 import { Soroban } from '../core/soroban.js';
@@ -16,9 +17,7 @@ import { SorobanVue } from '../ui/sorobanVue.js';
 import { h, raccourcis, formaterDuree, formaterNombre, formaterPourcent } from '../ui/dom.js';
 
 const TAILLE_SERIE = 10;
-const MAX_CHIFFRES = 8;
-
-// Réglages conservés pendant la session.
+const MAX_CHIFFRES = 9;
 const reglages = { mode: 'lire', chiffres: 1, etiquettes: true };
 
 /** Décrit en mots les boules qui forment un chiffre sur une tige. */
@@ -35,7 +34,6 @@ function expliquerNombre(n) {
   const chiffres = String(n);
   return chiffres.split('').map((ch, i) => {
     const rang = chiffres.length - 1 - i;
-    // « 1 dizaine », « 3 dizaines » : on accorde le premier mot du nom du rang.
     const nom = Number(ch) <= 1 ? nomRang(rang).replace(/^(\S+)s/, '$1') : nomRang(rang);
     return h('li', {}, h('strong', {}, `${ch} ${nom}`), ` : ${decrireChiffre(Number(ch))}`);
   });
@@ -43,26 +41,19 @@ function expliquerNombre(n) {
 
 export default {
   id: 'lecture',
-  titre: 'Lecture et écriture',
+  titre: 'Lecture des nombres',
   monter(el) {
-    // ---------------------------------------------------------------- état de la série
     let soroban = null;
     let vue = null;
-    let serie = null; // { index, justes, erreurs, debut, debutQuestion, cible, phase, durees }
+    let serie = null;
 
-    // ---------------------------------------------------------------- interface
     const segment = (valeurs, cle, apres) => {
       const boutons = valeurs.map(([v, texte]) => h('button', {
         class: reglages[cle] === v ? 'actif' : '',
-        onclick: () => {
-          reglages[cle] = v;
-          boutons.forEach((b, i) => b.classList.toggle('actif', valeurs[i][0] === v));
-          apres();
-        },
+        onclick: () => { reglages[cle] = v; boutons.forEach((b, i) => b.classList.toggle('actif', valeurs[i][0] === v)); apres(); },
       }, texte));
       return h('div', { class: 'segments' }, boutons);
     };
-
     const choixChiffres = h('select', { onchange: (e) => { reglages.chiffres = Number(e.target.value); nouvelleSerie(); } },
       Array.from({ length: MAX_CHIFFRES }, (_, i) => h('option', { value: i + 1 }, `${i + 1} chiffre${i ? 's' : ''}`)));
     choixChiffres.value = String(reglages.chiffres);
@@ -71,201 +62,187 @@ export default {
     const cible = h('div', { class: 'nombre-cible' });
     const zoneSoroban = h('div', { class: 'zone-soroban' });
     const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', 'aria-label': 'Votre réponse' });
-    const btnEffacer = h('button', { class: 'btn', onclick: () => soroban?.effacer('eleve') }, 'Effacer ', h('kbd', {}, 'Échap'));
-    const btnValider = h('button', { class: 'btn principal', onclick: () => valider() }, 'Valider ', h('kbd', {}, 'Entrée'));
-    const btnCorrection = h('button', { class: 'btn', style: 'display:none', onclick: () => montrerCorrection() }, 'Voir la bonne position');
+    const btnValider = h('button', { class: 'btn principal', onclick: () => valider() });
+    const btnOui = h('button', { class: 'btn ok-btn', onclick: () => autoEvaluer(true) }, 'Identique ', h('kbd', {}, 'O'));
+    const btnNon = h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Différent ', h('kbd', {}, 'N'));
+    const pastilles = h('div', { class: 'pastilles' });
     const compteur = h('span', { class: 'compteur' });
     const retour = h('div', { class: 'retour' });
     const zoneExercice = h('div', {},
+      h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), compteur),
       consigne, cible, zoneSoroban,
-      h('div', { class: 'ligne' }, saisie, btnEffacer, btnValider, btnCorrection, h('span', { style: 'flex:1' }), compteur),
+      h('div', { class: 'ligne' }, saisie, btnValider, btnOui, btnNon),
       retour);
     const zoneBilan = h('div', { class: 'carte bilan', style: 'display:none' });
 
-    const dejaPratique = !!statistiques().parModule.lecture;
     el.append(
-      h('h1', {}, 'Lecture et écriture des nombres'),
+      h('h1', {}, 'Lecture des nombres'),
       h('p', { class: 'discret' }, 'Avant de calculer, il faut lire le soroban d\'un coup d\'œil et poser un nombre sans hésiter.'),
-      h('details', { class: 'carte', style: 'margin-top:12px', open: !dejaPratique },
+      h('details', { class: 'carte', style: 'margin-top:12px', open: !statistiques().parModule.lecture },
         h('summary', {}, 'Comment lire un soroban'),
         h('ul', {},
-          h('li', {}, 'Chaque tige verticale porte un chiffre. De droite à gauche : unités, dizaines, centaines… comme quand on écrit un nombre.'),
-          h('li', {}, h('strong', {}, 'Seules les boules qui touchent la barre du milieu comptent.'), ' Les autres sont « au repos ».'),
-          h('li', {}, 'La boule du haut (céleste) vaut 5. Chacune des 4 boules du bas (terrestres) vaut 1. Exemple : céleste + 2 terrestres = 7.'),
-          h('li', {}, 'Une tige sans boule contre la barre vaut 0 : le zéro se lit aussi, il garde chaque chiffre à sa place.'),
-          h('li', {}, 'Les points sur la barre marquent les unités, puis tous les 3 rangs (milliers, millions) : comme l\'espace dans «\u00a012\u00a0345\u00a0», ils aident à repérer les grands nombres.'),
-          h('li', {}, 'Lisez de gauche à droite, comme un nombre écrit : on énonce d\'abord le chiffre le plus fort.'),
+          h('li', {}, 'Chaque tige porte un chiffre. De droite à gauche : unités, dizaines, centaines…'),
+          h('li', {}, h('strong', {}, 'Seules les boules qui touchent la barre du milieu comptent.')),
+          h('li', {}, 'La boule du haut (céleste) vaut 5 ; chacune des 4 boules du bas (terrestres) vaut 1.'),
+          h('li', {}, 'Une tige sans boule contre la barre vaut 0.'),
+          h('li', {}, 'Les points sur la barre marquent les unités puis tous les 3 rangs (milliers, millions). Choisissez un point comme tige des unités et alignez vos nombres dessus.'),
         )),
       h('div', { class: 'reglages' },
-        segment([['lire', 'Lire'], ['poser', 'Poser']], 'mode', () => nouvelleSerie()),
+        segment([['lire', 'Lire'], ['poser', 'Poser sur mon soroban']], 'mode', () => nouvelleSerie()),
         choixChiffres,
         h('label', {}, h('input', {
           type: 'checkbox', checked: reglages.etiquettes,
           onchange: (e) => { reglages.etiquettes = e.target.checked; vue?.definirOptions({ etiquettes: e.target.checked }); },
         }), 'Afficher les rangs')),
-      zoneExercice,
-      zoneBilan,
-    );
+      zoneExercice, zoneBilan);
 
-    // ---------------------------------------------------------------- déroulement
     function nouvelleSerie() {
       vue?.detruire();
-      // Deux tiges de plus que nécessaire, pour que la position du nombre se lise (au moins 5 tiges).
       soroban = new Soroban(Math.max(5, reglages.chiffres + 2));
       vue = new SorobanVue(zoneSoroban, soroban, { interactif: false, etiquettes: reglages.etiquettes });
-      serie = { index: 0, justes: 0, erreurs: [], durees: [], debut: performance.now(), cible: null, phase: 'question' };
+      serie = { index: 0, justes: 0, durees: [], erreurs: [], debut: performance.now(), cible: null, phase: 'question' };
+      pastilles.replaceChildren();
       zoneExercice.style.display = '';
       zoneBilan.style.display = 'none';
-      poserQuestion();
+      question();
     }
 
-    function poserQuestion() {
+    function question() {
       const lire = reglages.mode === 'lire';
       serie.cible = nombreDifferent(reglages.chiffres, serie.cible);
       serie.phase = 'question';
       serie.debutQuestion = performance.now();
       vue.nettoyer();
+      vue.definirOptions({ valeurs: false });
       retour.className = 'retour';
       retour.replaceChildren();
-      btnCorrection.style.display = 'none';
       compteur.textContent = `${serie.index + 1} / ${TAILLE_SERIE}`;
-
+      btnOui.style.display = 'none';
+      btnNon.style.display = 'none';
+      btnValider.style.display = '';
       if (lire) {
         consigne.textContent = 'Quel nombre est posé sur le soroban ?';
         cible.style.display = 'none';
+        zoneSoroban.style.display = '';
         soroban.definirValeur(serie.cible);
-        vue.definirInteractif(false);
         saisie.style.display = '';
+        saisie.disabled = false;
         saisie.value = '';
-        btnEffacer.style.display = 'none';
+        btnValider.replaceChildren('Valider ', h('kbd', {}, 'Entrée'));
         saisie.focus();
       } else {
-        consigne.textContent = 'Posez ce nombre sur le soroban (aligné à droite, sur les unités) :';
+        consigne.textContent = 'Posez ce nombre sur votre soroban, puis appuyez sur Entrée pour comparer :';
         cible.style.display = '';
         cible.textContent = formaterNombre(serie.cible);
-        soroban.effacer();
-        vue.definirInteractif(true);
+        zoneSoroban.style.display = 'none';
         saisie.style.display = 'none';
-        btnEffacer.style.display = '';
-        saisie.blur();
+        btnValider.replaceChildren('Comparer ', h('kbd', {}, 'Entrée'));
+        btnValider.focus();
       }
+    }
+
+    function noter(juste) {
+      serie.durees.push(performance.now() - serie.debutQuestion);
+      if (juste) serie.justes += 1;
+      else serie.erreurs.push(serie.cible);
+      pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
     }
 
     function valider() {
       if (!serie) return;
       if (serie.phase === 'corrige') { suivant(); return; }
       if (serie.phase !== 'question') return;
-
-      const lire = reglages.mode === 'lire';
-      let reponse;
-      if (lire) {
-        const brut = saisie.value.replace(/\s/g, '');
-        if (!/^\d+$/.test(brut)) { saisie.focus(); return; }
-        reponse = Number(brut);
-      } else {
-        reponse = soroban.valeur();
-      }
-      serie.durees.push(performance.now() - serie.debutQuestion);
-
-      if (reponse === serie.cible) {
-        serie.justes += 1;
-        serie.phase = 'transition';
-        retour.className = 'retour ok';
-        retour.textContent = 'Juste !';
-        if (!lire) for (let t = 0; t < soroban.nbTiges; t++) if (soroban.chiffre(t)) vue.marquerTige(t, 'ok');
-        setTimeout(() => { if (serie?.phase === 'transition') suivant(); }, 550);
+      if (reglages.mode === 'poser') {
+        // Montrer la bonne position et laisser l'élève comparer avec son soroban.
+        serie.phase = 'comparer';
+        serie.dureeQuestion = performance.now() - serie.debutQuestion;
+        soroban.definirValeur(serie.cible);
+        zoneSoroban.style.display = '';
+        consigne.textContent = 'Voici la bonne position. Votre soroban est-il identique ?';
+        btnValider.style.display = 'none';
+        btnOui.style.display = '';
+        btnNon.style.display = '';
         return;
       }
-
-      serie.erreurs.push({ attendu: serie.cible, donne: reponse });
-      serie.phase = 'corrige';
-      retour.className = 'retour erreur';
-      if (lire) {
-        // On montre le chiffre de chaque tige, et on décrit les boules.
-        vue.definirOptions({ valeurs: true });
-        retour.replaceChildren(
-          `Ce n'est pas ${formaterNombre(reponse)} : le soroban montre ${formaterNombre(serie.cible)}.`,
-          h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
-          h('span', { class: 'discret' }, 'Appuyez sur Entrée pour continuer.'));
-      } else {
-        vue.definirInteractif(false);
-        const attendu = new Soroban(soroban.nbTiges);
-        attendu.definirValeur(serie.cible);
-        for (let t = 0; t < soroban.nbTiges; t++) {
-          if (soroban.chiffre(t) !== attendu.chiffre(t)) vue.marquerTige(t, 'erreur');
-        }
-        retour.replaceChildren(
-          `Vous avez posé ${formaterNombre(reponse)}. Les tiges en rouge ne sont pas justes.`,
-          h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
-          h('span', { class: 'discret' }, 'Appuyez sur Entrée pour continuer.'));
-        btnCorrection.style.display = '';
+      const brut = saisie.value.replace(/\s/g, '');
+      if (!/^\d+$/.test(brut)) { saisie.focus(); return; }
+      const reponse = Number(brut);
+      const juste = reponse === serie.cible;
+      noter(juste);
+      saisie.disabled = true;
+      if (juste) {
+        retour.className = 'retour ok';
+        retour.replaceChildren(h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(serie.cible)}`);
+        serie.phase = 'transition';
+        setTimeout(() => { if (serie?.phase === 'transition') suivant(); }, 900);
+        return;
       }
+      serie.phase = 'corrige';
+      vue.definirOptions({ valeurs: true });
+      retour.className = 'retour erreur';
+      retour.replaceChildren(
+        h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez lu ${formaterNombre(reponse)}, le soroban montre `, h('strong', {}, formaterNombre(serie.cible)), '.'),
+        h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
+        h('span', { class: 'discret' }, 'Entrée pour continuer.'));
     }
 
-    function montrerCorrection() {
-      vue.nettoyer();
-      soroban.definirValeur(serie.cible, 'demo');
-      for (let t = 0; t < soroban.nbTiges; t++) if (soroban.chiffre(t)) vue.marquerTige(t, 'ok');
-      btnCorrection.style.display = 'none';
+    function autoEvaluer(identique) {
+      if (serie?.phase !== 'comparer') return;
+      serie.debutQuestion = performance.now() - serie.dureeQuestion;
+      noter(identique);
+      btnOui.style.display = 'none';
+      btnNon.style.display = 'none';
+      if (identique) {
+        retour.className = 'retour ok';
+        retour.replaceChildren(h('span', { class: 'grand-signe' }, '✓'), ' Bien posé.');
+        serie.phase = 'transition';
+        setTimeout(() => { if (serie?.phase === 'transition') suivant(); }, 700);
+        return;
+      }
+      serie.phase = 'corrige';
+      vue.definirOptions({ valeurs: true });
+      retour.className = 'retour erreur';
+      retour.replaceChildren(
+        h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ' Comparez tige par tige :'),
+        h('ul', { class: 'detail' }, expliquerNombre(serie.cible)),
+        h('span', { class: 'discret' }, 'Corrigez votre soroban, puis Entrée pour continuer.'));
+      btnValider.style.display = '';
+      btnValider.replaceChildren('Suivant ', h('kbd', {}, 'Entrée'));
     }
 
     function suivant() {
-      vue.definirOptions({ valeurs: false });
       serie.index += 1;
       if (serie.index >= TAILLE_SERIE) terminer();
-      else poserQuestion();
+      else question();
     }
 
     async function terminer() {
-      const dureeMs = performance.now() - serie.debut;
-      const total = TAILLE_SERIE;
-      const { justes } = serie;
-      const moyenne = serie.durees.reduce((a, b) => a + b, 0) / serie.durees.length;
       serie.phase = 'fin';
-      await enregistrerSession({
-        module: 'lecture', mode: reglages.mode, reglages: { chiffres: reglages.chiffres },
-        total, justes, dureeMs: serie.durees.reduce((a, b) => a + b, 0), erreurs: serie.erreurs,
-      });
-
-      // Conseil pour la suite : progression graduelle du nombre de chiffres.
-      let conseil;
-      let btnSuite = null;
-      if (justes === total && reglages.chiffres < MAX_CHIFFRES) {
-        conseil = `Parfait. Vous pouvez passer à ${reglages.chiffres + 1} chiffres.`;
-        btnSuite = h('button', { class: 'btn principal', onclick: () => {
-          reglages.chiffres += 1;
-          choixChiffres.value = String(reglages.chiffres);
-          nouvelleSerie();
-        } }, `Passer à ${reglages.chiffres + 1} chiffres`);
-      } else if (justes >= total - 2) {
-        conseil = 'Presque. Une série de plus au même niveau pour fixer les automatismes.';
-      } else {
-        conseil = 'Prenez votre temps : repérez d\'abord la tige des unités (point le plus à droite), puis lisez chaque tige de gauche à droite.';
-      }
-
+      const total = TAILLE_SERIE;
+      const dureeMs = serie.durees.reduce((a, b) => a + b, 0);
+      await enregistrerSession({ module: 'lecture', mode: reglages.mode, reglages: { chiffres: reglages.chiffres }, total, justes: serie.justes, dureeMs, erreurs: serie.erreurs });
+      const parfait = serie.justes === total;
       zoneExercice.style.display = 'none';
       zoneBilan.style.display = '';
       zoneBilan.replaceChildren(
-        h('div', { class: 'grand' }, `${justes} / ${total}`),
-        h('p', {}, `Réussite ${formaterPourcent(justes, total)} · temps moyen ${formaterDuree(moyenne)} par nombre · durée totale ${formaterDuree(dureeMs)}`),
-        h('p', {}, conseil),
-        h('div', { class: 'ligne', style: 'margin-top:12px' },
-          btnSuite,
-          h('button', { class: btnSuite ? 'btn' : 'btn principal', onclick: () => nouvelleSerie() }, 'Recommencer ', h('kbd', {}, 'Entrée'))),
-      );
+        h('div', { class: 'grand' }, `${serie.justes} / ${total}`),
+        h('p', {}, `Réussite ${formaterPourcent(serie.justes, total)} · temps moyen ${formaterDuree(dureeMs / total)} par nombre`),
+        serie.erreurs.length ? h('p', {}, `À revoir : ${serie.erreurs.map(formaterNombre).join(' · ')}`) : null,
+        h('p', {}, parfait && reglages.chiffres < MAX_CHIFFRES ? `Parfait : passez à ${reglages.chiffres + 1} chiffres.` : parfait ? 'Parfait.' : 'Repérez d\'abord la tige des unités (le point), puis lisez de gauche à droite.'),
+        h('div', { class: 'ligne' },
+          parfait && reglages.chiffres < MAX_CHIFFRES ? h('button', { class: 'btn principal', onclick: () => { reglages.chiffres += 1; choixChiffres.value = String(reglages.chiffres); nouvelleSerie(); } }, `Passer à ${reglages.chiffres + 1} chiffres`) : null,
+          h('button', { class: 'btn', onclick: () => nouvelleSerie() }, 'Recommencer ', h('kbd', {}, 'Entrée'))));
     }
 
     const sansRaccourcis = raccourcis({
       Enter: () => { if (serie?.phase === 'fin') nouvelleSerie(); else valider(); },
-      Escape: () => { if (reglages.mode === 'poser' && serie?.phase === 'question') soroban.effacer('eleve'); },
+      o: () => (serie?.phase === 'comparer' ? autoEvaluer(true) : false),
+      O: () => (serie?.phase === 'comparer' ? autoEvaluer(true) : false),
+      n: () => (serie?.phase === 'comparer' ? autoEvaluer(false) : false),
+      N: () => (serie?.phase === 'comparer' ? autoEvaluer(false) : false),
     });
 
     nouvelleSerie();
-
-    return () => {
-      if (serie) serie.phase = 'fin-ecran';
-      sansRaccourcis();
-      vue?.detruire();
-    };
+    return () => { if (serie) serie.phase = 'fin-ecran'; sansRaccourcis(); vue?.detruire(); };
   },
 };

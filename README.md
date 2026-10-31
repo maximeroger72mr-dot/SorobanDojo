@@ -25,13 +25,19 @@ npm run dist:win   # Windows portable (.exe), à lancer sous Windows
 npm run dist:mac   # Mac (.dmg), à lancer sous macOS
 ```
 
+## Principe
+
+Le calcul se fait **sur un vrai soroban**. L'application crée les exercices (colonnes, planches,
+multiplications, divisions, drills, sujets d'examen), vérifie le résultat tapé, diagnostique
+l'erreur probable et **montre** le geste sur un soroban virtuel quand il faut expliquer.
+
 ## Organisation
 
 | Dossier | Rôle |
 |---|---|
 | `main.cjs`, `preload.cjs` | Processus Electron : fenêtre, menu, sauvegarde JSON dans le dossier utilisateur |
 | `src/core/` | Logique pure, sans interface, testée (voir ci-dessous) |
-| `src/ui/` | `sorobanVue.js` (soroban SVG), `lecteurDemo.js` et `panneauDemo.js` (démonstrations), `exercice.js` (exécution vérifiée d'un exercice), `seance.js` (série d'exercices, diagnostic), `dom.js` |
+| `src/ui/` | `sorobanVue.js` (soroban SVG de démonstration), `panneauDemo.js` + `lecteurDemo.js` (démonstrations), `explication.js` (« Expliquer »), `serie.js` (exercices un par un), `feuille.js` (feuilles imprimables), `enonce.js`, `dom.js` |
 | `src/modules/` | Un fichier par écran. Chaque écran exporte `{ id, titre, monter(conteneur, app) }` |
 | `tests/` | Tests `node --test` |
 
@@ -42,35 +48,32 @@ Logique (`src/core/`) :
 | `soroban.js` | modèle : tiges, boules, valeur |
 | `gestes.js` | méthode japonaise : gestes, explications, classement en **motifs** (`+4:petit`, `-8:mixte`, `cascade+`…) |
 | `motifs.js` | catalogue des motifs : noms, geste exact (remédiation), exemple canonique |
-| `verificateur.js` | vérifie chaque mouvement de l'élève (mode pas à pas) |
-| `generateur.js` | exercices et planches aléatoires respectant les contraintes d'un palier |
-| `curriculum.js` | **le parcours** : paliers, sous-paliers, explications, démos. À éditer pour changer la progression |
+| `generateur.js` | colonnes aléatoires **strictement** limitées aux motifs permis, avec répétition maximale de la cible |
+| `curriculum.js` | **le parcours** : paliers, sous-paliers, répétitions, explications, démos. À éditer pour changer la progression |
+| `multiplication.js` | multiplication 両落とし et division 片落とし : génération et étapes de démonstration |
+| `diagnostic.js` | causes probables d'une réponse fausse (ligne oubliée, retenue, céleste, produit décalé…) |
+| `drills.js` | 123456789 et variantes, même nombre répété, suite des entiers |
+| `epreuves.js` | formats des examens japonais (10e au 1er kyū) et génération des sujets |
 | `revision.js` | révision espacée (Leitner J+1, J+3, J+7, J+14, J+30) |
-| `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, cartes de révision |
+| `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
 Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la liste `ECRANS` de `src/app.js`.
 
 ## Règles de manipulation (méthode japonaise standard)
 
-Implémentées dans `src/core/gestes.js` :
 - 1 boule céleste (5) et 4 boules terrestres (1) par tige ; une boule compte quand elle touche la barre.
 - Pouce : monte les terrestres. Index : descend les terrestres et manœuvre la céleste.
-- Calcul de gauche à droite (rang le plus élevé d'abord).
-- Ordre de choix : geste direct, puis petit ami (complément à 5), puis grand ami (complément à 10).
-- Grand ami en addition : on retire le complément, puis on pose la retenue à gauche.
-  En soustraction : on emprunte d'abord à gauche, puis on ajoute le complément.
+- Calcul de gauche à droite. Ordre de choix : direct, petit ami (complément à 5), grand ami (complément à 10).
+- Grand ami en addition : complément d'abord, retenue ensuite. En soustraction : emprunt d'abord.
+- Multiplication 両落とし : aucun facteur posé ; produits de table sur deux tiges ; premier produit
+  avec sa dizaine sur la (m+n)-ième tige depuis les unités.
+- Division 片落とし : seul le dividende est posé ; chiffre du quotient deux tiges à gauche si le début
+  du dividende ≥ diviseur, sinon juste à gauche ; unité du quotient (chiffres du diviseur + 1) tiges à gauche.
 
-## État d'avancement
+## Épreuves : sources et limites
 
-- [x] Soroban virtuel interactif, démonstration animée de tout calcul (soroban libre)
-- [x] Lecture et écriture des nombres
-- [x] Sauvegarde locale et écran de progression (version simple)
-- [x] Leçons guidées : 6 paliers, 28 sous-paliers, démonstrations, 50 répétitions, mini-test
-- [x] Gestes vérifiés un par un, diagnostic par motif, remédiation, génération adaptative
-- [x] Révisions espacées (Leitner) et révision ciblée des points faibles
-- [x] Planches 1/2/3 chiffres sur 5/8/10 lignes, ciblées par motif
-- [x] Fichier unique (`Soroban.html`) et versions Windows/Mac construites automatiquement
-- [ ] Séries d'addition/soustraction libres
-- [ ] Défis chrono, flash anzan
-- [ ] Multiplication et division
-- [ ] Épreuves au format officiel
+Formats d'après les informations publiques du Nihon Shuzan Renmei et de la Chambre de commerce et
+d'industrie du Japon (珠算能力検定) : mitorizan 10 problèmes « 10 lignes N chiffres », multiplication et
+division 20 problèmes (10 aux 7e-10e kyū), 20 ou 30 minutes, 200 ou 300 points, 240/300 pour les 1er-3e kyū.
+Restent à confirmer : les seuils des 4e-10e kyū (70 % indicatif) ; les décimaux et arrondis des 1er-3e kyū
+(les sujets sont ici en nombres entiers).

@@ -17,7 +17,7 @@ const reglages = { etiquettes: true, valeurs: false, total: true, mode: 'manuel'
 
 export default {
   id: 'libre',
-  titre: 'Soroban libre',
+  titre: 'Démonstrations',
   monter(el) {
     const soroban = new Soroban(13);
     let lecteur = null;
@@ -46,8 +46,8 @@ export default {
     const listeEtapes = h('ol', { class: 'etapes' });
 
     el.append(
-      h('h1', {}, 'Soroban libre'),
-      h('p', { class: 'discret' }, 'Cliquez sur une boule pour la déplacer. Une boule compte quand elle touche la barre du milieu.'),
+      h('h1', {}, 'Démonstrations'),
+      h('p', { class: 'discret' }, 'Un soroban virtuel pour MONTRER un geste : posez un nombre (en cliquant les boules), puis demandez une opération pour la voir décomposée geste par geste. Le calcul, lui, se pratique sur votre propre soroban.'),
       h('details', { class: 'carte', style: 'margin-top:12px' },
         h('summary', {}, 'Les gestes de base'),
         h('ul', {},

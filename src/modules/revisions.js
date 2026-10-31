@@ -1,20 +1,20 @@
 /**
  * Révisions du jour (répétition espacée, boîtes de Leitner J+1, J+3, J+7, J+14, J+30).
  *
- * Liste les sous-paliers dont la révision est arrivée à échéance. Chacun se révise par un
- * test flash de 10 calculs rapides, sans indice : 9 réussites font monter la carte d'une boîte,
- * sinon elle revient en boîte 1. Propose aussi une révision ciblée sur les points faibles.
+ * Liste les leçons dont la révision est arrivée à échéance. Chacune se révise par un test flash
+ * de 10 calculs sur son soroban : 9 réussites font monter la leçon d'une boîte, sinon elle revient
+ * en boîte 1. Propose aussi une révision ciblée sur les points faibles détectés.
  */
 
-import { sousPalier, SOUS_PALIERS } from '../core/curriculum.js';
-import { genererExercice, genererOperation, tigesPour } from '../core/generateur.js';
-import { nomMotif } from '../core/motifs.js';
+import { sousPalier, SOUS_PALIERS, genererExercice } from '../core/curriculum.js';
+import { genererColonne } from '../core/generateur.js';
+import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES } from '../core/revision.js';
 import {
   revisionsDues, etatPalier, enregistrerRevision, enregistrerSession, poidsAdaptatifs,
   motifsEnDifficulte, aujourdhui,
 } from '../core/progression.js';
-import { creerSeance } from '../ui/seance.js';
+import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree } from '../ui/dom.js';
 
 const FLASH = { exercices: 10, reussitesMin: 9 };
@@ -26,16 +26,17 @@ export default {
   titre: 'Révisions du jour',
   badge: () => revisionsDues().length,
   monter(el, app) {
-    let seance = null;
+    let serie = null;
 
     function liste() {
-      seance?.detruire();
-      seance = null;
+      serie?.detruire();
+      serie = null;
       el.replaceChildren();
+      app.majBadges();
       const dues = revisionsDues().map(sousPalier).filter(Boolean);
       const faibles = motifsEnDifficulte();
       el.append(h('h1', {}, 'Révisions du jour'),
-        h('p', { class: 'discret' }, `Chaque leçon validée revient à intervalles croissants (${INTERVALLES.map((j) => `J+${j}`).join(', ')}). Un test flash de ${FLASH.exercices} calculs entretient l'automatisme.`));
+        h('p', { class: 'discret' }, `Chaque leçon validée revient à intervalles croissants (${INTERVALLES.map((j) => `J+${j}`).join(', ')}). Un test flash de ${FLASH.exercices} calculs sur votre soroban entretient l'automatisme.`));
 
       if (dues.length) {
         el.append(h('div', { class: 'liste-paliers' }, dues.map((sp) => {
@@ -70,33 +71,32 @@ export default {
       }
     }
 
-    /** Écran commun d'une série rapide, avec bilan. */
-    function serie({ titre, sousTitre, nbTiges, generer, motifsSuivis, apresBilan }) {
+    function lancerSerie({ titre, sousTitre, generer, cibles, apresBilan }) {
       el.replaceChildren(
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
-      seance = creerSeance(el, {
-        nbTiges, generer, motifsSuivis, nombre: FLASH.exercices, indices: false, chrono: true,
+      serie = creerSerie(el, {
+        generer, cibles, nombre: FLASH.exercices, chrono: true, defi: true,
         surFin: async (bilan) => {
-          seance.detruire();
-          seance = null;
+          serie.detruire();
+          serie = null;
           const message = await apresBilan(bilan);
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${bilan.justes} / ${bilan.total}`),
             h('p', {}, `Temps : ${formaterDuree(bilan.dureeMs)} · ${formaterDuree(bilan.dureeMs / bilan.total)} par calcul`),
             h('p', {}, message),
-            h('button', { class: 'btn principal', onclick: () => liste() }, 'Retour aux révisions')));
+            h('button', { class: 'btn principal', onclick: () => liste() }, 'Retour aux révisions')),
+          listeErreurs(bilan.resultats) ?? '');
         },
       });
     }
 
     function flash(sp) {
-      serie({
+      lancerSerie({
         titre: `Test flash : ${sp.titre}`,
-        sousTitre: `${FLASH.exercices} calculs rapides, sans indice. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
-        nbTiges: tigesPour(sp.chiffres),
+        sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
         generer: () => genererExercice(sp, poidsAdaptatifs()),
-        motifsSuivis: sp.autorises,
+        cibles: sp.type === 'addsub' ? sp.cibles : null,
         apresBilan: async (b) => {
           const reussi = b.justes >= FLASH.reussitesMin;
           await enregistrerRevision(sp.id, reussi);
@@ -104,18 +104,19 @@ export default {
           const c = etatPalier(sp.id).carte;
           return reussi
             ? `Automatisme entretenu : boîte ${c.boite}, prochaine révision ${dateFr(c.echeance)}.`
-            : `Moins de ${FLASH.reussitesMin} réussites : la leçon revient en boîte 1, à revoir ${dateFr(c.echeance)}. Un passage par l'entraînement de la leçon peut aider.`;
+            : `Moins de ${FLASH.reussitesMin} réussites : la leçon revient en boîte 1, à revoir ${dateFr(c.echeance)}.`;
         },
       });
     }
 
     function cible(cles) {
-      serie({
+      // Uniquement les gestes directs et les points faibles : on répète exactement ce qui pose problème.
+      const autorises = new Set([...famille('direct'), ...cles]);
+      lancerSerie({
         titre: 'Révision ciblée des points faibles',
         sousTitre: cles.map(nomMotif).join(' · '),
-        nbTiges: tigesPour(1),
-        generer: () => genererOperation({ chiffres: 1, autorises: null, cibles: cles }),
-        motifsSuivis: new Set(cles),
+        generer: () => genererColonne({ chiffres: 2, lignes: 5, autorises, cibles: cles }),
+        cibles: cles,
         apresBilan: async (b) => {
           await enregistrerSession({ module: 'revisions', mode: 'cible', total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const restants = motifsEnDifficulte().length;
@@ -125,6 +126,6 @@ export default {
     }
 
     liste();
-    return () => seance?.detruire();
+    return () => serie?.detruire();
   },
 };

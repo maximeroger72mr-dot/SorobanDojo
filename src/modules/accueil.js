@@ -6,18 +6,17 @@ import { nomMotif } from '../core/motifs.js';
 import { prochainSousPalier } from './lecons.js';
 
 const DESCRIPTIONS = {
-  libre: 'Manipuler le soroban et voir n\'importe quel calcul décomposé geste par geste.',
-  lecture: 'Lire un nombre affiché sur le soroban, ou poser un nombre donné.',
-  lecons: 'Unités, dizaines, petits amis, grands amis : démonstration, 50 répétitions, mini-test.',
+  lecons: 'Le parcours : gestes directs, petits amis, grands amis, combinaisons, multiplication, division.',
   revisions: 'Révisions espacées des leçons validées (J+1, J+3, J+7, J+14, J+30).',
-  planches: 'Colonnes de 5 à 10 nombres, 1 à 3 chiffres, ciblées sur un motif au choix.',
-  calcul: 'Séries d\'additions et de soustractions, nombre de chiffres et de termes réglables.',
-  'pas-a-pas': 'Chaque mouvement de boule est vérifié et corrigé.',
-  multiplication: 'Méthode japonaise standard, avec démonstrations.',
+  planches: 'Feuilles de colonnes imprimables, ciblées sur un ami précis pour en répéter le geste.',
+  drills: '123456789 et ses variantes, même nombre répété, suite des entiers. Chronométrés.',
+  muldiv: 'Multiplication (両落とし) et division (片落とし) : démonstrations et séries.',
   anzan: 'Calcul mental : des nombres défilent, donnez leur somme.',
-  defis: 'Vingt calculs le plus vite possible, record personnel.',
-  epreuves: 'Sujets au format des examens japonais.',
-  progression: 'Historique, taux de réussite, temps moyen, points à retravailler.',
+  defis: 'Le plus vite possible, avec record personnel.',
+  epreuves: 'Sujets au format des examens japonais, du 10e au 1er kyū.',
+  lecture: 'Lire un soroban, poser un nombre sur le vôtre.',
+  libre: 'Le soroban virtuel pour voir n\'importe quel calcul geste par geste.',
+  progression: 'Historique, réussite, temps, points faibles.',
 };
 
 /** Suggestion du jour, par ordre de priorité : révisions dues, points faibles, leçon suivante. */
@@ -44,7 +43,7 @@ export default {
     el.append(
       h('h1', {}, 'Apprendre le soroban'),
       h('p', { class: 'discret' }, premiereFois
-        ? 'Bienvenue. Le soroban est le boulier japonais : chaque geste a une raison, et l\'application vous l\'explique à chaque fois.'
+        ? 'Bienvenue. Gardez votre soroban devant vous : l\'application vous donne les calculs, corrige vos résultats et vous montre les gestes quand il le faut.'
         : 'Bon retour.'),
       h('div', { class: 'carte suggestion', style: 'margin-top:16px' },
         h('strong', {}, 'Suggestion : '), s.texte, ' ',

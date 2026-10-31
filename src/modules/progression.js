@@ -2,10 +2,13 @@
 
 import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
 import { statistiques, progression, SEUIL_DIFFICULTE } from '../core/progression.js';
-import { SOUS_PALIERS, REPETITIONS_REQUISES } from '../core/curriculum.js';
+import { SOUS_PALIERS } from '../core/curriculum.js';
 import { nomMotif } from '../core/motifs.js';
 
-const NOMS_MODULES = { lecture: 'Lecture et écriture', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches' };
+const NOMS_MODULES = {
+  lecture: 'Lecture des nombres', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches', drills: 'Drills',
+  muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles',
+};
 
 export default {
   id: 'progression',
@@ -42,7 +45,7 @@ export default {
       h('table', {}, h('tr', {}, ['Leçon', 'Répétitions', 'Réussite', 'État'].map((x) => h('th', {}, x))),
         SOUS_PALIERS.filter((sp) => p.paliers[sp.id]).map((sp) => {
           const e = p.paliers[sp.id];
-          return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${REPETITIONS_REQUISES}`),
+          return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${sp.repetitions}`),
             h('td', {}, formaterPourcent(e.justes, e.reps)), h('td', {}, e.valide ? `validée (boîte ${e.carte.boite})` : 'en cours'));
         })));
 

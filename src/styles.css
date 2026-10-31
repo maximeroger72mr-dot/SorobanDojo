@@ -197,3 +197,75 @@ dialog.dialogue {
 }
 dialog.dialogue::backdrop { background: #0005; }
 .panneau-demo svg.soroban, .seance svg.soroban { max-height: 280px; }
+
+/* ------------------------------------------------------------ énoncés à calculer sur son soroban */
+table.colonne { width: auto; background: none; font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; margin: 6px 0 12px; }
+table.colonne td { border: none; padding: 1px 8px; text-align: right; }
+table.colonne td.signe { width: 24px; text-align: center; color: var(--discret); }
+table.colonne td.num { font-size: 0.75rem; color: var(--discret); font-weight: normal; }
+table.colonne td.sous-total { font-size: 0.55em; color: var(--accent); font-weight: 500; text-align: left; }
+table.colonne tr.cliquable { cursor: pointer; }
+table.colonne tr.cliquable:hover { background: #eaf0fc; }
+table.colonne td.jouer { font-size: 0.5em; color: var(--accent); }
+table.colonne.compacte { font-size: 1.15rem; margin: 4px 0; }
+table.colonne.compacte td { padding: 0 4px; }
+.operation { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 10px 0 14px; }
+.operation.compacte { font-size: 1.15rem; margin: 4px 0; }
+.grand-signe { font-size: 1.5rem; font-weight: 700; }
+.pastilles { display: flex; flex-wrap: wrap; gap: 3px; min-height: 22px; }
+.pastille-res { width: 22px; height: 22px; border-radius: 4px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; color: white; }
+.pastille-res.ok { background: var(--ok); }
+.pastille-res.ko { background: var(--erreur); }
+.serie .saisie-nombre { width: 260px; }
+.etapes li.sous { padding-left: 26px; }
+.etapes li.annonce { font-style: normal; font-weight: 600; color: var(--texte); }
+.btn.ok-btn { border-color: var(--ok); color: var(--ok); }
+.btn.ko-btn { border-color: var(--erreur); color: var(--erreur); }
+.liste-erreurs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.erreur-item .detail { font-size: 0.9rem; }
+
+/* ------------------------------------------------------------ feuilles (planches, épreuves) */
+.barre-feuille {
+  position: sticky; top: -28px; z-index: 2; display: flex; gap: 10px; align-items: center;
+  background: var(--fond); padding: 10px 0; border-bottom: 1px solid var(--ligne); margin-bottom: 12px;
+}
+.chrono-feuille { font-variant-numeric: tabular-nums; color: var(--discret); }
+.chrono-feuille.urgent { color: var(--erreur); font-weight: 700; }
+.grille-feuille { display: grid; gap: 10px; }
+.grille-feuille.colonnes { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.grille-feuille.operations { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.probleme { background: var(--surface); border: 1px solid var(--ligne); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.probleme .num-probleme { align-self: flex-start; font-size: 0.75rem; color: var(--discret); }
+.probleme input { width: 100%; font: inherit; font-size: 1.05rem; text-align: right; padding: 4px 6px; border: 1px solid var(--ligne); border-radius: 4px; font-variant-numeric: tabular-nums; }
+.probleme.ok { border-color: var(--ok); box-shadow: inset 4px 0 0 var(--ok); }
+.probleme.ko { border-color: var(--erreur); box-shadow: inset 4px 0 0 var(--erreur); }
+.probleme .correction { align-self: stretch; font-size: 0.85rem; text-align: right; }
+.section-feuille + .section-feuille { margin-top: 18px; }
+.corrige-impression { display: none; }
+
+/* ------------------------------------------------------------ drills, flash anzan */
+.drill-operations { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px 14px; margin: 12px 0; font-variant-numeric: tabular-nums; }
+.drill-op { display: flex; gap: 10px; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; }
+.drill-op:hover { background: #eaf0fc; }
+.drill-op .num { width: 26px; color: var(--discret); font-size: 0.8rem; }
+.drill-op .sous-total { color: var(--accent); margin-left: auto; font-size: 0.95rem; }
+.flash-ecran {
+  height: 220px; display: flex; align-items: center; justify-content: center; margin: 14px 0;
+  background: var(--surface); border: 1px solid var(--ligne); border-radius: 10px;
+  font-size: 6rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.flash-ecran.decompte { color: var(--discret); font-size: 3rem; }
+
+/* ------------------------------------------------------------ impression : la feuille seule, corrigé sur une autre page */
+@media print {
+  body { display: block; height: auto; overflow: visible; background: white; }
+  #navigation, .reglages, .lien, button, .chrono-feuille, .bilan, main > h1, main > p, main > details, main > .carte { display: none !important; }
+  main { padding: 0; overflow: visible; }
+  .barre-feuille { position: static; border: none; }
+  .probleme { break-inside: avoid; border-color: #999; }
+  .probleme input { border: none; border-bottom: 1px solid #333; border-radius: 0; color: transparent; }
+  .probleme.ok, .probleme.ko { box-shadow: none; }
+  .probleme .correction { display: none; }
+  .corrige-impression { display: block; break-before: page; }
+  .corrige-impression ol { columns: 4; font-variant-numeric: tabular-nums; }
+}
