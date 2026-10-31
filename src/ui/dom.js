@@ -42,6 +42,8 @@ export function raccourcis(table) {
   const f = (e) => {
     const action = table[e.key];
     if (!action) return;
+    // Une fenêtre de démonstration ouverte garde le clavier pour elle.
+    if (document.querySelector('dialog[open]')) return;
     // Entrée dans un champ de saisie : on laisse l'écran décider (il passe la touche ici volontairement).
     if (action(e) !== false) e.preventDefault();
   };

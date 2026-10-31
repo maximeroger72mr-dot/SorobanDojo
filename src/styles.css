@@ -147,3 +147,53 @@ svg.soroban .doigt { font-size: 12px; font-weight: 600; fill: var(--accent); }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--ligne); font-variant-numeric: tabular-nums; }
 th { font-weight: 600; color: var(--discret); font-size: 0.9rem; }
+
+/* ------------------------------------------------------------ leçons, séances, planches */
+button.lien { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0 0 8px; }
+.pastille {
+  display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px;
+  background: var(--erreur); color: white; font-size: 0.75rem; text-align: center; line-height: 18px;
+}
+.liste-paliers { display: flex; flex-direction: column; gap: 4px; }
+.ligne-palier {
+  display: flex; align-items: center; gap: 12px; text-align: left; font: inherit; color: var(--texte);
+  background: var(--surface); border: 1px solid var(--ligne); border-radius: 6px; padding: 9px 12px; cursor: pointer;
+}
+.ligne-palier:hover:not(:disabled) { border-color: #c9c6bf; }
+.ligne-palier:disabled { opacity: 0.45; cursor: default; }
+.ligne-palier .icone { width: 16px; text-align: center; color: var(--accent); }
+.ligne-palier.valide .icone { color: var(--ok); }
+.ligne-palier .titre { flex: 1; }
+.ligne-palier .statut { color: var(--discret); font-size: 0.9rem; }
+.pourquoi { line-height: 1.55; border-left: 3px solid var(--accent); }
+
+.enonce { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 4px 0 8px; min-height: 1.3em; }
+.enonce .fait { color: var(--discret); font-weight: 600; }
+.enonce .courant { color: var(--accent); text-decoration: underline; text-underline-offset: 6px; }
+
+.bandeau { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.jauge { width: 220px; height: 8px; background: var(--ligne); border-radius: 4px; overflow: hidden; }
+.jauge > div { height: 100%; background: var(--accent); transition: width 200ms; }
+
+.diagnostic {
+  margin-top: 14px; padding: 12px 16px; border-radius: 8px; background: #fff8ec; border: 1px solid #f0d9ae;
+  border-left: 4px solid #e39b21; display: flex; flex-direction: column; gap: 10px;
+}
+.diag-motif { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; line-height: 1.45; }
+
+.disposition-colonne { display: flex; gap: 24px; align-items: flex-start; }
+table.planche { width: auto; min-width: 150px; font-size: 1.6rem; font-weight: 600; background: none; }
+table.planche td { padding: 2px 10px; border: none; text-align: right; }
+table.planche td.num { font-size: 0.8rem; color: var(--discret); font-weight: normal; }
+table.planche td.signe { width: 20px; text-align: center; }
+table.planche tr.fait { color: #b3b0aa; }
+table.planche tr.courant { color: var(--accent); background: #eaf0fc; }
+.chrono { margin-right: 14px; }
+td.a-retravailler { color: var(--erreur); font-weight: 600; }
+
+dialog.dialogue {
+  border: none; border-radius: 10px; padding: 20px 24px; width: min(900px, 92vw); max-height: 92vh;
+  box-shadow: 0 10px 40px #0004; background: var(--fond); color: var(--texte);
+}
+dialog.dialogue::backdrop { background: #0005; }
+.panneau-demo svg.soroban, .seance svg.soroban { max-height: 280px; }

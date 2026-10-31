@@ -1,19 +1,21 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "test": "node --test \"tests/**/*.test.js\"",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:win": "electron-builder --win portable",
+    "dist:mac": "electron-builder --mac",
+    "html": "node scripts/construire-html.mjs"
   },
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
     "electron": "^45.2.1",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2"
   },
   "productName": "Soroban",
   "type": "module",
@@ -26,15 +28,23 @@
       "src/**/*"
     ],
     "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "target": "portable"
     },
     "mac": {
-      "target": "dmg",
-      "category": "public.app-category.education"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "artifactName": "Soroban-${version}-Mac.dmg",
+      "identity": "-"
+    },
+    "portable": {
+      "artifactName": "Soroban-${version}-Windows.exe"
     }
   }
 }

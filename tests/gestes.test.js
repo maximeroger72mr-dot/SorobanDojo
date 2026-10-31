@@ -85,3 +85,26 @@ test('erreurs : négatif et dépassement', () => {
   assert.throws(() => calculerGestes(etatDe(5), 4, '-', 6), ErreurCalcul);
   assert.throws(() => calculerGestes(etatDe(99999), 4, '+', 1), ErreurCalcul);
 });
+
+const cles = (r) => r.motifs.map((m) => m.cle);
+
+test('motifs : direct, petit, grand, mixte', () => {
+  assert.deepEqual(cles(calculerGestes(etatDe(2), 4, '+', 2)), ['+2:direct']);
+  assert.deepEqual(cles(calculerGestes(etatDe(4), 4, '+', 3)), ['+3:petit']);
+  assert.deepEqual(cles(calculerGestes(etatDe(8), 4, '+', 7)), ['+7:grand', '+1:direct']);
+  assert.deepEqual(cles(calculerGestes(etatDe(5), 4, '+', 6)), ['+6:mixte', '+1:direct']);
+  assert.deepEqual(cles(calculerGestes(etatDe(6), 4, '-', 3)), ['-3:petit']);
+  assert.deepEqual(cles(calculerGestes(etatDe(13), 4, '-', 8)), ['-8:mixte', '-1:direct']);
+  assert.deepEqual(cles(calculerGestes(etatDe(15), 4, '-', 7)), ['-7:grand', '-1:direct']);
+});
+
+test('motifs : retenue sur 4 (petit ami) et cascades', () => {
+  assert.deepEqual(cles(calculerGestes(etatDe(49), 4, '+', 1)), ['+1:grand', '+1:petit']);
+  assert.deepEqual(cles(calculerGestes(etatDe(99), 4, '+', 1)), ['+1:grand', 'cascade+', '+1:direct']);
+  assert.deepEqual(cles(calculerGestes(etatDe(100), 4, '-', 1)), ['-1:grand', 'cascade-', '-1:direct']);
+});
+
+test('chaque étape porte le motif du chiffre principal', () => {
+  const r = calculerGestes(etatDe(5), 4, '+', 6);
+  assert.ok(r.etapes.every((e) => e.motif === '+6:mixte'));
+});

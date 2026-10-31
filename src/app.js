@@ -11,6 +11,9 @@ import { chargerProgression } from './core/progression.js';
 import accueil from './modules/accueil.js';
 import libre from './modules/libre.js';
 import lecture from './modules/lecture.js';
+import lecons from './modules/lecons.js';
+import revisions from './modules/revisions.js';
+import planches from './modules/planches.js';
 import progressionEcran from './modules/progression.js';
 
 /** Écrans disponibles, et ceux annoncés pour les prochaines étapes (désactivés). */
@@ -18,7 +21,9 @@ const ECRANS = [
   accueil,
   libre,
   lecture,
-  { id: 'lecons', titre: 'Leçons guidées', bientot: true },
+  lecons,
+  revisions,
+  planches,
   { id: 'calcul', titre: 'Addition et soustraction', bientot: true },
   { id: 'pas-a-pas', titre: 'Pas à pas', bientot: true },
   { id: 'multiplication', titre: 'Multiplication et division', bientot: true },
@@ -34,14 +39,25 @@ let nettoyage = null;
 
 export const app = {
   ecrans: ECRANS,
-  /** Affiche l'écran demandé. */
-  aller(id) {
+  /** Affiche l'écran demandé (params : options propres à l'écran, ex. { sousPalier: 'p3-1' }). */
+  aller(id, params = {}) {
     const ecran = ECRANS.find((e) => e.id === id && !e.bientot) ?? accueil;
     nettoyage?.();
     zone.replaceChildren();
     zone.scrollTop = 0;
-    nettoyage = ecran.monter(zone, app) ?? null;
+    nettoyage = ecran.monter(zone, app, params) ?? null;
     for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === ecran.id);
+    app.majBadges();
+  },
+  /** Met à jour les pastilles de la navigation (ex. nombre de révisions dues). */
+  majBadges() {
+    for (const e of ECRANS) {
+      const pastille = nav.querySelector(`button[data-id="${e.id}"] .pastille`);
+      if (!pastille || !e.badge) continue;
+      const n = e.badge();
+      pastille.textContent = n || '';
+      pastille.style.display = n ? '' : 'none';
+    }
   },
 };
 
@@ -49,7 +65,8 @@ function construireNavigation() {
   nav.append(h('div', { class: 'titre-app' }, 'Soroban'));
   for (const e of ECRANS) {
     nav.append(h('button', { 'data-id': e.id, disabled: !!e.bientot, onclick: () => app.aller(e.id) },
-      e.titre, e.bientot ? h('span', { class: 'bientot' }, '· bientôt') : null));
+      e.titre, e.bientot ? h('span', { class: 'bientot' }, '· bientôt') : null,
+      e.badge ? h('span', { class: 'pastille', style: 'display:none' }) : null));
   }
 }
 

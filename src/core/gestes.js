@@ -23,6 +23,12 @@
  * Mouvement élémentaire : { tige, perle: 'celeste'|'terrestre', delta, doigt: 'pouce'|'index', sens }
  *   delta : variation de valeur (+5/−5 pour la céleste, ±n pour n boules terrestres)
  *   sens  : 'monte' ou 'descend' (direction physique de la boule)
+ *
+ * MOTIFS : chaque chiffre ajouté ou retiré est aussi classé dans un « motif opératoire »,
+ * par exemple '+4:petit' (ajouter 4 avec le petit ami), '-8:mixte' (retirer 8 : grand ami
+ * dont le complément se fait par petit ami), 'cascade+' (retenue qui se propage).
+ * Ces motifs servent au diagnostic des faiblesses et à la génération ciblée d'exercices.
+ * Règles possibles : 'direct', 'petit' (petit ami), 'grand' (grand ami), 'mixte' (grand + petit ami).
  */
 
 import { chiffreDepuisEtat } from './soroban.js';
@@ -40,7 +46,29 @@ export function nomRang(rang) {
 }
 
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
-const boulesT = (n) => pluriel(n, 'boule terrestre');
+const boulesT = (n) => (n > 1 ? `${n} boules terrestres` : `${n} boule terrestre`);
+
+/**
+ * Règle employée pour AJOUTER le chiffre d à une tige dans l'état donné (sans regarder la retenue).
+ * @returns {'direct'|'petit'|'grand'|'mixte'}
+ */
+export function regleAjout(etat, d) {
+  const c = chiffreDepuisEtat(etat);
+  if (c + d <= 9) return d >= 5 || etat.terrestres + d <= 4 ? 'direct' : 'petit';
+  const k = 10 - d; // complément à retirer
+  return k < 5 && etat.terrestres < k ? 'mixte' : 'grand';
+}
+
+/**
+ * Règle employée pour RETIRER le chiffre d d'une tige dans l'état donné (sans regarder l'emprunt).
+ * @returns {'direct'|'petit'|'grand'|'mixte'}
+ */
+export function regleRetrait(etat, d) {
+  const c = chiffreDepuisEtat(etat);
+  if (c >= d) return d >= 5 || etat.terrestres >= d ? 'direct' : 'petit';
+  const k = 10 - d; // complément à ajouter après l'emprunt
+  return k < 5 && etat.terrestres + k > 4 ? 'mixte' : 'grand';
+}
 
 /** Erreur levée quand l'opération sort du soroban (résultat négatif ou trop grand). */
 export class ErreurCalcul extends Error {}
@@ -50,6 +78,24 @@ class Calculateur {
     this.etats = etats.map((e) => ({ ...e }));
     this.tigeUnites = tigeUnites;
     this.etapes = [];
+    this.motifs = [];        // motifs rencontrés : { cle, tige, role }
+    this.motifCourant = null; // motif du chiffre principal en cours (attaché à chaque étape)
+  }
+
+  /**
+   * Note le motif d'une opération sur une tige.
+   * role : 'principal' (chiffre du nombre), 'retenue' (+1 reporté à gauche),
+   *        'emprunt' (−1 pris à gauche) ou 'complement' (sous-geste d'un grand ami : non noté).
+   */
+  noterMotif(op, tige, d, regle, role) {
+    let cle;
+    if (role === 'principal') cle = `${op}${d}:${regle}`;
+    else if (role === 'retenue' || role === 'emprunt') {
+      // Une retenue qui tombe sur un 9 (ou un emprunt sur un 0) se propage : c'est la cascade.
+      cle = regle === 'grand' || regle === 'mixte' ? `cascade${op}` : `${op}1:${regle}`;
+    } else return;
+    this.motifs.push({ cle, tige, role });
+    if (role === 'principal') this.motifCourant = cle;
   }
 
   nom(tige) {
@@ -62,7 +108,7 @@ class Calculateur {
 
   /** Démarre une nouvelle étape et la renvoie. */
   etape(regle, tige, texte) {
-    const e = { regle, tige, texte, mouvements: [] };
+    const e = { regle, tige, texte, motif: this.motifCourant, mouvements: [] };
     this.etapes.push(e);
     return e;
   }
@@ -94,12 +140,13 @@ class Calculateur {
   }
 
   /** Ajoute le chiffre d (1..9) sur la tige. */
-  ajouter(tige, d) {
+  ajouter(tige, d, role = 'principal') {
     if (d === 0) return;
     this.verifierTige(tige);
     const c = this.chiffre(tige);
     const e = this.etats[tige];
     const nom = this.nom(tige);
+    this.noterMotif('+', tige, d, regleAjout(e, d), role);
 
     if (c + d <= 9) {
       if (d >= 5) {
@@ -135,17 +182,18 @@ class Calculateur {
       `Ajouter ${d} aux ${nom} (qui valent ${c}) : on dépasserait 9. `
       + `Grand ami : ajouter ${d}, c'est retirer ${k} puis ajouter 10. `
       + `On retire d'abord ${k} sur les ${nom}, puis on ajoute 1 sur les ${this.nom(tige - 1)} (la retenue).`);
-    this.retirer(tige, k);
-    this.ajouter(tige - 1, 1);
+    this.retirer(tige, k, 'complement');
+    this.ajouter(tige - 1, 1, 'retenue');
   }
 
   /** Retire le chiffre d (1..9) de la tige. */
-  retirer(tige, d) {
+  retirer(tige, d, role = 'principal') {
     if (d === 0) return;
     this.verifierTige(tige);
     const c = this.chiffre(tige);
     const e = this.etats[tige];
     const nom = this.nom(tige);
+    this.noterMotif('-', tige, d, regleRetrait(e, d), role);
 
     if (c >= d) {
       if (d >= 5) {
@@ -182,7 +230,7 @@ class Calculateur {
       + `Grand ami : retirer ${d}, c'est retirer 10 puis ajouter ${k}. `
       + `On retire d'abord 1 sur les ${this.nom(tige - 1)} (l'emprunt), puis on ajoute ${k} sur les ${nom}.`);
     this.retirerEmprunt(tige - 1);
-    this.ajouter(tige, k);
+    this.ajouter(tige, k, 'complement');
   }
 
   /** Retire 1 pour un emprunt ; échoue proprement si tout le nombre à gauche est nul. */
@@ -190,7 +238,7 @@ class Calculateur {
     let t = tige;
     while (t >= 0 && this.chiffre(t) === 0) t--;
     if (t < 0) throw new ErreurCalcul('Le résultat serait négatif.');
-    this.retirer(tige, 1);
+    this.retirer(tige, 1, 'emprunt');
   }
 }
 
@@ -202,7 +250,7 @@ class Calculateur {
  * @param {number} tigeUnites  index de la tige des unités
  * @param {'+'|'-'} op
  * @param {number} n  entier naturel
- * @returns {{ etapes: Array, etatFinal: Array }}
+ * @returns {{ etapes: Array, etatFinal: Array, motifs: Array<{cle, tige, role}> }}
  */
 export function calculerGestes(etats, tigeUnites, op, n) {
   if (!Number.isInteger(n) || n < 0) throw new RangeError('Entier naturel attendu.');
@@ -224,7 +272,7 @@ export function calculerGestes(etats, tigeUnites, op, n) {
     else if (op === '-') calc.retirer(tige, d);
     else throw new Error(`Opération inconnue : ${op}`);
   }
-  return { etapes: calc.etapes, etatFinal: calc.etats };
+  return { etapes: calc.etapes, etatFinal: calc.etats, motifs: calc.motifs };
 }
 
 /** Liste à plat de tous les mouvements (utile pour le mode pas à pas). */

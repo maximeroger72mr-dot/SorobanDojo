@@ -1,0 +1,68 @@
+# Construit les versions à télécharger à chaque envoi sur main :
+#  - Soroban-x.y.z-Windows.exe : version portable (un seul fichier, aucune installation)
+#  - Soroban-x.y.z-Mac.dmg     : application Mac (Intel et Apple Silicon)
+#  - Soroban.html              : version navigateur en un seul fichier
+# et les publie sur la page « Releases » du dépôt, sous le nom « Dernière version ».
+name: Versions à télécharger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construire:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Windows (portable)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win portable --publish never
+      - name: Mac (dmg universel, signature ad hoc)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soroban-${{ runner.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: error
+
+  publier:
+    needs: construire
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm run html
+      - uses: actions/download-artifact@v4
+        with:
+          path: a-publier
+          merge-multiple: true
+      - run: cp Soroban.html a-publier/
+      - name: Publier « Dernière version »
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete derniere-version --yes --cleanup-tag || true
+          gh release create derniere-version a-publier/* \
+            --title "Dernière version" \
+            --notes "Version construite automatiquement depuis le commit ${GITHUB_SHA::7}. Windows : Soroban-…-Windows.exe (aucune installation). Mac : Soroban-…-Mac.dmg. Tous systèmes : Soroban.html (s'ouvre dans le navigateur)."
