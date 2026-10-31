@@ -1,0 +1,149 @@
+/* Style minimaliste : fond clair, un seul accent, rien d'inutile. */
+:root {
+  --fond: #f6f5f2;
+  --surface: #ffffff;
+  --texte: #1f2328;
+  --discret: #6b6f76;
+  --ligne: #e1dfda;
+  --accent: #2f6fdf;
+  --ok: #2e8b57;
+  --erreur: #d1352b;
+  --bois: #3b3530;
+  --boule: #7a6b60;
+  --boule-active: #2a231e;
+  font-size: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ navigation */
+#navigation {
+  width: 210px;
+  flex-shrink: 0;
+  padding: 18px 10px;
+  border-right: 1px solid var(--ligne);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+#navigation .titre-app { font-weight: 700; font-size: 1.15rem; padding: 0 10px 14px; }
+#navigation button {
+  text-align: left; background: none; border: none; padding: 8px 10px; border-radius: 6px;
+  font: inherit; color: var(--texte); cursor: pointer;
+}
+#navigation button:hover { background: #ebe9e4; }
+#navigation button.actif { background: var(--texte); color: white; }
+#navigation button:disabled { color: #a9acb2; cursor: default; background: none; }
+#navigation .bientot { font-size: 0.75rem; margin-left: 4px; }
+
+main { flex: 1; overflow-y: auto; padding: 28px 36px 48px; }
+main > * { max-width: 1000px; }
+
+h1 { font-size: 1.5rem; margin: 0 0 6px; }
+h2 { font-size: 1.1rem; margin: 24px 0 8px; }
+p { line-height: 1.5; margin: 6px 0; }
+.discret { color: var(--discret); }
+
+/* ------------------------------------------------------------ contrôles */
+button.btn {
+  font: inherit; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--ligne); background: var(--surface); color: var(--texte);
+}
+button.btn:hover { border-color: #c9c6bf; }
+button.btn.principal { background: var(--accent); border-color: var(--accent); color: white; }
+button.btn:disabled { opacity: 0.45; cursor: default; }
+kbd {
+  font: 0.75rem ui-monospace, monospace; border: 1px solid var(--ligne); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 4px; background: var(--surface); color: var(--discret);
+}
+
+.reglages {
+  display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+  padding: 10px 0 14px; border-bottom: 1px solid var(--ligne); margin-bottom: 18px;
+}
+.reglages label { display: flex; gap: 6px; align-items: center; color: var(--discret); }
+select, input[type="number"], input[type="text"] {
+  font: inherit; padding: 6px 8px; border: 1px solid var(--ligne); border-radius: 6px; background: var(--surface);
+}
+
+.segments { display: inline-flex; border: 1px solid var(--ligne); border-radius: 6px; overflow: hidden; }
+.segments button { font: inherit; border: none; background: var(--surface); padding: 6px 14px; cursor: pointer; }
+.segments button + button { border-left: 1px solid var(--ligne); }
+.segments button.actif { background: var(--texte); color: white; }
+
+.carte { background: var(--surface); border: 1px solid var(--ligne); border-radius: 8px; padding: 16px 18px; }
+details.carte summary { cursor: pointer; font-weight: 600; }
+details.carte ul { margin: 10px 0 0; padding-left: 20px; line-height: 1.6; }
+
+.ligne { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ------------------------------------------------------------ exercice */
+.consigne { font-size: 1.05rem; margin: 6px 0 12px; min-height: 1.5em; }
+.nombre-cible { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.compteur { color: var(--discret); font-variant-numeric: tabular-nums; }
+.saisie-nombre { font-size: 1.6rem; width: 220px; font-variant-numeric: tabular-nums; }
+.retour { min-height: 3.2em; margin-top: 12px; line-height: 1.5; }
+.retour.ok { color: var(--ok); font-weight: 600; }
+.retour.erreur { color: var(--erreur); }
+.retour .detail { color: var(--texte); font-weight: normal; }
+
+.bilan { font-size: 1.1rem; }
+.bilan .grand { font-size: 2rem; font-weight: 700; }
+
+/* ------------------------------------------------------------ soroban */
+.zone-soroban { margin: 8px 0; }
+svg.soroban { width: 100%; max-height: 360px; display: block; user-select: none; touch-action: none; }
+svg.soroban .cadre { fill: var(--bois); }
+svg.soroban .fond { fill: #efece6; }
+svg.soroban .axe { stroke: #9c958c; stroke-width: 2; }
+svg.soroban .barre { fill: var(--bois); }
+svg.soroban .repere { fill: #f6f5f2; }
+svg.soroban .boule {
+  fill: var(--boule); stroke: #00000030; stroke-width: 1;
+  transition: transform 110ms ease-out, fill 120ms;
+}
+svg.soroban.interactif .boule { cursor: pointer; }
+svg.soroban.interactif .boule:hover { stroke: var(--accent); stroke-width: 2; }
+svg.soroban .boule.active { fill: var(--boule-active); }
+svg.soroban .boule.bouge { fill: var(--accent) !important; }
+svg.soroban .tige.erreur .boule { fill: var(--erreur); }
+svg.soroban .tige.ok .boule.active { fill: var(--ok); }
+svg.soroban .tige.cible .axe { stroke: var(--accent); stroke-width: 3; }
+svg.soroban .etiquette, svg.soroban .valeur-tige { font-size: 12px; fill: var(--discret); display: none; }
+svg.soroban .valeur-tige { font-size: 14px; font-weight: 600; fill: var(--texte); }
+svg.soroban.avec-etiquettes .etiquette, svg.soroban.avec-valeurs .valeur-tige { display: block; }
+svg.soroban .doigt { font-size: 12px; font-weight: 600; fill: var(--accent); }
+
+/* Démonstration : liste des étapes */
+.etapes { list-style: none; padding: 0; margin: 10px 0 0; }
+.etapes li { padding: 6px 10px; border-left: 3px solid transparent; color: var(--discret); line-height: 1.45; }
+.etapes li.courante { border-left-color: var(--accent); color: var(--texte); background: var(--surface); }
+.etapes li.annonce { font-style: italic; }
+.etapes .regle {
+  display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 4px; background: #ebe9e4; margin-right: 6px; font-style: normal;
+}
+
+/* ------------------------------------------------------------ accueil / progression */
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
+.grille .carte { cursor: pointer; }
+.grille .carte:hover { border-color: #c9c6bf; }
+.grille .carte.indisponible { cursor: default; opacity: 0.55; }
+.grille .carte h3 { margin: 0 0 4px; font-size: 1rem; }
+.grille .carte p { margin: 0; color: var(--discret); font-size: 0.92rem; }
+.suggestion { border-left: 3px solid var(--accent); }
+
+table { border-collapse: collapse; width: 100%; background: var(--surface); }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--ligne); font-variant-numeric: tabular-nums; }
+th { font-weight: 600; color: var(--discret); font-size: 0.9rem; }
