@@ -10,6 +10,8 @@
  */
 
 import { nomRang } from './gestes.js';
+import { occurrencesColonne } from './generateur.js';
+import { analyserMotif } from './motifs.js';
 
 const signe = (op) => (op === '+' ? '+' : '−');
 const valeurSignee = (l) => (l.op === '+' ? l.n : -l.n);
@@ -112,4 +114,36 @@ export function diagnostiquer(ex, reponse) {
   if (ex.type === 'mul') return diagnostiquerMultiplication(ex, reponse);
   if (ex.type === 'div') return diagnostiquerDivision(ex, reponse);
   return diagnostiquerColonne(ex, reponse);
+}
+
+/**
+ * Localise l'erreur d'une colonne fausse, SEULEMENT quand le résultat le prouve sans ambiguïté :
+ *  - écart de 5 sur une tige : un seul geste de boule céleste (petit ami / combiné) sur cette tige ;
+ *  - écart de 1 sur une tige : une seule retenue ou un seul emprunt venant de la tige de droite.
+ * Sinon renvoie null : on n'accuse aucun geste au hasard (l'élève peut indiquer la ligne lui-même).
+ * @returns {{ ligne:number, motifs:string[], raison:string } | null}
+ */
+export function localiserErreur(ex, reponse) {
+  if (ex.type !== 'addsub') return null;
+  const u = unSeulChiffre(reponse - ex.resultat);
+  if (!u) return null;
+  const occ = occurrencesColonne(ex.lignes);
+  const candidats = [];
+  occ.forEach((ms, ligne) => ms.forEach(({ cle, rang }) => {
+    const regle = analyserMotif(cle).regle;
+    if (Math.abs(u.d) === 5 && rang === u.k && (regle === 'petit' || regle === 'mixte')) candidats.push({ ligne, cle });
+    if (Math.abs(u.d) === 1 && u.k >= 1 && rang === u.k - 1 && (regle === 'grand' || regle === 'mixte' || regle === 'cascade')) candidats.push({ ligne, cle });
+  }));
+  const lignes = [...new Set(candidats.map((c) => c.ligne))];
+  if (lignes.length !== 1) return null;
+  return {
+    ligne: lignes[0],
+    motifs: [...new Set(candidats.map((c) => c.cle))],
+    raison: Math.abs(u.d) === 5 ? 'boule céleste' : 'retenue ou emprunt',
+  };
+}
+
+/** Motifs d'une ligne donnée (quand l'élève indique lui-même où il s'est trompé). */
+export function motifsDeLigne(ex, ligne) {
+  return [...new Set(occurrencesColonne(ex.lignes)[ligne].map((o) => o.cle))];
 }

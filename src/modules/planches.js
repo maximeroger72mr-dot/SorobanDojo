@@ -10,7 +10,9 @@
 import { genererColonne } from '../core/generateur.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
-import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterMotifs, etatPalier } from '../core/progression.js';
+import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, etatPalier } from '../core/progression.js';
+import { tempsParUnite } from '../core/maitrise.js';
+import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
 
@@ -90,20 +92,20 @@ export default {
       const r = { ...reglages };
       const c = contraintes(r.cible);
       const problemes = Array.from({ length: r.colonnes }, () => genererColonne({
-        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(),
+        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles),
       }));
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}`;
       feuille = creerFeuille(zone, {
         titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,
         sections: [{ problemes }],
         surFin: (b) => {
-          const suivis = r.cible === 'tout' || r.cible === 'appris' ? null : c.cibles;
           (async () => {
+            const dureeMoyenne = b.dureeMs / b.total;
             for (const x of b.resultats) {
-              const m = [...new Set(x.ex.motifs.filter((k) => (suivis ? suivis.includes(k) : !k.endsWith(':direct'))))];
-              // Sur une planche mélangée, une erreur ne dit pas quel ami a échoué : on ne note que les réussites.
-              if (x.juste) await noterMotifs(m, []);
-              else if (suivis) await noterMotifs([], m);
+              // Réussite : tous les gestes de la colonne sont crédités. Erreur : seul un geste
+              // prouvé par le résultat est mis en cause (jamais d'accusation au hasard).
+              const loc = x.juste || x.reponse === null ? null : localiserErreur(x.ex, x.reponse);
+              await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], tempsParUnite(x.ex, dureeMoyenne));
             }
             await enregistrerSession({ module: 'planches', mode: r.cible, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           })();

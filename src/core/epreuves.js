@@ -5,7 +5,7 @@
  * pour les 4e à 10e kyū, Chambre de commerce et d'industrie du Japon (日本商工会議所) avec le
  * Nihon Shuzan Renmei pour les 1er à 3e kyū.
  *
- *  - 見取算 mitorizan : additions (et soustractions à partir du 5e kyū) en colonne, « 10 lignes
+ *  - 見取算 mitorizan : additions et soustractions en colonne (dès le 10e kyū), « 10 lignes
  *    N chiffres » (10口N字) : 10 nombres totalisant N chiffres ;
  *  - 乗算 multiplication : « multiplicande et multiplicateur ensemble N chiffres » (実法合わせてNけた) ;
  *  - 除算 division : « diviseur et quotient ensemble N chiffres » (法商合わせてNけた).
@@ -26,19 +26,19 @@ import { facteur } from './multiplication.js';
  */
 export const GRADES = [
   { id: '10', nom: '10e kyū', japonais: '10級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: false, points: 10 },
+    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: true, points: 10 },
     mul: { nb: 10, total: 3, points: 10 } },
   { id: '9', nom: '9e kyū', japonais: '9級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: false, points: 10 },
+    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: true, points: 10 },
     mul: { nb: 10, total: 3, points: 10 } },
   { id: '8', nom: '8e kyū', japonais: '8級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 8, chiffres: 16, egal: true, soustractions: false, points: 10 },
+    mitori: { nb: 10, lignes: 8, chiffres: 16, egal: true, soustractions: true, points: 10 },
     mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 3, points: 5 } },
   { id: '7', nom: '7e kyū', japonais: '7級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 20, egal: true, soustractions: false, points: 10 },
+    mitori: { nb: 10, lignes: 10, chiffres: 20, egal: true, soustractions: true, points: 10 },
     mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 4, points: 5 } },
   { id: '6', nom: '6e kyū', japonais: '6級', minutes: 30, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 30, egal: true, soustractions: false, points: 10 },
+    mitori: { nb: 10, lignes: 10, chiffres: 30, egal: true, soustractions: true, points: 10 },
     mul: { nb: 20, total: 5, points: 5 }, div: { nb: 20, total: 4, points: 5 } },
   { id: '5', nom: '5e kyū', japonais: '5級', minutes: 30, seuil: 0.7, confirme: false,
     mitori: { nb: 10, lignes: 10, chiffres: 40, egal: true, soustractions: true, points: 10 },
@@ -72,13 +72,16 @@ export function longueurs(lignes, total, egal) {
   }
 }
 
-/** Un problème de mitorizan. Avec soustractions : 2 à 3 lignes négatives, jamais de total partiel négatif. */
+/**
+ * Un problème de mitorizan. Avec soustractions : 1 ligne négative sur 5 lignes, 1 à 2 sur 8,
+ * 2 à 3 sur 10 ; jamais en 1re ou 2e ligne, jamais de total partiel négatif.
+ */
 export function genererMitori(f) {
   for (;;) {
     const lg = longueurs(f.lignes, f.chiffres, f.egal);
     const lignes = lg.map((k) => ({ op: '+', n: facteur(k) }));
     if (f.soustractions) {
-      const nbMoins = entier(2, 3);
+      const nbMoins = f.lignes <= 5 ? 1 : f.lignes <= 8 ? entier(1, 2) : entier(2, 3);
       const indices = new Set();
       while (indices.size < nbMoins) indices.add(entier(2, f.lignes - 1));
       for (const i of indices) lignes[i].op = '-';

@@ -12,7 +12,7 @@ import { h, formaterDuree } from '../ui/dom.js';
 function resume(g) {
   const p = [];
   const m = g.mitori;
-  p.push(`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes (${m.chiffres} chiffres${m.egal ? `, ${m.chiffres / m.lignes} par ligne` : ', longueurs variées'}${m.soustractions ? ', avec soustractions' : ''})`);
+  p.push(`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes (${m.egal ? `${m.chiffres / m.lignes} chiffres par ligne` : `${m.chiffres} chiffres, longueurs variées`}${m.soustractions ? ', additions et soustractions' : ''})`);
   if (g.mul) p.push(`multiplication ${g.mul.nb} × (${g.mul.total} chiffres au total)`);
   if (g.div) p.push(`division ${g.div.nb} × (diviseur + quotient : ${g.div.total} chiffres)`);
   return p.join(' · ');

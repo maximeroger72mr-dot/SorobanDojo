@@ -14,8 +14,11 @@ import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice } from '../cor
 import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
-  reglagesUtilisateur, modifierReglages,
+  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes,
 } from '../core/progression.js';
+import { tempsParUnite } from '../core/maitrise.js';
+import { localiserErreur } from '../core/diagnostic.js';
+import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
@@ -41,6 +44,9 @@ function demoDe(sp, d) {
   if (sp.type === 'div') return demoDivision(d.a, d.b);
   return d;
 }
+const famille = (sp) => (sp.type === 'addsub' ? 'addsub' : 'muldiv');
+const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : []);
+
 const libelleDemo = (sp, d) => (sp.type === 'mul' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 
 export default {
@@ -55,6 +61,7 @@ export default {
       el.append(
         h('h1', {}, 'Leçons guidées'),
         h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées).`),
+        h('p', { class: 'discret' }, 'Niveaux : En progrès → Acquis débutant → Acquis confirmé → Acquis expert. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
       if (diag) el.append(diag);
@@ -73,7 +80,9 @@ export default {
           return h('button', {
             class: `ligne-palier${e.valide ? ' valide' : ''}`, disabled: !ouvert,
             onclick: () => changer(() => vueSousPalier(sp)),
-          }, h('span', { class: 'icone' }, icone), h('span', { class: 'titre' }, sp.titre), h('span', { class: 'statut' }, statut));
+          }, h('span', { class: 'icone' }, icone), h('span', { class: 'titre' }, sp.titre),
+          e.reps ? badgeNiveau(evaluerPalier(sp.id, famille(sp))) : null,
+          h('span', { class: 'statut' }, statut));
         })));
       }
       el.append(h('label', { class: 'discret', style: 'display:block;margin-top:24px' },
@@ -92,7 +101,6 @@ export default {
       const ongletsDef = [['comprendre', '1. Comprendre'], ['entrainement', '2. S\'entraîner'], ['test', '3. Mini-test']];
       const boutons = ongletsDef.map(([id, texte]) => h('button', { onclick: () => afficher(id) }, texte));
       const suivant = SOUS_PALIERS[sp.ordre + 1];
-      const motifsSuivis = sp.type === 'addsub' ? sp.cibles : [];
 
       el.append(
         h('button', { class: 'lien', onclick: () => changer(carte) }, '← Toutes les leçons'),
@@ -143,7 +151,9 @@ export default {
           const et = etatPalier(sp.id);
           bandeau.replaceChildren(...[
             h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * et.reps) / sp.repetitions)}%` })),
-            h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`, et.reps ? ` · réussite ${formaterPourcent(et.justes, et.reps)}` : ''),
+            h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
+            badgeNiveau(evaluerPalier(sp.id, famille(sp))),
+            h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
             et.reps >= sp.repetitions && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, 'Passer le mini-test →') : null,
           ].filter(Boolean));
         };
@@ -154,8 +164,8 @@ export default {
           enregistrerSession({ module: 'lecons', mode: 'entrainement', reglages: { sousPalier: sp.id }, ...lot });
           lot = { total: 0, justes: 0, dureeMs: 0 };
         };
-        const compter = async (juste, dureeMs) => {
-          await compterRepetition(sp.id, juste);
+        const compter = async (juste, dureeMs, t) => {
+          await compterRepetition(sp.id, juste, t);
           lot.total += 1;
           if (juste) lot.justes += 1;
           lot.dureeMs += dureeMs;
@@ -168,18 +178,28 @@ export default {
           zoneTravail.replaceChildren();
           if (mode === 'une') {
             courant = creerSerie(zoneTravail, {
-              generer: () => genererExercice(sp, poidsAdaptatifs()),
-              cibles: motifsSuivis.length ? motifsSuivis : null,
+              generer: () => genererExercice(sp, poidsDe(sp)),
               filtreDiagnostic: sp.autorises,
-              surExercice: (res) => compter(res.juste, res.dureeMs),
+              evaluation: () => evaluerPalier(sp.id, famille(sp)),
+              surExercice: (res) => compter(res.juste, res.dureeMs, res.t),
             });
           } else {
-            const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsAdaptatifs()));
+            const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
             courant = creerFeuille(zoneTravail, {
               titre: `${sp.titre} · feuille d'entraînement`,
               sections: [{ problemes }],
               surFin: (b) => {
-                (async () => { for (const r of b.resultats) await compter(r.juste, b.dureeMs / b.total); })();
+                (async () => {
+                  // Sur une feuille, le temps se répartit entre les problèmes.
+                  const dureeMoyenne = b.dureeMs / b.total;
+                  for (const r of b.resultats) {
+                    const t = tempsParUnite(r.ex, dureeMoyenne);
+                    await compter(r.juste, dureeMoyenne, t);
+                    const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
+                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], t);
+                  }
+                  majBandeau();
+                })();
                 return h('div', { class: 'carte bilan' },
                   h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
                   h('p', {}, `Temps : ${formaterDuree(b.dureeMs)}`),
@@ -212,12 +232,12 @@ export default {
         function lancer() {
           intro.remove();
           serie = creerSerie(zone, {
-            generer: () => genererExercice(sp, poidsAdaptatifs()),
+            generer: () => genererExercice(sp, poidsDe(sp)),
             nombre: TEST.exercices,
             chrono: true,
             defi: true,
-            cibles: motifsSuivis.length ? motifsSuivis : null,
             filtreDiagnostic: sp.autorises,
+            evaluation: () => evaluerPalier(sp.id, famille(sp)),
             surFin: async (bilan) => {
               serie.detruire();
               serie = null;

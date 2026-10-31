@@ -1,7 +1,7 @@
 /** Écran d'accueil : les modules et une suggestion de travail. */
 
 import { h } from '../ui/dom.js';
-import { progression, statistiques, revisionsDues, motifsEnDifficulte } from '../core/progression.js';
+import { progression, statistiques, revisionsDues, motifsEnDifficulte, prendreAvis } from '../core/progression.js';
 import { nomMotif } from '../core/motifs.js';
 import { prochainSousPalier } from './lecons.js';
 
@@ -39,6 +39,7 @@ export default {
   titre: 'Accueil',
   monter(el, app) {
     const s = suggestion();
+    prendreAvis().then((avis) => avis.forEach((a) => el.prepend(h('div', { class: 'carte avis' }, a))));
     const premiereFois = progression().sessions.length === 0;
     el.append(
       h('h1', {}, 'Apprendre le soroban'),

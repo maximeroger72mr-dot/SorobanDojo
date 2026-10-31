@@ -140,6 +140,22 @@ function ouvertures(valeur, cibles, chiffres) {
 const permet = (valeur, cible, chiffres) => ouvertures(valeur, [cible], chiffres) > 0;
 
 /**
+ * Intérêt d'une ligne pour l'équilibre : une répétition de la cible la moins vue rapporte le plus,
+ * celle d'une cible déjà beaucoup vue fait perdre des points ; chaque tige où une cible devient
+ * possible à la ligne suivante rapporte un peu. Ainsi les amis rares sont recherchés activement.
+ */
+function scoreEquilibre(analyse, cibles, poids, chiffres) {
+  const pmax = Math.max(...cibles.map((c) => poids[c] ?? 1));
+  let score = 0;
+  for (const c of cibles) {
+    const w = (poids[c] ?? 1) / pmax;
+    // w = 1 : la cible la moins vue (bonus plein) ; w petit : cible déjà trop vue (pénalité).
+    score += 10 * (2 * w - 1) * compter(analyse.motifs, [c]) + w * ouvertures(analyse.resultat, [c], chiffres);
+  }
+  return score;
+}
+
+/**
  * Génère la ligne suivante d'une colonne, à partir de la valeur courante.
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
@@ -184,9 +200,9 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     if (cible && !a.motifs.includes(cible)) continue;
     if (preparer && !permet(a.resultat, preparer, chiffres)) continue;
     valides += 1;
-    // Score : d'abord le nombre de répétitions de la cible dans la ligne, puis le nombre de tiges
-    // où la cible sera possible à la ligne suivante (pour enchaîner les répétitions).
-    const score = compter(a.motifs, cibles) * 10 + (cibles ? ouvertures(a.resultat, cibles, chiffres) : 0);
+    // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
+    // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
+    const score = cibles ? scoreEquilibre(a, cibles, poids, chiffres) : 0;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');
@@ -205,8 +221,14 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
       const liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
       const motifs = [...premiere.motifs];
       let valeur = premiere.resultat;
+      // Équilibrage : plus une cible est déjà apparue dans la colonne, moins elle est tirée.
+      const vus = {};
+      const compterVus = (ms) => ms.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
+      compterVus(premiere.motifs);
       while (liste.length < lignes) {
-        const t = genererTerme(valeur, { chiffres, autorises, cibles, poids, ops });
+        const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
+        const t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops });
+        compterVus(t.motifs);
         liste.push({ op: t.op, n: t.n });
         motifs.push(...t.motifs);
         valeur = t.resultat;
@@ -226,4 +248,18 @@ export const resultatColonne = (lignes) => lignes.reduce((v, l) => (l.op === '+'
 export function sousTotaux(lignes) {
   let v = 0;
   return lignes.map((l) => (v = l.op === '+' ? v + l.n : v - l.n));
+}
+
+/**
+ * Motifs de chaque ligne d'une colonne, avec le rang de la tige concernée.
+ * @returns {Array<Array<{cle, rang}>>}  un tableau par ligne (la ligne 0, posée depuis 0, comprise)
+ */
+export function occurrencesColonne(lignes) {
+  const nbTiges = Math.max(...lignes.map((l) => String(l.n).length)) + 4 + String(lignes.length).length;
+  const s = new Soroban(nbTiges);
+  return lignes.map((l) => {
+    const r = calculerGestes(s.instantane(), s.tigeUnites, l.op, l.n);
+    r.etapes.flatMap((e) => e.mouvements).forEach((m) => s.appliquerMouvement(m));
+    return r.motifs.map((m) => ({ cle: m.cle, rang: s.tigeUnites - m.tige }));
+  });
 }

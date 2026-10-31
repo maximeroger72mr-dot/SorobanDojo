@@ -54,6 +54,7 @@ Logique (`src/core/`) :
 | `diagnostic.js` | causes probables d'une réponse fausse (ligne oubliée, retenue, céleste, produit décalé…) |
 | `drills.js` | 123456789 et variantes, même nombre répété, suite des entiers |
 | `epreuves.js` | formats des examens japonais (10e au 1er kyū) et génération des sujets |
+| `maitrise.js` | **niveaux d'acquisition** (juste ET rapide), vitesse par chiffre, équilibrage des fréquences. Seuils réglables en tête de fichier |
 | `revision.js` | révision espacée (Leitner J+1, J+3, J+7, J+14, J+30) |
 | `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
@@ -70,9 +71,24 @@ Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la lis
 - Division 片落とし : seul le dividende est posé ; chiffre du quotient deux tiges à gauche si le début
   du dividende ≥ diviseur, sinon juste à gauche ; unité du quotient (chiffres du diviseur + 1) tiges à gauche.
 
+## Niveaux d'acquisition
+
+Calculés sur les 30 derniers essais d'un geste ou d'une leçon : réussite ET temps médian des réussites,
+ramené à une unité (secondes par chiffre pour les colonnes, par produit partiel pour × et ÷, après
+retrait de 1,5 s de lecture et de frappe).
+
+| Niveau | Réussite | Colonnes | × et ÷ |
+|---|---|---|---|
+| Acquis débutant | ≥ 90 % | ≤ 3 s par chiffre | ≤ 5 s par produit |
+| Acquis confirmé | ≥ 95 % | ≤ 1,5 s | ≤ 3 s |
+| Acquis expert | ≥ 98 % | ≤ 0,8 s | ≤ 1,8 s |
+
+Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de 5 : boule céleste ;
+écart de 1 : retenue ou emprunt, sur une seule ligne possible) ou si l'élève désigne la ligne fautive.
+
 ## Épreuves : sources et limites
 
-Formats d'après les informations publiques du Nihon Shuzan Renmei et de la Chambre de commerce et
+Mitorizan avec additions et soustractions dès le 10e kyū. Formats d'après les informations publiques du Nihon Shuzan Renmei et de la Chambre de commerce et
 d'industrie du Japon (珠算能力検定) : mitorizan 10 problèmes « 10 lignes N chiffres », multiplication et
 division 20 problèmes (10 aux 7e-10e kyū), 20 ou 30 minutes, 200 ou 300 points, 240/300 pour les 1er-3e kyū.
 Restent à confirmer : les seuils des 4e-10e kyū (70 % indicatif) ; les décimaux et arrondis des 1er-3e kyū

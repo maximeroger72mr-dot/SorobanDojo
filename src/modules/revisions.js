@@ -71,12 +71,12 @@ export default {
       }
     }
 
-    function lancerSerie({ titre, sousTitre, generer, cibles, apresBilan }) {
+    function lancerSerie({ titre, sousTitre, generer, apresBilan }) {
       el.replaceChildren(
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
       serie = creerSerie(el, {
-        generer, cibles, nombre: FLASH.exercices, chrono: true, defi: true,
+        generer, nombre: FLASH.exercices, chrono: true, defi: true,
         surFin: async (bilan) => {
           serie.detruire();
           serie = null;
@@ -95,8 +95,7 @@ export default {
       lancerSerie({
         titre: `Test flash : ${sp.titre}`,
         sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
-        generer: () => genererExercice(sp, poidsAdaptatifs()),
-        cibles: sp.type === 'addsub' ? sp.cibles : null,
+        generer: () => genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])),
         apresBilan: async (b) => {
           const reussi = b.justes >= FLASH.reussitesMin;
           await enregistrerRevision(sp.id, reussi);
@@ -115,8 +114,7 @@ export default {
       lancerSerie({
         titre: 'Révision ciblée des points faibles',
         sousTitre: cles.map(nomMotif).join(' · '),
-        generer: () => genererColonne({ chiffres: 2, lignes: 5, autorises, cibles: cles }),
-        cibles: cles,
+        generer: () => genererColonne({ chiffres: 2, lignes: 5, autorises, cibles: cles, poids: poidsAdaptatifs(cles) }),
         apresBilan: async (b) => {
           await enregistrerSession({ module: 'revisions', mode: 'cible', total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const restants = motifsEnDifficulte().length;

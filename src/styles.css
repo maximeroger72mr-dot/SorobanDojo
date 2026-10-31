@@ -269,3 +269,19 @@ table.colonne.compacte td { padding: 0 4px; }
   .corrige-impression { display: block; break-before: page; }
   .corrige-impression ol { columns: 4; font-variant-numeric: tabular-nums; }
 }
+
+/* ------------------------------------------------------------ niveaux d'acquisition et chronomètre */
+.niveau { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
+.niveau-decouverte { background: #eeece8; color: var(--discret); }
+.niveau-progres { background: #fdf0d9; color: #9a6200; }
+.niveau-debutant { background: #e3f1e8; color: #2e7d4f; }
+.niveau-confirme { background: #c9e8d4; color: #1e6b3e; }
+.niveau-expert { background: #1e6b3e; color: white; }
+.ligne-palier .niveau { margin-left: 6px; }
+.disposition-enonce { display: flex; gap: 32px; align-items: flex-start; }
+.chrono-exercice { margin-top: 10px; min-width: 190px; }
+.chrono-exercice .temps { font-size: 2.2rem; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--discret); }
+.chrono-exercice .objectif { font-size: 0.85rem; color: var(--discret); }
+.objectif.tenu { color: var(--ok); font-weight: 600; }
+.localisation { margin-top: 6px; color: var(--texte); }
+.avis { border-left: 3px solid #e39b21; margin-bottom: 12px; }
