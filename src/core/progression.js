@@ -24,6 +24,7 @@ import { nouvelleCarte, reviser, estDue } from './revision.js';
 import { evaluer, ajouterEssai, poidsEquilibre } from './maitrise.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
+import { exporter, lireExport, fusionner } from './sauvegarde.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -284,4 +285,22 @@ export function minutesAujourdhui() {
 export function faitAujourdhui(module, mode) {
   const j = aujourdhui();
   return donnees.sessions.some((s) => s.date === j && s.module === module && (mode === undefined || s.mode === mode));
+}
+
+// ------------------------------------------------------------------ export / import
+
+export const exporterDonnees = () => exporter(donnees);
+
+/**
+ * Importe une sauvegarde (texte JSON).
+ * @param {'remplacer'|'fusionner'} mode
+ */
+export async function importerDonnees(texte, mode) {
+  let d = lireExport(texte);
+  if (d.version < VERSION) d = migrer(d);
+  if (d.version > VERSION) throw new Error('Cette sauvegarde vient d\'une version plus récente de l\'application : mettez-la à jour d\'abord.');
+  const complet = { ...vide(), ...d, reglages: { ...vide().reglages, ...d.reglages } };
+  donnees = mode === 'fusionner' ? fusionner(donnees, complet) : complet;
+  donnees.reglages = mode === 'fusionner' ? donnees.reglages : complet.reglages;
+  await sauver();
 }

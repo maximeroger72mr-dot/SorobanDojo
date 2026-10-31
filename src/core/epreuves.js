@@ -1,76 +1,58 @@
 /**
- * Épreuves au format des examens officiels japonais de soroban (珠算検定).
+ * Épreuves au format des examens de soroban (珠算検定), du 10e au 1er kyū.
  *
- * Sources (vérifiées le 31/10/2026, informations publiques) : Nihon Shuzan Renmei (日本珠算連盟)
- * pour les 4e à 10e kyū, Chambre de commerce et d'industrie du Japon (日本商工会議所) avec le
- * Nihon Shuzan Renmei pour les 1er à 3e kyū.
- *
- *  - 見取算 mitorizan : additions et soustractions en colonne (dès le 10e kyū), « 10 lignes
- *    N chiffres » (10口N字) : 10 nombres totalisant N chiffres ;
- *  - 乗算 multiplication : « multiplicande et multiplicateur ensemble N chiffres » (実法合わせてNけた) ;
- *  - 除算 division : « diviseur et quotient ensemble N chiffres » (法商合わせてNけた).
- *
- * Limites connues (affichées dans l'application) :
- *  - aux 1er-3e kyū, l'examen réel comporte des nombres décimaux et des arrondis (端数処理) ;
- *    cette version les pose en nombres entiers ;
- *  - les seuils de réussite des 4e-10e kyū sont indicatifs (70 %), à confirmer auprès de la fédération.
+ * Formats retenus avec l'utilisateur :
+ *  - 6e au 1er kyū : tableau fourni par l'utilisateur — mitorizan 10 lignes de N à M chiffres,
+ *    multiplication « chiffres des deux facteurs au total », division « chiffres du diviseur et
+ *    du quotient au total », seuil 210/300 (6e-4e) ou 240/300 (3e-1er) ;
+ *  - décimaux à partir du 3e kyū : la moitié des multiplications et des divisions, résultat
+ *    arrondi au millième (au dix-millième pour les divisions du 1er kyū) ;
+ *  - 10e au 7e kyū : formats publics japonais (Nihon Shuzan Renmei), seuil indicatif 70 % ;
+ *  - soustractions dans le mitorizan dès le 10e kyū.
+ * Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.
  */
 
 import { entier } from './aleatoire.js';
-import { facteur } from './multiplication.js';
+import { facteur, genererMultiplicationDecimale, genererDivisionDecimale } from './multiplication.js';
 
 /**
- * Formats par grade.
- * mitori : { nb, lignes, chiffres (total), egal: lignes de même longueur ?, soustractions, points }
- * mul    : { nb, total (chiffres a+b), points } ; div : { nb, total (diviseur + quotient), points }
+ * mitori : { nb, lignes, min, max (chiffres par ligne), soustractions, points }
+ * mul    : { nb, total, points, decimales? }  div : { nb, total, points, decimales? }
  */
 export const GRADES = [
   { id: '10', nom: '10e kyū', japonais: '10級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: true, points: 10 },
+    mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 3, points: 10 } },
   { id: '9', nom: '9e kyū', japonais: '9級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 5, chiffres: 10, egal: true, soustractions: true, points: 10 },
+    mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 3, points: 10 } },
   { id: '8', nom: '8e kyū', japonais: '8級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 8, chiffres: 16, egal: true, soustractions: true, points: 10 },
+    mitori: { nb: 10, lignes: 8, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 3, points: 5 } },
   { id: '7', nom: '7e kyū', japonais: '7級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 20, egal: true, soustractions: true, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 4, points: 5 } },
-  { id: '6', nom: '6e kyū', japonais: '6級', minutes: 30, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 30, egal: true, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 5, points: 5 }, div: { nb: 20, total: 4, points: 5 } },
-  { id: '5', nom: '5e kyū', japonais: '5級', minutes: 30, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 40, egal: true, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 6, points: 5 }, div: { nb: 20, total: 5, points: 5 } },
-  { id: '4', nom: '4e kyū', japonais: '4級', minutes: 30, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 10, chiffres: 50, egal: false, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 7, points: 5 }, div: { nb: 20, total: 6, points: 5 } },
-  { id: '3', nom: '3e kyū', japonais: '3級', minutes: 30, seuil: 0.8, confirme: true, entiers: true,
-    mitori: { nb: 10, lignes: 10, chiffres: 60, egal: false, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 7, points: 5 }, div: { nb: 20, total: 6, points: 5 } },
-  { id: '2', nom: '2e kyū', japonais: '2級', minutes: 30, seuil: 0.8, confirme: true, entiers: true,
-    mitori: { nb: 10, lignes: 10, chiffres: 80, egal: false, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 9, points: 5 }, div: { nb: 20, total: 8, points: 5 } },
-  { id: '1', nom: '1er kyū', japonais: '1級', minutes: 30, seuil: 0.8, confirme: true, entiers: true,
-    mitori: { nb: 10, lignes: 10, chiffres: 100, egal: false, soustractions: true, points: 10 },
-    mul: { nb: 20, total: 11, points: 5 }, div: { nb: 20, total: 10, points: 5 } },
+  { id: '6', nom: '6e kyū', japonais: '6級', minutes: 30, seuil: 0.7, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 3, max: 4, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 5, points: 5 }, div: { nb: 20, total: 5, points: 5 } },
+  { id: '5', nom: '5e kyū', japonais: '5級', minutes: 30, seuil: 0.7, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 4, max: 5, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 6, points: 5 }, div: { nb: 20, total: 6, points: 5 } },
+  { id: '4', nom: '4e kyū', japonais: '4級', minutes: 30, seuil: 0.7, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 5, max: 6, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 7, points: 5 }, div: { nb: 20, total: 7, points: 5 } },
+  { id: '3', nom: '3e kyū', japonais: '3級', minutes: 30, seuil: 0.8, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 6, max: 7, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 8, points: 5, decimales: 3 }, div: { nb: 20, total: 8, points: 5, decimales: 3 } },
+  { id: '2', nom: '2e kyū', japonais: '2級', minutes: 30, seuil: 0.8, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 7, max: 8, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 9, points: 5, decimales: 3 }, div: { nb: 20, total: 9, points: 5, decimales: 3 } },
+  { id: '1', nom: '1er kyū', japonais: '1級', minutes: 30, seuil: 0.8, confirme: true,
+    mitori: { nb: 10, lignes: 10, min: 8, max: 10, soustractions: true, points: 10 },
+    mul: { nb: 20, total: 11, points: 5, decimales: 3 }, div: { nb: 20, total: 10, points: 5, decimales: 4 } },
 ];
 
 export const totalPoints = (g) => ['mitori', 'mul', 'div'].reduce((s, k) => s + (g[k] ? g[k].nb * g[k].points : 0), 0);
-
-/** Répartit `total` chiffres sur `lignes` lignes, de longueurs variées (±2 autour de la moyenne). */
-export function longueurs(lignes, total, egal) {
-  const moyenne = total / lignes;
-  if (egal) return Array(lignes).fill(Math.round(moyenne));
-  const min = Math.max(1, Math.floor(moyenne) - 2);
-  const max = Math.ceil(moyenne) + 2;
-  for (;;) {
-    const l = Array.from({ length: lignes - 1 }, () => entier(min, max));
-    const dernier = total - l.reduce((a, b) => a + b, 0);
-    if (dernier >= min && dernier <= max) return [...l, dernier];
-  }
-}
 
 /**
  * Un problème de mitorizan. Avec soustractions : 1 ligne négative sur 5 lignes, 1 à 2 sur 8,
@@ -78,8 +60,7 @@ export function longueurs(lignes, total, egal) {
  */
 export function genererMitori(f) {
   for (;;) {
-    const lg = longueurs(f.lignes, f.chiffres, f.egal);
-    const lignes = lg.map((k) => ({ op: '+', n: facteur(k) }));
+    const lignes = Array.from({ length: f.lignes }, () => ({ op: '+', n: facteur(entier(f.min, f.max)) }));
     if (f.soustractions) {
       const nbMoins = f.lignes <= 5 ? 1 : f.lignes <= 8 ? entier(1, 2) : entier(2, 3);
       const indices = new Set();
@@ -96,32 +77,35 @@ export function genererMitori(f) {
   }
 }
 
-/** Découpe « N chiffres ensemble » en (m, n), le premier facteur étant le plus long ou égal. */
+/** Découpe « N chiffres au total » en (m, n), le premier étant le plus long ou égal. */
 function decouper(total) {
   const n = entier(Math.max(1, Math.floor(total / 2) - 1), Math.floor(total / 2));
   return [total - n, n];
 }
 
-export function genererMulGrade(f) {
+export function genererMulGrade(f, decimal = false) {
   const [m, n] = decouper(f.total);
+  if (decimal) return genererMultiplicationDecimale(m, n, f.decimales);
   const a = facteur(m);
   const b = facteur(n);
   return { type: 'mul', a, b, resultat: a * b };
 }
 
-export function genererDivGrade(f) {
+export function genererDivGrade(f, decimal = false) {
   const [x, y] = decouper(f.total);
   const [nd, nq] = Math.random() < 0.5 ? [x, y] : [y, x]; // diviseur et quotient
+  if (decimal) return genererDivisionDecimale(Math.min(nd, 4), nq, f.decimales);
   const diviseur = facteur(nd);
   const quotient = facteur(nq);
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };
 }
 
-/** Sujet complet d'un grade : { grade, sections: [{ cle, titre, points, problemes }] }. */
+/** Sujet complet : la seconde moitié des × et ÷ est en décimaux quand le grade en comporte. */
 export function genererSujet(grade) {
   const sections = [];
-  if (grade.mitori) sections.push({ cle: 'mitori', titre: 'Mitorizan (見取算) : additions en colonne', points: grade.mitori.points, problemes: Array.from({ length: grade.mitori.nb }, () => genererMitori(grade.mitori)) });
-  if (grade.mul) sections.push({ cle: 'mul', titre: 'Multiplication (乗算)', points: grade.mul.points, problemes: Array.from({ length: grade.mul.nb }, () => genererMulGrade(grade.mul)) });
-  if (grade.div) sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, problemes: Array.from({ length: grade.div.nb }, () => genererDivGrade(grade.div)) });
+  const moitie = (f, gen) => Array.from({ length: f.nb }, (_, i) => gen(f, !!f.decimales && i >= f.nb / 2));
+  if (grade.mitori) sections.push({ cle: 'mitori', titre: 'Mitorizan (見取算) : additions et soustractions', points: grade.mitori.points, problemes: Array.from({ length: grade.mitori.nb }, () => genererMitori(grade.mitori)) });
+  if (grade.mul) sections.push({ cle: 'mul', titre: 'Multiplication (乗算)', points: grade.mul.points, problemes: moitie(grade.mul, genererMulGrade) });
+  if (grade.div) sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, problemes: moitie(grade.div, genererDivGrade) });
   return { grade, sections };
 }

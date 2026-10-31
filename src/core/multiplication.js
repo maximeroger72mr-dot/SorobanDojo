@@ -85,49 +85,116 @@ export function etapesMultiplication(a, b) {
 }
 
 /**
- * Étapes de la division a ÷ b (片落とし, 商除法). Division exacte attendue.
- * @returns {{ nbTiges, depart, macros, rangUniteQuotient, lecture }}
+ * Estimation d'un chiffre du quotient, telle qu'on la fait de tête (méthode standard) :
+ * on arrondit le diviseur à sa première tranche (18 → 20, 43 → 40) et on divise le début
+ * du reste par ce nombre rond. Avec un diviseur arrondi AU-DESSUS, l'estimation est trop
+ * petite ou juste ; arrondi AU-DESSOUS, elle peut être trop grande.
+ * @returns {{ estime, arrondi }}  arrondi : le diviseur arrondi utilisé
+ */
+export function estimerChiffre(resteLocal, b) {
+  const cb = chiffresDe(b);
+  if (cb.length === 1) return { estime: Math.min(9, Math.floor(resteLocal / b)), arrondi: b };
+  const tete = cb[0] + (cb[1] >= 5 ? 1 : 0);
+  const arrondi = tete * 10 ** (cb.length - 1);
+  return { estime: Math.min(9, Math.floor(resteLocal / arrondi)), arrondi };
+}
+
+/**
+ * Aide « Je suis bloqué » : pour chaque chiffre du quotient, le raisonnement complet
+ * (diviseur arrondi, estimation, vérification par le produit, correction éventuelle).
+ * @returns {{ table: number[], etapes: Array<{ reste, arrondi, estime, essais: Array<{q, produit, ok}>, chiffre }> }}
+ */
+export function aideDivision(a, b) {
+  const q = Math.floor(a / b);
+  const cq = chiffresDe(q);
+  let reste = a;
+  const etapes = [];
+  cq.forEach((chiffre, i) => {
+    const puissance = 10 ** (cq.length - 1 - i);
+    const resteLocal = Math.floor(reste / puissance);
+    const { estime, arrondi } = estimerChiffre(resteLocal, b);
+    const essais = [];
+    let x = estime;
+    // Vérification de tête : le produit doit tenir dans le reste, et le reste suivant doit être < b.
+    for (let garde = 0; garde < 10; garde++) {
+      const produit = x * b;
+      if (produit > resteLocal) { essais.push({ q: x, produit, ok: false, raison: 'trop grand' }); x -= 1; continue; }
+      if (resteLocal - produit >= b) { essais.push({ q: x, produit, ok: false, raison: 'trop petit' }); x += 1; continue; }
+      essais.push({ q: x, produit, ok: true });
+      break;
+    }
+    etapes.push({ resteLocal, arrondi, estime, essais, chiffre });
+    reste -= chiffre * b * puissance;
+  });
+  return { table: Array.from({ length: 9 }, (_, i) => (i + 1) * b), etapes };
+}
+
+/**
+ * Étapes de la division a ÷ b (片落とし, 商除法), division exacte, AVEC estimation du quotient :
+ *  - estimation par le diviseur arrondi ;
+ *  - estimation trop grande : corrigée de tête AVANT de bouger les boules (le produit ne tient pas) ;
+ *  - estimation trop petite : constatée sur le soroban (le reste dépasse le diviseur) : on ajoute 1
+ *    au quotient et on retire encore une fois le diviseur.
+ * L'unité du dividende est posée sur la tige des unités : les noms de tiges se lisent par rapport à lui.
+ * @returns {{ nbTiges, depart, macros, rangUniteQuotient, lecture, resultat }}
  */
 export function etapesDivision(a, b) {
   const q = Math.floor(a / b);
   const nd = nbChiffres(b);
-  // L'unité du dividende est posée sur la tige des unités : les noms de tiges (unités, dizaines…)
-  // se lisent alors par rapport au dividende, et le quotient se pose à sa gauche.
-  const decalage = 0;
-  const rangUniteQ = decalage + nd + 1;
+  const rangUniteQ = nd + 1;
   const cq = chiffresDe(q);
   const cb = chiffresDe(b);
-  let reste = a * 10 ** decalage; // valeur de la partie « dividende » sur le soroban
-  const macros = [];
-  macros.push({
+  let reste = a;
+  const macros = [{
     texte: `On pose le dividende ${a}. Le diviseur ${b} n'est pas posé (片落とし). L'unité du quotient sera ${nd} + 1 = ${nd + 1} tiges à gauche de l'unité du dividende.`,
     op: '+', valeur: 0,
+  }];
+  /** Retire chiffre × diviseur, produit par produit, sur deux tiges chacun. */
+  const retirerProduits = (chiffre, r) => cb.forEach((y, j) => {
+    const p = chiffre * y;
+    const rangDizaine = r - 1 - j;
+    macros.push({
+      texte: `${chiffre} × ${y} = ${deuxChiffres(p)} : on retire « ${deuxChiffres(p)} » des tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}.`,
+      op: '-', valeur: p * 10 ** (rangDizaine - 1),
+    });
+    reste -= p * 10 ** (rangDizaine - 1);
   });
+
   cq.forEach((chiffre, i) => {
-    const r = rangUniteQ + cq.length - 1 - i; // rang du chiffre de quotient
-    // Tête du reste actuel, pour expliquer la règle « deux tiges / juste à gauche ».
-    const tete = reste > 0 ? nbChiffres(reste) - 1 : -1;
+    const r = rangUniteQ + cq.length - 1 - i;
+    const puissance = 10 ** (r - nd - 1);
+    const resteLocal = Math.floor(reste / puissance);
     if (chiffre === 0) {
-      macros.push({ texte: `Le reste est plus petit que ${b} à cet endroit : le chiffre du quotient est 0, la tige reste vide.`, op: '+', valeur: 0 });
+      macros.push({ texte: `À cet endroit le reste (${resteLocal}) est plus petit que ${b} : le chiffre du quotient est 0, la tige reste vide.`, op: '+', valeur: 0 });
       return;
     }
+    const tete = reste > 0 ? nbChiffres(reste) - 1 : -1;
     const regle = r === tete + 2
-      ? `le début du reste est plus grand ou égal à ${b} : le chiffre se pose deux tiges à gauche (une tige libre entre les deux)`
+      ? `le début du reste est plus grand ou égal à ${b} : le chiffre se pose deux tiges à gauche (une tige libre)`
       : `le début du reste est plus petit que ${b} : le chiffre se pose juste à gauche`;
-    macros.push({ texte: `Chiffre du quotient : ${chiffre}, sur la tige des ${nomRang(r)}. Règle : ${regle}.`, op: '+', valeur: chiffre * 10 ** r });
-    cb.forEach((y, j) => {
-      const p = chiffre * y;
-      const rangDizaine = r - 1 - j;
+    let { estime, arrondi } = estimerChiffre(resteLocal, b);
+    let texteEstim = nd === 1
+      ? `Combien de fois ${b} dans ${resteLocal} ? ${estime}.`
+      : `Estimation : ${b} est proche de ${arrondi} ; ${resteLocal} ÷ ${arrondi} ≈ ${estime}.`;
+    // Trop grand : on le voit de tête (le produit ne tient pas), on corrige avant de poser.
+    while (estime * b > resteLocal) {
+      texteEstim += ` Vérification : ${estime} × ${b} = ${estime * b}, plus que ${resteLocal} : trop grand, on prend ${estime - 1}.`;
+      estime -= 1;
+    }
+    macros.push({ texte: `${texteEstim} On pose ${estime} sur la tige des ${nomRang(r)} (règle : ${regle}).`, op: '+', valeur: estime * 10 ** r });
+    retirerProduits(estime, r);
+    // Trop petit : le reste dépasse encore le diviseur → +1 au quotient, on retire encore le diviseur.
+    for (let k = estime; k < chiffre; k++) {
       macros.push({
-        texte: `${chiffre} × ${y} = ${deuxChiffres(p)} : on retire « ${deuxChiffres(p)} » des tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}.`,
-        op: '-', valeur: p * 10 ** (rangDizaine - 1),
+        texte: `Le reste (${Math.floor(reste / puissance)}) est encore plus grand ou égal à ${b} : le chiffre était trop petit. On ajoute 1 au quotient (${k} → ${k + 1}) et on retire encore ${b}.`,
+        op: '+', valeur: 10 ** r,
       });
-      reste -= p * 10 ** (rangDizaine - 1);
-    });
+      retirerProduits(1, r);
+    }
   });
   return {
     nbTiges: rangUniteQ + cq.length + 1,
-    depart: a * 10 ** decalage,
+    depart: a,
     macros,
     rangUniteQuotient: rangUniteQ,
     lecture: `Quotient : ${q}, lu à gauche du reste (qui vaut 0). Son unité est sur la tige des ${nomRang(rangUniteQ)}, ${nd + 1} tiges à gauche de l'unité du dividende.`,
@@ -138,4 +205,42 @@ export function etapesDivision(a, b) {
 /** Valeur finale du soroban après les étapes (pour les tests). */
 export function appliquerMacros(depart, macros) {
   return macros.reduce((v, m) => (m.op === '+' ? v + m.valeur : v - m.valeur), depart);
+}
+
+// ------------------------------------------------------------------ nombres décimaux (3e kyū et plus)
+
+import { diviserArrondi } from './nombres.js';
+
+/**
+ * Multiplication de décimaux : m et n chiffres significatifs, virgule placée au hasard
+ * (au moins un facteur décimal). Résultat arrondi à `decimales` si nécessaire.
+ */
+export function genererMultiplicationDecimale(m, n, decimales = 3) {
+  for (;;) {
+    const A = facteur(m);
+    const B = facteur(n);
+    const pa = entier(0, Math.min(m, 3));
+    const pb = entier(0, Math.min(n, 3));
+    if (pa + pb === 0) continue;
+    // Pas de zéro final derrière une virgule (187,70 s'afficherait 187,7 : décimales trompeuses).
+    if ((pa && A % 10 === 0) || (pb && B % 10 === 0)) continue;
+    const k = pa + pb;
+    const arrondi = k > decimales;
+    const resultat = arrondi ? diviserArrondi(A * B, 10 ** k, decimales) : (A * B) / 10 ** k;
+    return { type: 'mul', a: A / 10 ** pa, b: B / 10 ** pb, resultat, decimales: arrondi ? decimales : k, arrondi, entiers: [A, B], virgules: [pa, pb] };
+  }
+}
+
+/** Division de décimaux : diviseur de nd chiffres, quotient arrondi à `decimales`. */
+export function genererDivisionDecimale(nd, nq, decimales = 3) {
+  for (;;) {
+    const B = facteur(nd);
+    const A = facteur(nq + nd - 1 + entier(0, 1));
+    const pa = entier(0, 2);
+    const pb = entier(0, Math.min(nd - 1, 2));
+    if ((pa && A % 10 === 0) || (pb && B % 10 === 0)) continue;
+    const resultat = diviserArrondi(A * 10 ** pb, B * 10 ** pa, decimales);
+    if (resultat === 0 || Number.isInteger(resultat * 10)) continue; // éviter les quotients trop « ronds »
+    return { type: 'div', a: A / 10 ** pa, b: B / 10 ** pb, resultat, decimales, arrondi: true, entiers: [A, B], virgules: [pa, pb] };
+  }
 }

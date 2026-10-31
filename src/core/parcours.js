@@ -18,7 +18,8 @@ import { avecGraine, semaineISO } from './hasard.js';
 
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
-const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.map((s) => s.id));
+// Les étapes d'anzan ne bloquent pas l'accès aux épreuves.
+const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => s.type !== 'anzan').map((s) => s.id));
 
 export const estValide = (d, id) => !!d.paliers[id]?.valide;
 export const leconsValidees = (d) => SOUS_PALIERS.filter((sp) => estValide(d, sp.id));
@@ -40,7 +41,7 @@ export const PREREQUIS = {
   8: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p7-1'],
   7: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p6-3', 'p7-1', 'p7-2'],
 };
-const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.map((s) => s.id);
+const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => s.type !== 'anzan').map((s) => s.id);
 
 /**
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
@@ -99,4 +100,18 @@ export function defiSemaine(d, date) {
     return s;
   });
   return { cle: `defi-semaine-${semaine}-${palier}`, semaine, sections, description: `${chiffres} chiffre${chiffres > 1 ? 's' : ''}, gestes appris${mul ? ', multiplications' : ''}${div ? ', divisions' : ''}` };
+}
+
+/**
+ * Anzan du jour, adapté au niveau : plus on a validé d'étapes d'anzan dans le parcours,
+ * plus il y a de nombres, plus ils défilent vite, puis on passe à 2 chiffres.
+ */
+export function anzanAdapte(d) {
+  const k = SOUS_PALIERS.filter((sp) => sp.type === 'anzan' && estValide(d, sp.id)).length;
+  return {
+    chiffres: k >= 5 ? 2 : 1,
+    termes: [3, 4, 5, 5, 7, 5][k],
+    duree: [2, 1.5, 1.5, 1, 1, 1.5][k],
+    questions: 5,
+  };
 }

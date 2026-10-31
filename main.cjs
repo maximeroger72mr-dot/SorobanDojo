@@ -15,10 +15,27 @@ ipcMain.handle('progression:lire', () => {
   }
 });
 
+/**
+ * Copie de sauvegarde automatique : au premier enregistrement de chaque jour, l'ancien fichier
+ * est copié dans « sauvegardes/ » ; seules les 5 dernières copies sont gardées.
+ */
+function copieDuJour(f) {
+  if (!fs.existsSync(f)) return;
+  const dossier = path.join(path.dirname(f), 'sauvegardes');
+  fs.mkdirSync(dossier, { recursive: true });
+  const jour = new Date().toISOString().slice(0, 10);
+  const copie = path.join(dossier, `progression-${jour}.json`);
+  if (fs.existsSync(copie)) return;
+  fs.copyFileSync(f, copie);
+  const anciennes = fs.readdirSync(dossier).filter((n) => n.startsWith('progression-')).sort();
+  for (const n of anciennes.slice(0, -5)) fs.rmSync(path.join(dossier, n));
+}
+
 ipcMain.handle('progression:ecrire', (_evt, donnees) => {
   // Écriture atomique : fichier temporaire puis renommage, pour ne jamais corrompre la sauvegarde.
   const f = fichierProgression();
   fs.mkdirSync(path.dirname(f), { recursive: true });
+  copieDuJour(f);
   fs.writeFileSync(`${f}.tmp`, JSON.stringify(donnees, null, 2), 'utf8');
   fs.renameSync(`${f}.tmp`, f);
   return true;

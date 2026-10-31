@@ -14,7 +14,9 @@ const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 export default {
   id: 'anzan',
   titre: 'Flash anzan',
-  monter(el) {
+  monter(el, app, params = {}) {
+    // Réglages imposés par la séance du jour (adaptés au niveau), puis démarrage direct.
+    for (const k of ['chiffres', 'termes', 'duree', 'questions']) if (params[k]) reglages[k] = params[k];
     let actif = true;
     let etat = 'repos'; // repos | flash | reponse | corrige | fin
     let question = null;
@@ -112,6 +114,7 @@ export default {
     }
 
     const sansRaccourcis = raccourcis({ Enter: () => { if (etat !== 'flash') action(); } });
+    if (params.auto) action();
     return () => { actif = false; sansRaccourcis(); };
   },
 };

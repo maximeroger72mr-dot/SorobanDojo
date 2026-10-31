@@ -110,7 +110,23 @@ export function diagnostiquerDivision(ex, reponse) {
   return causes;
 }
 
+/** Décimaux : virgule mal placée, ou arrondi. */
+function diagnostiquerDecimal(ex, reponse) {
+  const causes = [];
+  for (const k of [1, 2, 3]) {
+    if (Math.abs(reponse * 10 ** k - ex.resultat) < 1e-9 || Math.abs(reponse - ex.resultat * 10 ** k) < 1e-9) {
+      causes.push('La virgule est mal placée : comptez les décimales des deux nombres (multiplication), ou rendez d\'abord le diviseur entier (division).');
+    }
+  }
+  const pas = 10 ** -(ex.decimales ?? 0);
+  if (Math.abs(Math.abs(reponse - ex.resultat) - pas) < pas / 10) {
+    causes.push(`Écart d'une unité sur la dernière décimale : vérifiez l'arrondi (on regarde la décimale suivante : 5 ou plus, on arrondit au-dessus).`);
+  }
+  return causes;
+}
+
 export function diagnostiquer(ex, reponse) {
+  if (ex.decimales && ex.type !== 'addsub') return diagnostiquerDecimal(ex, reponse);
   if (ex.type === 'mul') return diagnostiquerMultiplication(ex, reponse);
   if (ex.type === 'div') return diagnostiquerDivision(ex, reponse);
   return diagnostiquerColonne(ex, reponse);

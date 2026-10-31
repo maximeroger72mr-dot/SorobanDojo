@@ -44,3 +44,23 @@ test('division : le soroban finit avec le quotient à sa place, reste 0, pour 30
     assert.equal(e.rangUniteQuotient, nd + 1, "unité du quotient : (chiffres du diviseur + 1) tiges à gauche");
   }
 });
+
+import { aideDivision } from '../src/core/multiplication.js';
+
+test('144 ÷ 18 : estimation 7 (18 ≈ 20), trop petit, correction à 8', () => {
+  const aide = aideDivision(144, 18);
+  assert.deepEqual(aide.table.slice(0, 3), [18, 36, 54]);
+  const e = aide.etapes[0];
+  assert.equal(e.arrondi, 20);
+  assert.equal(e.estime, 7);
+  assert.deepEqual(e.essais.map((x) => [x.q, x.ok]), [[7, false], [8, true]]);
+  const d = etapesDivision(144, 18);
+  assert.ok(d.macros.some((m) => /trop petit/.test(m.texte)));
+  assert.equal(appliquerMacros(d.depart, d.macros), 8 * 10 ** d.rangUniteQuotient);
+});
+
+test('112 ÷ 14 : estimation trop grande corrigée de tête', () => {
+  const d = etapesDivision(112, 14);
+  assert.ok(d.macros.some((m) => /trop grand/.test(m.texte)));
+  assert.equal(appliquerMacros(d.depart, d.macros), 8 * 10 ** d.rangUniteQuotient);
+});

@@ -19,6 +19,7 @@ import planches from './modules/planches.js';
 import drills from './modules/drills.js';
 import muldiv from './modules/muldiv.js';
 import anzan from './modules/anzan.js';
+import dictee from './modules/dictee.js';
 import defis from './modules/defis.js';
 import epreuves from './modules/epreuves.js';
 import progressionEcran from './modules/progression.js';
@@ -27,7 +28,7 @@ import progressionEcran from './modules/progression.js';
 const MENU = [
   { titre: 'Aujourd\'hui', ecrans: [seance, revisions] },
   { titre: 'Apprendre', ecrans: [lecons, lecture, libre] },
-  { titre: 'S\'entraîner', ecrans: [planches, drills, muldiv, anzan] },
+  { titre: 'S\'entraîner', ecrans: [planches, drills, muldiv, anzan, dictee] },
   { titre: 'Se mesurer', ecrans: [defis, epreuves] },
   { titre: null, ecrans: [progressionEcran] },
 ];

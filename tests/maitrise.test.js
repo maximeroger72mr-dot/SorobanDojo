@@ -18,7 +18,8 @@ test('niveaux : juste ET rapide', () => {
 test('temps par unité', () => {
   const col = { type: 'addsub', lignes: [{ op: '+', n: 12 }, { op: '+', n: 34 }, { op: '-', n: 5 }] };
   assert.equal(unites(col), 5);
-  assert.equal(tempsParUnite(col, 6500), 1);
+  assert.equal(tempsParUnite(col, 5000), 1);
+  assert.equal(tempsParUnite(col, 6500, 1.5), 1);
   assert.equal(unites({ type: 'mul', a: 372, b: 8 }), 3);
 });
 

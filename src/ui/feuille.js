@@ -8,6 +8,7 @@
  */
 
 import { diagnostiquer } from '../core/diagnostic.js';
+import { lireReponse, egal } from '../core/nombres.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
 import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
@@ -34,7 +35,7 @@ export function creerFeuille(conteneur, o) {
     h('div', { class: `grille-feuille ${sec.problemes[0]?.type === 'addsub' ? 'colonnes' : 'operations'}` },
       sec.problemes.map((ex) => {
         numero += 1;
-        const input = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', 'aria-label': `Réponse ${numero}` });
+        const input = h('input', { type: 'text', inputmode: ex.decimales ? 'decimal' : 'numeric', autocomplete: 'off', 'aria-label': `Réponse ${numero}` });
         const carte = h('div', { class: 'probleme' }, h('div', { class: 'num-probleme' }, numero), rendreEnonce(ex, { compact: true }), input);
         cases.push({ ex, input, carte, section: si });
         return carte;
@@ -81,9 +82,8 @@ export function creerFeuille(conteneur, o) {
     const dureeMs = Math.min(performance.now() - debut, limiteMs ?? Infinity);
     btnCorriger.disabled = true;
     const resultats = cases.map((c) => {
-      const brut = c.input.value.replace(/[\s.]/g, '');
-      const reponse = /^\d+$/.test(brut) ? Number(brut) : null;
-      const juste = reponse === c.ex.resultat;
+      const reponse = lireReponse(c.input.value, c.ex.decimales ?? 0);
+      const juste = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0);
       c.input.disabled = true;
       c.carte.classList.add(juste ? 'ok' : 'ko');
       if (!juste) {

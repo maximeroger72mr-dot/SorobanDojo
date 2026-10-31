@@ -16,7 +16,7 @@ import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
   reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes,
 } from '../core/progression.js';
-import { tempsParUnite } from '../core/maitrise.js';
+import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
@@ -44,8 +44,9 @@ function demoDe(sp, d) {
   if (sp.type === 'div') return demoDivision(d.a, d.b);
   return d;
 }
-const famille = (sp) => (sp.type === 'addsub' ? 'addsub' : 'muldiv');
-const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : []);
+const famille = (sp) => (sp.type === 'addsub' || sp.type === 'anzan' ? 'addsub' : 'muldiv');
+const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
+const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
 const libelleDemo = (sp, d) => (sp.type === 'mul' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 
@@ -123,6 +124,16 @@ export default {
         if (sp.type === 'addsub') {
           zone.append(h('p', { class: 'discret' }, sp.cumul && sp.cibles.length > 12 ? 'Tous les gestes vus jusqu\'ici.' : `Gestes travaillés : ${sp.cibles.map(nomMotif).join(' · ')}. ${sp.cumul ? '' : 'Les exercices ne contiennent que ces gestes et des gestes directs.'}`));
         }
+        if (sp.type === 'anzan') {
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Comment faire : '),
+            h('ul', {},
+              h('li', {}, `Les nombres s'affichent un par un (${sp.duree.toLocaleString('fr-FR')} s chacun), ${sp.lignes} nombres à ${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}. Le signe − annonce une soustraction.`),
+              h('li', {}, 'Posez la main comme sur le soroban et faites les gestes dans l\'air : le pouce monte, l\'index descend.'),
+              h('li', {}, 'Gardez l\'image du soroban : on « voit » le résultat plutôt que de le calculer avec des mots.'),
+              h('li', {}, 'Ensuite, entraînez-vous dans « Flash anzan » en réduisant le temps d\'affichage.'))),
+          h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
+          return null;
+        }
         zone.append(h('h2', {}, 'Démonstrations'),
           h('p', { class: 'discret' }, 'Regardez le geste, puis refaites-le sur votre soroban avant de passer à la suite.'));
         const choix = h('div', { class: 'ligne' });
@@ -145,7 +156,7 @@ export default {
             class: v === mode ? 'actif' : '',
             onclick: (ev) => { mode = v; [...choixMode.children].forEach((b) => b.classList.toggle('actif', b === ev.currentTarget)); lancer(); },
           }, t)));
-        zone.append(bandeau, h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail);
+        zone.append(bandeau, sp.type === 'anzan' ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail);
 
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -181,7 +192,8 @@ export default {
               generer: () => genererExercice(sp, poidsDe(sp)),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
-              surExercice: (res) => compter(res.juste, res.dureeMs, res.t),
+              // Un exercice résolu avec « Je suis bloqué » compte comme répétition, pas pour le niveau.
+              surExercice: (res) => compter(res.juste && !res.aide, res.dureeMs, res.t),
             });
           } else {
             const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
@@ -193,7 +205,7 @@ export default {
                   // Sur une feuille, le temps se répartit entre les problèmes.
                   const dureeMoyenne = b.dureeMs / b.total;
                   for (const r of b.resultats) {
-                    const t = tempsParUnite(r.ex, dureeMoyenne);
+                    const t = tempsParUnite(r.ex, dureeMoyenne, SURCOUT_FEUILLE_S);
                     await compter(r.juste, dureeMoyenne, t);
                     const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
                     if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], t);
@@ -224,7 +236,7 @@ export default {
         }
         let serie = null;
         const intro = h('div', { class: 'carte' },
-          h('p', {}, `${TEST.exercices} calculs à la suite. Il en faut ${TEST.reussitesMin} justes. Les erreurs sont revues à la fin.`),
+          h('p', {}, `${TEST.exercices} calculs à la suite. Il en faut ${testMin(sp)} justes. Les erreurs sont revues à la fin.`),
           et.valide ? h('p', { class: 'discret' }, `Déjà validé le ${dateFr(et.valide)}. Vous pouvez le repasser pour vous entraîner.`) : null,
           h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer le mini-test'));
         zone.append(intro);
@@ -241,7 +253,7 @@ export default {
             surFin: async (bilan) => {
               serie.detruire();
               serie = null;
-              const reussi = bilan.justes >= TEST.reussitesMin;
+              const reussi = bilan.justes >= testMin(sp);
               await enregistrerSession({ module: 'lecons', mode: 'test', reglages: { sousPalier: sp.id }, total: bilan.total, justes: bilan.justes, dureeMs: bilan.dureeMs });
               if (reussi) await validerPalier(sp.id);
               const c = etatPalier(sp.id).carte;
@@ -250,7 +262,7 @@ export default {
                 h('p', {}, `Temps : ${formaterDuree(bilan.dureeMs)}`),
                 reussi
                   ? h('p', { class: 'retour ok' }, `Leçon validée. Première révision le ${dateFr(c.echeance)}.`)
-                  : h('p', {}, `Il faut ${TEST.reussitesMin} réussites. Reprenez un peu d'entraînement, puis retentez.`),
+                  : h('p', {}, `Il faut ${testMin(sp)} réussites. Reprenez un peu d'entraînement, puis retentez.`),
                 h('div', { class: 'ligne' },
                   reussi && suivant ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
                   h('button', { class: 'btn', onclick: () => afficher(reussi ? 'test' : 'entrainement') }, reussi ? 'Repasser le test' : 'Retour à l\'entraînement'),

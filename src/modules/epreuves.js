@@ -39,11 +39,11 @@ function rapport(app, resultats) {
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 function resume(g) {
-  const p = [];
   const m = g.mitori;
-  p.push(`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes (${m.egal ? `${m.chiffres / m.lignes} chiffres par ligne` : `${m.chiffres} chiffres, longueurs variées`}${m.soustractions ? ', additions et soustractions' : ''})`);
-  if (g.mul) p.push(`multiplication ${g.mul.nb} × (${g.mul.total} chiffres au total)`);
-  if (g.div) p.push(`division ${g.div.nb} × (diviseur + quotient : ${g.div.total} chiffres)`);
+  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.soustractions ? ', additions et soustractions' : ''}`];
+  const dec = (f) => (f.decimales ? `, moitié en décimaux (arrondi ${f.decimales === 4 ? 'au dix-millième' : 'au millième'})` : '');
+  if (g.mul) p.push(`multiplication ${g.mul.nb} × (${g.mul.total} chiffres au total${dec(g.mul)})`);
+  if (g.div) p.push(`division ${g.div.nb} × (diviseur + quotient : ${g.div.total} chiffres${dec(g.div)})`);
   return p.join(' · ');
 }
 
@@ -60,7 +60,7 @@ export default {
       remplir(el, h('h1', {}, 'Épreuves officielles'),
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
         h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
-          'Les formats (nombre de problèmes, chiffres, durée, points) suivent les informations publiques des organisateurs. Les seuils des 4e-10e kyū sont indicatifs (70 %) : à confirmer auprès de la fédération. Aux 1er-3e kyū, l\'examen réel comporte aussi des décimaux et des arrondis ; ici, les nombres sont entiers.'),
+          'Du 6e au 1er kyū : tableau de référence retenu (seuils 210/300 puis 240/300, décimaux à partir du 3e kyū, réponses arrondies comme indiqué). Du 10e au 7e kyū : formats publics japonais, seuil indicatif de 70 %. Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.'),
         h('div', { class: 'liste-paliers' }, GRADES.map((g) => h('button', { class: 'ligne-palier', onclick: () => lancer(g) },
           h('span', { class: 'icone' }, meilleur(g)?.reussi ? '✓' : '○'),
           h('span', { class: 'titre' }, h('strong', {}, `${g.nom} (${g.japonais})`), h('div', { class: 'discret', style: 'font-size:0.85rem' }, resume(g))),

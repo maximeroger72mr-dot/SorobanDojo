@@ -7,11 +7,17 @@
  * et « Expliquer » (démonstration animée). Une bande de pastilles garde la trace de la série.
  *
  * Mode défi : pas d'arrêt sur les erreurs (on les revoit à la fin), chronomètre en continu.
+ *
+ * Le temps de calcul s'arrête à la PREMIÈRE TOUCHE tapée : la frappe n'est pas chronométrée.
+ * Exercice en flash (anzan) : les nombres s'affichent un par un, puis le chrono démarre.
+ * Division par 2 chiffres ou plus : bouton « Je suis bloqué » (estimation pas à pas, table du diviseur).
  */
 
 import { diagnostiquer, localiserErreur, motifsDeLigne } from '../core/diagnostic.js';
 import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { tempsParUnite, tempsCible, unites, SURCOUT_S, MIN_ESSAIS } from '../core/maitrise.js';
+import { lireReponse, egal } from '../core/nombres.js';
+import { aideDivision } from '../core/multiplication.js';
 import { motifsEnDifficulte, noterGestes, noterReponse } from '../core/progression.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
@@ -52,6 +58,8 @@ export function creerSerie(conteneur, o) {
   const zoneEnonce = h('div', { class: 'zone-enonce' });
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Résultat', 'aria-label': 'Résultat' });
   const btnValider = h('button', { class: 'btn principal', onclick: () => valider() }, 'Valider ', h('kbd', {}, 'Entrée'));
+  const btnBloque = h('button', { class: 'btn', style: 'display:none', onclick: () => aideSuivante() }, 'Je suis bloqué ', h('kbd', {}, 'B'));
+  const zoneAide = h('div', { class: 'aide-division' });
   const compteur = h('span', { class: 'compteur' });
   const chrono = h('span', { class: 'compteur chrono' });
   const fantome = h('span', { class: 'compteur fantome' });
@@ -62,9 +70,15 @@ export function creerSerie(conteneur, o) {
   const racine = h('div', { class: 'serie' },
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), fantome, chrono, compteur),
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
-    h('div', { class: 'ligne' }, saisie, btnValider),
-    retour, zoneDiag);
+    h('div', { class: 'ligne' }, saisie, btnValider, btnBloque),
+    zoneAide, retour, zoneDiag);
   conteneur.append(racine);
+  saisie.addEventListener('input', () => {
+    if (phase === 'question' && dureeCalcul === null && saisie.value.trim()) {
+      dureeCalcul = performance.now() - debutExercice;
+      majChronoExo(dureeCalcul);
+    }
+  });
 
   let i = 0;
   let ex = null;
@@ -72,6 +86,10 @@ export function creerSerie(conteneur, o) {
   let phase = 'question'; // 'question' | 'corrige' | 'fin'
   let sousTotauxVisibles = false;
   let attribue = false;
+  let dureeCalcul = null;   // temps jusqu'à la première touche
+  let aideUtilisee = false;
+  let aide = null;          // { etapes, index } pour « Je suis bloqué »
+  let flashEnCours = false;
   let zoneLocalisationCourante = null;
   let timer = null;
   const debut = performance.now();
@@ -86,7 +104,7 @@ export function creerSerie(conteneur, o) {
       fantome.textContent = `fantôme : ${k} / ${opts.nombre}`;
       fantome.classList.toggle('devant', k < resultats.length);
     }
-    if (phase === 'question') majChronoExo(performance.now() - debutExercice);
+    if (phase === 'question' && dureeCalcul === null && !flashEnCours) majChronoExo(performance.now() - debutExercice);
   };
   const minuterie = setInterval(majChrono, 100);
 
@@ -124,37 +142,98 @@ export function creerSerie(conteneur, o) {
     phase = 'question';
     compteur.textContent = opts.compteur ? opts.compteur(i) : (Number.isFinite(opts.nombre) ? `${i + 1} / ${opts.nombre}` : '');
     objectifCourant = objectif();
+    dureeCalcul = null;
+    aideUtilisee = false;
+    aide = null;
+    remplir(zoneAide);
+    btnBloque.style.display = ex.type === 'div' && ex.b >= 10 && !ex.arrondi ? '' : 'none';
     afficherEnonce();
     retour.className = 'retour';
     remplir(retour, h('span', { class: 'discret' }, 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
     saisie.value = '';
     saisie.disabled = false;
     btnValider.disabled = false;
+    btnBloque.disabled = false;
+    saisie.inputMode = ex.decimales ? 'decimal' : 'numeric';
+    debutExercice = performance.now();
+    if (ex.flash) jouerFlash(ex);
+    else saisie.focus();
+  }
+
+  /** Anzan : montre les nombres un par un, puis lance le chronomètre. */
+  async function jouerFlash(exo) {
+    flashEnCours = true;
+    saisie.disabled = true;
+    btnValider.disabled = true;
+    const ecran = h('div', { class: 'flash-ecran' });
+    remplir(zoneEnonce, ecran);
+    const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(350); }
+    ecran.classList.remove('decompte');
+    for (const l of exo.lignes) {
+      if (ex !== exo || phase === 'fin') return;
+      ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+      await attendre(exo.flash.duree * 850);
+      ecran.textContent = '';
+      await attendre(exo.flash.duree * 150);
+    }
+    if (ex !== exo || phase === 'fin') return;
+    ecran.textContent = '?';
+    flashEnCours = false;
+    saisie.disabled = false;
+    btnValider.disabled = false;
     saisie.focus();
     debutExercice = performance.now();
+  }
+
+  /** « Je suis bloqué » : dévoile le raisonnement de la division, un essai à la fois. */
+  function aideSuivante() {
+    if (phase !== 'question' || ex?.type !== 'div') return;
+    aideUtilisee = true;
+    if (!aide) {
+      aide = { ...aideDivision(ex.a, ex.b), vus: 0 };
+      remplir(zoneAide, h('div', { class: 'carte' },
+        h('div', {}, h('strong', {}, `Table de ${formaterNombre(ex.b)} : `), aide.table.map((v, i) => `${i + 1} × ${ex.b} = ${formaterNombre(v)}`).join(' · ')),
+        h('ol', { class: 'aide-etapes' })));
+    }
+    const liste = zoneAide.querySelector('.aide-etapes');
+    // Chaque clic dévoile un chiffre du quotient de plus (estimation, vérification, correction).
+    const e = aide.etapes[aide.vus];
+    if (!e) return;
+    aide.vus += 1;
+    const lignes = [`On regarde ${formaterNombre(e.resteLocal)}. ${ex.b >= 10 ? `${ex.b} est proche de ${e.arrondi} : ${formaterNombre(e.resteLocal)} ÷ ${e.arrondi} ≈ ${e.estime}.` : ''}`];
+    for (const x of e.essais) {
+      lignes.push(x.ok
+        ? `${x.q} × ${ex.b} = ${formaterNombre(x.produit)} : ça tient, et il reste ${formaterNombre(e.resteLocal - x.produit)}, moins que ${ex.b}. Chiffre : ${x.q}.`
+        : x.raison === 'trop grand'
+          ? `${x.q} × ${ex.b} = ${formaterNombre(x.produit)} : plus que ${formaterNombre(e.resteLocal)}, trop grand → ${x.q - 1}.`
+          : `${x.q} × ${ex.b} = ${formaterNombre(x.produit)} : il reste ${formaterNombre(e.resteLocal - x.produit)}, encore ≥ ${ex.b}, trop petit → ${x.q + 1}.`);
+    }
+    liste.append(h('li', {}, lignes.join(' ')));
+    if (aide.vus >= aide.etapes.length) btnBloque.disabled = true;
   }
 
   async function valider() {
     if (phase === 'corrige') { i += 1; suivant(); return; }
     if (phase !== 'question') return;
-    const brut = saisie.value.replace(/[\s.]/g, '');
-    if (!/^\d+$/.test(brut)) { saisie.focus(); return; }
-    const reponse = Number(brut);
-    const juste = reponse === ex.resultat;
-    const dureeMs = performance.now() - debutExercice;
+    const reponse = lireReponse(saisie.value, ex.decimales ?? 0);
+    if (reponse === null) { saisie.focus(); return; }
+    const juste = egal(reponse, ex.resultat, ex.decimales ?? 0);
+    // Temps de calcul : jusqu'à la première touche (la frappe n'est pas comptée).
+    const dureeMs = dureeCalcul ?? performance.now() - debutExercice;
     phase = 'traitement';
     saisie.disabled = true;
     majChronoExo(dureeMs);
-    resultats.push({ ex, reponse, juste, dureeMs });
+    resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${formaterNombre(ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
-    if (ex.motifs) await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t);
+    if (ex.motifs && !aideUtilisee) await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t);
     await noterReponse(juste);
-    await opts.surExercice?.({ juste, reponse, dureeMs, t }, ex, i);
+    await opts.surExercice?.({ juste, reponse, dureeMs, t, aide: aideUtilisee }, ex, i);
     majDiag();
 
     const temps = h('span', { class: 'discret' }, ` · ${formaterDuree(dureeMs)}`);
@@ -232,6 +311,7 @@ export function creerSerie(conteneur, o) {
     s: () => (phase === 'corrige' ? basculerSousTotaux() : false),
     S: () => (phase === 'corrige' ? basculerSousTotaux() : false),
     e: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
+    b: () => (phase === 'question' && btnBloque.style.display !== 'none' && !saisie.value ? aideSuivante() : false),
     E: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
   });
 

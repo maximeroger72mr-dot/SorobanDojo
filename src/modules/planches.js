@@ -11,12 +11,13 @@ import { genererColonne } from '../core/generateur.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
-import { tempsParUnite } from '../core/maitrise.js';
+import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
+import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10 };
+const reglages = { chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, selection: new Set() };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
@@ -32,7 +33,12 @@ function contraintes(valeur) {
   }
   let cibles;
   let libelle;
-  if (valeur === 'lents') {
+  if (valeur === 'choix') {
+    // Sélection libre sur la carte de maîtrise (ex. +4 et −4 ensemble).
+    cibles = [...reglages.selection];
+    if (!cibles.length) return contraintes('appris');
+    libelle = cibles.map(nomMotif).join(' + ');
+  } else if (valeur === 'lents') {
     // Planche « vitesse » : les gestes appris les plus lents, pour les faire passer au niveau supérieur.
     cibles = gestesLents(progression()).map((g) => g.cle);
     libelle = 'Vitesse : mes gestes les plus lents';
@@ -78,6 +84,7 @@ export default {
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes']], Number),
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
+          ['choix', 'Choisir sur la carte (plusieurs gestes)…'],
           ['faibles', 'Mes points faibles'],
           ['lents', 'Vitesse : mes gestes les plus lents'],
           ['tout', 'Tout mélangé'],
@@ -108,7 +115,7 @@ export default {
               // Réussite : tous les gestes de la colonne sont crédités. Erreur : seul un geste
               // prouvé par le résultat est mis en cause (jamais d'accusation au hasard).
               const loc = x.juste || x.reponse === null ? null : localiserErreur(x.ex, x.reponse);
-              await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], tempsParUnite(x.ex, dureeMoyenne));
+              await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], tempsParUnite(x.ex, dureeMoyenne, SURCOUT_FEUILLE_S));
             }
             await enregistrerSession({ module: 'planches', mode: r.cible, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           })();
@@ -123,6 +130,16 @@ export default {
       });
     }
 
+    // Sélection de plusieurs gestes sur la carte de maîtrise, visible avec l'option « Choisir sur la carte ».
+    const selCible = [...el.querySelectorAll('.reglages select')].find((x) => x.querySelector('option[value="choix"]'));
+    const resume = h('p', { class: 'discret' });
+    const majResume = () => { resume.textContent = reglages.selection.size ? `Choisis : ${[...reglages.selection].map(nomMotif).join(' · ')}` : 'Cliquez les gestes à travailler ensemble (ex. +4 et −4). Les gestes directs sont toujours permis.'; };
+    const zoneChoix = h('div', { class: 'carte zone-choix' }, resume, carteMaitrise({ selection: reglages.selection, surSelection: majResume, sansDirects: true }));
+    majResume();
+    zone.before(zoneChoix);
+    const majChoix = () => { zoneChoix.style.display = reglages.cible === 'choix' ? '' : 'none'; };
+    selCible.addEventListener('change', majChoix);
+    majChoix();
     if (params.auto) lancer();
     return () => feuille?.detruire();
   },

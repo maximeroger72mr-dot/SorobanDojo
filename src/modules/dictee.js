@@ -1,0 +1,155 @@
+/**
+ * Dictée de nombres (読上算, yomiage-zan) : l'ordinateur lit une colonne de nombres à voix haute,
+ * l'élève calcule sur son soroban (ou de tête) en écoutant, puis tape le résultat.
+ * But : travailler à l'oreille. Débit, pause entre les nombres et voix réglables.
+ *
+ * Lecture : « On commence. », puis chaque nombre (« moins … » pour une soustraction),
+ * puis « C'est tout. ». Les nombres restent courts (1 à 4 chiffres) pour rester dictables.
+ */
+
+import { genererColonne } from '../core/generateur.js';
+import { famille } from '../core/motifs.js';
+import { motifsAppris } from '../core/parcours.js';
+import { progression, enregistrerSession, noterReponse } from '../core/progression.js';
+import { lireReponse } from '../core/nombres.js';
+import { chargerVoix, parler, taire, voixDisponible } from '../ui/voix.js';
+import { rendreEnonce } from '../ui/enonce.js';
+import { ouvrirExplication } from '../ui/explication.js';
+import { h, raccourcis, formaterNombre, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
+
+const reglages = { chiffres: 2, nombres: 5, debit: 1, pause: 0.8, soustractions: true, voix: '', questions: 5 };
+const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+/** Colonne à dicter : gestes appris seulement (aucun ami jamais vu). */
+function colonneADicter() {
+  const appris = motifsAppris(progression());
+  const amis = [...appris].filter((c) => !c.endsWith(':direct'));
+  const ops = reglages.soustractions ? ['+', '-'] : ['+'];
+  try {
+    return genererColonne({ chiffres: reglages.chiffres, lignes: reglages.nombres, autorises: appris, cibles: (amis.length ? amis : famille('direct')).filter((c) => ops.includes(c[0])), ops });
+  } catch {
+    return genererColonne({ chiffres: reglages.chiffres, lignes: reglages.nombres, autorises: null, cibles: famille('direct').filter((c) => ops.includes(c[0])), ops });
+  }
+}
+
+export default {
+  id: 'dictee',
+  titre: 'Dictée (yomiage)',
+  monter(el) {
+    let actif = true;
+    let etat = 'repos'; // repos | lecture | reponse | corrige | fin
+    let ex = null;
+    let serie = null;
+    let debutReponse = 0;
+    let dureeCalcul = null;
+
+    const select = (cle, options, conv = Number) => {
+      const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); } }, options.map(([v, t]) => h('option', { value: v }, t)));
+      s.value = String(reglages[cle]);
+      return s;
+    };
+    const selVoix = h('select', { onchange: (e) => { reglages.voix = e.target.value; } }, h('option', { value: '' }, 'Voix par défaut'));
+    chargerVoix().then((voix) => {
+      selVoix.append(...voix.map((v) => h('option', { value: v.name }, v.name)));
+      selVoix.value = reglages.voix;
+      if (!voix.length) avertissement.textContent = 'Aucune voix française n\'a été trouvée sur cet ordinateur : la voix par défaut sera utilisée (Windows : Paramètres > Heure et langue > Voix ; Mac : Réglages > Accessibilité > Contenu énoncé).';
+    });
+    const avertissement = h('p', { class: 'discret' }, voixDisponible() ? '' : 'La synthèse vocale n\'est pas disponible ici.');
+    const indicateur = h('div', { class: 'flash-ecran dictee-ecran' }, '🔈');
+    const progres = h('div', { class: 'pastilles' });
+    const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', placeholder: 'Résultat', autocomplete: 'off', style: 'display:none' });
+    const btn = h('button', { class: 'btn principal', onclick: () => action() });
+    const btnReecouter = h('button', { class: 'btn', style: 'display:none', onclick: () => lire(true) }, 'Réécouter');
+    const retour = h('div', { class: 'retour' });
+    saisie.addEventListener('input', () => { if (etat === 'reponse' && dureeCalcul === null && saisie.value.trim()) dureeCalcul = performance.now() - debutReponse; });
+
+    el.append(h('h1', {}, 'Dictée (yomiage)'),
+      h('p', { class: 'discret' }, 'Les nombres sont lus à voix haute ; calculez sur votre soroban en écoutant, sans regarder l\'écran. Les additions sont lues telles quelles, les soustractions précédées de « moins ».'),
+      h('div', { class: 'reglages' },
+        select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
+        select('nombres', [3, 5, 7, 10].map((n) => [n, `${n} nombres`])),
+        h('label', {}, 'Débit', select('debit', [[0.7, 'lent'], [0.85, 'posé'], [1, 'normal'], [1.2, 'rapide'], [1.4, 'très rapide']])),
+        h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']])),
+        select('soustractions', [['true', 'avec soustractions'], ['false', 'additions seules']], (v) => v === 'true'),
+        selVoix,
+        select('questions', [[5, '5 dictées'], [10, '10 dictées']])),
+      avertissement, h('div', { class: 'ligne' }, progres), indicateur,
+      h('div', { class: 'ligne' }, saisie, btn, btnReecouter), retour);
+
+    function majBouton(texte) {
+      remplir(btn, texte, ' ', h('kbd', {}, 'Entrée'));
+      btn.style.display = texte ? '' : 'none';
+    }
+    majBouton('Commencer');
+
+    async function lire(reecoute = false) {
+      etat = 'lecture';
+      majBouton('');
+      btnReecouter.style.display = 'none';
+      saisie.style.display = 'none';
+      remplir(retour);
+      const o = { debit: reglages.debit, voix: reglages.voix };
+      indicateur.textContent = '🔈';
+      await parler('On commence.', o);
+      await attendre(reglages.pause * 1000);
+      for (let i = 0; i < ex.lignes.length; i++) {
+        if (!actif || etat !== 'lecture') return;
+        const l = ex.lignes[i];
+        indicateur.textContent = `${i + 1} / ${ex.lignes.length}`;
+        await parler(`${l.op === '-' ? 'moins ' : ''}${l.n}`, o);
+        await attendre(reglages.pause * 1000);
+      }
+      if (!actif) return;
+      await parler('C\'est tout.', o);
+      indicateur.textContent = '?';
+      etat = 'reponse';
+      saisie.style.display = '';
+      saisie.disabled = false;
+      if (!reecoute) saisie.value = '';
+      saisie.focus();
+      majBouton('Valider');
+      btnReecouter.style.display = '';
+      debutReponse = performance.now();
+      dureeCalcul = null;
+    }
+
+    async function action() {
+      if (etat === 'repos' || etat === 'fin') {
+        serie = { index: 0, justes: 0, dureeMs: 0 };
+        remplir(progres);
+        ex = colonneADicter();
+        lire();
+      } else if (etat === 'reponse') {
+        const r = lireReponse(saisie.value);
+        if (r === null) return;
+        const juste = r === ex.resultat;
+        serie.index += 1;
+        if (juste) serie.justes += 1;
+        serie.dureeMs += dureeCalcul ?? performance.now() - debutReponse;
+        await noterReponse(juste);
+        saisie.disabled = true;
+        btnReecouter.style.display = 'none';
+        progres.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
+        indicateur.textContent = formaterNombre(ex.resultat);
+        retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
+        remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, juste ? '✓' : '✗'), juste ? ' Juste.' : ` Vous avez trouvé ${formaterNombre(r)}.`),
+          h('div', { class: 'discret' }, 'Ce qui a été dicté :'), rendreEnonce(ex, { compact: true, sousTotaux: !juste }),
+          juste ? null : h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer'));
+        etat = 'corrige';
+        majBouton(serie.index >= reglages.questions ? 'Voir le bilan' : 'Dictée suivante');
+      } else if (etat === 'corrige') {
+        if (serie.index < reglages.questions) { ex = colonneADicter(); lire(); return; }
+        etat = 'fin';
+        await enregistrerSession({ module: 'dictee', mode: 'yomiage', reglages: { ...reglages }, total: serie.index, justes: serie.justes, dureeMs: serie.dureeMs });
+        indicateur.textContent = `${serie.justes} / ${serie.index}`;
+        retour.className = 'retour';
+        remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)} · ${formaterDuree(serie.dureeMs / serie.index)} en moyenne après la dictée. `,
+          serie.justes === serie.index ? 'Parfait : augmentez le débit ou réduisez la pause.' : 'Si les nombres défilent trop vite, baissez le débit ou allongez la pause.');
+        majBouton('Nouvelle série');
+      }
+    }
+
+    const sansRaccourcis = raccourcis({ Enter: () => { if (etat !== 'lecture') action(); } });
+    return () => { actif = false; taire(); sansRaccourcis(); };
+  },
+};

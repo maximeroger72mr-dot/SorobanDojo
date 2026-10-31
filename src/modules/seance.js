@@ -14,7 +14,7 @@ import {
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte,
 } from '../core/progression.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, niveauAddsub } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte } from '../core/parcours.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
@@ -43,6 +43,14 @@ function plan(d, debut) {
     items.push({
       titre: 'Vitesse', detail: `vos gestes les plus lents : ${lents.map((l) => nomMotif(l.cle)).join(', ')}`,
       fait: fait((s) => s.module === 'planches' && s.mode === 'lents'), aller: ['planches', { cible: 'lents', auto: true }],
+    });
+  }
+  // Anzan dès que les gestes directs sont validés (on commence tôt et simple).
+  if (d.paliers['p1-4']?.valide || d.paliers['p1-a']?.valide) {
+    const a = anzanAdapte(d);
+    items.push({
+      titre: 'Anzan', detail: `${a.questions} calculs de tête, ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}, ${a.duree.toLocaleString('fr-FR')} s par nombre`,
+      fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }],
     });
   }
   const sp = prochainSousPalier();

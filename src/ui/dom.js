@@ -26,7 +26,7 @@ export function formaterDuree(ms) {
 
 /** Formate un nombre avec espaces de milliers : 12 345 */
 export function formaterNombre(n) {
-  return n.toLocaleString('fr-FR');
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 6 });
 }
 
 /** Pourcentage arrondi : 87 % */

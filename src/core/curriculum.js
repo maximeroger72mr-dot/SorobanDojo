@@ -12,6 +12,8 @@
  *  - chiffres    : chiffres par ligne ; lignes : lignes par colonne (la 1re est posée)
  *  - repetitions : nombre de colonnes justes ou fausses à faire avant le mini-test
  *  - pourquoi    : explication du geste ; demos : exemples animés
+ *  - type 'anzan' : calcul mental en flash (nombres montrés un par un : `duree` secondes chacun),
+ *                   avec les gestes vus jusque-là ; testMin : réussites exigées au mini-test
  *
  * Pour modifier la progression : éditer PALIERS. Tout le reste (déblocage, génération,
  * révisions, suggestions) s'adapte.
@@ -19,7 +21,7 @@
 
 import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne } from './generateur.js';
-import { genererMultiplication, genererDivision } from './multiplication.js';
+import { genererMultiplication, genererDivision, aideDivision } from './multiplication.js';
 
 const DIRECT = famille('direct');
 const PETIT = famille('petit');
@@ -47,6 +49,9 @@ export const PALIERS = [
       { id: 'p1-4', titre: 'Gestes directs à 2 et 3 chiffres', cibles: DIRECT, chiffres: 2, lignes: 4, repetitions: 20, cumul: true,
         pourquoi: 'On calcule de GAUCHE À DROITE : d\'abord le chiffre le plus fort, dans l\'ordre de lecture du nombre. On pose au fur et à mesure qu\'on lit, sans rien retenir de tête. Chaque tige se traite indépendamment.',
         demos: [{ depart: 12, op: '+', n: 35 }, { depart: 87, op: '-', n: 32 }] },
+      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
+        pourquoi: 'L\'anzan, c\'est calculer avec un soroban imaginaire. Les nombres s\'affichent un par un : à chaque nombre, voyez les boules bouger dans votre tête, et faites le geste avec les doigts dans l\'air (pouce, index), comme sur le vrai soroban. On commence tôt et très simple : la vitesse viendra.',
+        demos: [] },
     ],
   },
   {
@@ -73,6 +78,9 @@ export const PALIERS = [
       { id: 'p2-7', titre: 'Tous les petits amis, 3 chiffres', cibles: PETIT, chiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'Additions et soustractions mélangées : si les boules manquent sur une tige, le petit ami s\'impose. Avec la répétition, le geste devient un réflexe associé au chiffre.',
         demos: [{ depart: 342, op: '+', n: 413 }] },
+      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', cibles: PETIT, chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
+        pourquoi: 'Mêmes gestes qu\'au soroban : le petit ami se « voit » (céleste qui descend, terrestres qui remontent). Gardez les doigts actifs ; si l\'image se brouille, ralentissez plutôt que de deviner.',
+        demos: [] },
     ],
   },
   {
@@ -90,6 +98,9 @@ export const PALIERS = [
       { id: 'p3-4', titre: 'Grands amis en addition, 2 et 3 chiffres', cibles: plus(GRAND), chiffres: 2, lignes: 5, repetitions: 50,
         pourquoi: 'La retenue tombe sur la tige de gauche, déjà calculée : c\'est pour cela qu\'on travaille de gauche à droite, la retenue s\'ajoute simplement.',
         demos: [{ depart: 39, op: '+', n: 85 }] },
+      { id: 'p3-a', titre: 'Anzan : grands amis (addition)', type: 'anzan', cibles: plus(GRAND), chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
+        pourquoi: 'Imaginez la retenue qui monte sur la tige de gauche. Le soroban imaginaire a deux tiges : unités et dizaines.',
+        demos: [] },
     ],
   },
   {
@@ -110,6 +121,9 @@ export const PALIERS = [
       { id: 'p4-5', titre: 'Tous les grands amis, 3 chiffres', cibles: GRAND, chiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'Repérez le passage de la dizaine avant de bouger : si la tige ne peut pas absorber le chiffre, c\'est le grand ami. Complément d\'abord en addition, emprunt d\'abord en soustraction.',
         demos: [{ depart: 876, op: '+', n: 285 }, { depart: 952, op: '-', n: 663 }] },
+      { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 1.2, repetitions: 20, testMin: 8,
+        pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant d\'ajouter le complément sur les unités : même ordre qu\'au soroban.',
+        demos: [] },
     ],
   },
   {
@@ -130,6 +144,9 @@ export const PALIERS = [
       { id: 'p5-5', titre: 'Révision générale, 3 chiffres', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 5, repetitions: 50, cumul: true,
         pourquoi: 'Tous les gestes sont permis : chaque tige choisit le sien. C\'est le calcul courant.',
         demos: [{ depart: 478, op: '+', n: 685 }] },
+      { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
+        pourquoi: 'Deux tiges dans la tête, de gauche à droite comme au soroban. Peu de nombres d\'abord, on allonge ensuite dans le Flash anzan.',
+        demos: [] },
     ],
   },
   {
@@ -158,6 +175,9 @@ export const PALIERS = [
       { id: 'p7-2', titre: '÷ 1 chiffre, quotient 2 et 3 chiffres', type: 'div', nd: 1, nq: 2, repetitions: 30,
         pourquoi: 'On répète pour chaque chiffre du quotient, avec le reste. L\'unité du quotient se trouve 2 tiges à gauche de l\'unité du dividende (1 chiffre au diviseur + 1).',
         demos: [{ a: 156, b: 4 }] },
+      { id: 'p7-e', titre: 'Diviser par 2 chiffres : estimer et corriger', type: 'div', nd: 2, nq: 1, repetitions: 30, corrections: true,
+        pourquoi: 'Personne ne connaît la table de 18 : on ESTIME. On arrondit le diviseur à sa dizaine (18 → 20, 43 → 40 ; on arrondit au-dessus dès que le 2e chiffre vaut 5 ou plus) et on divise le début du dividende par ce nombre rond : 144 ÷ 20 ≈ 7. Puis on vérifie avec les vrais produits : 7 × 1 = 7 et 7 × 8 = 56, donc 7 × 18 = 126, qui tient dans 144. On retire 126 : il reste 18, qui n\'est pas plus petit que 18 → l\'estimation était trop petite : on ajoute 1 au quotient (8) et on retire encore 18. Si au contraire le produit ne tient pas (arrondi au-dessous : 112 ÷ 14, 14 ≈ 10 donne 11, on plafonne à 9 ; 9 × 14 = 126 > 112), on diminue de 1 de tête AVANT de poser. En cas de blocage pendant un exercice, le bouton « Je suis bloqué » déroule ce raisonnement et affiche la table du diviseur.',
+        demos: [{ a: 144, b: 18 }, { a: 112, b: 14 }, { a: 156, b: 12 }] },
       { id: 'p7-3', titre: '÷ 2 chiffres, quotient 1 chiffre', type: 'div', nd: 2, nq: 1, repetitions: 30,
         pourquoi: 'On compare les deux premiers chiffres du dividende au diviseur entier. Le chiffre du quotient s\'estime avec le premier chiffre du diviseur ; puis on retire quotient × chaque chiffre du diviseur, en décalant d\'une tige. Si le produit ne peut pas être retiré, le chiffre était trop grand : on le diminue de 1.',
         demos: [{ a: 108, b: 12 }] },
@@ -184,6 +204,7 @@ export const SOUS_PALIERS = (() => {
         sp.cibles.forEach((c) => vus.add(c));
         autorises = sp.cumul ? new Set(vus) : new Set([...DIRECT, ...sp.cibles]);
       }
+      if (type === 'anzan') autorises = new Set(vus);
       liste.push({ type, ops: ['+', '-'], ...sp, autorises, palier, ordre: liste.length });
     }
   }
@@ -196,7 +217,22 @@ export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 export function genererExercice(sp, poids = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
   if (sp.type === 'mul') return genererMultiplication(alterner(sp.m), sp.n);
-  if (sp.type === 'div') return genererDivision(sp.nd, alterner(sp.nq));
+  if (sp.type === 'div') {
+    if (!sp.corrections) return genererDivision(sp.nd, alterner(sp.nq));
+    // Leçon d'estimation : 2 fois sur 3, une division dont l'estimation demande une correction.
+    const voulue = Math.random() < 2 / 3;
+    for (let i = 0; i < 200; i++) {
+      const ex = genererDivision(sp.nd, sp.nq);
+      const corrige = aideDivision(ex.a, ex.b).etapes.some((e) => e.essais.length > 1);
+      if (corrige === voulue) return ex;
+    }
+    return genererDivision(sp.nd, sp.nq);
+  }
+  if (sp.type === 'anzan') {
+    // Anzan : colonne avec les gestes vus, montrée en flash ; pas de suivi par geste (calcul mental).
+    const col = genererColonne({ chiffres: sp.chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids });
+    return { ...col, motifs: undefined, flash: { duree: sp.duree } };
+  }
   // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
   const chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
   return genererColonne({ chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops });

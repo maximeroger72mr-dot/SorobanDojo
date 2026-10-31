@@ -8,12 +8,15 @@
  * Aides : points de contrôle (sous-totaux) et DOIGTÉ (la suite exacte des gestes de chaque
  * opération), pour repérer un mouvement qui gêne ou bloque ; chaque opération se rejoue en animation.
  * Fantôme : une barre montre où en serait votre record.
+ * Métronome : un clic par opération, au tempo choisi (ou au rythme de votre record), pour enchaîner
+ * régulièrement ; « + 5 % » pour accélérer doucement.
  */
 
 import { controles } from '../core/drills.js';
 import { calculerGestes } from '../core/gestes.js';
 import { Soroban } from '../core/soroban.js';
 import { PanneauDemo, ouvrirDialogue } from './panneauDemo.js';
+import { Metronome } from './metronome.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 const ABREV = ['u', 'd', 'c', 'm', 'dm', 'cm', 'M', 'dM', 'cM', 'G', 'dG', 'cG'];
@@ -57,11 +60,27 @@ export function creerDrill(conteneur, d, o = {}) {
   const caseControles = h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { voirControles = e.target.checked; dessiner(); } }), ' Points de contrôle');
   const caseDoigte = h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { voirDoigte = e.target.checked; dessiner(); } }), ' Doigté');
   const tableau = h('div', { class: 'drill-operations' });
+  // Métronome : tempo en opérations par minute
+  const metronome = new Metronome();
+  const tempoRecord = o.record ? Math.round(60000 / (o.record.dureeMs / d.operations.length)) : null;
+  const caseMetronome = h('input', { type: 'checkbox' });
+  const choixTempo = h('select', {},
+    tempoRecord ? h('option', { value: tempoRecord }, `rythme de mon record (${tempoRecord}/min)`) : null,
+    [10, 15, 20, 30, 40, 50, 60, 80, 100, 120].map((t) => h('option', { value: t }, `${t} par minute`)));
+  const btnPlus5 = h('button', { class: 'btn', title: 'Accélérer de 5 %', onclick: () => {
+    const v = Math.round(Number(choixTempo.value) * 1.05);
+    choixTempo.append(h('option', { value: v }, `${v} par minute`));
+    choixTempo.value = String(v);
+    if (etat === 'course' && caseMetronome.checked) metronome.demarrer(v);
+  } }, '+ 5 %');
+  const ligneMetronome = h('div', { class: 'ligne metronome' }, h('label', {}, caseMetronome, ' Métronome'), choixTempo, btnPlus5,
+    h('span', { class: 'discret' }, 'un clic par opération'));
   const retour = h('div', { class: 'retour' });
 
   const racine = h('div', { class: 'drill' },
     h('div', { class: 'ligne' }, btn, btnOui, btnNon, h('span', { style: 'flex:1' }), caseControles, caseDoigte, chrono),
     o.record !== undefined ? h('div', { class: 'ligne fantome-ligne' }, barreFantome, libelleFantome) : null,
+    ligneMetronome,
     tableau, retour);
   conteneur.append(racine);
 
@@ -95,9 +114,11 @@ export function creerDrill(conteneur, d, o = {}) {
     if (etat === 'pret') {
       etat = 'course';
       debut = performance.now();
+      if (caseMetronome.checked) metronome.demarrer(Number(choixTempo.value));
       remplir(retour, h('span', { class: 'discret' }, 'Posez 0 sur votre soroban et enchaînez. Entrée quand vous avez terminé.'));
     } else if (etat === 'course') {
       dureeMs = performance.now() - debut;
+      metronome.arreter();
       etat = 'verification';
       chrono.textContent = formaterDuree(dureeMs);
       retour.className = 'retour';
@@ -146,6 +167,7 @@ export function creerDrill(conteneur, d, o = {}) {
   majBouton();
   return {
     detruire() {
+      metronome.arreter();
       clearInterval(minuterie);
       sansRaccourcis();
       racine.remove();

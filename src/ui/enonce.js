@@ -9,6 +9,11 @@ import { h, formaterNombre } from './dom.js';
 
 const signe = (op) => (op === '+' ? '' : '−');
 
+/** « au millième », « au dix-millième »… */
+export function consigneArrondi(decimales) {
+  return ['à l\'unité', 'au dixième', 'au centième', 'au millième', 'au dix-millième'][decimales] ?? `à ${decimales} décimales`;
+}
+
 /**
  * @param {object} ex  exercice ({type:'addsub', lignes} | {type:'mul'|'div', a, b})
  * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void}} o
@@ -16,7 +21,8 @@ const signe = (op) => (op === '+' ? '' : '−');
 export function rendreEnonce(ex, o = {}) {
   if (ex.type === 'mul' || ex.type === 'div') {
     return h('div', { class: `operation${o.compact ? ' compacte' : ''}` },
-      `${formaterNombre(ex.a)} ${ex.type === 'mul' ? '×' : '÷'} ${formaterNombre(ex.b)} =`);
+      `${formaterNombre(ex.a)} ${ex.type === 'mul' ? '×' : '÷'} ${formaterNombre(ex.b)} =`,
+      ex.arrondi ? h('div', { class: 'consigne-arrondi' }, `arrondir ${consigneArrondi(ex.decimales)}`) : null);
   }
   const st = o.sousTotaux ? sousTotaux(ex.lignes) : null;
   return h('table', { class: `colonne${o.compact ? ' compacte' : ''}` },

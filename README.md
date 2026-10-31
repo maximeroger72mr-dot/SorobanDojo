@@ -61,6 +61,8 @@ Logique (`src/core/`) :
 | `succes.js` | les succès (40, par thème et par palier) |
 | `bilan.js` | bilan de séance (instantané au début, comparaison à la fin) |
 | `hasard.js` | hasard reproductible (même défi toute la semaine), semaine ISO |
+| `nombres.js` | décimaux : lecture des réponses (virgule ou point), arrondis exacts |
+| `sauvegarde.js` | export / import (remplacer ou fusionner) |
 | `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
 Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la liste `ECRANS` de `src/app.js`.
@@ -75,6 +77,8 @@ Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la lis
   avec sa dizaine sur la (m+n)-ième tige depuis les unités.
 - Division 片落とし : seul le dividende est posé ; chiffre du quotient deux tiges à gauche si le début
   du dividende ≥ diviseur, sinon juste à gauche ; unité du quotient (chiffres du diviseur + 1) tiges à gauche.
+  Chiffre du quotient ESTIMÉ avec le diviseur arrondi (18 → 20) ; trop grand : corrigé de tête avant
+  de poser ; trop petit : +1 au quotient et on retire encore le diviseur.
 
 ## Niveaux d'acquisition
 
@@ -91,10 +95,10 @@ retrait de 1,5 s de lecture et de frappe).
 Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de 5 : boule céleste ;
 écart de 1 : retenue ou emprunt, sur une seule ligne possible) ou si l'élève désigne la ligne fautive.
 
-## Épreuves : sources et limites
+## Épreuves
 
-Mitorizan avec additions et soustractions dès le 10e kyū. Formats d'après les informations publiques du Nihon Shuzan Renmei et de la Chambre de commerce et
-d'industrie du Japon (珠算能力検定) : mitorizan 10 problèmes « 10 lignes N chiffres », multiplication et
-division 20 problèmes (10 aux 7e-10e kyū), 20 ou 30 minutes, 200 ou 300 points, 240/300 pour les 1er-3e kyū.
-Restent à confirmer : les seuils des 4e-10e kyū (70 % indicatif) ; les décimaux et arrondis des 1er-3e kyū
-(les sujets sont ici en nombres entiers).
+- 6e au 1er kyū : tableau de référence retenu avec l'utilisateur (mitorizan 10 lignes de 3-4 à 8-10 chiffres,
+  multiplication 5 à 11 chiffres au total, division 5 à 10 chiffres diviseur + quotient, seuils 210/300 puis 240/300).
+- Décimaux à partir du 3e kyū : la moitié des × et ÷, résultats arrondis au millième (dix-millième pour les ÷ du 1er kyū).
+- 10e au 7e kyū : formats publics japonais (Nihon Shuzan Renmei), seuil indicatif de 70 %.
+- Soustractions dans le mitorizan dès le 10e kyū.

@@ -7,14 +7,17 @@
  * Le temps est ramené à une unité de travail, pour comparer des exercices de tailles différentes :
  *  - colonne : secondes par chiffre traité (somme des chiffres de toutes les lignes) ;
  *  - multiplication / division : secondes par produit partiel.
- * On retire d'abord un temps fixe de lecture du résultat et de frappe (SURCOUT_S).
+ * Exercices un par un : le chronomètre s'arrête à la PREMIÈRE TOUCHE tapée, la frappe n'est donc
+ * pas comptée (SURCOUT_S = 0). Feuilles : on ne peut pas séparer calcul et frappe, on retire
+ * forfaitairement SURCOUT_FEUILLE_S par problème.
  *
  * Tous les seuils sont réunis ici : à ajuster selon l'expérience.
  */
 
 export const FENETRE = 30;       // nombre d'essais récents pris en compte
 export const MIN_ESSAIS = 8;     // en dessous : « à découvrir »
-export const SURCOUT_S = 1.5;    // lecture + frappe du résultat, retiré du temps mesuré
+export const SURCOUT_S = 0;            // exercices un par un : chrono arrêté à la 1re touche
+export const SURCOUT_FEUILLE_S = 1.5;  // feuilles : frappe du résultat, retirée forfaitairement
 
 /**
  * Niveaux, du plus bas au plus haut. reussite : taux minimal ; temps : secondes maximales
@@ -28,7 +31,7 @@ export const NIVEAUX = [
   { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8 } },
 ];
 
-const nbChiffres = (n) => String(n).length;
+const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').length;
 
 /** Nombre d'unités de travail d'un exercice. */
 export function unites(ex) {
@@ -39,9 +42,9 @@ export function unites(ex) {
 
 export const familleTemps = (ex) => (ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
 
-/** Secondes par unité pour un exercice fait en dureeMs. */
-export function tempsParUnite(ex, dureeMs) {
-  return Math.max(0.1, dureeMs / 1000 - SURCOUT_S) / unites(ex);
+/** Secondes par unité pour un exercice fait en dureeMs (surcout : temps fixe à retirer). */
+export function tempsParUnite(ex, dureeMs, surcout = SURCOUT_S) {
+  return Math.max(0.1, dureeMs / 1000 - surcout) / unites(ex);
 }
 
 /** Temps cible (en secondes, pour cet exercice entier) correspondant à un niveau. */

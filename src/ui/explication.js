@@ -8,7 +8,7 @@
 import { etapesMultiplication, etapesDivision } from '../core/multiplication.js';
 import { sousTotaux } from '../core/generateur.js';
 import { PanneauDemo, ouvrirDialogue } from './panneauDemo.js';
-import { rendreEnonce, texteEnonce } from './enonce.js';
+import { rendreEnonce, texteEnonce, consigneArrondi } from './enonce.js';
 import { h, formaterNombre } from './dom.js';
 
 const signe = (op) => (op === '+' ? '+' : '−');
@@ -37,8 +37,32 @@ export function demoDivision(a, b) {
   return { titre: `${formaterNombre(a)} ÷ ${formaterNombre(b)}`, ...e, rangsResultat: rangs };
 }
 
+/** Texte de méthode pour un calcul avec décimaux (la démonstration se fait sur les entiers). */
+function methodeDecimale(ex) {
+  const [A, B] = ex.entiers;
+  const [pa, pb] = ex.virgules;
+  if (ex.type === 'mul') {
+    return [`On calcule ${formaterNombre(A)} × ${formaterNombre(B)} comme des entiers (démonstration ci-dessous) = ${formaterNombre(A * B)}.`,
+      `Virgule : ${pa} décimale${pa > 1 ? 's' : ''} + ${pb} décimale${pb > 1 ? 's' : ''} = ${pa + pb} décimales.`,
+      ex.arrondi ? `Puis on arrondit ${consigneArrondi(ex.decimales)} : on regarde la décimale suivante (5 ou plus : au-dessus). Résultat : ${formaterNombre(ex.resultat)}.` : `Résultat : ${formaterNombre(ex.resultat)}.`];
+  }
+  return [pb ? `On rend le diviseur entier : on décale la virgule de ${pb} rang${pb > 1 ? 's' : ''} vers la droite dans le diviseur ET dans le dividende.` : 'Le diviseur est déjà entier.',
+    'On divise comme d\'habitude (estimation par le diviseur arrondi, correction de ±1), en continuant après la virgule, une décimale de plus que demandé.',
+    `On arrondit ${consigneArrondi(ex.decimales)} : 5 ou plus à la décimale suivante, on arrondit au-dessus. Résultat : ${formaterNombre(ex.resultat)}.`];
+}
+
 /** Ouvre la fenêtre d'explication d'un exercice. */
 export function ouvrirExplication(ex) {
+  if (ex.virgules) {
+    ouvrirDialogue(`Explication : ${texteEnonce(ex)} ≈ ${formaterNombre(ex.resultat)}`, null, (corps) => {
+      corps.append(h('ol', {}, methodeDecimale(ex).map((t) => h('li', {}, t))));
+      if (ex.type !== 'mul') return null;
+      const p = new PanneauDemo(corps);
+      p.jouer(demoMultiplication(ex.entiers[0], ex.entiers[1]), 'manuel');
+      return () => p.detruire();
+    });
+    return;
+  }
   ouvrirDialogue(`Explication : ${texteEnonce(ex)} = ${formaterNombre(ex.resultat)}`, null, (corps) => {
     const panneau = { courant: null };
     if (ex.type === 'mul' || ex.type === 'div') {

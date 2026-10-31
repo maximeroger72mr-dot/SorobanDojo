@@ -6,26 +6,24 @@
 import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
 import {
   statistiques, progression, aujourdhui, SEUIL_DIFFICULTE, evaluerMotif, evaluerPalier, reinitialiserGestes,
+  exporterDonnees, importerDonnees,
 } from '../core/progression.js';
 import { NIVEAUX } from '../core/maitrise.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { minutesParJour, serieJours } from '../core/regularite.js';
-import { grade, motifsAppris } from '../core/parcours.js';
+import { grade } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
-import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU, montrerBulle, cacherBulle } from '../ui/graphiques.js';
+import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
+import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 
 const NOMS_MODULES = {
   lecture: 'Lecture des nombres', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches', drills: 'Drills',
-  muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles',
+  muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles', dictee: 'Dictée (yomiage)',
 };
 const nf = (x) => (x === null ? '—' : `${x.toLocaleString('fr-FR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`);
-const LIGNES_CARTE = [
-  ['+', 'direct', 'Ajouter, direct'], ['+', 'petit', 'Ajouter, petit ami'], ['+', 'grand', 'Ajouter, grand ami'], ['+', 'mixte', 'Ajouter, combiné'],
-  ['-', 'direct', 'Retirer, direct'], ['-', 'petit', 'Retirer, petit ami'], ['-', 'grand', 'Retirer, grand ami'], ['-', 'mixte', 'Retirer, combiné'],
-];
 
 /** Fenêtre de détail d'un geste : niveau, courbe de vitesse, démonstration, planche dédiée. */
 function detailGeste(app, cle) {
@@ -41,43 +39,70 @@ function detailGeste(app, cle) {
   });
 }
 
-/** Carte de maîtrise : les gestes en grille (lignes : opération et règle ; colonnes : chiffre). */
-function carteMaitrise(app) {
+/** Carte de maîtrise (consultation) avec les cascades et le décompte des gestes acquis. */
+function carte(app) {
   const d = progression();
-  const appris = motifsAppris(d);
-  const tableau = h('table', { class: 'carte-maitrise' },
-    h('tr', {}, h('th', {}), [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('th', {}, n))),
-    LIGNES_CARTE.map(([op, regle, libelle]) => h('tr', {}, h('th', { class: 'libelle' }, libelle),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
-        const cle = `${op}${n}:${regle}`;
-        if (!TOUS_LES_MOTIFS.includes(cle)) return h('td', { class: 'vide' });
-        const ev = evaluerMotif(cle);
-        const pratique = !!d.motifs[cle];
-        const id = pratique ? ev.niveau.id : null;
-        const cellule = h('td', {
-          class: `geste${pratique ? '' : ' non-pratique'}${appris.has(cle) ? '' : ' pas-vu'}`,
-          style: pratique ? `background:${COULEUR_NIVEAU[id]};color:${ENCRE_NIVEAU[id]}` : '',
-          tabindex: 0,
-          onclick: () => detailGeste(app, cle),
-          onkeydown: (e) => { if (e.key === 'Enter') detailGeste(app, cle); },
-        }, `${op === '+' ? '+' : '−'}${n}`);
-        cellule.addEventListener('pointermove', (e) => montrerBulle(e, [h('strong', {}, nomMotif(cle)), h('br'),
-          pratique ? `${ev.niveau.nom} · réussite ${Math.round(ev.reussite * 100)} % · ${nf(ev.temps)} par chiffre` : appris.has(cle) ? 'pas encore pratiqué' : 'leçon pas encore validée']));
-        cellule.addEventListener('pointerleave', cacherBulle);
-        return cellule;
-      }))));
   const cascades = h('div', { class: 'ligne', style: 'margin-top:6px' }, 'Cascades :', ['cascade+', 'cascade-'].map((cle) => {
     const ev = evaluerMotif(cle);
     const pratique = !!d.motifs[cle];
     return h('button', { class: 'btn', style: pratique ? `background:${COULEUR_NIVEAU[ev.niveau.id]};color:${ENCRE_NIVEAU[ev.niveau.id]}` : '', onclick: () => detailGeste(app, cle) }, nomMotif(cle));
   }));
-  const legende = h('div', { class: 'legende' },
-    h('span', { class: 'pastille-legende non-pratique' }), 'pas pratiqué',
-    NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), n.nom]));
   const acquis = TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluerMotif(c).index >= 2).length;
   return h('div', {},
     h('p', { class: 'discret' }, `${acquis} geste${acquis > 1 ? 's' : ''} acquis sur ${TOUS_LES_MOTIFS.length}. Cliquez une case pour voir sa courbe de vitesse, le geste animé, ou lancer une planche de ce geste.`),
-    tableau, cascades, legende);
+    carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
+}
+
+/** Sauvegarde : export (fichier, presse-papiers) et import (remplacer ou fusionner). */
+function sectionSauvegarde(app) {
+  const message = h('p', { class: 'discret' });
+  const telecharger = () => {
+    const blob = new Blob([exporterDonnees()], { type: 'application/json' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `soroban-sauvegarde-${aujourdhui()}.json` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    message.textContent = 'Fichier de sauvegarde créé (dossier Téléchargements).';
+  };
+  const copier = async () => {
+    const texte = exporterDonnees();
+    try {
+      await navigator.clipboard.writeText(texte);
+    } catch {
+      const zone = h('textarea', {}, texte);
+      document.body.append(zone);
+      zone.select();
+      document.execCommand('copy');
+      zone.remove();
+    }
+    message.textContent = 'Sauvegarde copiée dans le presse-papiers.';
+  };
+  const importer = () => ouvrirDialogue('Importer une sauvegarde', 'Choisissez un fichier .json exporté, ou collez le texte copié.', (corps) => {
+    const fichier = h('input', { type: 'file', accept: '.json,application/json' });
+    const zone = h('textarea', { class: 'zone-import', placeholder: 'ou collez ici le texte de la sauvegarde' });
+    const mode = h('select', {}, h('option', { value: 'fusionner' }, 'Fusionner avec mes données (garder le meilleur des deux)'), h('option', { value: 'remplacer' }, 'Remplacer mes données'));
+    const erreur = h('p', { class: 'retour erreur' });
+    fichier.addEventListener('change', async () => { zone.value = await fichier.files[0]?.text() ?? ''; });
+    corps.append(fichier, zone, h('div', { class: 'ligne' }, mode,
+      h('button', { class: 'btn principal', onclick: async (e) => {
+        try {
+          if (mode.value === 'remplacer' && !window.confirm('Remplacer toutes vos données actuelles par cette sauvegarde ?')) return;
+          await importerDonnees(zone.value, mode.value);
+          e.target.closest('dialog').close();
+          app.aller('progression');
+        } catch (err) {
+          erreur.textContent = err.message;
+        }
+      } }, 'Importer')), erreur);
+    return null;
+  });
+  return h('div', {}, h('h2', {}, 'Sauvegarde'),
+    h('p', { class: 'discret' }, 'Exportez vos données pour les garder en lieu sûr, ou pour passer de la version navigateur (Soroban.html) à l\'application, et inversement. L\'application de bureau garde aussi une copie automatique par jour (5 dernières).'),
+    h('div', { class: 'ligne' },
+      h('button', { class: 'btn', onclick: telecharger }, 'Exporter (fichier .json)'),
+      h('button', { class: 'btn', onclick: copier }, 'Copier dans le presse-papiers'),
+      h('button', { class: 'btn', onclick: importer }, 'Importer une sauvegarde')),
+    message);
 }
 
 export default {
@@ -101,7 +126,7 @@ export default {
     el.append(h('h2', {}, 'Régularité'), calendrier(minutesParJour(d.sessions), aujourdhui()));
 
     // Carte de maîtrise
-    el.append(h('h2', {}, 'Carte de maîtrise des gestes'), carteMaitrise(app));
+    el.append(h('h2', {}, 'Carte de maîtrise des gestes'), carte(app));
 
     // Succès
     const obtenus = Object.keys(d.succes ?? {});
@@ -114,7 +139,7 @@ export default {
       h('div', { class: 'grille-succes' }, prochains.map((s) => h('div', { class: 'succes' }, h('strong', {}, s.nom), h('div', { class: 'discret' }, `${s.theme} · ${s.description}`)))));
 
     if (Object.keys(parModule).length === 0) {
-      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'));
+      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'), sectionSauvegarde(app));
       return;
     }
 
@@ -164,5 +189,6 @@ export default {
       h('h2', {}, 'Par jour'),
       h('table', {}, entete('Date'), Object.entries(parJour).sort(([a], [b]) => b.localeCompare(a)).slice(0, 30)
         .map(([date, t]) => ligne(new Date(`${date}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), t))));
+    el.append(sectionSauvegarde(app));
   },
 };
