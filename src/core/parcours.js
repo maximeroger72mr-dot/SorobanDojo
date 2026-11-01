@@ -12,7 +12,7 @@ import { GRADES } from './epreuves.js';
 import { famille } from './motifs.js';
 import { catalogueDrills } from './drills.js';
 import { evaluer } from './maitrise.js';
-import { genererColonne } from './generateur.js';
+import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
 
@@ -94,7 +94,8 @@ export function defiSemaine(d, date) {
   const palier = `${chiffres}${mul ? 'm' : ''}${div ? 'd' : ''}${amis.length}`;
   const graine = [...`${semaine}-${palier}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const sections = avecGraine(graine, () => {
-    const s = [{ titre: 'Colonnes', problemes: Array.from({ length: mul || div ? 6 : 10 }, () => genererColonne({ chiffres, lignes: 5, autorises: appris, cibles: amis.length ? amis : DIRECT })) }];
+    const memoire = creerMemoire(10);
+    const s = [{ titre: 'Colonnes', problemes: Array.from({ length: mul || div ? 6 : 10 }, () => genererColonneVariee({ chiffres, lignes: 5, autorises: appris, cibles: amis.length ? amis : DIRECT }, memoire)) }];
     if (mul) s.push({ titre: 'Multiplications', problemes: Array.from({ length: 2 }, () => genererMultiplication(2, estValide(d, 'p6-3') ? 2 : 1)) });
     if (div) s.push({ titre: 'Divisions', problemes: Array.from({ length: 2 }, () => genererDivision(1, 2)) });
     return s;
@@ -117,6 +118,12 @@ export function anzanAdapte(d) {
   };
 }
 
+/** L'élève est-il arrivé au cours de multiplication (ou au-delà) ? */
+export function coursMultiplicationAtteint(d, prochain) {
+  const debut = SOUS_PALIERS.find((s) => s.id === 'p6-a').ordre;
+  return (prochain ? prochain.ordre >= debut : true) || !!d.paliers['p6-a'] || !!d.paliers['p6-0'];
+}
+
 /**
  * Réflexe de placement (multiplication / division) : proposé seulement une fois arrivé au cours de
  * multiplication, puis maintenu pendant ce cours, celui de division, et 14 jours après la validation
@@ -124,9 +131,7 @@ export function anzanAdapte(d) {
  * @returns {{ id: string, titre: string } | null}  la leçon de placement à travailler
  */
 export function placementDuJour(d, aujourdhuiDate, prochain) {
-  const debutMul = SOUS_PALIERS.find((s) => s.id === 'p6-0').ordre;
-  const arrive = prochain ? prochain.ordre >= debutMul : true;
-  if (!arrive && !d.paliers['p6-0']) return null;
+  if (!coursMultiplicationAtteint(d, prochain)) return null;
   const div = SOUS_PALIERS.find((s) => s.id === 'p7-0');
   const mul = SOUS_PALIERS.find((s) => s.id === 'p6-0');
   // Division dès qu'on a atteint ce cours, sinon multiplication.

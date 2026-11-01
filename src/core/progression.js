@@ -21,7 +21,7 @@
  */
 
 import { nouvelleCarte, reviser, estDue } from './revision.js';
-import { evaluer, ajouterEssai, poidsEquilibre } from './maitrise.js';
+import { evaluer, ajouterEssai, poidsEquilibre, NIVEAUX } from './maitrise.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
@@ -204,6 +204,23 @@ export async function compterRepetition(id, juste, t) {
   await sauver();
 }
 
+/**
+ * Coupe-file de maîtrise : les 15 premiers exercices d'une leçon tous justes et rapides
+ * (temps médian ≤ seuil « Acquis confirmé ») ouvrent le mini-test sans attendre le volume prévu.
+ * @returns {boolean} true si le coupe-file vient d'être accordé
+ */
+export async function verifierCoupeFile(id, repetitions, famille) {
+  const e = donnees.paliers[id];
+  if (!e || e.coupeFile || e.valide || e.reps >= repetitions || (e.hist?.length ?? 0) < 15) return false;
+  const quinze = e.hist.slice(0, 15);
+  const t = quinze.map((x) => x.t).sort((a, b) => a - b)[7];
+  const seuil = NIVEAUX.find((n) => n.id === 'confirme').temps[famille];
+  if (!quinze.every((x) => x.ok) || t > seuil) return false;
+  e.coupeFile = aujourdhui();
+  await sauver();
+  return true;
+}
+
 /** Mini-test réussi : sous-palier validé, carte de révision créée (J+1) sauf leçon de lecture. */
 export async function validerPalier(id, avecRevision = true) {
   const e = palier(id);
@@ -240,6 +257,20 @@ export async function reinitialiserGestes() {
   donnees.motifs = {};
   await sauver();
 }
+
+// ------------------------------------------------------------------ tables de multiplication
+
+/** Note un produit de la table (temps en secondes). */
+export async function noterProduit(cle, juste, t) {
+  donnees.tables ??= {};
+  const f = (donnees.tables[cle] ??= { essais: 0, erreurs: 0, hist: [] });
+  f.essais += 1;
+  if (!juste) f.erreurs += 1;
+  ajouterEssai(f.hist, juste, t);
+  await sauver();
+}
+
+export const statsTables = () => donnees.tables ?? {};
 
 // ------------------------------------------------------------------ réponses d'affilée
 

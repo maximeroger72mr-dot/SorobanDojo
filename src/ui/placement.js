@@ -42,11 +42,14 @@ export function creerPlacement(conteneur, o) {
     phase = 'question';
     compteur.textContent = opts.compteur ? opts.compteur(i) : (Number.isFinite(opts.nombre) ? `${i + 1} / ${opts.nombre}` : '');
     enonce.textContent = `${formaterNombre(ex.a)} ${ex.op === 'mul' ? '×' : '÷'} ${formaterNombre(ex.b)}`;
-    consigne.textContent = ex.op === 'mul'
+    consigne.textContent = ex.op === 'mul' && ex.decimalesAffichees
+      ? 'Cliquez la tige où se pose la DIZAINE du premier produit. La tige des unités est marquée d\'un point ; les tiges à sa droite sont les décimales.'
+      : ex.op === 'mul'
       ? 'Cliquez la tige où se pose la DIZAINE du premier produit. (La tige des unités est la plus à droite, marquée d\'un point.)'
       : 'Le dividende est posé. Cliquez la tige où se pose le PREMIER chiffre du quotient.';
     vue?.detruire();
-    const s = new Soroban(ex.nbTiges);
+    // Placement décimal : des tiges à droite du point des unités (la virgule).
+    const s = new Soroban(ex.nbTiges, ex.nbTiges - 1 - (ex.decimalesAffichees ?? 0));
     if (ex.op === 'div') s.definirValeur(ex.a);
     vue = new SorobanVue(zoneSoroban, s, { interactif: false, etiquettes: false, surTige: (t) => cliquer(s.tigeUnites - t) });
     remplir(retour, h('span', { class: 'discret' }, 'Le plus vite possible.'));

@@ -5,7 +5,9 @@
  * Une démonstration est :
  *  - soit une opération simple   { depart, op, n } ;
  *  - soit une suite d'étapes      { titre, depart, macros: [{ texte, op, valeur }], nbTiges?,
- *                                   etiquettes?, lecture?, rangsResultat? }
+ *                                   etiquettes?, lecture?, rangsResultat?, decimales? }
+ *    decimales : depart et valeurs sont en unités de 10^-decimales ; le soroban garde alors
+ *    autant de tiges à droite de la tige des unités (marquée d'un point).
  *    Chaque macro est annoncée par son texte, puis décomposée automatiquement en gestes.
  */
 
@@ -32,13 +34,14 @@ function normaliser(demo) {
 
 /** Développe les macros en étapes de gestes, en simulant le soroban. */
 function developper(demo, nbTiges) {
-  const sim = new Soroban(nbTiges);
-  sim.definirValeur(demo.depart);
+  const dec = demo.decimales ?? 0;
+  const sim = new Soroban(nbTiges, nbTiges - 1 - dec);
+  sim.definirValeur(demo.depart, 'programme', dec);
   const etapes = [];
   for (const m of demo.macros) {
     if (m.texte) etapes.push({ regle: 'annonce', texte: m.texte, mouvements: [] });
     if (!m.valeur) continue;
-    const r = calculerGestes(sim.instantane(), sim.tigeUnites, m.op, m.valeur);
+    const r = calculerGestes(sim.instantane(), sim.tigeUnites, m.op, m.valeur, dec);
     for (const e of r.etapes) {
       etapes.push({ ...e, sous: !!m.texte });
       e.mouvements.forEach((mv) => sim.appliquerMouvement(mv));
@@ -66,10 +69,11 @@ export class PanneauDemo {
     window.addEventListener('keydown', this._clavier);
   }
 
-  _creerSoroban(nbTiges, etiquettes) {
-    if (this.soroban?.nbTiges === nbTiges && this.vue?.options.etiquettes === etiquettes) return;
+  _creerSoroban(nbTiges, etiquettes, decimales = 0) {
+    if (this.soroban?.nbTiges === nbTiges && this.vue?.options.etiquettes === etiquettes && this.decimales === decimales) return;
     this.vue?.detruire();
-    this.soroban = new Soroban(nbTiges);
+    this.decimales = decimales;
+    this.soroban = new Soroban(nbTiges, nbTiges - 1 - decimales);
     this.vue = new SorobanVue(this.zone, this.soroban, { interactif: false, etiquettes });
   }
 
@@ -80,8 +84,8 @@ export class PanneauDemo {
     this.lecteur?.arreter();
     const nbTiges = demo.nbTiges ?? Math.max(5, String(Math.max(demo.depart, 1)).length + 3,
       ...demo.macros.map((m) => String(demo.depart + m.valeur).length + 2));
-    this._creerSoroban(nbTiges, demo.etiquettes !== false);
-    this.soroban.definirValeur(demo.depart);
+    this._creerSoroban(nbTiges, demo.etiquettes !== false, demo.decimales ?? 0);
+    this.soroban.definirValeur(demo.depart, 'programme', demo.decimales ?? 0);
     this.vue.nettoyer();
     const etapes = developper(demo, nbTiges);
     this.titre.textContent = demo.titre ?? '';

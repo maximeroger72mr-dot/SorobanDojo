@@ -19,6 +19,10 @@ export function consigneArrondi(decimales) {
  * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void}} o
  */
 export function rendreEnonce(ex, o = {}) {
+  if (ex.type === 'table') {
+    return h('div', { class: `operation${o.compact ? ' compacte' : ''}` }, `${ex.a} × ${ex.b} =`,
+      h('div', { class: 'consigne-arrondi' }, 'sur deux chiffres (ex. 06)'));
+  }
   if (ex.type === 'mul' || ex.type === 'div') {
     return h('div', { class: `operation${o.compact ? ' compacte' : ''}` },
       `${formaterNombre(ex.a)} ${ex.type === 'mul' ? '×' : '÷'} ${formaterNombre(ex.b)} =`,
@@ -36,7 +40,7 @@ export function rendreEnonce(ex, o = {}) {
 
 /** Texte court d'un exercice (pour les listes et le bilan). */
 export function texteEnonce(ex) {
-  if (ex.type === 'mul') return `${formaterNombre(ex.a)} × ${formaterNombre(ex.b)}`;
+  if (ex.type === 'mul' || ex.type === 'table') return `${formaterNombre(ex.a)} × ${formaterNombre(ex.b)}`;
   if (ex.type === 'div') return `${formaterNombre(ex.a)} ÷ ${formaterNombre(ex.b)}`;
   return ex.lignes.map((l, i) => (i === 0 ? formaterNombre(l.n) : `${l.op === '+' ? '+' : '−'} ${formaterNombre(l.n)}`)).join(' ');
 }

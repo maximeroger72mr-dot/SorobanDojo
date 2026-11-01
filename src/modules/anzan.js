@@ -9,7 +9,9 @@
  * avec les soustractions en option.
  */
 
-import { genererColonne } from '../core/generateur.js';
+import { genererColonne, genererColonneVariee, creerMemoire } from '../core/generateur.js';
+
+const memoire = creerMemoire(6);
 import { genererMultiplication } from '../core/multiplication.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
@@ -32,7 +34,7 @@ function colonne(chiffres, termes, soustractions) {
   const amis = [...appris].filter((c) => !c.endsWith(':direct') && ops.includes(c[0]));
   const cibles = amis.length ? amis : famille('direct').filter((c) => ops.includes(c[0]));
   try {
-    return genererColonne({ chiffres, lignes: termes, autorises: appris, cibles, ops });
+    return genererColonneVariee({ chiffres, lignes: termes, autorises: appris, cibles, ops }, memoire);
   } catch {
     return genererColonne({ chiffres, lignes: termes, autorises: null, cibles: famille('direct').filter((c) => ops.includes(c[0])), ops });
   }

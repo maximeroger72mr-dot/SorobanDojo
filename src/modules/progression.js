@@ -9,7 +9,7 @@ import {
   exporterDonnees, importerDonnees,
 } from '../core/progression.js';
 import { NIVEAUX } from '../core/maitrise.js';
-import { SOUS_PALIERS } from '../core/curriculum.js';
+import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { minutesParJour, serieJours } from '../core/regularite.js';
 import { grade } from '../core/parcours.js';
@@ -157,7 +157,7 @@ export default {
       h('table', {}, h('tr', {}, ['Leçon', 'Exercices', 'Réussite récente', 'Temps par unité', 'Évolution', 'Niveau', 'État'].map((x) => h('th', {}, x))),
         SOUS_PALIERS.filter((sp) => d.paliers[sp.id]).map((sp) => {
           const e = d.paliers[sp.id];
-          const ev = evaluerPalier(sp.id, sp.type === 'addsub' ? 'addsub' : 'muldiv');
+          const ev = evaluerPalier(sp.id, familleLecon(sp));
           return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${sp.repetitions}`),
             h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : formaterPourcent(e.justes, e.reps)),
             h('td', {}, nf(ev.temps)), h('td', {}, evolution(e.hist)), h('td', {}, badgeNiveau(ev)),

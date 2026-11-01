@@ -7,7 +7,7 @@
  */
 
 import { sousPalier, SOUS_PALIERS, genererExercice } from '../core/curriculum.js';
-import { genererColonne } from '../core/generateur.js';
+import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES } from '../core/revision.js';
 import {
@@ -116,7 +116,7 @@ export default {
       lancerSerie({
         titre: 'Révision ciblée des points faibles',
         sousTitre: cles.map(nomMotif).join(' · '),
-        generer: () => genererColonne({ chiffres: 2, lignes: 5, autorises, cibles: cles, poids: poidsAdaptatifs(cles) }),
+        generer: ((memoire) => () => genererColonneVariee({ chiffres: 2, lignes: 5, autorises, cibles: cles, poids: poidsAdaptatifs(cles) }, memoire))(creerMemoire(6)),
         apresBilan: async (b) => {
           await enregistrerSession({ module: 'revisions', mode: 'cible', total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const restants = motifsEnDifficulte().length;

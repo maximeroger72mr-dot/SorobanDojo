@@ -6,7 +6,9 @@
  * autant de fois qu'on veut et voir son meilleur temps progresser.
  */
 
-import { genererColonne } from '../core/generateur.js';
+import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
+
+const memoire = creerMemoire(8);
 import { genererMultiplication, genererDivision } from '../core/multiplication.js';
 import { enregistrerSession, proposerRecord, progression, aujourdhui } from '../core/progression.js';
 import { defiSemaine } from '../core/parcours.js';
@@ -33,7 +35,7 @@ const TYPES = {
 function colonne(chiffres) {
   const appris = motifsAppris();
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
-  return genererColonne({ chiffres, lignes: 5, autorises: appris, cibles: amis.length ? amis : [...appris] });
+  return genererColonneVariee({ chiffres, lignes: 5, autorises: appris, cibles: amis.length ? amis : [...appris] }, memoire);
 }
 
 export default {

@@ -85,3 +85,32 @@ test('zéros internes et placement', () => {
   }
   assert.match(etapesMultiplication(406, 7).macros[2].texte, /00 : rien à poser/);
 });
+
+import { compteChiffres, compteQuotient, etapesMultiplicationDecimale, genererColonneDecimale, genererPlacementDecimal } from '../src/core/multiplication.js';
+
+test('décimaux : compte signé des chiffres et placement direct', () => {
+  assert.equal(compteChiffres(37.2), 2);
+  assert.equal(compteChiffres(0.85), 0);
+  assert.equal(compteChiffres(0.04), -1);
+  assert.equal(compteChiffres(0.003), -2);
+  // 3,7 × 8,5 = 31,45 ; 0,037 × 8 = 0,296
+  const e = etapesMultiplicationDecimale(3.7, 8.5, 37, 85, 1, 1);
+  assert.equal(appliquerMacros(0, e.macros) / 10 ** e.decimales, 31.45);
+  assert.match(e.macros[0].texte, /total 2/);
+  assert.equal(compteChiffres(0.037) + compteChiffres(8), 0);
+  // quotient : 156 ÷ 12 → 2 chiffres ; 108 ÷ 12 → 1 ; 0,0156 ÷ 1,2 = 0,013 → −1
+  assert.equal(compteQuotient(156, 12), 2);
+  assert.equal(compteQuotient(108, 12), 1);
+  assert.equal(compteQuotient(0.0156, 1.2), -1);
+  assert.equal(compteQuotient(1.56, 0.12), 2);
+});
+
+test('décimaux : colonnes et placements cohérents', () => {
+  for (let i = 0; i < 100; i++) {
+    const c = genererColonneDecimale(5, 4, 2);
+    const somme = c.lignes.reduce((v, l, k) => v + (l.op === '+' ? c.echelles[k] : -c.echelles[k]), 0);
+    assert.equal(somme / 100, c.resultat);
+    const p = genererPlacementDecimal();
+    assert.equal(p.rang, compteChiffres(p.a) + compteChiffres(p.b) - 1);
+  }
+});

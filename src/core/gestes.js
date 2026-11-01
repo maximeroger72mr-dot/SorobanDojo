@@ -40,8 +40,11 @@ const NOMS_RANGS = [
   'milliards', 'dizaines de milliards', 'centaines de milliards',
 ];
 
-/** Nom d'une tige à partir de son rang (0 = unités). */
+const NOMS_DECIMALES = ['dixièmes', 'centièmes', 'millièmes', 'dix-millièmes'];
+
+/** Nom d'une tige à partir de son rang (0 = unités, −1 = dixièmes…). */
 export function nomRang(rang) {
+  if (rang < 0) return NOMS_DECIMALES[-rang - 1] ?? `rang ${rang}`;
   return NOMS_RANGS[rang] ?? `rang ${rang}`;
 }
 
@@ -252,20 +255,23 @@ class Calculateur {
  * @param {number} n  entier naturel
  * @returns {{ etapes: Array, etatFinal: Array, motifs: Array<{cle, tige, role}> }}
  */
-export function calculerGestes(etats, tigeUnites, op, n) {
+export function calculerGestes(etats, tigeUnites, op, n, decimales = 0) {
   if (!Number.isInteger(n) || n < 0) throw new RangeError('Entier naturel attendu.');
+  // Avec des décimales, n est exprimé en unités de 10^-decimales (ex. 3,75 → n = 375, decimales = 2) :
+  // ses derniers chiffres tombent sur les tiges à droite de la tige des unités.
   const calc = new Calculateur(etats, tigeUnites);
   const chiffres = String(n);
-  if (chiffres.length > tigeUnites + 1) throw new ErreurCalcul('Nombre trop grand pour ce soroban.');
+  const derniere = tigeUnites + decimales;
+  if (chiffres.length > derniere + 1 || derniere >= etats.length) throw new ErreurCalcul('Nombre trop grand pour ce soroban.');
   if (op === '-') {
     // Contrôle préalable : on ne calcule pas les nombres négatifs.
     let v = 0;
-    for (let t = 0; t <= tigeUnites; t++) v = v * 10 + chiffreDepuisEtat(etats[t]);
+    for (let t = 0; t <= derniere; t++) v = v * 10 + chiffreDepuisEtat(etats[t]);
     if (n > v) throw new ErreurCalcul('Le résultat serait négatif.');
   }
   // De gauche à droite : chiffre de plus haut rang d'abord.
   for (let i = 0; i < chiffres.length; i++) {
-    const rang = chiffres.length - 1 - i;
+    const rang = chiffres.length - 1 - i - decimales;
     const tige = tigeUnites - rang;
     const d = Number(chiffres[i]);
     if (op === '+') calc.ajouter(tige, d);

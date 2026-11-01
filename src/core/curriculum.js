@@ -13,6 +13,8 @@
  *  - repetitions : nombre de colonnes justes ou fausses à faire avant le mini-test
  *  - pourquoi    : explication du geste ; demos : exemples animés
  *  - type 'theorie'  : leçon à lire (Leçon 0), validée par « J'ai lu et compris » ;
+ *  - type 'table'    : produit de la table à écrire sur DEUX chiffres (2 × 3 = « 06 ») ;
+ *  - types décimaux  : 'addsubdec', 'muldec', 'divdec', 'divarrondi', placement op 'muldec' ;
  *  - type 'placement': réflexe de position (sur quelle tige commence la multiplication / division) ;
  *  - zeros : exercices avec zéros internes ; chiffresMax : alterne entre chiffres et chiffresMax ;
  *  - type 'anzan' : calcul mental en flash (nombres montrés un par un : `duree` secondes chacun),
@@ -23,8 +25,11 @@
  */
 
 import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
-import { genererColonne } from './generateur.js';
-import { genererMultiplication, genererDivision, aideDivision, genererPlacement } from './multiplication.js';
+import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
+import {
+  genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
+  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale,
+} from './multiplication.js';
 
 const DIRECT = famille('direct');
 const PETIT = famille('petit');
@@ -171,6 +176,9 @@ export const PALIERS = [
   {
     id: 'p6', titre: 'Multiplication (両落とし)',
     sousPaliers: [
+      { id: 'p6-a', titre: '1 × 1 : un produit, deux tiges (« 06 »)', type: 'table', repetitions: 40,
+        pourquoi: 'En multiplication japonaise, chaque produit de la table occupe TOUJOURS deux tiges : la dizaine et l\'unité. 7 × 8 = « 56 », mais 2 × 3 = « 06 » : la tige des dizaines reste vide, et c\'est elle qui garde le décalage juste pour la suite. Ici, tapez chaque produit sur deux chiffres (06, 00, 56) : c\'est la convention à ancrer, et en même temps un entraînement de vitesse sur la table.',
+        demos: [{ a: 2, b: 3 }, { a: 7, b: 8 }] },
       { id: 'p6-0', titre: 'Où poser le premier produit ?', type: 'placement', op: 'mul', repetitions: 40,
         pourquoi: 'Avant de multiplier, il faut savoir OÙ commencer, sans réfléchir. Règle : comptez les chiffres des deux nombres (37 × 85 : 2 + 2 = 4). La dizaine du premier produit se pose sur la 4e tige en comptant la tige des unités comme la 1re. Cliquez la bonne tige le plus vite possible : ce réflexe doit devenir automatique, c\'est lui qui évite les résultats décalés. L\'index gauche se pose ensuite sur cette tige et la marque pendant tout le calcul.',
         demos: [] },
@@ -212,8 +220,34 @@ export const PALIERS = [
     ],
   },
   {
+    id: 'pd', titre: 'Décimaux et arrondis',
+    sousPaliers: [
+      { id: 'pd-1', titre: 'Le point des unités : additions et soustractions de décimaux', type: 'addsubdec', repetitions: 30,
+        pourquoi: 'Les points de la barre servent de repère : on choisit l\'un d\'eux comme tige des unités, et TOUTES les virgules s\'alignent dessus. Les décimales se posent sur les tiges à sa droite (dixièmes, centièmes…). Pour 12,5 + 3,075 : 12 avant le point, 5 sur la 1re tige après ; puis 3 sur les unités, 0, 7, 5 sur les trois tiges suivantes. Rien d\'autre ne change : mêmes gestes, mêmes amis.',
+        demos: [] },
+      { id: 'pd-2', titre: 'Placer un produit décimal (compte des chiffres)', type: 'placement', op: 'muldec', repetitions: 30,
+        pourquoi: 'La méthode la plus rapide ne place pas la virgule à la fin : elle pose le premier produit directement au bon endroit. On compte les chiffres de chaque facteur AVEC SIGNE : 37,2 compte 2 (chiffres avant la virgule), 0,85 compte 0, 0,04 compte −1 (un zéro juste après la virgule). On additionne : la dizaine du premier produit va sur la tige de ce rang (2 → 2e tige avant la virgule ; 0 → 1re tige après la virgule ; −1 → 2e tige après). C\'est la règle « m + n » des entiers, prolongée.',
+        demos: [] },
+      { id: 'pd-3', titre: 'Multiplier des décimaux', type: 'muldec', repetitions: 30,
+        pourquoi: 'Compte des chiffres, puis 両落とし exactement comme avec des entiers. Le résultat se lit directement par rapport au point des unités. Vérification rapide : le nombre de décimales du résultat est la somme de celles des facteurs.',
+        demos: [] },
+      { id: 'pd-4', titre: 'Diviser des décimaux', type: 'divdec', repetitions: 30,
+        pourquoi: 'Le quotient a q chiffres avant la virgule, avec q = compte(dividende) − compte(diviseur), plus 1 si le début du dividende est plus grand ou égal au diviseur (le même test que pour poser le premier chiffre). Exemple : 1,56 ÷ 0,12 : 1 − 0 + 1 = 2 chiffres → 13. On divise comme d\'habitude, et on lit le quotient avec ce compte.',
+        demos: [] },
+      { id: 'pd-5', titre: 'Arrondir au millième', type: 'divarrondi', repetitions: 30,
+        pourquoi: 'Pour arrondir au millième, on calcule UNE décimale de plus (la 4e), puis on arrondit. Astuce rapide au soroban : on ajoute 5 sur la tige de cette 4e décimale ; si elle valait 5 ou plus, la retenue monte toute seule sur le millième. On lit ensuite jusqu\'au millième, sans rien effacer.',
+        demos: [] },
+    ],
+  },
+  {
     id: 'p8', titre: 'Vers le 5e et le 4e kyū',
     sousPaliers: [
+      { id: 'p8-t1', titre: 'Transition : 3 chiffres, 6 à 7 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 6, lignesMax: 7, repetitions: 30, cumul: true,
+        pourquoi: 'Avant les 10 lignes : des colonnes un peu plus longues, avec des nombres que vous connaissez déjà. Gardez le même rythme d\'un bout à l\'autre de la colonne.',
+        demos: [{ depart: 472, op: '+', n: 358 }] },
+      { id: 'p8-t2', titre: 'Transition : 4 chiffres, 6 à 7 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 4, lignes: 6, lignesMax: 7, repetitions: 30, cumul: true,
+        pourquoi: 'Le 4e chiffre ajoute une tranche : repérez les milliers avec le point de la barre, lisez le nombre d\'un bloc, posez-le de gauche à droite.',
+        demos: [{ depart: 4721, op: '+', n: 3586 }] },
       { id: 'p8-1', titre: 'Additions et soustractions à 4 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 4, lignes: 10, repetitions: 30, cumul: true,
         pourquoi: 'Le format des examens : 10 lignes, 4 chiffres. La difficulté n\'est plus le geste mais la lecture et le rythme : lisez chaque nombre d\'un bloc, posez-le de gauche à droite, et lisez déjà le suivant.',
         demos: [{ depart: 4721, op: '+', n: 3586 }] },
@@ -265,11 +299,43 @@ export const SOUS_PALIERS = (() => {
 
 export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 
+/** Famille de seuils de vitesse d'une leçon (voir maitrise.js). */
+export function familleLecon(sp) {
+  if (sp.type === 'placement' || sp.type === 'table') return sp.type;
+  if (sp.type === 'addsub' || sp.type === 'anzan' || sp.type === 'addsubdec') return 'addsub';
+  return 'muldiv';
+}
+
+// Une mémoire anti-répétition par leçon, pour toute la durée d'utilisation de l'application.
+const memoires = new Map();
+const memoireDe = (id) => { if (!memoires.has(id)) memoires.set(id, creerMemoire(6)); return memoires.get(id); };
+
+/**
+ * Produit de la table (1 × 1), à écrire sur deux chiffres. Les produits récents sont évités,
+ * et 0 n'apparaît que rarement (pour « 00 »).
+ */
+function produitTable(memoire) {
+  for (;;) {
+    const a = Math.random() < 0.05 ? 0 : 1 + Math.floor(Math.random() * 9);
+    const b = 1 + Math.floor(Math.random() * 9);
+    const cle = `${a}x${b}`;
+    if (memoire.signatures.includes(cle)) continue;
+    memoire.signatures.push(cle);
+    if (memoire.signatures.length > 12) memoire.signatures.shift();
+    return { type: 'table', a, b, resultat: a * b, attendu: String(a * b).padStart(2, '0') };
+  }
+}
+
 /** Exercice d'un sous-palier (colonne, multiplication ou division). */
 export function genererExercice(sp, poids = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
   const entre = (a, b) => (b && Math.random() < 0.5 ? b : a);
-  if (sp.type === 'placement') return genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
+  if (sp.type === 'placement') return sp.op === 'muldec' ? genererPlacementDecimal() : genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
+  if (sp.type === 'table') return produitTable(memoireDe(sp.id));
+  if (sp.type === 'addsubdec') return genererColonneDecimale(5, 4, 2);
+  if (sp.type === 'muldec') return genererMultiplicationDecimaleSimple(2, entre(1, 2));
+  if (sp.type === 'divdec') return genererDivisionDecimaleExacte(entre(1, 2), 2);
+  if (sp.type === 'divarrondi') return genererDivisionDecimale(entre(1, 2), 2, 3);
   if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
     if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);
@@ -285,12 +351,12 @@ export function genererExercice(sp, poids = {}) {
   }
   if (sp.type === 'anzan') {
     // Anzan : colonne avec les gestes vus, montrée en flash ; pas de suivi par geste (calcul mental).
-    const col = genererColonne({ chiffres: sp.chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids });
+    const col = genererColonneVariee({ chiffres: sp.chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids }, memoireDe(sp.id));
     // Les premiers paliers montrent aussi le nombre en boules (étape visuelle avant le calcul de tête pur).
     return { ...col, motifs: undefined, flash: { duree: sp.duree, image: !!sp.image } };
   }
   // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
   let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
   if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
-  return genererColonne({ chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros });
+  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros }, memoireDe(sp.id));
 }

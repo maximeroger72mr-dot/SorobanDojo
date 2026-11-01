@@ -239,7 +239,8 @@ export function creerSerie(conteneur, o) {
     if (phase !== 'question') return;
     const reponse = lireReponse(saisie.value, ex.decimales ?? 0);
     if (reponse === null) { saisie.focus(); return; }
-    const juste = egal(reponse, ex.resultat, ex.decimales ?? 0);
+    // Produit de la table : la convention des deux tiges exige deux chiffres (« 06 »).
+    const juste = ex.attendu ? saisie.value.replace(/\s/g, '') === ex.attendu : egal(reponse, ex.resultat, ex.decimales ?? 0);
     // Temps de calcul : jusqu'à la première touche (la frappe n'est pas comptée).
     const dureeMs = dureeCalcul ?? performance.now() - debutExercice;
     phase = 'traitement';

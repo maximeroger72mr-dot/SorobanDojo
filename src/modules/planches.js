@@ -7,7 +7,7 @@
  * se limite aux gestes des leçons validées.
  */
 
-import { genererColonne } from '../core/generateur.js';
+import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
@@ -102,9 +102,11 @@ export default {
       remplir(zone);
       const r = { ...reglages };
       const c = contraintes(r.cible);
-      const problemes = Array.from({ length: r.colonnes }, () => genererColonne({
+      // Mémoire de la taille de la feuille : toutes les colonnes ont des résultats différents.
+      const memoire = creerMemoire(r.colonnes);
+      const problemes = Array.from({ length: r.colonnes }, () => genererColonneVariee({
         chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles), zeros: !!r.zeros,
-      }));
+      }, memoire));
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}`;
       feuille = creerFeuille(zone, {
         titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,

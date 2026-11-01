@@ -24,6 +24,8 @@ const G = {
 };
 
 const ABREV = ['u', 'd', 'c', 'm', 'dm', 'cm', 'M', 'dM', 'cM', 'G', 'dG', 'cG'];
+const ABREV_DECIMALES = ['1/10', '1/100', '1/1000', '1/10⁴'];
+const abrev = (rang) => (rang < 0 ? ABREV_DECIMALES[-rang - 1] ?? '' : ABREV[rang] ?? '');
 
 function el(nom, attrs = {}, parent) {
   const e = document.createElementNS(NS, nom);
@@ -104,7 +106,7 @@ export class SorobanVue {
       // Étiquettes sous le cadre
       const yTxt = this.yBas + G.cadre + 15;
       const etiquette = el('text', { class: 'etiquette', x, y: yTxt, 'text-anchor': 'middle' }, g);
-      etiquette.textContent = ABREV[this.s.rang(t)] ?? '';
+      etiquette.textContent = abrev(this.s.rang(t));
       const titre = el('title', {}, etiquette);
       titre.textContent = nomRang(this.s.rang(t));
       const valeur = el('text', { class: 'valeur-tige', x, y: yTxt + 15, 'text-anchor': 'middle' }, g);

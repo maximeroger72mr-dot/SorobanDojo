@@ -99,13 +99,16 @@ export class Soroban {
     this._changer(tige, etatDepuisChiffre(chiffre), source);
   }
 
-  /** Pose un entier naturel, aligné sur la tige des unités. Les autres tiges sont remises à zéro. */
-  definirValeur(n, source = 'programme') {
+  /**
+   * Pose un entier naturel, aligné sur la tige des unités. Les autres tiges sont remises à zéro.
+   * decimales : n est exprimé en unités de 10^-decimales (3,75 → n = 375, decimales = 2).
+   */
+  definirValeur(n, source = 'programme', decimales = 0) {
     if (!Number.isInteger(n) || n < 0) throw new RangeError('Seuls les entiers naturels sont gérés.');
     const chiffres = String(n);
-    if (chiffres.length > this.tigeUnites + 1) throw new RangeError('Nombre trop grand pour ce soroban.');
+    if (chiffres.length > this.tigeUnites + 1 + decimales) throw new RangeError('Nombre trop grand pour ce soroban.');
     for (let t = 0; t < this.nbTiges; t++) {
-      const r = this.rang(t);
+      const r = this.rang(t) + decimales;
       const c = r >= 0 && r < chiffres.length ? Number(chiffres[chiffres.length - 1 - r]) : 0;
       this.definirChiffre(t, c, source);
     }

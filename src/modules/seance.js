@@ -14,7 +14,7 @@ import {
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte,
 } from '../core/progression.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte, placementDuJour } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte, placementDuJour, coursMultiplicationAtteint } from '../core/parcours.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
@@ -29,7 +29,7 @@ function plan(d, debut) {
   const drill = drillEchauffement(d);
   items.push({
     titre: 'Échauffement', detail: `${drill.titre} (adapté à votre niveau)`,
-    fait: fait((s) => s.module === 'drills'), aller: ['drills', { drill: drill.id }],
+    fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }],
   });
   const dues = revisionsDues().length;
   if (dues) {
@@ -54,6 +54,13 @@ function plan(d, debut) {
     });
   }
   const sp = prochainSousPalier();
+  // Tables : dès le cours de multiplication, 20 produits ciblés sur les plus lents.
+  if (coursMultiplicationAtteint(d, sp)) {
+    items.push({
+      titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité',
+      fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }],
+    });
+  }
   // Réflexe de placement : seulement une fois arrivé au cours de multiplication, mais alors tous les jours.
   const placement = placementDuJour(d, aujourdhui(), sp);
   if (placement && placement.id !== sp?.id) {

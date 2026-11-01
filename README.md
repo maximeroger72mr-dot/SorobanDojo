@@ -63,6 +63,7 @@ Logique (`src/core/`) :
 | `hasard.js` | hasard reproductible (même défi toute la semaine), semaine ISO |
 | `nombres.js` | décimaux : lecture des réponses (virgule ou point), arrondis exacts |
 | `sauvegarde.js` | export / import (remplacer ou fusionner) |
+| `tables.js` | drills des tables de multiplication (81 produits, plus lents, table d'un nombre ou d'un diviseur) |
 | `conseils.js` | **conseils « Pour aller plus vite »** (généraux, par palier, par leçon) : à enrichir librement |
 | `progression.js` | sauvegarde : séances, répétitions, diagnostic par motif, révisions, records |
 
@@ -76,6 +77,10 @@ Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la lis
 - Grand ami en addition : complément d'abord, retenue ensuite. En soustraction : emprunt d'abord.
 - Multiplication 両落とし : aucun facteur posé ; produits de table sur deux tiges ; premier produit
   avec sa dizaine sur la (m+n)-ième tige depuis les unités.
+- Décimaux : compte signé des chiffres (37,2 → 2 ; 0,85 → 0 ; 0,04 → −1). Multiplication : la dizaine du
+  premier produit au rang (compte a + compte b − 1), directement par rapport au point des unités.
+  Division : le quotient a compte(dividende) − compte(diviseur) (+1 si le début du dividende ≥ diviseur)
+  chiffres avant la virgule. Arrondi : ajouter 5 sur la décimale suivante, puis lire.
 - Division 片落とし : seul le dividende est posé ; chiffre du quotient deux tiges à gauche si le début
   du dividende ≥ diviseur, sinon juste à gauche ; unité du quotient (chiffres du diviseur + 1) tiges à gauche.
   Chiffre du quotient ESTIMÉ avec le diviseur arrondi (18 → 20) ; trop grand : corrigé de tête avant

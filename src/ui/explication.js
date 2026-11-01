@@ -5,7 +5,7 @@
  *  - multiplication / division : les étapes de la méthode japonaise, geste par geste.
  */
 
-import { etapesMultiplication, etapesDivision } from '../core/multiplication.js';
+import { etapesMultiplication, etapesDivision, etapesMultiplicationDecimale, compteChiffres, compteQuotient } from '../core/multiplication.js';
 import { sousTotaux } from '../core/generateur.js';
 import { PanneauDemo, ouvrirDialogue } from './panneauDemo.js';
 import { rendreEnonce, texteEnonce, consigneArrondi } from './enonce.js';
@@ -41,24 +41,51 @@ export function demoDivision(a, b) {
 function methodeDecimale(ex) {
   const [A, B] = ex.entiers;
   const [pa, pb] = ex.virgules;
+  const signe = (x) => String(x).replace('-', '−');
   if (ex.type === 'mul') {
-    return [`On calcule ${formaterNombre(A)} × ${formaterNombre(B)} comme des entiers (démonstration ci-dessous) = ${formaterNombre(A * B)}.`,
-      `Virgule : ${pa} décimale${pa > 1 ? 's' : ''} + ${pb} décimale${pb > 1 ? 's' : ''} = ${pa + pb} décimales.`,
-      ex.arrondi ? `Puis on arrondit ${consigneArrondi(ex.decimales)} : on regarde la décimale suivante (5 ou plus : au-dessus). Résultat : ${formaterNombre(ex.resultat)}.` : `Résultat : ${formaterNombre(ex.resultat)}.`];
+    const ca = compteChiffres(ex.a);
+    const cb = compteChiffres(ex.b);
+    return [`Compte des chiffres : ${formaterNombre(ex.a)} → ${signe(ca)}, ${formaterNombre(ex.b)} → ${signe(cb)} ; total ${signe(ca + cb)}. Le premier produit se pose directement à la bonne place par rapport au point des unités (démonstration ci-dessous).`,
+      `Vérification : ${pa} décimale${pa > 1 ? 's' : ''} + ${pb} décimale${pb > 1 ? 's' : ''} = ${pa + pb} décimale${pa + pb > 1 ? 's' : ''} au résultat exact.`,
+      ex.arrondi ? `Arrondi ${consigneArrondi(ex.decimales)} : ajoutez 5 sur la décimale suivante, puis lisez jusqu'au rang demandé. Résultat : ${formaterNombre(ex.resultat)}.` : `Résultat : ${formaterNombre(ex.resultat)}.`];
   }
-  return [pb ? `On rend le diviseur entier : on décale la virgule de ${pb} rang${pb > 1 ? 's' : ''} vers la droite dans le diviseur ET dans le dividende.` : 'Le diviseur est déjà entier.',
-    'On divise comme d\'habitude (estimation par le diviseur arrondi, correction de ±1), en continuant après la virgule, une décimale de plus que demandé.',
-    `On arrondit ${consigneArrondi(ex.decimales)} : 5 ou plus à la décimale suivante, on arrondit au-dessus. Résultat : ${formaterNombre(ex.resultat)}.`];
+  const q = compteQuotient(ex.a, ex.b);
+  return [`Compte des chiffres du quotient : compte(${formaterNombre(ex.a)}) − compte(${formaterNombre(ex.b)}) ${q === compteChiffres(ex.a) - compteChiffres(ex.b) + 1 ? '+ 1 (le début du dividende est ≥ au diviseur)' : '(le début du dividende est plus petit que le diviseur)'} = ${signe(q)} : ${q > 0 ? `le quotient a ${q} chiffre${q > 1 ? 's' : ''} avant la virgule` : q === 0 ? 'le quotient commence juste après la virgule (0,…)' : `le quotient commence par ${-q} zéro${-q > 1 ? 's' : ''} après la virgule`}.`,
+    'On divise comme d\'habitude (estimation par le diviseur arrondi, correction de ±1), sans se soucier des virgules : le compte dit où lire le résultat.',
+    ex.arrondi ? `Arrondi ${consigneArrondi(ex.decimales)} : on calcule une décimale de plus, on ajoute 5 sur cette tige, puis on lit jusqu'au rang demandé. Résultat : ${formaterNombre(ex.resultat)}.` : `Résultat : ${formaterNombre(ex.resultat)}.`];
 }
 
 /** Ouvre la fenêtre d'explication d'un exercice. */
 export function ouvrirExplication(ex) {
+  if (ex.type === 'table') {
+    ouvrirDialogue(`${ex.a} × ${ex.b} = ${ex.attendu}`, `Deux tiges : ${ex.attendu[0]} sur la tige des dizaines${ex.attendu[0] === '0' ? ' (elle reste vide, mais elle compte)' : ''}, ${ex.attendu[1]} sur celle des unités.`, (corps) => {
+      const p = new PanneauDemo(corps);
+      p.jouer(demoMultiplication(ex.a || 1, ex.b), 'manuel');
+      return () => p.detruire();
+    });
+    return;
+  }
+  if (ex.type === 'addsub' && ex.echelles) {
+    // Colonne de décimaux : démonstration sur le soroban, virgule au point des unités.
+    ouvrirDialogue(`Explication : ${texteEnonce(ex)} = ${formaterNombre(ex.resultat)}`, 'Toutes les virgules s\'alignent sur le point des unités ; les décimales sont à sa droite.', (corps) => {
+      const p = new PanneauDemo(corps);
+      const nbTiges = String(Math.max(...ex.echelles, Math.round(ex.resultat * 10 ** ex.decimales))).length + 2;
+      p.jouer({
+        titre: texteEnonce(ex), depart: 0, decimales: ex.decimales, nbTiges,
+        macros: ex.lignes.map((l, i) => ({ texte: `Ligne ${i + 1} : ${i === 0 ? '' : (l.op === '+' ? '+ ' : '− ')}${formaterNombre(l.n)}`, op: l.op, valeur: ex.echelles[i] })),
+        lecture: `Résultat : ${formaterNombre(ex.resultat)}.`,
+      }, 'manuel');
+      return () => p.detruire();
+    });
+    return;
+  }
   if (ex.virgules) {
-    ouvrirDialogue(`Explication : ${texteEnonce(ex)} ≈ ${formaterNombre(ex.resultat)}`, null, (corps) => {
+    ouvrirDialogue(`Explication : ${texteEnonce(ex)} ${ex.arrondi ? '≈' : '='} ${formaterNombre(ex.resultat)}`, null, (corps) => {
       corps.append(h('ol', {}, methodeDecimale(ex).map((t) => h('li', {}, t))));
       if (ex.type !== 'mul') return null;
       const p = new PanneauDemo(corps);
-      p.jouer(demoMultiplication(ex.entiers[0], ex.entiers[1]), 'manuel');
+      const e = etapesMultiplicationDecimale(ex.a, ex.b, ex.entiers[0], ex.entiers[1], ex.virgules[0], ex.virgules[1]);
+      p.jouer({ titre: texteEnonce(ex), ...e }, 'manuel');
       return () => p.detruire();
     });
     return;

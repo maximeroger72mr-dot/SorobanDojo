@@ -10,11 +10,13 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
-import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice } from '../core/curriculum.js';
+import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon } from '../core/curriculum.js';
+import { ouvrirExplication } from '../ui/explication.js';
+import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
-  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes,
+  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile,
 } from '../core/progression.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
@@ -42,11 +44,11 @@ const dateFr = (d) => new Date(`${d}T12:00`).toLocaleDateString('fr-FR', { day: 
 
 /** Démonstration d'un exemple de sous-palier, quel que soit son type. */
 function demoDe(sp, d) {
-  if (sp.type === 'mul') return demoMultiplication(d.a, d.b);
+  if (sp.type === 'mul' || sp.type === 'table') return demoMultiplication(d.a, d.b);
   if (sp.type === 'div') return demoDivision(d.a, d.b);
   return d;
 }
-const famille = (sp) => (sp.type === 'placement' ? 'placement' : sp.type === 'addsub' || sp.type === 'anzan' ? 'addsub' : 'muldiv');
+const famille = familleLecon;
 /** Composant d'exercices adapté au type de leçon. */
 const creerExercices = (sp, zone, o) => (sp.type === 'placement' ? creerPlacement : creerSerie)(zone, o);
 
@@ -59,7 +61,7 @@ function encadreVitesse(sp) {
 const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
 const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
-const libelleDemo = (sp, d) => (sp.type === 'mul' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
+const libelleDemo = (sp, d) => (sp.type === 'mul' || sp.type === 'table' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 
 export default {
   id: 'lecons',
@@ -89,7 +91,7 @@ export default {
           else if (e.valide) { icone = '✓'; statut = e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = 'Verrouillé'; }
-          else if (e.reps >= sp.repetitions) { icone = '●'; statut = 'Mini-test disponible'; }
+          else if (e.reps >= sp.repetitions || e.coupeFile) { icone = '●'; statut = e.coupeFile && e.reps < sp.repetitions ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
           else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
           return h('button', {
             class: `ligne-palier${e.valide ? ' valide' : ''}`, disabled: !ouvert,
@@ -171,6 +173,13 @@ export default {
           h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
           return null;
         }
+        if (!sp.demos.length) {
+          // Pas d'exemple prédéfini (décimaux) : un exemple tiré au hasard, expliqué pas à pas.
+          zone.append(h('div', { class: 'ligne' },
+            h('button', { class: 'btn', onclick: () => ouvrirExplication(genererExercice(sp)) }, 'Voir un exemple expliqué'),
+            h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →')));
+          return null;
+        }
         zone.append(h('h2', {}, 'Démonstrations'),
           h('p', { class: 'discret' }, 'Regardez le geste, puis refaites-le sur votre soroban avant de passer à la suite.'));
         const choix = h('div', { class: 'ligne' });
@@ -197,7 +206,7 @@ export default {
         const tous = [...conseilsVitesse(sp), ...GENERAUX];
         const majConseil = () => { conseil.textContent = `Pour aller plus vite : ${tous[Math.floor(Math.random() * tous.length)]}`; };
         majConseil();
-        zone.append(bandeau, sp.type === 'anzan' || sp.type === 'placement' ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
+        zone.append(bandeau, ['anzan', 'placement', 'table'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
 
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -206,7 +215,7 @@ export default {
             h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
-            et.reps >= sp.repetitions && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, 'Passer le mini-test →') : null,
+            (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null,
           ].filter(Boolean));
         };
         majBandeau();
@@ -218,6 +227,9 @@ export default {
         };
         const compter = async (juste, dureeMs, t) => {
           await compterRepetition(sp.id, juste, t);
+          if (await verifierCoupeFile(sp.id, sp.repetitions, famille(sp))) {
+            notifier('Coupe-file : mini-test débloqué', '15 premiers exercices justes et rapides : vous pouvez passer le mini-test dès maintenant.');
+          }
           lot.total += 1;
           if (juste) lot.justes += 1;
           lot.dureeMs += dureeMs;
@@ -274,10 +286,10 @@ export default {
       // 3. Mini-test --------------------------------------------------
       function miniTest() {
         const et = etatPalier(sp.id);
-        if (et.reps < sp.repetitions) {
+        if (et.reps < sp.repetitions && !et.coupeFile) {
           zone.append(h('div', { class: 'carte' },
             h('p', {}, `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
-            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule.'),
+            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil « Acquis confirmé »), le mini-test s\'ouvre tout de suite.'),
             h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement')));
           return null;
         }

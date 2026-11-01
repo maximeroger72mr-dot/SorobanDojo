@@ -1,0 +1,60 @@
+/**
+ * Tables de multiplication (九九) : drills de vitesse.
+ *
+ *  - « 81 produits » : tous les produits de 1 × 1 à 9 × 9, dans le désordre, une seule fois chacun ;
+ *  - « mes plus lents » : tirage pondéré par la lenteur et les erreurs de chaque produit ;
+ *  - « table de N » : N × 1 à N × 9 dans le désordre (N peut être un diviseur à 2 chiffres, 12 à 19,
+ *    utile pour la division).
+ * Les produits sont notés dans la progression (temps et erreurs), pour cibler les plus lents.
+ */
+
+import { entier } from './aleatoire.js';
+
+const melanger = (t) => {
+  const r = [...t];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = entier(0, i);
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+};
+
+export const cleProduit = (a, b) => `${Math.min(a, b)}x${Math.max(a, b)}`;
+const exercice = (a, b) => ({ type: 'mul', a, b, resultat: a * b, table: true });
+
+/** Les 81 produits dans le désordre. */
+export function serie81() {
+  const t = [];
+  for (let a = 1; a <= 9; a++) for (let b = 1; b <= 9; b++) t.push(exercice(a, b));
+  return melanger(t);
+}
+
+/** Table d'un nombre (N × 1 à N × 9) dans le désordre. */
+export function serieTable(n) {
+  return melanger(Array.from({ length: 9 }, (_, i) => (Math.random() < 0.5 ? exercice(n, i + 1) : exercice(i + 1, n))));
+}
+
+/**
+ * Produits les plus lents ou les plus ratés : poids = temps médian récent (2 s par défaut) ×
+ * (1 + erreurs récentes). Évite de reposer le même produit deux fois de suite.
+ */
+export function produitLent(stats, precedent) {
+  const candidats = [];
+  for (let a = 2; a <= 9; a++) {
+    for (let b = a; b <= 9; b++) {
+      const h = stats[cleProduit(a, b)]?.hist ?? [];
+      const recents = h.slice(-6);
+      const temps = recents.filter((x) => x.ok).map((x) => x.t).sort((x, y) => x - y);
+      const mediane = temps.length ? temps[Math.floor(temps.length / 2)] : 2;
+      const erreurs = recents.filter((x) => !x.ok).length;
+      candidats.push({ a, b, poids: mediane * (1 + erreurs) ** 2 });
+    }
+  }
+  for (;;) {
+    const total = candidats.reduce((s, c) => s + c.poids, 0);
+    let x = Math.random() * total;
+    const c = candidats.find((k) => (x -= k.poids) < 0) ?? candidats.at(-1);
+    if (cleProduit(c.a, c.b) === precedent) continue;
+    return Math.random() < 0.5 ? exercice(c.a, c.b) : exercice(c.b, c.a);
+  }
+}

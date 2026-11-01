@@ -304,3 +304,124 @@ export function genererDivisionDecimale(nd, nq, decimales = 3) {
     return { type: 'div', a: A / 10 ** pa, b: B / 10 ** pb, resultat, decimales, arrondi: true, entiers: [A, B], virgules: [pa, pb] };
   }
 }
+
+// ------------------------------------------------------------------ décimaux : la méthode par le compte des chiffres
+
+/**
+ * Compte signé des chiffres d'un nombre (méthode japonaise de position, 定位法) :
+ *  - nombre ≥ 1 : nombre de chiffres avant la virgule (37,2 → 2) ;
+ *  - 0,x : 0 (0,85 → 0) ;
+ *  - 0,0x : −1, 0,00x : −2… (moins le nombre de zéros juste après la virgule).
+ */
+export function compteChiffres(x) {
+  if (x >= 1) return String(Math.floor(x)).length;
+  const dec = String(x).split('.')[1] ?? '';
+  return -(dec.match(/^0*/)[0].length) || 0; // « || 0 » : évite −0
+}
+
+/** Nom de la tige qui porte le rang r, dit simplement (« 2e tige avant la virgule », « 1re après »). */
+export function tigeDepuisRang(r) {
+  if (r >= 0) return `la ${r + 1}${r === 0 ? 're' : 'e'} tige à gauche de la virgule (${nomRang(r)})`;
+  return `la ${-r}${r === -1 ? 're' : 'e'} tige après la virgule (${nomRang(r)})`;
+}
+
+/**
+ * Multiplication de décimaux, méthode la plus directe : compte des chiffres. On additionne les
+ * comptes des deux facteurs (p) : la DIZAINE du premier produit se pose au rang p − 1, c'est-à-dire
+ * directement à la bonne place par rapport à la virgule, sans la replacer à la fin.
+ * Les valeurs des étapes sont en unités de 10^-decimales (pour la démonstration).
+ */
+export function etapesMultiplicationDecimale(a, b, A, B, pa, pb) {
+  const base = etapesMultiplication(A, B);
+  const ca = compteChiffres(a);
+  const cb = compteChiffres(b);
+  const p = ca + cb;
+  const decimales = pa + pb;
+  const macros = [{
+    texte: `Compte des chiffres : ${String(a).replace('.', ',')} compte ${String(ca).replace('-', '−')}, ${String(b).replace('.', ',')} compte ${String(cb).replace('-', '−')} ; total ${String(p).replace('-', '−')}. La dizaine du premier produit se pose sur ${tigeDepuisRang(p - 1)}. Ensuite, exactement comme avec des entiers : on avance d'une tige par produit.`,
+    op: '+', valeur: 0,
+  }, ...base.macros.slice(1).map((m) => ({ ...m, texte: m.texte.replace(/sur les tiges des .*?([.(])/, '$1') }))];
+  const resultat = (A * B) / 10 ** decimales;
+  return {
+    nbTiges: Math.max(p, 1) + decimales + 2,
+    depart: 0,
+    decimales,
+    macros,
+    lecture: `Résultat : ${String(resultat).replace('.', ',')}, lu directement par rapport au point des unités.`,
+    resultat,
+  };
+}
+
+/**
+ * Division de décimaux : nombre de chiffres du quotient avant la virgule (compte signé) :
+ * q = compte(dividende) − compte(diviseur), + 1 si le début du dividende est ≥ au diviseur.
+ */
+export function compteQuotient(a, b) {
+  const sa = String(a).replace('.', '').replace(/^0+/, '');
+  const sb = String(b).replace('.', '').replace(/^0+/, '');
+  const debut = Number(sa.slice(0, sb.length).padEnd(sb.length, '0'));
+  return compteChiffres(a) - compteChiffres(b) + (debut >= Number(sb) ? 1 : 0);
+}
+
+/** Additions et soustractions de décimaux : nombres avec 0 à `decimales` décimales, variées. */
+export function genererColonneDecimale(lignes = 5, chiffresMax = 4, decimales = 2) {
+  for (;;) {
+    const D = decimales;
+    const liste = [];
+    let total = 0; // en unités de 10^-D
+    for (let i = 0; i < lignes; i++) {
+      const d = entier(0, D);
+      const k = entier(2, chiffresMax);
+      const brut = facteur(k);
+      const echelle = brut * 10 ** (D - d);
+      const op = i > 0 && Math.random() < 0.3 && total > echelle ? '-' : '+';
+      total += op === '+' ? echelle : -echelle;
+      liste.push({ op, n: brut / 10 ** d, echelle });
+    }
+    if (total < 0) continue;
+    return { type: 'addsub', lignes: liste.map(({ op, n }) => ({ op, n })), echelles: liste.map((l) => l.echelle), resultat: total / 10 ** D, decimales: D };
+  }
+}
+
+/** Multiplication de décimaux exacte (pas d'arrondi), petits facteurs, avec des 0,0x de temps en temps. */
+export function genererMultiplicationDecimaleSimple(m, n) {
+  for (;;) {
+    const A = facteur(m);
+    const B = facteur(n);
+    if (A % 10 === 0 || B % 10 === 0) continue;
+    const pa = entier(0, m + 1);
+    const pb = entier(0, n);
+    if (pa + pb === 0) continue;
+    const a = A / 10 ** pa;
+    const b = B / 10 ** pb;
+    return { type: 'mul', a, b, resultat: (A * B) / 10 ** (pa + pb), decimales: pa + pb, entiers: [A, B], virgules: [pa, pb] };
+  }
+}
+
+/** Division de décimaux exacte (quotient fini) : diviseur nd chiffres, quotient nq chiffres. */
+export function genererDivisionDecimaleExacte(nd, nq) {
+  for (;;) {
+    const B = facteur(nd);
+    const Q = facteur(nq);
+    if (B % 10 === 0 || Q % 10 === 0) continue;
+    const pb = entier(0, Math.min(2, nd));
+    const pq = entier(0, Math.min(3, nq + 1));
+    if (pb + pq === 0) continue;
+    // dividende = quotient × diviseur, avec pb + pq décimales
+    const a = (Q * B) / 10 ** (pb + pq);
+    return { type: 'div', a, b: B / 10 ** pb, resultat: Q / 10 ** pq, decimales: pq, entiers: [Q * B, B], virgules: [pb + pq, pb] };
+  }
+}
+
+/** Placement d'un produit décimal : rang de la dizaine du premier produit = compte(a) + compte(b) − 1. */
+export function genererPlacementDecimal() {
+  const ex = genererMultiplicationDecimaleSimple(entier(1, 3), entier(1, 2));
+  const ca = compteChiffres(ex.a);
+  const cb = compteChiffres(ex.b);
+  const rang = ca + cb - 1;
+  const D = 4;
+  return {
+    type: 'placement', op: 'mul', a: ex.a, b: ex.b, rang, nbTiges: Math.max(4, rang + 3) + D, decimalesAffichees: D,
+    explication: `Compte des chiffres : ${String(ex.a).replace('.', ',')} → ${String(ca).replace('-', '−')}, ${String(ex.b).replace('.', ',')} → ${String(cb).replace('-', '−')} ; total ${String(ca + cb).replace('-', '−')}. La dizaine du premier produit va sur ${tigeDepuisRang(rang)}.`,
+  };
+}

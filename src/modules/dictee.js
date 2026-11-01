@@ -7,7 +7,9 @@
  * puis « C'est tout. ». Les nombres restent courts (1 à 4 chiffres) pour rester dictables.
  */
 
-import { genererColonne } from '../core/generateur.js';
+import { genererColonne, genererColonneVariee, creerMemoire } from '../core/generateur.js';
+
+const memoire = creerMemoire(6);
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
 import { progression, enregistrerSession, noterReponse } from '../core/progression.js';
@@ -26,7 +28,7 @@ function colonneADicter() {
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
   const ops = reglages.soustractions ? ['+', '-'] : ['+'];
   try {
-    return genererColonne({ chiffres: reglages.chiffres, lignes: reglages.nombres, autorises: appris, cibles: (amis.length ? amis : famille('direct')).filter((c) => ops.includes(c[0])), ops });
+    return genererColonneVariee({ chiffres: reglages.chiffres, lignes: reglages.nombres, autorises: appris, cibles: (amis.length ? amis : famille('direct')).filter((c) => ops.includes(c[0])), ops }, memoire);
   } catch {
     return genererColonne({ chiffres: reglages.chiffres, lignes: reglages.nombres, autorises: null, cibles: famille('direct').filter((c) => ops.includes(c[0])), ops });
   }

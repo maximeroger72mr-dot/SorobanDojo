@@ -114,7 +114,9 @@ function essayerCible(cible, chiffres, autorises, cibles, zeros = false) {
     }
     if (!ok) continue;
     // Seul un emprunt sur la tige la plus à gauche exige un chiffre de plus au départ.
-    const tete = op === '-' && (empruntEnTete || (dCible === null && Math.random() < 0.5)) ? entier(1, 9) : 0;
+    // Une dizaine au départ, même à 1 chiffre : les gestes restent ceux des unités, mais les
+    // colonnes et les résultats varient beaucoup plus (sinon on « reconnaît » les réponses).
+    const tete = (op === '-' && (empruntEnTete || dCible === null)) || (chiffres === 1 && Math.random() < 0.75) ? entier(1, 9) : 0;
     const depart = Number(`${tete}${chiffresDepart.join('')}`);
     if (depart < departMin) continue;
     const n = Number(chiffresN.join(''));
@@ -122,7 +124,7 @@ function essayerCible(cible, chiffres, autorises, cibles, zeros = false) {
     const a = analyserOperation(depart, op, n, nbTiges);
     if (!a || !respecte(a.motifs, autorises) || !a.motifs.includes(cible)) continue;
     valides += 1;
-    const ex = { depart, op, n, resultat: a.resultat, motifs: a.motifs, score: compter(a.motifs, cibles) };
+    const ex = { depart, op, n, resultat: a.resultat, motifs: a.motifs, score: compter(a.motifs, cibles) + Math.random() * 0.9 };
     if (!meilleur || ex.score > meilleur.score) meilleur = ex;
   }
   return meilleur;
@@ -206,7 +208,8 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     valides += 1;
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
-    const score = cibles ? scoreEquilibre(a, cibles, poids, chiffres) : 0;
+    // Un peu de hasard départage les candidats proches : sinon le « meilleur » chemin revient sans cesse.
+    const score = (cibles ? scoreEquilibre(a, cibles, poids, chiffres) : 0) + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');
@@ -244,6 +247,53 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
     }
   }
   throw new ErreurGeneration('Impossible de générer une colonne');
+}
+
+/**
+ * Mémoire anti-répétition : derniers résultats et dernières colonnes vus dans une même série.
+ * @param {number} taille  nombre d'exercices récents à éviter
+ */
+export function creerMemoire(taille = 6) {
+  return { taille, resultats: [], signatures: [], unites: [] };
+}
+const signature = (col) => col.lignes.map((l) => `${l.op}${l.n}`).join(',');
+
+/**
+ * Colonne VARIÉE : comme genererColonne, mais le résultat (et la colonne) ne doivent pas avoir été
+ * vus dans les derniers exercices de la mémoire. Si plusieurs tirages n'y suffisent pas, on ajoute
+ * UNE ligne de plus (toujours dans les gestes permis) pour changer le résultat.
+ */
+export function genererColonneVariee(params, memoire) {
+  if (!memoire) return genererColonne(params);
+  // Évite aussi un chiffre des unités trop prévisible (même chiffre déjà 2 fois dans les 4 derniers).
+  const unite = (r) => Math.abs(r) % 10;
+  const uniteUsee = (r) => memoire.unites.slice(-4).filter((u) => u === unite(r)).length >= 2;
+  const recent = (col) => memoire.resultats.includes(col.resultat) || memoire.signatures.includes(signature(col)) || uniteUsee(col.resultat);
+  let col = null;
+  for (let essai = 0; essai < 12; essai++) {
+    col = genererColonne(params);
+    if (!recent(col)) break;
+  }
+  if (recent(col)) {
+    // Une ligne de plus, choisie pour donner un résultat nouveau.
+    for (let essai = 0; essai < 20; essai++) {
+      try {
+        const t = genererTerme(col.resultat, { ...params, poids: params.poids ?? {} });
+        if (memoire.resultats.includes(t.resultat) || uniteUsee(t.resultat)) continue;
+        col = { ...col, lignes: [...col.lignes, { op: t.op, n: t.n }], resultat: t.resultat, motifs: [...col.motifs, ...t.motifs] };
+        break;
+      } catch (e) {
+        if (!(e instanceof ErreurGeneration)) throw e;
+      }
+    }
+  }
+  memoire.resultats.push(col.resultat);
+  memoire.unites.push(unite(col.resultat));
+  if (memoire.unites.length > 8) memoire.unites.shift();
+  memoire.signatures.push(signature(col));
+  if (memoire.resultats.length > memoire.taille) memoire.resultats.shift();
+  if (memoire.signatures.length > memoire.taille * 3) memoire.signatures.shift();
+  return col;
 }
 
 /** Résultat d'une colonne (somme algébrique des lignes). */
