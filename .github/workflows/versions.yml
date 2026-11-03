@@ -3,6 +3,7 @@
 #  - Soroban-x.y.z-Mac.dmg     : application Mac (Intel et Apple Silicon)
 #  - Soroban.html              : version navigateur en un seul fichier
 # et les publie sur la page « Releases » du dépôt, sous le nom « Dernière version ».
+# Chaque fichier est publié dès qu'il est prêt (le .exe n'attend pas le Mac).
 name: Versions à télécharger
 
 on:
@@ -16,9 +17,11 @@ permissions:
 jobs:
   construire:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,16 +38,22 @@ jobs:
         run: npx electron-builder --mac --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      - uses: actions/upload-artifact@v4
-        with:
-          name: soroban-${{ runner.os }}
-          path: |
-            dist/*.exe
-            dist/*.dmg
-          if-no-files-found: error
+      # Chaque système publie son fichier dès qu'il est prêt, sans attendre l'autre
+      # (les machines Mac de GitHub sont parfois longues à se libérer).
+      - name: Publier dans « Dernière version »
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=exe; NOM=Windows; else EXT=dmg; NOM=Mac; fi
+          bash .github/release.sh
+          for a in $(gh release view derniere-version --json assets -q '.assets[].name' | grep -- "-${NOM}\.${EXT}$" || true); do
+            gh release delete-asset derniere-version "$a" --yes || true
+          done
+          gh release upload derniere-version dist/*.${EXT} --clobber
 
-  publier:
-    needs: construire
+  html:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,17 +61,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci && npm run html
-      - uses: actions/download-artifact@v4
-        with:
-          path: a-publier
-          merge-multiple: true
-      - run: cp Soroban.html a-publier/
-      - name: Publier « Dernière version »
+      - name: Publier Soroban.html
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release delete derniere-version --yes --cleanup-tag || true
-          gh release create derniere-version a-publier/* \
-            --title "Dernière version" \
-            --notes "Version construite automatiquement depuis le commit ${GITHUB_SHA::7}. Windows : Soroban-…-Windows.exe (aucune installation). Mac : Soroban-…-Mac.dmg. Tous systèmes : Soroban.html (s'ouvre dans le navigateur)."
+          bash .github/release.sh
+          gh release upload derniere-version Soroban.html --clobber
