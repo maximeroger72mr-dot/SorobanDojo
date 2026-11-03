@@ -11,7 +11,7 @@ export function badgeNiveau(ev) {
 
 /** Résumé : réussite, vitesse et ce qui manque pour le niveau suivant. */
 export function texteEvaluation(ev, famille = 'addsub') {
-  const unite = { addsub: 'chiffre', muldiv: 'produit', placement: 'placement' }[famille] ?? 'unité';
+  const unite = { addsub: 'chiffre', muldiv: 'produit', placement: 'placement', photo: 'chiffre lu' }[famille] ?? 'unité';
   const parts = [];
   if (ev.essais) parts.push(`réussite ${formaterPourcent(Math.round(ev.reussite * ev.essais), ev.essais)}`);
   if (ev.temps !== null) parts.push(`${nf(ev.temps)} s par ${unite}`);

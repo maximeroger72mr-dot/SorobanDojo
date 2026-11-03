@@ -19,7 +19,7 @@ import { avecGraine, semaineISO } from './hasard.js';
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
 // Les étapes d'anzan ne bloquent pas l'accès aux épreuves.
-const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id));
+const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => !p.mental && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id));
 
 export const estValide = (d, id) => !!d.paliers[id]?.valide;
 export const leconsValidees = (d) => SOUS_PALIERS.filter((sp) => estValide(d, sp.id));
@@ -41,7 +41,7 @@ export const PREREQUIS = {
   8: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p7-1'],
   7: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p6-3', 'p7-1', 'p7-2'],
 };
-const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
+const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 
 /**
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
@@ -108,12 +108,13 @@ export function defiSemaine(d, date) {
  * plus il y a de nombres, plus ils défilent vite, puis on passe à 2 chiffres.
  */
 export function anzanAdapte(d) {
-  const k = SOUS_PALIERS.filter((sp) => sp.type === 'anzan' && estValide(d, sp.id)).length;
+  // Progression lente : on allonge la chaîne avant d'accélérer, et l'image d'aide reste longtemps.
+  const k = Math.min(6, SOUS_PALIERS.filter((sp) => sp.type === 'anzan' && estValide(d, sp.id)).length);
   return {
-    mode: k < 2 ? 'image' : 'flash',
-    chiffres: k >= 5 ? 2 : 1,
-    termes: [3, 4, 5, 5, 7, 5][k],
-    duree: [2, 1.5, 1.5, 1, 1, 1.5][k],
+    mode: k < 3 ? 'image' : 'flash',
+    chiffres: k >= 6 ? 2 : 1,
+    termes: [3, 3, 4, 5, 5, 6, 3][k],
+    duree: [3, 2.5, 2.5, 2, 2, 1.5, 3][k],
     questions: 5,
   };
 }

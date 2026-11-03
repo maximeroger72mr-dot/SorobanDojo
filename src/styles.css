@@ -379,6 +379,12 @@ table.carte-maitrise.selection td.choisi { opacity: 1; }
 .mode-espace { font-size: 0.85rem; color: var(--discret); margin-right: 12px; }
 .flash-image { max-width: 260px; margin: 0 auto 10px; }
 .flash-image svg.soroban { max-height: 160px; }
+.flash-ecran { min-width: 260px; }
+.flash-ecran .flash-image { margin: 0; }
+.flash-ecran .flash-image svg.soroban { max-height: 190px; }
+.photo-soroban { max-width: 220px; margin: 6px 0; }
+.photo-soroban svg.soroban { max-height: 170px; }
+.photo-soroban.compacte svg.soroban { max-height: 110px; }
 svg.soroban .zone-tige { cursor: pointer; }
 svg.soroban .zone-tige:hover { fill: #2a78d61a; }
 .zone-soroban.placement svg.soroban { max-height: 300px; }

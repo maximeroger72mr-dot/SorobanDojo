@@ -6,7 +6,8 @@
  *
  * Le temps est ramené à une unité de travail, pour comparer des exercices de tailles différentes :
  *  - colonne : secondes par chiffre traité (somme des chiffres de toutes les lignes) ;
- *  - multiplication / division : secondes par produit partiel.
+ *  - multiplication / division : secondes par produit partiel ;
+ *  - photo du soroban : secondes par chiffre lu (après disparition de l'image).
  * Exercices un par un : le chronomètre s'arrête à la PREMIÈRE TOUCHE tapée, la frappe n'est donc
  * pas comptée (SURCOUT_S = 0). Feuilles : on ne peut pas séparer calcul et frappe, on retire
  * forfaitairement SURCOUT_FEUILLE_S par problème.
@@ -26,22 +27,25 @@ export const SURCOUT_FEUILLE_S = 1.5;  // feuilles : frappe du résultat, retir�
 export const NIVEAUX = [
   { id: 'decouverte', nom: 'À découvrir' },
   { id: 'progres', nom: 'En progrès' },
-  { id: 'debutant', nom: 'Acquis débutant', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0, placement: 4.0, table: 2.5 } },
-  { id: 'confirme', nom: 'Acquis confirmé', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0, placement: 2.5, table: 1.5 } },
-  { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0 } },
+  { id: 'debutant', nom: 'Acquis débutant', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0, placement: 4.0, table: 2.5, photo: 2.0 } },
+  { id: 'confirme', nom: 'Acquis confirmé', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0, placement: 2.5, table: 1.5, photo: 1.0 } },
+  { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0, photo: 0.6 } },
 ];
 
 const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').length;
 
 /** Nombre d'unités de travail d'un exercice. */
 export function unites(ex) {
-  if (ex.type === 'placement' || ex.type === 'table') return 1;
+  if (ex.type === 'placement' || ex.type === 'table' || ex.type === 'tenir') return 1;
+  if (ex.type === 'photo') return nbChiffres(ex.n);
   if (ex.type === 'mul') return nbChiffres(ex.a) * nbChiffres(ex.b);
   if (ex.type === 'div') return nbChiffres(ex.b) * nbChiffres(ex.resultat);
   return ex.lignes.reduce((s, l) => s + nbChiffres(l.n), 0);
 }
 
-export const familleTemps = (ex) => (ex.type === 'placement' || ex.type === 'table' ? ex.type : ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
+export const familleTemps = (ex) => (ex.type === 'placement' || ex.type === 'table' ? ex.type
+  : ex.type === 'photo' || ex.type === 'tenir' ? 'photo'
+    : ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
 
 /** Secondes par unité pour un exercice fait en dureeMs (surcout : temps fixe à retirer). */
 export function tempsParUnite(ex, dureeMs, surcout = SURCOUT_S) {

@@ -220,15 +220,29 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
  * Colonne complète : première ligne posée, puis (lignes − 1) lignes ± respectant les contraintes.
  * @param {{chiffres:number, lignes:number, autorises?:Set|null, cibles:string[], poids?:object, ops?:string[], zeros?:boolean}} c
  *   zeros : chaque nombre contient un zéro après son premier chiffre (entraînement aux zéros internes)
+ *   premierCourt : (anzan, 1 chiffre) la 1re ligne est un seul chiffre, sans dizaine en tête
  * @returns {{type:'addsub', lignes:Array<{op,n}>, resultat:number, motifs:string[]}}
  */
-export function genererColonne({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false }) {
+export function genererColonne({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false }) {
   for (let tentative = 0; tentative < 40; tentative++) {
     try {
-      const premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids, zeros });
-      const liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
-      const motifs = [...premiere.motifs];
-      let valeur = premiere.resultat;
+      let liste;
+      let motifs;
+      let valeur;
+      let premiere = { motifs: [] };
+      if (premierCourt && chiffres === 1) {
+        // Anzan à 1 chiffre : la colonne commence par UN chiffre (pas de dizaine en tête, qui
+        // oblige à visualiser deux tiges dès le départ). De préférence un chiffre qui permet une cible.
+        const ouverts = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), 1) > 0);
+        valeur = hasard(ouverts.length ? ouverts : [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        liste = [{ op: '+', n: valeur }];
+        motifs = [];
+      } else {
+        premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids, zeros });
+        liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
+        motifs = [...premiere.motifs];
+        valeur = premiere.resultat;
+      }
       // Équilibrage : plus une cible est déjà apparue dans la colonne, moins elle est tirée.
       const vus = {};
       const compterVus = (ms) => ms.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });

@@ -55,12 +55,30 @@ const PAR_PALIER = {
   ],
 };
 
+/** Anzan et visualisation : affichés dans les leçons de la piste anzan, à la place des généraux. */
+export const ANZAN = [
+  'Toujours le même soroban mental : le vôtre, avec ses couleurs et sa barre. L\'image se renforce à chaque séance.',
+  'Ne visualisez que les tiges utiles (une ou deux), pas tout le cadre.',
+  'Gardez l\'image du TOTAL : le nombre lu déclenche un geste, puis on l\'oublie.',
+  'Les doigts bougent dans l\'air à chaque nombre : c\'est ce qui porte l\'image au début.',
+  'Pas de phrase intérieure (« 4 plus 3 égale 7 ») : on voit les boules bouger, on ne compte pas.',
+  'Image floue ? Moins de nombres, pas moins de vitesse : la chaîne se raccourcit d\'elle-même après une erreur.',
+  'Perdu en route : ne devinez pas. Une réponse au hasard n\'entraîne rien ; on recommence.',
+  'À la fin, on ne calcule pas : on LIT le soroban imaginaire, de gauche à droite.',
+  '5 minutes par jour suffisent : l\'image se construit par la répétition, entre les séances.',
+];
+
 const PAR_LECON = {
+  'pa-1': ['Céleste d\'abord (5 ou rien), puis le groupe de terrestres d\'un coup d\'œil : 3 boules se reconnaissent sans compter, comme les points d\'un dé.'],
+  'pa-2': ['Les dizaines puis les unités, de gauche à droite, comme on lit le nombre.'],
+  'pa-3': ['Posez la céleste d\'abord, puis les terrestres, avec les doigts dans l\'air : le geste fixe l\'image.'],
+  'p3-a': ['Voyez la boule de retenue monter sur la tige de gauche : c\'est elle qu\'on oublie le plus souvent de tête.'],
+  'p5-a': ['Deux tiges : le geste des dizaines, puis celui des unités, sans les mélanger. Si c\'est trop, revenez à 1 chiffre quelques jours.'],
   'p1-1': ['Pouce sous les boules, légèrement incliné : il les pousse vers la barre d\'un coup sec.'],
   'p1-2': ['Index au-dessus des boules : il les tire vers le bas d\'un coup sec.'],
 };
 
 /** Conseils de vitesse d'un sous-palier (spécifiques d'abord, puis ceux de son palier). */
 export function conseilsVitesse(sp) {
-  return [...(PAR_LECON[sp.id] ?? []), ...(PAR_PALIER[sp.palier?.id] ?? [])];
+  return [...(PAR_LECON[sp.id] ?? []), ...(sp.mental ? ANZAN : PAR_PALIER[sp.palier?.id] ?? [])];
 }

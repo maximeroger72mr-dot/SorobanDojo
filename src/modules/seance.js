@@ -18,7 +18,7 @@ import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte, place
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
-import { prochainSousPalier } from './lecons.js';
+import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Éléments du plan, avec leur état « fait pendant la séance ». */
@@ -45,11 +45,18 @@ function plan(d, debut) {
       fait: fait((s) => s.module === 'planches' && s.mode === 'lents'), aller: ['planches', { cible: 'lents', auto: true }],
     });
   }
-  // Anzan dès que les gestes directs sont validés (on commence tôt et simple).
-  if (d.paliers['p1-4']?.valide || d.paliers['p1-a']?.valide) {
+  // Anzan, 5 minutes : la prochaine leçon de la piste anzan si elle est ouverte (elle suit le
+  // soroban avec retard), sinon une série de flash adaptée aux leçons d'anzan validées.
+  const lecAnzan = prochainAnzan();
+  if (lecAnzan) {
+    items.push({
+      titre: 'Anzan (5 min)', detail: lecAnzan.titre,
+      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === lecAnzan.id), aller: ['lecons', { sousPalier: lecAnzan.id }],
+    });
+  } else if (d.paliers['p1-a']?.valide) {
     const a = anzanAdapte(d);
     items.push({
-      titre: 'Anzan', detail: `${a.questions} calculs de tête, ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}, ${a.duree.toLocaleString('fr-FR')} s par nombre`,
+      titre: 'Anzan (5 min)', detail: `${a.questions} calculs de tête, ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}, ${a.duree.toLocaleString('fr-FR')} s par nombre`,
       fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }],
     });
   }

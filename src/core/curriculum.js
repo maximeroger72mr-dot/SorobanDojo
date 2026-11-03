@@ -18,7 +18,13 @@
  *  - type 'placement': réflexe de position (sur quelle tige commence la multiplication / division) ;
  *  - zeros : exercices avec zéros internes ; chiffresMax : alterne entre chiffres et chiffresMax ;
  *  - type 'anzan' : calcul mental en flash (nombres montrés un par un : `duree` secondes chacun),
- *                   avec les gestes vus jusque-là ; testMin : réussites exigées au mini-test
+ *                   avec les gestes vus jusqu'à la leçon `apres` ; testMin : réussites exigées au mini-test ;
+ *                   lignesDepart : longueur de chaîne au départ (2 par défaut), elle s'allonge ensuite
+ *  - type 'photo' : un soroban s'affiche `duree` secondes, on tape le nombre (visualisation) ;
+ *  - type 'tenir' : un nombre en chiffres, on le pose sur le soroban imaginaire `tenir` secondes,
+ *                   puis on compare avec le vrai (auto-évalué : O / N) ;
+ *  - palier `mental` : piste parallèle (anzan), qui ne bloque pas le parcours soroban ; chaque
+ *                   leçon s'ouvre quand la leçon soroban `apres` est validée.
  *
  * Pour modifier la progression : éditer PALIERS. Tout le reste (déblocage, génération,
  * révisions, suggestions) s'adapte.
@@ -73,9 +79,6 @@ export const PALIERS = [
       { id: 'p1-4', titre: 'Gestes directs à 2 et 3 chiffres', cibles: DIRECT, chiffres: 2, lignes: 4, repetitions: 20, cumul: true,
         pourquoi: 'On calcule NOMBRE PAR NOMBRE et de GAUCHE À DROITE : pour 12 + 35, on pose 12, puis on ajoute 35 en entier, d\'abord le 3 sur les dizaines, puis le 5 sur les unités, dans l\'ordre de lecture. Jamais colonne par colonne comme sur papier : le total courant est sur le soroban. Chaque tige se traite indépendamment.',
         demos: [{ depart: 12, op: '+', n: 35 }, { depart: 87, op: '-', n: 32 }] },
-      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', image: true, cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
-        pourquoi: 'L\'anzan, c\'est calculer avec un soroban imaginaire. Les nombres s\'affichent un par un : à chaque nombre, voyez les boules bouger dans votre tête, et faites le geste avec les doigts dans l\'air (pouce, index), comme sur le vrai soroban. On commence tôt et très simple : la vitesse viendra.',
-        demos: [] },
     ],
   },
   {
@@ -102,9 +105,6 @@ export const PALIERS = [
       { id: 'p2-7', titre: 'Tous les petits amis, 3 chiffres', cibles: PETIT, chiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'Additions et soustractions mélangées : si les boules manquent sur une tige, le petit ami s\'impose. Avec la répétition, le geste devient un réflexe associé au chiffre.',
         demos: [{ depart: 342, op: '+', n: 413 }] },
-      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', image: true, cibles: PETIT, chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
-        pourquoi: 'Mêmes gestes qu\'au soroban : le petit ami se « voit » (céleste qui descend, terrestres qui remontent). Gardez les doigts actifs ; si l\'image se brouille, ralentissez plutôt que de deviner.',
-        demos: [] },
     ],
   },
   {
@@ -122,9 +122,6 @@ export const PALIERS = [
       { id: 'p3-4', titre: 'Grands amis en addition, 2 et 3 chiffres', cibles: plus(GRAND), chiffres: 2, lignes: 5, repetitions: 50,
         pourquoi: 'La retenue tombe sur la tige de gauche, déjà calculée : c\'est pour cela qu\'on travaille de gauche à droite, la retenue s\'ajoute simplement.',
         demos: [{ depart: 39, op: '+', n: 85 }] },
-      { id: 'p3-a', titre: 'Anzan : grands amis (addition)', type: 'anzan', cibles: plus(GRAND), chiffres: 1, lignes: 4, duree: 1.5, repetitions: 20, testMin: 8,
-        pourquoi: 'Imaginez la retenue qui monte sur la tige de gauche. Le soroban imaginaire a deux tiges : unités et dizaines.',
-        demos: [] },
     ],
   },
   {
@@ -145,9 +142,6 @@ export const PALIERS = [
       { id: 'p4-5', titre: 'Tous les grands amis, 3 chiffres', cibles: GRAND, chiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'Repérez le passage de la dizaine avant de bouger : si la tige ne peut pas absorber le chiffre, c\'est le grand ami. Complément d\'abord en addition, emprunt d\'abord en soustraction.',
         demos: [{ depart: 876, op: '+', n: 285 }, { depart: 952, op: '-', n: 663 }] },
-      { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 1.2, repetitions: 20, testMin: 8,
-        pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant d\'ajouter le complément sur les unités : même ordre qu\'au soroban.',
-        demos: [] },
     ],
   },
   {
@@ -168,9 +162,6 @@ export const PALIERS = [
       { id: 'p5-5', titre: 'Révision générale, 3 chiffres', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 5, repetitions: 50, cumul: true,
         pourquoi: 'Tous les gestes sont permis : chaque tige choisit le sien. C\'est le calcul courant.',
         demos: [{ depart: 478, op: '+', n: 685 }] },
-      { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 3, duree: 2, repetitions: 20, testMin: 8,
-        pourquoi: 'Deux tiges dans la tête, de gauche à droite comme au soroban. Peu de nombres d\'abord, on allonge ensuite dans le Flash anzan.',
-        demos: [] },
     ],
   },
   {
@@ -271,6 +262,53 @@ export const PALIERS = [
         demos: [{ a: 5832, b: 243 }] },
     ],
   },
+  {
+    // Piste parallèle : elle ne bloque pas le parcours soroban, et le suit AVEC RETARD (`apres`) :
+    // l'anzan d'un geste ne s'ouvre qu'une fois ce geste bien acquis sur le vrai soroban.
+    id: 'pa', titre: 'Anzan et visualisation (piste parallèle)', mental: true,
+    sousPaliers: [
+      { id: 'pa-0', titre: 'Le cours : voir le soroban dans sa tête', type: 'theorie', apres: 'p1-4', repetitions: 0,
+        pourquoi: 'L\'anzan, c\'est calculer avec un soroban imaginaire. Ce n\'est pas du calcul mental « avec des mots » : on VOIT les boules bouger. Cette piste avance à son rythme, en parallèle des leçons sur le vrai soroban, et toujours un peu en retard sur elles : on n\'imagine bien que des gestes déjà automatiques.',
+        sections: [
+          ['Les étapes', '1. Prendre la « photo » d\'un soroban : le voir une seconde et lire le nombre. 2. Tenir une image : poser un nombre sur le soroban imaginaire et le garder net. 3. Calculer avec une image d\'aide qui s\'estompe peu à peu. 4. Calculer de tête, en allongeant la chaîne de nombres, puis en accélérant.'],
+          ['Toujours le même soroban', 'Imaginez VOTRE soroban, avec sa couleur, la taille de ses boules et sa barre. Toujours le même : l\'image se renforce à chaque séance. Ne visualisez que les tiges utiles (une ou deux au début), pas tout le cadre.'],
+          ['Garder l\'image du TOTAL', 'Le nombre lu ne sert qu\'à déclencher un geste, puis on l\'oublie. Ce qu\'on garde en tête, c\'est l\'état du soroban : le total. À la fin, on ne calcule rien, on LIT le soroban imaginaire.'],
+          ['Les doigts dans l\'air', 'À chaque nombre, faites le geste avec le pouce et l\'index, comme sur le vrai soroban. Au début, c\'est le mouvement des doigts qui « porte » l\'image. Les doigts s\'effacent d\'eux-mêmes beaucoup plus tard.'],
+          ['Pas de phrase intérieure', 'Ne vous dites pas « 4 plus 3 égale 7 » : on voit la céleste descendre et deux terrestres s\'en aller. Si une voix intérieure compte, ralentissez jusqu\'à voir les boules.'],
+          ['Les yeux', 'En mitori-anzan (colonne affichée), fermer les yeux un instant entre deux nombres aide au début. En flash, regardez le nombre, puis l\'image intérieure.'],
+          ['Quand l\'image se brouille', 'On réduit le NOMBRE de nombres, pas la vitesse : mieux vaut 3 nombres nets que 5 flous. Quand on est perdu, on ne devine pas : on le note faux et on recommence. L\'application allonge la chaîne quand vous réussissez, et la raccourcit après une erreur.'],
+          ['Peu, mais tous les jours', '5 minutes d\'anzan chaque jour valent mieux que 20 minutes une fois par semaine. L\'image se construit par la répétition, entre les séances.'],
+        ],
+        demos: [] },
+      { id: 'pa-1', titre: 'Photo du soroban : 1 tige', type: 'photo', apres: 'p1-4', chiffres: 1, duree: 1.5, repetitions: 20,
+        pourquoi: 'Un soroban s\'affiche un court instant : tapez le nombre qu\'il montrait. Ne comptez pas les boules une à une : prenez une « photo » d\'un coup d\'œil, céleste puis terrestres. C\'est la brique de base de la visualisation.',
+        demos: [] },
+      { id: 'pa-2', titre: 'Photo du soroban : 2 tiges', type: 'photo', apres: 'p1-4', chiffres: 2, duree: 2, repetitions: 20,
+        pourquoi: 'Deux tiges : on photographie la tige des dizaines puis celle des unités, de gauche à droite, comme on lit un nombre.',
+        demos: [] },
+      { id: 'pa-3', titre: 'Tenir une image', type: 'tenir', apres: 'p1-4', chiffres: 2, duree: 1.5, tenir: 3, repetitions: 15, testMin: 8,
+        pourquoi: 'Un nombre s\'affiche en chiffres. Fermez les yeux et posez-le sur votre soroban imaginaire, avec les doigts dans l\'air. Gardez l\'image nette quelques secondes. Ensuite le vrai soroban s\'affiche : votre image était-elle la même ? Vous répondez honnêtement, O ou N.',
+        demos: [] },
+      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', apres: 'p1-4', image: true, cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 5, duree: 3, repetitions: 30, testMin: 8,
+        pourquoi: 'Les nombres s\'affichent un par un. À chaque nombre, faites le geste avec les doigts dans l\'air et voyez les boules bouger. Au début, un petit soroban montre le TOTAL qui évolue : suivez-le, puis il s\'estompe à mesure que vous réussissez. La chaîne commence à 2 nombres et s\'allonge quand vous réussissez.',
+        demos: [] },
+      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', apres: 'p2-7', image: true, cibles: PETIT, chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 8,
+        pourquoi: 'Mêmes gestes qu\'au soroban : le petit ami se « voit » (la céleste descend, des terrestres s\'en vont). Gardez les doigts actifs. Si l\'image se brouille, la chaîne se raccourcit d\'elle-même : ne devinez pas.',
+        demos: [] },
+      { id: 'p3-a', titre: 'Anzan : grands amis (addition)', type: 'anzan', apres: 'p3-4', image: true, cibles: plus(GRAND), chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 8,
+        pourquoi: 'Une deuxième tige apparaît dans l\'image : la retenue monte sur la tige des dizaines. Voyez le complément partir des unités, puis la boule monter à gauche.',
+        demos: [] },
+      { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', apres: 'p4-5', image: true, cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 2, repetitions: 30, testMin: 8,
+        pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant le complément sur les unités : même ordre qu\'au soroban.',
+        demos: [] },
+      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 8, lignesDepart: 3,
+        pourquoi: 'Avant de passer à deux chiffres, on consolide à un chiffre : tous les gestes mélangés, des chaînes de 5 ou 6 nombres, un peu plus vite. C\'est ici que l\'image devient vraiment stable.',
+        demos: [] },
+      { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 8,
+        pourquoi: 'Deux tiges dans la tête, de gauche à droite comme au soroban : les dizaines, puis les unités. On revient à des chaînes courtes et à un affichage lent, avec l\'image d\'aide : la difficulté a changé, on repart doucement.',
+        demos: [] },
+    ],
+  },
 ];
 
 /**
@@ -281,17 +319,24 @@ export const PALIERS = [
 export const SOUS_PALIERS = (() => {
   const liste = [];
   const vus = new Set(DIRECT);
+  const vusApres = {}; // gestes vus à la fin de chaque leçon (pour l'anzan, qui suit avec retard)
   for (const palier of PALIERS) {
     for (const sp of palier.sousPaliers) {
       const type = sp.type ?? 'addsub';
-      if (type === 'theorie' || type === 'placement') { liste.push({ type, ...sp, autorises: null, palier, ordre: liste.length }); continue; }
+      const mental = !!palier.mental;
+      if (type === 'theorie' || type === 'placement' || type === 'photo' || type === 'tenir') {
+        liste.push({ type, ...sp, autorises: null, palier, mental, ordre: liste.length });
+        continue;
+      }
       let autorises = null;
       if (type === 'addsub') {
         sp.cibles.forEach((c) => vus.add(c));
         autorises = sp.cumul ? new Set(vus) : new Set([...DIRECT, ...sp.cibles]);
       }
-      if (type === 'anzan') autorises = new Set(vus);
-      liste.push({ type, ops: ['+', '-'], ...sp, autorises, palier, ordre: liste.length });
+      // Anzan : les gestes vus jusqu'à la leçon soroban qu'il suit.
+      if (type === 'anzan') autorises = new Set(vusApres[sp.apres] ?? vus);
+      liste.push({ type, ops: ['+', '-'], ...sp, autorises, palier, mental, ordre: liste.length });
+      vusApres[sp.id] = new Set(vus);
     }
   }
   return liste;
@@ -302,6 +347,7 @@ export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 /** Famille de seuils de vitesse d'une leçon (voir maitrise.js). */
 export function familleLecon(sp) {
   if (sp.type === 'placement' || sp.type === 'table') return sp.type;
+  if (sp.type === 'photo' || sp.type === 'tenir') return 'photo';
   if (sp.type === 'addsub' || sp.type === 'anzan' || sp.type === 'addsubdec') return 'addsub';
   return 'muldiv';
 }
@@ -326,8 +372,25 @@ function produitTable(memoire) {
   }
 }
 
-/** Exercice d'un sous-palier (colonne, multiplication ou division). */
-export function genererExercice(sp, poids = {}) {
+/**
+ * « Photo du soroban » : un nombre de `chiffres` chiffres (sans répéter les derniers), montré en
+ * boules pendant `duree` secondes. Avec 2 chiffres, la tige des dizaines n'est jamais vide.
+ */
+export function genererPhoto(chiffres, duree, memoire) {
+  for (let essai = 0; ; essai++) {
+    const min = chiffres === 1 ? 1 : 10 ** (chiffres - 1);
+    const n = min + Math.floor(Math.random() * (10 ** chiffres - min));
+    if (essai < 50 && memoire?.resultats.includes(n)) continue;
+    if (memoire) { memoire.resultats.push(n); if (memoire.resultats.length > memoire.taille) memoire.resultats.shift(); }
+    return { type: 'photo', n, chiffres, resultat: n, flash: { duree, photo: true } };
+  }
+}
+
+/**
+ * Exercice d'un sous-palier (colonne, multiplication ou division).
+ * @param {object} [ctx]  anzan seulement : { lignes, image } (voir plus bas)
+ */
+export function genererExercice(sp, poids = {}, ctx = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
   const entre = (a, b) => (b && Math.random() < 0.5 ? b : a);
   if (sp.type === 'placement') return sp.op === 'muldec' ? genererPlacementDecimal() : genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
@@ -349,14 +412,60 @@ export function genererExercice(sp, poids = {}) {
     }
     return genererDivision(sp.nd, sp.nq);
   }
+  if (sp.type === 'photo') return genererPhoto(sp.chiffres, sp.duree, memoireDe(sp.id));
+  if (sp.type === 'tenir') {
+    const ex = genererPhoto(entre(1, sp.chiffres), sp.duree, memoireDe(sp.id));
+    return { ...ex, type: 'tenir', flash: { duree: sp.duree, tenir: sp.tenir } };
+  }
   if (sp.type === 'anzan') {
     // Anzan : colonne avec les gestes vus, montrée en flash ; pas de suivi par geste (calcul mental).
-    const col = genererColonneVariee({ chiffres: sp.chiffres, lignes: sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids }, memoireDe(sp.id));
-    // Les premiers paliers montrent aussi le nombre en boules (étape visuelle avant le calcul de tête pur).
-    return { ...col, motifs: undefined, flash: { duree: sp.duree, image: !!sp.image } };
+    // ctx.lignes : longueur de chaîne du moment (elle s'allonge avec les réussites) ;
+    // ctx.image : opacité du petit soroban d'aide qui montre le TOTAL (0 = pas d'image).
+    // Sans ctx (mini-test, révision) : chaîne complète, sans image.
+    const col = genererColonneVariee({
+      chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true,
+    }, memoireDe(sp.id));
+    return { ...col, motifs: undefined, flash: { duree: sp.duree, image: ctx.image ?? 0 } };
   }
   // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
   let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
   if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
   return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros }, memoireDe(sp.id));
+}
+
+/**
+ * Image d'aide de l'anzan : elle s'estompe à mesure que les réussites s'accumulent dans la leçon
+ * (nette, estompée, légère, puis plus d'image du tout).
+ * @returns {{ opacite: number, nom: string }}
+ */
+export function imageAnzan(sp, justes) {
+  if (!sp.image) return { opacite: 0, nom: 'sans image' };
+  if (justes < 8) return { opacite: 1, nom: 'image nette' };
+  if (justes < 16) return { opacite: 0.5, nom: 'image estompée' };
+  if (justes < 24) return { opacite: 0.2, nom: 'image légère' };
+  return { opacite: 0, nom: 'sans image' };
+}
+
+/**
+ * Longueur de chaîne de l'anzan : on commence court (2 nombres) ; 3 réussites de suite ajoutent
+ * un nombre, une erreur en retire un. Mémorisée par leçon tant que l'application est ouverte.
+ */
+const chaines = new Map();
+export function chaineAnzan(sp) {
+  const min = sp.lignesDepart ?? 2;
+  if (!chaines.has(sp.id)) chaines.set(sp.id, { lignes: Math.min(min, sp.lignes), serie: 0 });
+  const c = chaines.get(sp.id);
+  return {
+    get lignes() { return c.lignes; },
+    max: sp.lignes,
+    noter(juste) {
+      if (juste) {
+        c.serie += 1;
+        if (c.serie >= 3 && c.lignes < sp.lignes) { c.lignes += 1; c.serie = 0; }
+      } else {
+        c.serie = 0;
+        c.lignes = Math.max(Math.min(min, sp.lignes), c.lignes - 1);
+      }
+    },
+  };
 }

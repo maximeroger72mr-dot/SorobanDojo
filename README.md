@@ -86,11 +86,25 @@ Pour ajouter un écran : créer `src/modules/monEcran.js` et l'ajouter à la lis
   Chiffre du quotient ESTIMÉ avec le diviseur arrondi (18 → 20) ; trop grand : corrigé de tête avant
   de poser ; trop petit : +1 au quotient et on retire encore le diviseur.
 
+## Anzan et visualisation
+
+Piste parallèle (`pa` dans `src/core/curriculum.js`) : elle ne bloque jamais le parcours soroban et
+le suit avec retard, puisque chaque leçon s'ouvre quand la leçon soroban `apres` est validée.
+
+1. Le cours : voir le soroban dans sa tête.
+2. Photo du soroban (1 puis 2 tiges) : un soroban s'affiche un instant, on tape le nombre.
+3. Tenir une image : poser un nombre sur le soroban imaginaire, puis comparer (auto-évalué).
+4. Anzan par geste. La colonne commence par UN chiffre. La chaîne commence à 2 nombres, s'allonge
+   de 1 après 3 réussites de suite et raccourcit de 1 après une erreur. Un petit soroban montre le
+   TOTAL qui évolue : il s'estompe avec les réussites (nette, estompée, légère, puis absente).
+   Le mini-test se fait à chaîne complète, sans image.
+5. 5 nombres à 1 chiffre avec tous les gestes, puis seulement ensuite 2 chiffres.
+
 ## Niveaux d'acquisition
 
 Calculés sur les 30 derniers essais d'un geste ou d'une leçon : réussite ET temps médian des réussites,
-ramené à une unité (secondes par chiffre pour les colonnes, par produit partiel pour × et ÷, après
-retrait de 1,5 s de lecture et de frappe).
+ramené à une unité (secondes par chiffre pour les colonnes, par produit partiel pour × et ÷). Le
+chronomètre s'arrête à la première touche tapée : la frappe du résultat n'est pas comptée.
 
 | Niveau | Réussite | Colonnes | × et ÷ |
 |---|---|---|---|

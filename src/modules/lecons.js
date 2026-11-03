@@ -10,7 +10,7 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
-import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon } from '../core/curriculum.js';
+import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon, imageAnzan, chaineAnzan } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
@@ -26,18 +26,33 @@ import { demoMultiplication, demoDivision } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { creerPlacement } from '../ui/placement.js';
-import { conseilsVitesse, GENERAUX } from '../core/conseils.js';
+import { conseilsVitesse, GENERAUX, ANZAN } from '../core/conseils.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-/** Un sous-palier est accessible si le précédent est validé (ou en mode découverte). */
+/** Leçon précédente sur la même piste (soroban ou anzan). */
+export const precedente = (sp) => SOUS_PALIERS.slice(0, sp.ordre).reverse().find((x) => x.mental === sp.mental) ?? null;
+/** Leçon suivante sur la même piste. */
+export const suivante = (sp) => SOUS_PALIERS.slice(sp.ordre + 1).find((x) => x.mental === sp.mental) ?? null;
+
+/**
+ * Un sous-palier est accessible si le précédent de sa piste est validé (ou en mode découverte).
+ * Piste anzan : il faut AUSSI que la leçon soroban qu'elle suit (`apres`) soit validée.
+ */
 export function estDebloque(sp) {
-  if (sp.ordre === 0 || reglagesUtilisateur().decouverte) return true;
-  return !!etatPalier(SOUS_PALIERS[sp.ordre - 1].id).valide;
+  if (reglagesUtilisateur().decouverte) return true;
+  if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return false;
+  const p = precedente(sp);
+  return !p || !!etatPalier(p.id).valide;
 }
 
-/** Premier sous-palier non validé et accessible (pour les suggestions). */
+/** Premier sous-palier du parcours soroban non validé et accessible (pour les suggestions). */
 export function prochainSousPalier() {
-  return SOUS_PALIERS.find((sp) => !etatPalier(sp.id).valide && estDebloque(sp)) ?? null;
+  return SOUS_PALIERS.find((sp) => !sp.mental && !etatPalier(sp.id).valide && estDebloque(sp)) ?? null;
+}
+
+/** Prochaine leçon de la piste anzan, si elle est ouverte. */
+export function prochainAnzan() {
+  return SOUS_PALIERS.find((sp) => sp.mental && !etatPalier(sp.id).valide && estDebloque(sp)) ?? null;
 }
 
 const dateFr = (d) => new Date(`${d}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
@@ -56,7 +71,7 @@ const creerExercices = (sp, zone, o) => (sp.type === 'placement' ? creerPlacemen
 function encadreVitesse(sp) {
   const conseils = conseilsVitesse(sp);
   if (!conseils.length) return null;
-  return h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite'), h('ul', {}, conseils.map((c) => h('li', {}, c))));
+  return h('div', { class: 'carte vitesse' }, h('strong', {}, sp.mental ? 'Pour bien visualiser' : 'Pour aller plus vite'), h('ul', {}, conseils.map((c) => h('li', {}, c))));
 }
 const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
 const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
@@ -81,6 +96,7 @@ export default {
       if (diag) el.append(diag);
       for (const palier of PALIERS) {
         el.append(h('h2', {}, palier.titre));
+        if (palier.mental) el.append(h('p', { class: 'discret' }, 'Calcul de tête, à son rythme, en parallèle du soroban : chaque leçon s\'ouvre quand le geste est validé sur le vrai soroban, et ne bloque jamais le parcours. 5 minutes par jour suffisent.'));
         el.append(h('div', { class: 'liste-paliers' }, palier.sousPaliers.map((brut) => {
           const sp = sousPalier(brut.id);
           const e = etatPalier(sp.id);
@@ -90,7 +106,7 @@ export default {
           if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = 'Lu'; }
           else if (e.valide) { icone = '✓'; statut = e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
-          else if (!ouvert) { icone = '·'; statut = 'Verrouillé'; }
+          else if (!ouvert) { icone = '·'; statut = sp.mental && sp.apres && !etatPalier(sp.apres).valide ? `après « ${sousPalier(sp.apres).titre} »` : 'Verrouillé'; }
           else if (e.reps >= sp.repetitions || e.coupeFile) { icone = '●'; statut = e.coupeFile && e.reps < sp.repetitions ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
           else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
           return h('button', {
@@ -112,17 +128,19 @@ export default {
     // ---------------------------------------------------------------- sous-palier
     /** Leçon à lire (Leçon 0) : sections, conseils généraux de vitesse, puis « J'ai lu et compris ». */
     function vueTheorie(sp) {
-      const suivant = SOUS_PALIERS[sp.ordre + 1];
+      const suivant = suivante(sp);
       el.append(
         h('button', { class: 'lien', onclick: () => changer(carte) }, '← Toutes les leçons'),
         h('h1', {}, sp.titre),
         h('p', { class: 'discret' }, sp.pourquoi),
         ...sp.sections.map(([titre, texte]) => h('div', { class: 'carte theorie' }, h('h3', { style: 'margin-top:0' }, titre), h('p', {}, texte))),
-        h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
+        sp.mental
+          ? h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour bien visualiser, en résumé'), h('ul', {}, ANZAN.map((c) => h('li', {}, c))))
+          : h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
         h('div', { class: 'ligne', style: 'margin-top:14px' },
           h('button', { class: 'btn principal', onclick: async () => {
             await validerPalier(sp.id, false);
-            changer(() => (suivant ? vueSousPalier(suivant) : carte()));
+            changer(() => (suivant && estDebloque(suivant) ? vueSousPalier(suivant) : carte()));
           } }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →')));
       return null;
     }
@@ -134,7 +152,7 @@ export default {
       const zone = h('div', {});
       const ongletsDef = [['comprendre', '1. Comprendre'], ['entrainement', '2. S\'entraîner'], ['test', '3. Mini-test']];
       const boutons = ongletsDef.map(([id, texte]) => h('button', { onclick: () => afficher(id) }, texte));
-      const suivant = SOUS_PALIERS[sp.ordre + 1];
+      const suivant = suivante(sp);
 
       el.append(
         h('button', { class: 'lien', onclick: () => changer(carte) }, '← Toutes les leçons'),
@@ -166,10 +184,23 @@ export default {
         if (sp.type === 'anzan') {
           zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Comment faire : '),
             h('ul', {},
-              h('li', {}, `Les nombres s'affichent un par un (${sp.duree.toLocaleString('fr-FR')} s chacun), ${sp.lignes} nombres à ${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}. Le signe − annonce une soustraction.`),
+              h('li', {}, `Les nombres s'affichent un par un (${sp.duree.toLocaleString('fr-FR')} s chacun), à ${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}. Le signe − annonce une soustraction.`),
+              h('li', {}, `La chaîne commence à ${Math.min(sp.lignesDepart ?? 2, sp.lignes)} nombres : 3 réussites de suite en ajoutent un (jusqu'à ${sp.lignes}), une erreur en retire un. Le mini-test se fait à ${sp.lignes} nombres.`),
+              sp.image ? h('li', {}, 'Un petit soroban montre le TOTAL qui évolue : suivez-le des yeux, puis dans la tête. Il s\'estompe à mesure que vous réussissez (nette, estompée, légère, puis plus d\'image). Le mini-test se fait sans image.') : null,
               h('li', {}, 'Posez la main comme sur le soroban et faites les gestes dans l\'air : le pouce monte, l\'index descend.'),
-              h('li', {}, 'Gardez l\'image du soroban : on « voit » le résultat plutôt que de le calculer avec des mots.'),
+              h('li', {}, 'Gardez l\'image du total, pas le nombre lu : à la fin, on LIT le soroban imaginaire.'),
               h('li', {}, 'Ensuite, entraînez-vous dans « Flash anzan » en réduisant le temps d\'affichage.'))),
+          h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
+          return null;
+        }
+        if (sp.type === 'photo' || sp.type === 'tenir') {
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Comment faire : '),
+            h('ul', {}, sp.type === 'photo'
+              ? [h('li', {}, `Un soroban s'affiche ${sp.duree.toLocaleString('fr-FR')} s, puis disparaît : tapez le nombre qu'il montrait.`),
+                h('li', {}, 'Lisez chaque tige d\'un coup d\'œil : la céleste (5 ou rien), puis le groupe de terrestres, sans les compter une à une.'),
+                h('li', {}, 'Le chrono part quand l\'image disparaît : c\'est votre mémoire de l\'image qui est mesurée.')]
+              : [h('li', {}, `Le nombre s'affiche ${sp.duree.toLocaleString('fr-FR')} s. Fermez les yeux et posez-le sur votre soroban imaginaire, doigts dans l'air.`),
+                h('li', {}, `Gardez l'image nette ${sp.tenir} s, puis le vrai soroban s'affiche : répondez O si votre image était la même, N sinon. Soyez honnête : c'est vous que vous entraînez.`)])),
           h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
           return null;
         }
@@ -203,11 +234,14 @@ export default {
             onclick: (ev) => { mode = v; [...choixMode.children].forEach((b) => b.classList.toggle('actif', b === ev.currentTarget)); lancer(); },
           }, t)));
         const conseil = h('p', { class: 'conseil-vitesse' });
-        const tous = [...conseilsVitesse(sp), ...GENERAUX];
-        const majConseil = () => { conseil.textContent = `Pour aller plus vite : ${tous[Math.floor(Math.random() * tous.length)]}`; };
+        const tous = sp.mental ? conseilsVitesse(sp) : [...conseilsVitesse(sp), ...GENERAUX];
+        const majConseil = () => { conseil.textContent = `${sp.mental ? 'Pour bien visualiser' : 'Pour aller plus vite'} : ${tous[Math.floor(Math.random() * tous.length)]}`; };
         majConseil();
-        zone.append(bandeau, ['anzan', 'placement', 'table'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
+        zone.append(bandeau, ['anzan', 'photo', 'tenir', 'placement', 'table'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
 
+        const chaine = chaineAnzan(sp);
+        // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
+        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: imageAnzan(sp, etatPalier(sp.id).justes).opacite } : {});
         const majBandeau = () => {
           const et = etatPalier(sp.id);
           remplir(bandeau, ...[
@@ -215,6 +249,7 @@ export default {
             h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
+            sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${imageAnzan(sp, et.justes).nom}`) : null,
             (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null,
           ].filter(Boolean));
         };
@@ -243,13 +278,14 @@ export default {
           if (mode === 'une') {
             let n = 0;
             courant = creerExercices(sp, zoneTravail, {
-              generer: () => genererExercice(sp, poidsDe(sp)),
+              generer: () => genererExercice(sp, poidsDe(sp), ctxAnzan()),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
               // Aide « Je suis bloqué » ou réponse auto-évaluée (mode Espace) : compte pour le
               // volume d'entraînement, pas pour le niveau.
               surExercice: (res) => {
                 n += 1;
+                if (sp.type === 'anzan') chaine.noter(res.juste);
                 if (n % 5 === 0) majConseil();
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);
               },
@@ -323,7 +359,7 @@ export default {
                   ? h('p', { class: 'retour ok' }, `Leçon validée. Première révision le ${dateFr(c.echeance)}.`)
                   : h('p', {}, `Il faut ${testMin(sp)} réussites. Reprenez un peu d'entraînement, puis retentez.`),
                 h('div', { class: 'ligne' },
-                  reussi && suivant ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
+                  reussi && suivant && estDebloque(suivant) ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
                   h('button', { class: 'btn', onclick: () => afficher(reussi ? 'test' : 'entrainement') }, reussi ? 'Repasser le test' : 'Retour à l\'entraînement'),
                   h('button', { class: 'btn', onclick: () => changer(carte) }, 'Toutes les leçons'))),
               listeErreurs(bilan.resultats) ?? '');

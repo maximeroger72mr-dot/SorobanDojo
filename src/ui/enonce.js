@@ -5,6 +5,8 @@
  */
 
 import { sousTotaux } from '../core/generateur.js';
+import { Soroban } from '../core/soroban.js';
+import { SorobanVue } from './sorobanVue.js';
 import { h, formaterNombre } from './dom.js';
 
 const signe = (op) => (op === '+' ? '' : '−');
@@ -19,6 +21,14 @@ export function consigneArrondi(decimales) {
  * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void}} o
  */
 export function rendreEnonce(ex, o = {}) {
+  if (ex.type === 'photo' || ex.type === 'tenir') {
+    // Visualisation : le soroban qui était montré (après coup, pour comparer).
+    const el = h('div', { class: `photo-soroban${o.compact ? ' compacte' : ''}` });
+    const s = new Soroban(Math.max(2, String(ex.n).length + 1));
+    s.definirValeur(ex.n);
+    new SorobanVue(el, s, { interactif: false });
+    return el;
+  }
   if (ex.type === 'table') {
     return h('div', { class: `operation${o.compact ? ' compacte' : ''}` }, `${ex.a} × ${ex.b} =`,
       h('div', { class: 'consigne-arrondi' }, 'sur deux chiffres (ex. 06)'));
@@ -40,6 +50,8 @@ export function rendreEnonce(ex, o = {}) {
 
 /** Texte court d'un exercice (pour les listes et le bilan). */
 export function texteEnonce(ex) {
+  if (ex.type === 'photo') return `photo du soroban (${formaterNombre(ex.n)})`;
+  if (ex.type === 'tenir') return `tenir l'image de ${formaterNombre(ex.n)}`;
   if (ex.type === 'mul' || ex.type === 'table') return `${formaterNombre(ex.a)} × ${formaterNombre(ex.b)}`;
   if (ex.type === 'div') return `${formaterNombre(ex.a)} ÷ ${formaterNombre(ex.b)}`;
   return ex.lignes.map((l, i) => (i === 0 ? formaterNombre(l.n) : `${l.op === '+' ? '+' : '−'} ${formaterNombre(l.n)}`)).join(' ');

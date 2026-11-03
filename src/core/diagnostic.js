@@ -125,7 +125,27 @@ function diagnostiquerDecimal(ex, reponse) {
   return causes;
 }
 
+/** Photo du soroban : quelle tige a été mal lue, et comment (céleste ou terrestres). */
+export function diagnostiquerPhoto(ex, reponse) {
+  if (reponse === ex.resultat) return [];
+  const noms = ['unités', 'dizaines', 'centaines'];
+  const causes = [];
+  const a = String(ex.n).split('').reverse();
+  const r = String(Math.max(0, reponse)).split('').reverse();
+  for (let i = 0; i < Math.max(a.length, r.length); i++) {
+    const x = Number(a[i] ?? 0);
+    const y = Number(r[i] ?? 0);
+    if (x === y) continue;
+    const tige = `tige des ${noms[i] ?? `rang ${i + 1}`}`;
+    if (Math.abs(x - y) === 5) causes.push(`${tige} : la céleste a été mal vue (elle ${x >= 5 ? 'était' : 'n\'était pas'} contre la barre).`);
+    else if ((x >= 5) === (y >= 5)) causes.push(`${tige} : ${x % 5} terrestre${x % 5 > 1 ? 's' : ''} contre la barre, pas ${y % 5}. Regardez le groupe d'un coup d'œil, sans compter.`);
+    else causes.push(`${tige} : ${x}, et non ${y}. Lisez la céleste d'abord, puis les terrestres.`);
+  }
+  return causes;
+}
+
 export function diagnostiquer(ex, reponse) {
+  if (ex.type === 'photo' || ex.type === 'tenir') return diagnostiquerPhoto(ex, reponse);
   if (ex.type === 'table') {
     return reponse === ex.resultat ? [`Le nombre est juste, mais il s'écrit sur DEUX tiges : « ${ex.attendu} ». La tige des dizaines compte même vide.`] : [`${ex.a} × ${ex.b} = ${ex.attendu}.`];
   }

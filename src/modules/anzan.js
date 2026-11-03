@@ -1,7 +1,10 @@
 /**
- * Anzan (calcul mental avec un soroban imaginaire), quatre modes :
+ * Anzan (calcul mental avec un soroban imaginaire), six modes :
+ *  - Photo du soroban : un soroban s'affiche un instant, on tape le nombre (visualisation) ;
+ *  - Tenir une image : un nombre en chiffres, on le pose sur le soroban imaginaire, puis on compare ;
+ *  - Flash avec image : les nombres défilent, et un petit soroban montre le TOTAL qui évolue
+ *    (nette, estompée ou légère : on la fait disparaître peu à peu) ;
  *  - Flash : les nombres défilent un par un ;
- *  - Flash avec image : chaque nombre est aussi montré en boules (étape visuelle intermédiaire) ;
  *  - Mitori-anzan : la colonne reste affichée, on la calcule de tête, sans défilement ;
  *  - Multiplication de tête : petites multiplications (2 × 1 chiffres, puis 3 × 1).
  *
@@ -9,9 +12,11 @@
  * avec les soustractions en option.
  */
 
-import { genererColonne, genererColonneVariee, creerMemoire } from '../core/generateur.js';
+import { genererColonne, genererColonneVariee, creerMemoire, sousTotaux } from '../core/generateur.js';
+import { genererPhoto } from '../core/curriculum.js';
 
 const memoire = creerMemoire(6);
+const memoirePhoto = creerMemoire(6);
 import { genererMultiplication } from '../core/multiplication.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
@@ -23,9 +28,10 @@ import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { mode: 'flash', chiffres: 1, termes: 5, duree: 1, questions: 10, soustractions: false, mulChiffres: 2 };
+const reglages = { mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
-const DUREES = [2, 1.5, 1, 0.7, 0.5, 0.3];
+const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
+const IMAGES = [[1, 'image nette'], [0.5, 'image estompée'], [0.2, 'image légère']];
 
 /** Colonne d'anzan : gestes appris seulement, soustractions en option. */
 function colonne(chiffres, termes, soustractions) {
@@ -34,9 +40,10 @@ function colonne(chiffres, termes, soustractions) {
   const amis = [...appris].filter((c) => !c.endsWith(':direct') && ops.includes(c[0]));
   const cibles = amis.length ? amis : famille('direct').filter((c) => ops.includes(c[0]));
   try {
-    return genererColonneVariee({ chiffres, lignes: termes, autorises: appris, cibles, ops }, memoire);
+    // 1 chiffre : la colonne commence par un seul chiffre (pas de dizaine en tête).
+    return genererColonneVariee({ chiffres, lignes: termes, autorises: appris, cibles, ops, premierCourt: true }, memoire);
   } catch {
-    return genererColonne({ chiffres, lignes: termes, autorises: null, cibles: famille('direct').filter((c) => ops.includes(c[0])), ops });
+    return genererColonne({ chiffres, lignes: termes, autorises: null, cibles: famille('direct').filter((c) => ops.includes(c[0])), ops, premierCourt: true });
   }
 }
 
@@ -58,17 +65,21 @@ export default {
     const zoneReglages = h('div', { class: 'reglages' });
     const zone = h('div', {});
     el.append(h('h1', {}, 'Anzan'),
-      h('p', { class: 'discret' }, 'Calcul mental avec un soroban imaginaire : voyez les boules bouger, et faites les gestes avec les doigts dans l\'air. Progression conseillée : flash avec image, puis flash, puis réduire le temps d\'affichage ; le mitori-anzan entraîne sans le stress du défilement.'),
+      h('p', { class: 'discret' }, 'Calcul mental avec un soroban imaginaire : voyez les boules bouger, et faites les gestes avec les doigts dans l\'air. Progression conseillée, lentement : photo du soroban et tenir une image, puis flash avec image (nette, estompée, légère), puis flash. Allongez la chaîne de nombres AVANT de réduire le temps d\'affichage ; si l\'image se brouille, revenez à moins de nombres. Le mitori-anzan entraîne sans le stress du défilement.'),
       zoneReglages, zone);
 
     function afficherReglages() {
-      const mode = select('mode', [['image', 'Flash avec image'], ['flash', 'Flash'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
+      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
       const elements = [mode];
       if (reglages.mode === 'mul') elements.push(select('mulChiffres', [[2, '2 × 1 chiffres'], [3, '3 × 1 chiffres']]));
-      else {
+      else if (reglages.mode === 'photo' || reglages.mode === 'tenir') {
+        elements.push(select('chiffres', [[1, '1 tige'], [2, '2 tiges'], [3, '3 tiges']]));
+        if (reglages.mode === 'photo') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s d'affichage`])));
+      } else {
         elements.push(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
           select('termes', [3, 4, 5, 7, 10, 15].map((n) => [n, `${n} nombres`])));
         if (reglages.mode !== 'mitori') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s par nombre`])));
+        if (reglages.mode === 'image') elements.push(select('image', IMAGES));
         elements.push(h('label', {}, h('input', { type: 'checkbox', checked: reglages.soustractions, onchange: (e) => { reglages.soustractions = e.target.checked; } }), ' avec soustractions'));
       }
       elements.push(select('questions', [[5, '5 questions'], [10, '10 questions']]),
@@ -80,10 +91,16 @@ export default {
       nettoyerMode?.();
       remplir(zone);
       const r = { ...reglages };
-      if (r.mode === 'mitori' || r.mode === 'mul') {
-        // Colonne fixe ou multiplication : une série classique, calculée de tête.
+      if (['mitori', 'mul', 'photo', 'tenir'].includes(r.mode)) {
+        // Colonne fixe, multiplication ou visualisation : une série classique, de tête.
+        const generer = {
+          mul: () => genererMultiplication(r.mulChiffres, 1),
+          mitori: () => ({ ...colonne(r.chiffres, r.termes, r.soustractions), motifs: undefined }),
+          photo: () => genererPhoto(r.chiffres, r.duree, memoirePhoto),
+          tenir: () => ({ ...genererPhoto(r.chiffres, 1.5, memoirePhoto), type: 'tenir', flash: { duree: 1.5, tenir: 3 } }),
+        }[r.mode];
         const serie = creerSerie(zone, {
-          generer: () => (r.mode === 'mul' ? genererMultiplication(r.mulChiffres, 1) : { ...colonne(r.chiffres, r.termes, r.soustractions), motifs: undefined }),
+          generer,
           nombre: r.questions,
           chrono: true,
           surFin: async (b) => {
@@ -94,7 +111,9 @@ export default {
               h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle série')), listeErreurs(b.resultats) ?? '');
           },
         });
-        zone.prepend(h('p', { class: 'consigne' }, 'De tête, sans toucher le soroban : imaginez-le.'));
+        zone.prepend(h('p', { class: 'consigne' }, r.mode === 'photo' ? 'Prenez une « photo » du soroban d\'un coup d\'œil, puis tapez le nombre.'
+          : r.mode === 'tenir' ? 'Posez le nombre sur votre soroban imaginaire, gardez l\'image, puis comparez.'
+            : 'De tête, sans toucher le soroban : imaginez-le.'));
         nettoyerMode = () => serie.detruire();
         return;
       }
@@ -113,10 +132,12 @@ export default {
       const retour = h('div', { class: 'retour' });
       const pastilles = h('div', { class: 'pastilles' });
       zone.append(h('div', { class: 'ligne' }, pastilles), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour);
+      // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.
+      zoneImage.style.opacity = String(r.image);
       let vue = null;
       let sorobanImage = null;
       if (r.mode === 'image') {
-        sorobanImage = new Soroban(r.chiffres + 2);
+        sorobanImage = new Soroban(Math.max(3, r.chiffres + 1 + String(r.termes).length));
         vue = new SorobanVue(zoneImage, sorobanImage, { interactif: false });
       }
       const majBouton = (t) => { remplir(btn, t, ' ', h('kbd', {}, 'Entrée')); btn.style.display = t ? '' : 'none'; };
@@ -129,12 +150,14 @@ export default {
         question = colonne(r.chiffres, r.termes, r.soustractions);
         for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(400); if (!actif) return; }
         ecran.classList.remove('decompte');
-        for (const l of question.lignes) {
+        sorobanImage?.effacer();
+        const totaux = sousTotaux(question.lignes);
+        for (let k = 0; k < question.lignes.length; k++) {
+          const l = question.lignes[k];
           ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
-          sorobanImage?.definirValeur(l.n);
+          sorobanImage?.definirValeur(Math.max(0, totaux[k]));
           await attendre(r.duree * 850);
           ecran.textContent = '';
-          sorobanImage?.effacer();
           await attendre(r.duree * 150);
           if (!actif) return;
         }
@@ -173,8 +196,8 @@ export default {
           ecran.textContent = `${serie.justes} / ${serie.index}`;
           retour.className = 'retour';
           const conseil = serie.justes === serie.index
-            ? (r.mode === 'image' ? 'Parfait : passez au flash sans image.' : 'Parfait : réduisez le temps d\'affichage ou ajoutez des nombres.')
-            : serie.justes / serie.index < 0.7 ? 'Allongez un peu le temps d\'affichage, ou repassez par le flash avec image.' : 'Encore une série au même niveau.';
+            ? (r.mode === 'image' ? (r.image > 0.2 ? 'Parfait : estompez l\'image d\'un cran.' : 'Parfait : passez au flash sans image.') : 'Parfait : ajoutez un nombre (puis, plus tard, réduisez le temps d\'affichage).')
+            : serie.justes / serie.index < 0.7 ? 'Retirez un nombre à la chaîne, ou repassez par le flash avec image.' : 'Encore une série au même niveau.';
           remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${conseil}`);
           majBouton('Nouvelle série');
           return;

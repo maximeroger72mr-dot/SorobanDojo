@@ -9,7 +9,8 @@
  * Mode défi : pas d'arrêt sur les erreurs (on les revoit à la fin), chronomètre en continu.
  *
  * Le temps de calcul s'arrête à la PREMIÈRE TOUCHE tapée : la frappe n'est pas chronométrée.
- * Exercice en flash (anzan) : les nombres s'affichent un par un, puis le chrono démarre.
+ * Exercice en flash (anzan) : les nombres s'affichent un par un, puis le chrono démarre ; l'image
+ * d'aide montre le total. Photo du soroban et « tenir une image » : exercices de visualisation.
  * Division par 2 chiffres ou plus : bouton « Je suis bloqué » (estimation pas à pas, table du diviseur).
  * Mode « mains sur le soroban » : Espace arrête le chrono et montre le résultat ; l'élève répond
  * O (mon soroban affiche ce nombre) ou N. Compte pour le volume, pas pour le niveau.
@@ -24,6 +25,10 @@ import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
 import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
 import { rendreEnonce } from './enonce.js';
+import { sousTotaux } from '../core/generateur.js';
+
+/** Un exercice qui a une explication pas à pas (pas les exercices de visualisation). */
+const explicable = (ex) => ex.type !== 'photo' && ex.type !== 'tenir';
 import { ouvrirExplication } from './explication.js';
 import { ouvrirDemo } from './panneauDemo.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
@@ -98,11 +103,14 @@ export function creerSerie(conteneur, o) {
   let aideUtilisee = false;
   let aide = null;          // { etapes, index } pour « Je suis bloqué »
   let flashEnCours = false;
-  const modeEspace = () => caseEspace.checked && !opts.defi;
+  // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
+  const modeEspace = () => caseEspace.checked && !opts.defi && !ex?.flash;
   function majModeEspace() {
-    saisie.style.display = modeEspace() ? 'none' : '';
-    btnValider.style.display = modeEspace() ? 'none' : '';
-    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, modeEspace() ? 'Calculez sur votre soroban, puis Espace pour voir le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    choixEspace.style.display = ex?.flash ? 'none' : '';
+    const sansSaisie = modeEspace() || ex?.type === 'tenir';
+    saisie.style.display = sansSaisie ? 'none' : '';
+    btnValider.style.display = sansSaisie ? 'none' : '';
+    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : modeEspace() ? 'Calculez sur votre soroban, puis Espace pour voir le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
   }
   let zoneLocalisationCourante = null;
   let timer = null;
@@ -118,7 +126,7 @@ export function creerSerie(conteneur, o) {
       fantome.textContent = `fantôme : ${k} / ${opts.nombre}`;
       fantome.classList.toggle('devant', k < resultats.length);
     }
-    if (phase === 'question' && dureeCalcul === null && !flashEnCours) majChronoExo(performance.now() - debutExercice);
+    if (phase === 'question' && dureeCalcul === null && !flashEnCours && ex?.type !== 'tenir') majChronoExo(performance.now() - debutExercice);
   };
   const minuterie = setInterval(majChrono, 100);
 
@@ -127,6 +135,7 @@ export function creerSerie(conteneur, o) {
    * tant qu'il n'y a pas assez d'essais, le seuil du niveau suivant.
    */
   function objectif() {
+    if (ex.type === 'tenir') return null;
     const ev = opts.evaluation?.();
     if (!ev) return null;
     if (ev.essais >= MIN_ESSAIS && ev.temps !== null) return { nom: 'votre médiane', s: SURCOUT_S + ev.temps * unites(ex) };
@@ -157,6 +166,7 @@ export function creerSerie(conteneur, o) {
     compteur.textContent = opts.compteur ? opts.compteur(i) : (Number.isFinite(opts.nombre) ? `${i + 1} / ${opts.nombre}` : '');
     objectifCourant = objectif();
     dureeCalcul = null;
+    if (ex.type === 'tenir') remplir(chronoExo);
     aideUtilisee = false;
     aide = null;
     remplir(zoneAide);
@@ -174,31 +184,71 @@ export function creerSerie(conteneur, o) {
     else if (!modeEspace()) saisie.focus();
   }
 
-  /** Anzan : montre les nombres un par un, puis lance le chronomètre. */
+  /**
+   * Exercices en flash, puis le chronomètre démarre :
+   *  - anzan : les nombres un par un ; l'image d'aide (si opacité > 0) montre le TOTAL qui évolue,
+   *    comme le soroban qu'on doit voir dans sa tête (pas le nombre qui arrive) ;
+   *  - photo : un soroban s'affiche un instant, on tape le nombre ;
+   *  - tenir : un nombre en chiffres, on le pose sur le soroban imaginaire, puis on compare.
+   */
   async function jouerFlash(exo) {
     flashEnCours = true;
     saisie.disabled = true;
     btnValider.disabled = true;
     const ecran = h('div', { class: 'flash-ecran' });
-    // Étape visuelle : le nombre est aussi montré en boules sur un petit soroban.
     const zoneImage = h('div', { class: 'flash-image' });
-    remplir(zoneEnonce, ecran, exo.flash.image ? zoneImage : null);
-    const sorobanImage = exo.flash.image ? new Soroban(Math.max(3, String(Math.max(...exo.lignes.map((l) => l.n))).length + 1)) : null;
+    const opacite = exo.flash.photo ? 1 : Number(exo.flash.image) || 0;
+    // Photo : le soroban s'affiche DANS l'écran (à la place du nombre) ; anzan : sous le nombre.
+    if (exo.flash.photo) remplir(zoneEnonce, ecran);
+    else remplir(zoneEnonce, ecran, opacite > 0 ? zoneImage : null);
+    zoneImage.style.opacity = String(opacite);
+    const totaux = exo.lignes ? sousTotaux(exo.lignes) : [exo.n];
+    const sorobanImage = opacite > 0 ? new Soroban(Math.max(exo.flash.photo ? 2 : 3, String(Math.max(...totaux.map(Math.abs))).length + 1)) : null;
     const vueImage = sorobanImage ? new SorobanVue(zoneImage, sorobanImage, { interactif: false }) : null;
     const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    const interrompu = () => ex !== exo || phase === 'fin';
     for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(350); }
     ecran.classList.remove('decompte');
-    for (const l of exo.lignes) {
-      if (ex !== exo || phase === 'fin') return;
-      ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
-      sorobanImage?.definirValeur(l.n);
-      await attendre(exo.flash.duree * 850);
+    if (exo.type === 'photo') {
+      // L'image seule, sans le nombre : on la « photographie ».
+      remplir(ecran, zoneImage);
+      sorobanImage.definirValeur(exo.n);
+      await attendre(exo.flash.duree * 1000);
+      vueImage.detruire();
+      remplir(ecran);
+      if (interrompu()) return;
+    } else if (exo.type === 'tenir') {
+      ecran.textContent = formaterNombre(exo.n);
+      await attendre(exo.flash.duree * 1000);
+      if (interrompu()) return;
       ecran.textContent = '';
-      sorobanImage?.effacer();
-      await attendre(exo.flash.duree * 150);
+      remplir(zoneEnonce, ecran, h('p', { class: 'consigne' }, 'Fermez les yeux : posez ce nombre sur votre soroban imaginaire, doigts dans l\'air, et gardez l\'image nette.'));
+      await attendre(exo.flash.tenir * 1000);
+      if (interrompu()) return;
+      flashEnCours = false;
+      remplir(zoneEnonce, h('p', { class: 'consigne' }, 'Ouvrez les yeux. Le vrai soroban :'), rendreEnonce(exo));
+      dureeCalcul = 0;
+      phase = 'auto';
+      retour.className = 'retour';
+      remplir(retour, 'Votre image était-elle celle-ci ? ',
+        h('button', { class: 'btn ok-btn', onclick: () => autoEvaluer(true) }, 'Oui ', h('kbd', {}, 'O')), ' ',
+        h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Non ', h('kbd', {}, 'N')));
+      return;
+    } else {
+      for (let k = 0; k < exo.lignes.length; k++) {
+        const l = exo.lignes[k];
+        if (interrompu()) return;
+        ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+        // L'image suit le total, sans s'effacer entre deux nombres.
+        sorobanImage?.definirValeur(totaux[k]);
+        await attendre(exo.flash.duree * 850);
+        ecran.textContent = '';
+        await attendre(exo.flash.duree * 150);
+      }
+      vueImage?.detruire();
+      remplir(zoneEnonce, ecran);
     }
-    vueImage?.detruire();
-    if (ex !== exo || phase === 'fin') return;
+    if (interrompu()) return;
     ecran.textContent = '?';
     flashEnCours = false;
     saisie.disabled = false;
@@ -293,11 +343,12 @@ export function creerSerie(conteneur, o) {
     retour.className = 'retour erreur';
     remplir(retour, 
       h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${formaterNombre(reponse)}, le résultat est `, h('strong', {}, formaterNombre(ex.resultat)), '.'),
+      ex.type === 'photo' ? h('div', {}, h('div', { class: 'discret' }, 'Le soroban montrait :'), rendreEnonce(ex, { compact: true })) : null,
       causes.length ? h('ul', { class: 'detail' }, causes.map((c) => h('li', {}, c))) : null,
       zoneLocalisation,
       h('div', { class: 'ligne', style: 'margin-top:8px' },
         ex.type === 'addsub' ? h('button', { class: 'btn', onclick: () => basculerSousTotaux() }, 'Sous-totaux ', h('kbd', {}, 'S')) : null,
-        h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')),
+        explicable(ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')) : null,
         h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
   }
 
@@ -324,17 +375,19 @@ export function creerSerie(conteneur, o) {
     await opts.surExercice?.({ juste, reponse: null, dureeMs, t: tempsParUnite(ex, dureeMs), aide: aideUtilisee, autoEvalue: true }, ex, i);
     if (juste) {
       retour.className = 'retour ok';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` ${formaterDuree(dureeMs)}`);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ex.type === 'tenir' ? ' Image nette.' : ` ${formaterDuree(dureeMs)}`);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 700);
       return;
     }
     phase = 'corrige';
     retour.className = 'retour erreur';
-    remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Résultat attendu : `, h('strong', {}, formaterNombre(ex.resultat)), '.'),
+    remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ex.type === 'tenir'
+      ? ' Pas grave : la prochaine fois, posez la céleste d\'abord, puis les terrestres, et gardez les doigts actifs.'
+      : [' Résultat attendu : ', h('strong', {}, formaterNombre(ex.resultat)), '.']),
       h('div', { class: 'ligne', style: 'margin-top:8px' },
         ex.type === 'addsub' ? h('button', { class: 'btn', onclick: () => basculerSousTotaux() }, 'Sous-totaux ', h('kbd', {}, 'S')) : null,
-        h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')),
+        explicable(ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')) : null,
         h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
   }
 
@@ -369,14 +422,14 @@ export function creerSerie(conteneur, o) {
     Enter: () => valider(),
     s: () => (phase === 'corrige' ? basculerSousTotaux() : false),
     S: () => (phase === 'corrige' ? basculerSousTotaux() : false),
-    e: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
+    e: () => (phase === 'corrige' && explicable(ex) ? ouvrirExplication(ex) : false),
     b: () => (phase === 'question' && btnBloque.style.display !== 'none' && !saisie.value ? aideSuivante() : false),
     ' ': () => (phase === 'question' && modeEspace() ? reveler() : false),
     o: () => (phase === 'auto' ? autoEvaluer(true) : false),
     O: () => (phase === 'auto' ? autoEvaluer(true) : false),
     n: () => (phase === 'auto' ? autoEvaluer(false) : false),
     N: () => (phase === 'auto' ? autoEvaluer(false) : false),
-    E: () => (phase === 'corrige' ? ouvrirExplication(ex) : false),
+    E: () => (phase === 'corrige' && explicable(ex) ? ouvrirExplication(ex) : false),
   });
 
   majDiag();
@@ -400,7 +453,7 @@ export function listeErreurs(resultats) {
   return h('div', {}, h('h2', {}, 'À revoir'),
     h('div', { class: 'liste-erreurs' }, erreurs.map((r) => h('div', { class: 'carte erreur-item' },
       rendreEnonce(r.ex, { compact: true }),
-      h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${formaterNombre(r.reponse)} · résultat : `, h('strong', {}, formaterNombre(r.ex.resultat))),
+      r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${formaterNombre(r.reponse)} · résultat : `, h('strong', {}, formaterNombre(r.ex.resultat))),
       r.reponse === null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
-      h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer')))));
+      explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null))));
 }
