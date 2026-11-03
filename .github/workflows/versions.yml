@@ -1,6 +1,5 @@
 # Construit les versions à télécharger à chaque envoi sur main :
 #  - Soroban-x.y.z-Windows.exe : version portable (un seul fichier, aucune installation)
-#  - Soroban-x.y.z-Mac.dmg     : application Mac (Intel et Apple Silicon)
 #  - Soroban.html              : version navigateur en un seul fichier
 # et les publie sur la page « Releases » du dépôt, sous le nom « Dernière version ».
 # Chaque fichier est publié dès qu'il est prêt (le .exe n'attend pas le Mac).
@@ -19,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest]  # Mac retiré : seule la version Windows est utile
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
