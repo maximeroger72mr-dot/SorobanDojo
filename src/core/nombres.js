@@ -26,8 +26,11 @@ export function lireReponse(brut, decimales = 0) {
   if (t.includes(',') && t.includes('.')) t = t.replace(/\./g, '').replace(',', '.');
   else if (t.includes(',')) t = t.replace(',', '.');
   else if (t.includes('.') && !decimales && /^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  // Résultat négatif (calcul par complément) : « -37 » ou « −37 ».
+  const negatif = /^[-−]/.test(t);
+  if (negatif) t = t.slice(1);
   if (!/^\d+(\.\d+)?$/.test(t)) return null;
-  return Number(t);
+  return negatif ? -Number(t) : Number(t);
 }
 
 /** Égalité à la précision de l'exercice. */

@@ -20,6 +20,7 @@ import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
  * @param {Array<{titre?:string, points?:number, problemes:Array}>} o.sections
  * @param {number|null} [o.minutes]  limite de temps (compte à rebours), ou null (chronomètre)
  * @param {(bilan) => any} [o.surFin]  { justes, total, points, pointsMax, parSection, dureeMs, resultats }
+ * @param {boolean} [o.doigte]  rappel doigté à côté de chaque ligne des colonnes
  */
 export function creerFeuille(conteneur, o) {
   const limiteMs = o.minutes ? o.minutes * 60000 : null;
@@ -36,7 +37,7 @@ export function creerFeuille(conteneur, o) {
       sec.problemes.map((ex) => {
         numero += 1;
         const input = h('input', { type: 'text', inputmode: ex.decimales ? 'decimal' : 'numeric', autocomplete: 'off', 'aria-label': `Réponse ${numero}` });
-        const carte = h('div', { class: 'probleme' }, h('div', { class: 'num-probleme' }, numero), rendreEnonce(ex, { compact: true }), input);
+        const carte = h('div', { class: 'probleme' }, h('div', { class: 'num-probleme' }, numero), rendreEnonce(ex, { compact: true, doigte: !!o.doigte }), input);
         cases.push({ ex, input, carte, section: si });
         return carte;
       }))));

@@ -332,3 +332,32 @@ export function occurrencesColonne(lignes) {
     return r.motifs.map((m) => ({ cle: m.cle, rang: s.tigeUnites - m.tige }));
   });
 }
+
+/**
+ * Mode « pur » : uniquement les gestes choisis, AUCUN geste direct (sauf la 1re ligne, posée,
+ * et la retenue / l'emprunt d'un grand ami, qui fait partie du geste : ±1 sur la tige de gauche).
+ * Certains choix ne peuvent pas s'enchaîner seuls (après +4 petit ami sur 3, la tige vaut 7 et
+ * plus aucun +petit ami n'est possible) : on ajoute alors le geste miroir (−4 petit ami…),
+ * ce qui donne des colonnes en alternance + / −.
+ * @returns {{ cibles: string[], autorises: Set<string>, ajoutes: string[] }}  ajoutes : miroirs ajoutés
+ */
+export function ciblesPures(cibles, chiffres) {
+  const autorisesDe = (cs) => {
+    const avecRetenue = cs.some((c) => /grand|mixte|cascade/.test(c));
+    return new Set([...cs, ...(avecRetenue ? ['+1:direct', '-1:direct'] : [])]);
+  };
+  const essai = (cs) => {
+    for (let k = 0; k < 3; k++) {
+      try { genererColonne({ chiffres, lignes: 6, autorises: autorisesDe(cs), cibles: cs }); return true; } catch (e) {
+        if (!(e instanceof ErreurGeneration)) throw e;
+      }
+    }
+    return false;
+  };
+  if (essai(cibles)) return { cibles, autorises: autorisesDe(cibles), ajoutes: [] };
+  const miroir = (c) => (c.startsWith('cascade') ? `cascade${c.endsWith('+') ? '-' : '+'}` : `${c[0] === '+' ? '-' : '+'}${c.slice(1)}`);
+  const ajoutes = [...new Set(cibles.map(miroir))].filter((c) => !cibles.includes(c));
+  const toutes = [...cibles, ...ajoutes];
+  if (essai(toutes)) return { cibles: toutes, autorises: autorisesDe(toutes), ajoutes };
+  throw new ErreurGeneration('Ces gestes ne peuvent pas former une colonne pure.');
+}

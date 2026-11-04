@@ -7,10 +7,11 @@
  * se limite aux gestes des leçons validées.
  */
 
-import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
+import { genererColonneVariee, creerMemoire, ciblesPures, ErreurGeneration } from '../core/generateur.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
+import { sousPalier } from '../core/curriculum.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -23,8 +24,34 @@ const DIRECT = famille('direct');
 /** Motifs des leçons validées (plus les gestes directs). */
 export const motifsAppris = () => motifsApprisDe(progression());
 
+/** Contraintes strictes pour des gestes donnés : uniquement ces gestes et des gestes directs. */
+export function contraintesCibles(cibles) {
+  return { autorises: new Set([...DIRECT, ...cibles]), cibles, libelle: cibles.map(nomMotif).join(' + ') };
+}
+
+/** Choix de cible proposés (planches, marathon, lièvre). */
+export function optionsCibles() {
+  const motifsPar = (regle) => TOUS_LES_MOTIFS.filter((c) => analyserMotif(c).regle === regle).map((c) => [c, nomMotif(c)]);
+  return [
+    ['appris', 'Tout ce que j\'ai appris'],
+    ['faibles', 'Mes points faibles'],
+    ['lents', 'Vitesse : mes gestes les plus lents'],
+    ['Familles', [['famille:petit', 'Tous les petits amis'], ['famille:grand', 'Tous les grands amis'], ['famille:mixte', 'Toutes les combinaisons'], ['famille:cascade', 'Retenues/emprunts en cascade']]],
+    ['Petits amis', motifsPar('petit')],
+    ['Grands amis', motifsPar('grand')],
+    ['Combinaisons', motifsPar('mixte')],
+  ];
+}
+
 /** Contraintes de génération pour une valeur de cible : { autorises, cibles, libelle }. */
-function contraintes(valeur) {
+export function contraintes(valeur) {
+  if (valeur.startsWith('consolidation:')) {
+    // Consolidation : le geste de la leçon, MÉLANGÉ aux gestes appris avant (il reste favori).
+    const sp = sousPalier(valeur.slice(14));
+    const appris = motifsAppris();
+    const anciens = [...appris].filter((c) => !c.endsWith(':direct') && !sp.cibles.includes(c));
+    return { autorises: new Set([...appris, ...sp.cibles]), cibles: [...sp.cibles, ...anciens], favoris: sp.cibles, libelle: `Consolidation : ${sp.titre}, mélangé aux gestes précédents` };
+  }
   if (valeur === 'tout') return { autorises: null, cibles: TOUS_LES_MOTIFS.filter((c) => !c.endsWith(':direct')), libelle: 'Tout mélangé' };
   if (valeur === 'appris') {
     const appris = motifsAppris();
@@ -64,6 +91,10 @@ export default {
   monter(el, app, params = {}) {
     let feuille = null;
     if (params.cible) reglages.cible = params.cible;
+    if (params.consolidation) {
+      const sp = sousPalier(params.consolidation);
+      Object.assign(reglages, { cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10, pur: false });
+    }
     const select = (cle, options, conv = (x) => x) => {
       const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); } },
         options.map(([v, t]) => (Array.isArray(t)
@@ -82,6 +113,10 @@ export default {
         select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres'], [5, '5 chiffres'], [6, '6 chiffres']], Number),
         select('lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes'], [15, '15 lignes']], Number),
         h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { reglages.zeros = e.target.checked; } }), ' zéros internes'),
+        h('label', { title: 'Uniquement les gestes choisis, aucun geste direct (sauf la 1re ligne, posée, et la retenue d\'un grand ami).' },
+          h('input', { type: 'checkbox', checked: !!reglages.pur, onchange: (e) => { reglages.pur = e.target.checked; } }), ' pur (aucun geste direct)'),
+        h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
+          h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes']], Number),
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
@@ -102,13 +137,31 @@ export default {
       remplir(zone);
       const r = { ...reglages };
       const c = contraintes(r.cible);
+      // Mode pur : seulement les gestes choisis, sans geste direct.
+      let notePur = null;
+      if (r.pur) {
+        try {
+          const p = ciblesPures(c.cibles.filter((x) => !x.endsWith(':direct')), r.chiffres);
+          c.autorises = p.autorises;
+          c.cibles = p.cibles;
+          c.libelle += ' · pur';
+          if (p.ajoutes.length) notePur = `Mode pur : ${p.ajoutes.map(nomMotif).join(', ')} ajouté${p.ajoutes.length > 1 ? 's' : ''}, car ces gestes ne peuvent pas s'enchaîner seuls (la colonne alterne + et −).`;
+        } catch (e) {
+          if (!(e instanceof ErreurGeneration)) throw e;
+          notePur = 'Ces gestes ne peuvent pas former une colonne pure (sans aucun geste direct) : planche normale.';
+        }
+      }
+      if (notePur) zone.append(h('p', { class: 'discret' }, notePur));
       // Mémoire de la taille de la feuille : toutes les colonnes ont des résultats différents.
       const memoire = creerMemoire(r.colonnes);
+      const poids = poidsAdaptatifs(c.cibles);
+      for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
       const problemes = Array.from({ length: r.colonnes }, () => genererColonneVariee({
-        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles), zeros: !!r.zeros,
+        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros,
       }, memoire));
-      const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}`;
+      const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${r.pur ? '-pur' : ''}`;
       feuille = creerFeuille(zone, {
+        doigte: !!r.doigte,
         titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,
         sections: [{ problemes }],
         surFin: (b) => {

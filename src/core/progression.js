@@ -18,10 +18,12 @@
  *   seance:   { debut, date, instantane } | null               // séance du jour en cours
  * }
  * hist : essais récents ; t = secondes par unité de travail (voir maitrise.js).
+ * sem  : (motifs et paliers) temps des essais réussis par semaine { 'lundi AAAA-MM-JJ': [t…] },
+ *        pour repérer les plateaux.
  */
 
 import { nouvelleCarte, reviser, estDue } from './revision.js';
-import { evaluer, ajouterEssai, poidsEquilibre, NIVEAUX } from './maitrise.js';
+import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX } from './maitrise.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
@@ -159,6 +161,7 @@ export async function noterGestes(reussis, rates, t) {
     f.essais += 1;
     f.dette = Math.max(0, f.dette - 0.5);
     ajouterEssai(f.hist, true, t);
+    ajouterSemaine(f, t, aujourdhui());
   }
   for (const c of new Set(rates)) {
     const f = fiche(c);
@@ -201,6 +204,7 @@ export async function compterRepetition(id, juste, t) {
   if (juste) e.justes += 1;
   e.hist ??= [];
   if (t !== undefined) ajouterEssai(e.hist, juste, t);
+  if (t !== undefined && juste) ajouterSemaine(e, t, aujourdhui());
   await sauver();
 }
 

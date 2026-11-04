@@ -7,6 +7,7 @@
 import { sousTotaux } from '../core/generateur.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
+import { doigte } from './drill.js';
 import { h, formaterNombre } from './dom.js';
 
 const signe = (op) => (op === '+' ? '' : '−');
@@ -18,9 +19,17 @@ export function consigneArrondi(decimales) {
 
 /**
  * @param {object} ex  exercice ({type:'addsub', lignes} | {type:'mul'|'div', a, b})
- * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void}} o
+ * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void, doigte?: boolean}} o
+ *   doigte : rappel des doigts à côté de chaque ligne (pouce / index / pincée), colonnes entières seulement
  */
 export function rendreEnonce(ex, o = {}) {
+  // Consigne de situation (ex. « Ticket de caisse : … ») au-dessus de l'énoncé.
+  if (ex.consigne && !o.sansConsigne) {
+    return h('div', {}, h('div', { class: 'consigne-situation' }, ex.consigne), rendreEnonce(ex, { ...o, sansConsigne: true }));
+  }
+  if (ex.type === 'quotidien') {
+    return h('div', { class: `quotidien${o.compact ? ' compacte' : ''}` }, ex.texte.map((t) => h('div', {}, t)));
+  }
   if (ex.type === 'photo' || ex.type === 'tenir') {
     // Visualisation : le soroban qui était montré (après coup, pour comparer).
     const el = h('div', { class: `photo-soroban${o.compact ? ' compacte' : ''}` });
@@ -39,18 +48,25 @@ export function rendreEnonce(ex, o = {}) {
       ex.arrondi ? h('div', { class: 'consigne-arrondi' }, `arrondir ${consigneArrondi(ex.decimales)}`) : null);
   }
   const st = o.sousTotaux ? sousTotaux(ex.lignes) : null;
+  const avant = o.doigte && !ex.decimales ? [0, ...sousTotaux(ex.lignes)] : null;
+  const rappel = (l, i) => {
+    if (!avant || avant[i] < 0) return null;
+    return h('td', { class: 'doigte' }, i === 0 ? 'poser' : doigte(avant[i], l.op, l.n).join(' / '));
+  };
   return h('table', { class: `colonne${o.compact ? ' compacte' : ''}` },
     ex.lignes.map((l, i) => h('tr', { class: o.surLigne ? 'cliquable' : '', onclick: o.surLigne ? () => o.surLigne(i) : null },
       o.numeros ? h('td', { class: 'num' }, i + 1) : null,
       h('td', { class: 'signe' }, i === 0 ? '' : signe(l.op)),
       h('td', { class: 'nombre' }, formaterNombre(l.n)),
       st ? h('td', { class: 'sous-total' }, `= ${formaterNombre(st[i])}`) : null,
+      rappel(l, i),
       o.surLigne ? h('td', { class: 'jouer' }, '▶') : null)));
 }
 
 /** Texte court d'un exercice (pour les listes et le bilan). */
 export function texteEnonce(ex) {
   if (ex.type === 'photo') return `photo du soroban (${formaterNombre(ex.n)})`;
+  if (ex.type === 'quotidien') return ex.texte.join(' · ');
   if (ex.type === 'tenir') return `tenir l'image de ${formaterNombre(ex.n)}`;
   if (ex.type === 'mul' || ex.type === 'table') return `${formaterNombre(ex.a)} × ${formaterNombre(ex.b)}`;
   if (ex.type === 'div') return `${formaterNombre(ex.a)} ÷ ${formaterNombre(ex.b)}`;

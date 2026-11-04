@@ -38,6 +38,7 @@ const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').
 export function unites(ex) {
   if (ex.type === 'placement' || ex.type === 'table' || ex.type === 'tenir') return 1;
   if (ex.type === 'photo') return nbChiffres(ex.n);
+  if (ex.type === 'quotidien') return ex.unites ?? 1;
   if (ex.type === 'mul') return nbChiffres(ex.a) * nbChiffres(ex.b);
   if (ex.type === 'div') return nbChiffres(ex.b) * nbChiffres(ex.resultat);
   return ex.lignes.reduce((s, l) => s + nbChiffres(l.n), 0);
@@ -112,4 +113,55 @@ export function poidsEquilibre(cibles, fiche, seuilDette = 2) {
     poids[c] = eq * ((fiche(c)?.dette ?? 0) > seuilDette ? 2 : 1);
   });
   return poids;
+}
+
+// ------------------------------------------------------------------ plateaux
+
+/** Lundi de la semaine d'une date AAAA-MM-JJ (clé des médianes hebdomadaires). */
+export function lundi(date) {
+  const d = new Date(`${date}T12:00`);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const SEMAINES_GARDEES = 12;
+const TEMPS_PAR_SEMAINE = 60;
+
+/**
+ * Garde les temps des essais RÉUSSIS, semaine par semaine (pour repérer un plateau sur la durée,
+ * ce que l'historique des 30 derniers essais ne permet pas).
+ */
+export function ajouterSemaine(fiche, t, date) {
+  fiche.sem ??= {};
+  const s = (fiche.sem[lundi(date)] ??= []);
+  s.push(Math.round(t * 100) / 100);
+  if (s.length > TEMPS_PAR_SEMAINE) s.shift();
+  const cles = Object.keys(fiche.sem).sort();
+  for (const k of cles.slice(0, Math.max(0, cles.length - SEMAINES_GARDEES))) delete fiche.sem[k];
+}
+
+export const MIN_PAR_SEMAINE = 10;
+
+/**
+ * Plateau : le temps médian ne baisse plus depuis au moins 2 semaines.
+ * On compare la semaine la plus récente (cette semaine ou la précédente) à celle d'il y a
+ * 2 ou 3 semaines : moins de 5 % de gain = plateau. Il faut assez d'essais des deux côtés.
+ * @returns {{ avant: number, maintenant: number, semaines: number } | null}
+ */
+export function plateau(sem = {}, date) {
+  const jour = (k) => new Date(`${k}T12:00`).getTime();
+  const assez = Object.entries(sem).filter(([, ts]) => ts.length >= MIN_PAR_SEMAINE).sort(([a], [b]) => (a < b ? 1 : -1));
+  if (assez.length < 2) return null;
+  const [kRecent, tRecent] = assez[0];
+  if ((jour(lundi(date)) - jour(kRecent)) / 86400000 > 7) return null; // trop ancien : pas pratiqué récemment
+  const ref = assez.find(([k]) => {
+    const ecart = (jour(kRecent) - jour(k)) / (7 * 86400000);
+    return ecart >= 2 && ecart <= 3;
+  });
+  if (!ref) return null;
+  const maintenant = mediane(tRecent);
+  const avant = mediane(ref[1]);
+  if (maintenant < avant * 0.95) return null;
+  return { avant, maintenant, semaines: Math.round((jour(kRecent) - jour(ref[0])) / (7 * 86400000)) };
 }

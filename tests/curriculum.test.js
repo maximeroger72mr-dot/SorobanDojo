@@ -22,6 +22,11 @@ test('chaque sous-palier génère des exercices stricts ; ses démos sont valide
       const ex = genererExercice(sp);
       if (sp.type === 'placement') { assert.ok(Number.isInteger(ex.rang) && ex.rang < ex.nbTiges, sp.id); continue; }
       if (ex.type === 'table') { assert.equal(ex.attendu, String(ex.a * ex.b).padStart(2, '0')); continue; }
+      if (ex.negatif) {
+        assert.ok(ex.resultat < 0 && ex.resultat > -(10 ** sp.chiffres), `${sp.id} ${ex.resultat}`);
+        assert.equal(ex.lignes.reduce((v, l) => (l.op === '+' ? v + l.n : v - l.n), 0), ex.resultat);
+        continue;
+      }
       if (ex.type === 'photo' || ex.type === 'tenir') {
         assert.equal(ex.resultat, ex.n);
         assert.ok(String(ex.n).length <= sp.chiffres && ex.n >= 1, `${sp.id} ${ex.n}`);

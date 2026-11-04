@@ -25,10 +25,11 @@ import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
 import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
 import { rendreEnonce } from './enonce.js';
+import { creerCourse } from './course.js';
 import { sousTotaux } from '../core/generateur.js';
 
 /** Un exercice qui a une explication pas à pas (pas les exercices de visualisation). */
-const explicable = (ex) => ex.type !== 'photo' && ex.type !== 'tenir';
+const explicable = (ex) => !['photo', 'tenir', 'quotidien'].includes(ex.type) && !ex.negatif;
 import { ouvrirExplication } from './explication.js';
 import { ouvrirDemo } from './panneauDemo.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
@@ -57,10 +58,13 @@ export function encadreDiagnostic(filtre = null, max = 2) {
  * @param {boolean} [o.defi=false]          enchaîne sans s'arrêter sur les erreurs
  * @param {Set<string>|null} [o.filtreDiagnostic]  motifs montrés dans l'encadré de remédiation
  * @param {() => object} [o.evaluation]     évaluation actuelle (maitrise.evaluer) pour l'objectif de temps
- * @param {{msParExercice:number}|null} [o.fantome]  rythme du record : « course contre son fantôme »
+ * @param {{msParExercice:number, nom?:string}|null} [o.fantome]  rythme du record (ou du « maître ») :
+ *   course visible (deux barres) et écart affiché à chaque calcul (voir ui/course.js)
+ * @param {() => boolean} [o.fin]           vrai : la série s'arrête avant le prochain exercice
  * @param {(res, ex, i) => any} [o.surExercice]
  * @param {(bilan) => void} [o.surFin]      { justes, total, dureeMs, resultats: [{ex, reponse, juste, dureeMs}] }
  * @param {(i) => string} [o.compteur]
+ * @param {() => boolean} [o.doigteMasque]  vrai : rappel doigté masqué (geste déjà acquis)
  */
 export function creerSerie(conteneur, o) {
   const opts = { nombre: Infinity, chrono: false, defi: false, filtreDiagnostic: null, evaluation: null, fantome: null, ...o };
@@ -72,16 +76,24 @@ export function creerSerie(conteneur, o) {
   const compteur = h('span', { class: 'compteur' });
   const chrono = h('span', { class: 'compteur chrono' });
   const fantome = h('span', { class: 'compteur fantome' });
+  const course = o.fantome && Number.isFinite(o.nombre ?? Infinity) ? creerCourse({ total: o.nombre, msParUnite: o.fantome.msParExercice, nom: o.fantome.nom ?? 'votre record' }) : null;
   const chronoExo = h('div', { class: 'chrono-exercice' });
   const pastilles = h('div', { class: 'pastilles' });
   const caseEspace = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().modeEspace });
   caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
   const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono et montre le résultat ; vous répondez O ou N. Compte pour le volume, pas pour le niveau.' },
     caseEspace, ' Mains sur le soroban (Espace)');
+  // Rappel doigté : pouce / index / pincée à côté de chaque ligne. Masqué d'office quand le geste
+  // de la leçon est acquis (opts.doigteMasque), pour ne pas devenir une béquille.
+  const caseDoigte = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().doigte });
+  caseDoigte.addEventListener('change', () => { modifierReglages({ doigte: caseDoigte.checked }); afficherEnonce(); saisie.focus(); });
+  const choixDoigte = h('label', { class: 'mode-espace', title: 'Rappelle à côté de chaque ligne quels doigts bougent. Masqué quand le geste est acquis.' }, caseDoigte, ' Rappel doigté');
+  const doigteActif = () => caseDoigte.checked && !opts.defi && ex?.type === 'addsub' && !ex.flash && !ex.decimales && !ex.negatif && !opts.doigteMasque?.();
   const retour = h('div', { class: 'retour' });
   const zoneDiag = h('div', {});
   const racine = h('div', { class: 'serie' },
-    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), opts.defi ? null : choixEspace, fantome, chrono, compteur),
+    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), opts.defi ? null : choixDoigte, opts.defi ? null : choixEspace, fantome, chrono, compteur),
+    course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
     h('div', { class: 'ligne' }, saisie, btnValider, btnBloque),
     zoneAide, retour, zoneDiag);
@@ -107,6 +119,7 @@ export function creerSerie(conteneur, o) {
   const modeEspace = () => caseEspace.checked && !opts.defi && !ex?.flash;
   function majModeEspace() {
     choixEspace.style.display = ex?.flash ? 'none' : '';
+    choixDoigte.style.display = ex?.type !== 'addsub' || ex?.flash || ex?.decimales || ex?.negatif || opts.doigteMasque?.() ? 'none' : '';
     const sansSaisie = modeEspace() || ex?.type === 'tenir';
     saisie.style.display = sansSaisie ? 'none' : '';
     btnValider.style.display = sansSaisie ? 'none' : '';
@@ -120,12 +133,8 @@ export function creerSerie(conteneur, o) {
   const majChrono = () => {
     const ecoule = performance.now() - debut;
     if (opts.chrono) chrono.textContent = formaterDuree(ecoule);
-    if (opts.fantome && phase !== 'fin') {
-      // Où en serait votre record à ce moment ? (on ne se mesure qu'à soi-même)
-      const k = Math.min(opts.nombre, Math.floor(ecoule / opts.fantome.msParExercice));
-      fantome.textContent = `fantôme : ${k} / ${opts.nombre}`;
-      fantome.classList.toggle('devant', k < resultats.length);
-    }
+    // Où en serait le fantôme à ce moment ? (on ne se mesure qu'à soi-même)
+    if (course && phase !== 'fin') course.maj(resultats.length, ecoule);
     if (phase === 'question' && dureeCalcul === null && !flashEnCours && ex?.type !== 'tenir') majChronoExo(performance.now() - debutExercice);
   };
   const minuterie = setInterval(majChrono, 100);
@@ -152,6 +161,7 @@ export function creerSerie(conteneur, o) {
 
   const afficherEnonce = () => remplir(zoneEnonce, rendreEnonce(ex, {
     sousTotaux: sousTotauxVisibles,
+    doigte: doigteActif(),
     // Après une erreur, les lignes deviennent cliquables pour désigner où le soroban a divergé.
     surLigne: sousTotauxVisibles && phase === 'corrige' && !attribue ? (l) => designerLigne(l) : null,
   }));
@@ -159,7 +169,7 @@ export function creerSerie(conteneur, o) {
 
   function suivant() {
     clearTimeout(timer);
-    if (i >= opts.nombre) { terminer(); return; }
+    if (i >= opts.nombre || opts.fin?.()) { terminer(); return; }
     ex = opts.generer();
     sousTotauxVisibles = false;
     phase = 'question';
@@ -316,14 +326,14 @@ export function creerSerie(conteneur, o) {
     }
     if (juste) {
       retour.className = 'retour ok';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(ex.resultat)}`, temps);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(ex.resultat)}`, temps, course ? course.ecart(resultats.length, performance.now() - debut) : null);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
     }
     if (opts.defi) {
       retour.className = 'retour erreur';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${formaterNombre(ex.resultat)}) : vous le reverrez à la fin.`);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${formaterNombre(ex.resultat)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
@@ -436,6 +446,8 @@ export function creerSerie(conteneur, o) {
   suivant();
 
   return {
+    /** Arrête la série tout de suite (bilan via surFin), ex. quand le temps de l'arcade est écoulé. */
+    terminer() { if (phase !== 'fin') { clearTimeout(timer); terminer(); } },
     detruire() {
       phase = 'fin';
       clearTimeout(timer);

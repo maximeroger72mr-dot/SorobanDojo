@@ -9,9 +9,9 @@
 
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
-import { famille } from './motifs.js';
+import { famille, nomMotif } from './motifs.js';
 import { catalogueDrills } from './drills.js';
-import { evaluer } from './maitrise.js';
+import { evaluer, plateau } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
@@ -41,7 +41,7 @@ export const PREREQUIS = {
   8: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p7-1'],
   7: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p6-3', 'p7-1', 'p7-2'],
 };
-const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
+const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 
 /**
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
@@ -83,12 +83,17 @@ export function gestesLents(d, nombre = 3) {
  * adaptée au niveau : colonnes sur les gestes appris (1 à 3 chiffres selon l'avancement),
  * plus multiplications et divisions si ces leçons sont validées.
  */
-export function defiSemaine(d, date) {
-  const { cle: semaine } = semaineISO(date);
+/** Format des colonnes du défi de la semaine (et de son étoile « sans filet »). */
+export function formatSemaine(d) {
   const appris = motifsAppris(d);
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
   const n = niveauAddsub(d);
-  const chiffres = n < 0.4 ? 1 : n < 0.8 ? 2 : 3;
+  return { appris, amis, chiffres: n < 0.4 ? 1 : n < 0.8 ? 2 : 3 };
+}
+
+export function defiSemaine(d, date) {
+  const { cle: semaine } = semaineISO(date);
+  const { appris, amis, chiffres } = formatSemaine(d);
   const mul = estValide(d, 'p6-1');
   const div = estValide(d, 'p7-1');
   const palier = `${chiffres}${mul ? 'm' : ''}${div ? 'd' : ''}${amis.length}`;
@@ -144,4 +149,115 @@ export function placementDuJour(d, aujourdhuiDate, prochain) {
     if (ecart > 14) return null;
   }
   return lecon;
+}
+
+// ------------------------------------------------------------------ plateaux et priorité du jour
+
+/**
+ * Plateaux : gestes et leçons dont le temps médian ne baisse plus depuis 2 semaines ou plus
+ * (voir maitrise.plateau). Les gestes déjà au niveau expert ne sont pas concernés.
+ * @returns {Array<{ type: 'geste'|'lecon', cle: string, nom: string, avant: number, maintenant: number, semaines: number }>}
+ */
+export function plateaux(d, date) {
+  const liste = [];
+  for (const [cle, f] of Object.entries(d.motifs)) {
+    if (cle.endsWith(':direct') || evaluer(f.hist ?? []).niveau.id === 'expert') continue;
+    const p = plateau(f.sem, date);
+    if (p) liste.push({ type: 'geste', cle, nom: nomMotif(cle), ...p });
+  }
+  for (const [id, e] of Object.entries(d.paliers)) {
+    const sp = SOUS_PALIERS.find((s) => s.id === id);
+    if (!sp || sp.type !== 'addsub' || evaluer(e.hist ?? []).niveau.id === 'expert') continue;
+    const p = plateau(e.sem, date);
+    if (p) liste.push({ type: 'lecon', cle: id, nom: `la leçon « ${sp.titre} »`, cibles: sp.cibles, ...p });
+  }
+  return liste.sort((a, b) => b.maintenant / b.avant - a.maintenant / a.avant);
+}
+
+const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const jourDe = (date) => Math.floor(new Date(`${date}T12:00`).getTime() / 86400000);
+
+/**
+ * Priorité du jour : UNE consigne franche, chiffrée, avec le bon outil.
+ *  1. un plateau → un remède, qui change d'un jour à l'autre : surentraînement (moins de chiffres,
+ *     plus vite, au rythme du lièvre), marathon sur le geste, ou drill rythmé au métronome ;
+ *  2. sinon un geste en difficulté (erreurs avérées) → marathon de 40 lignes pour l'ancrer ;
+ *  3. sinon le geste appris le plus lent → marathon de 40 lignes pour l'accélérer.
+ * @returns {{ titre, texte, raison, aller: [string, object] } | null}
+ */
+export function prioriteDuJour(d, date, difficiles = []) {
+  const p = plateaux(d, date)[0];
+  if (p) {
+    const cibles = p.type === 'geste' ? [p.cle] : p.cibles;
+    const constat = `${p.nom[0].toUpperCase()}${p.nom.slice(1)} stagne : ${nf(p.maintenant)} s par chiffre, contre ${nf(p.avant)} s il y a ${p.semaines} semaines.`;
+    const remedes = [
+      { titre: 'Casser le plateau : surentraînement', texte: 'Moins de chiffres, plus vite : 6 colonnes à 1 chiffre au rythme du lièvre, qui accélère. Le geste doit partir sans réfléchir.', aller: ['rythme', { jeu: 'lievre', cibles, chiffres: 1, accelere: true, auto: true }] },
+      { titre: 'Casser le plateau : marathon', texte: '40 lignes d\'affilée sur ce geste, sans remettre à zéro. Le volume ancre le mouvement.', aller: ['rythme', { jeu: 'marathon', cibles, lignes: 40, auto: true }] },
+      { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d).id }] },
+    ];
+    const r = remedes[jourDe(date) % remedes.length];
+    return { ...r, raison: constat };
+  }
+  const faible = difficiles.find((m) => !m.cle.endsWith(':direct'));
+  if (faible) {
+    return {
+      titre: 'Ancrer un geste', raison: `${nomMotif(faible.cle)} : ${faible.erreurs} erreur${faible.erreurs > 1 ? 's' : ''} récente${faible.erreurs > 1 ? 's' : ''}.`,
+      texte: `Faites 40 lignes de marathon sur ${nomMotif(faible.cle)} aujourd'hui, avec le rappel doigté si besoin.`,
+      aller: ['rythme', { jeu: 'marathon', cibles: [faible.cle], lignes: 40, auto: true }],
+    };
+  }
+  const lent = gestesLents(d, 1)[0];
+  if (lent && lent.ev.niveau.id !== 'expert') {
+    return {
+      titre: 'Accélérer un geste', raison: `${nomMotif(lent.cle)} est votre geste le plus lent : ${nf(lent.ev.temps)} s par chiffre.`,
+      texte: `Faites 40 lignes de marathon sur ${nomMotif(lent.cle)} aujourd'hui.`,
+      aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }],
+    };
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ objectif choisi
+
+/**
+ * Plan à rebours vers un grade choisi pour une date : leçons restantes, rythme nécessaire par
+ * semaine, rythme réellement mesuré (leçons validées les 4 dernières semaines), temps conseillé
+ * par jour, et verdict (réaliste ou non).
+ * @param {string} gradeId  ex. '6'
+ * @param {string} dateCible, date  AAAA-MM-JJ
+ */
+export function planObjectif(d, gradeId, dateCible, date) {
+  const g = GRADES.find((x) => x.id === gradeId);
+  if (!g) return null;
+  const jour = (x) => new Date(`${x}T12:00`).getTime();
+  const reussi = !!d.records[`epreuve-${g.id}`]?.reussi;
+  const manquantes = prerequis(g).filter((id) => !estValide(d, id)).length;
+  const jours = Math.round((jour(dateCible) - jour(date)) / 86400000);
+  const semaines = Math.max(1 / 7, jours / 7);
+  const parSemaine = manquantes / semaines;
+  const recentes = SOUS_PALIERS.filter((sp) => !sp.mental && d.paliers[sp.id]?.valide && jour(date) - jour(d.paliers[sp.id].valide) <= 28 * 86400000).length;
+  const rythme = recentes / 4;
+  // Repère : une leçon ≈ 25 minutes de travail (entraînement + mini-test), 6 jours sur 7.
+  const minutesJour = Math.min(60, Math.max(10, Math.round((parSemaine * 25) / 6 / 5) * 5));
+  const realiste = jours > 0 && (manquantes === 0 || parSemaine <= Math.max(rythme * 1.2, 3));
+  return { grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, realiste };
+}
+
+// ------------------------------------------------------------------ consolidation
+
+/**
+ * Consolidation : 2 à 7 jours après la validation d'une leçon « stricte » (un seul ami), une
+ * planche qui MÉLANGE ce geste avec ceux des leçons précédentes. Répéter en bloc installe le
+ * geste ; le mélanger ensuite oblige à le choisir, ce qui le rend durable. Une seule fois par leçon.
+ * @returns {object|null}  le sous-palier à consolider
+ */
+export function consolidationDuJour(d, date) {
+  const jour = (x) => new Date(`${x}T12:00`).getTime();
+  const faites = new Set(d.sessions.filter((s) => s.date !== date && String(s.mode).startsWith('consolidation:')).map((s) => s.mode.slice(14)));
+  return ADDSUB.find((sp) => {
+    const v = d.paliers[sp.id]?.valide;
+    if (!v || sp.cumul || faites.has(sp.id)) return false;
+    const ecart = (jour(date) - jour(v)) / 86400000;
+    return ecart >= 2 && ecart <= 7;
+  }) ?? null;
 }

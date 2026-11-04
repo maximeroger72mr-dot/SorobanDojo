@@ -393,3 +393,48 @@ svg.soroban .zone-tige:hover { fill: #2a78d61a; }
 /* Tige désignée comme juste (placement) : visible même sans boule posée. */
 svg.soroban .tige.ok .axe { stroke: var(--ok); stroke-width: 5; }
 svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
+
+/* ------------------------------------------------------------ course contre le fantôme */
+.course { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; max-width: 420px; }
+.course-ligne { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--discret); }
+.course-nom { width: 130px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-piste { flex: 1; height: 7px; background: var(--ligne); border-radius: 4px; overflow: hidden; }
+.course-remplissage { height: 100%; width: 0; border-radius: 4px; transition: width 0.1s linear; }
+.course-remplissage.vous { background: #256abf; }
+.course-remplissage.fantome { background: #a9a6a0; }
+.ecart { font-variant-numeric: tabular-nums; }
+.ecart.avance { color: var(--ok); }
+.ecart.retard { color: var(--erreur); }
+.medaille { font-weight: 700; }
+.medaille.or { color: #a87b00; }
+.medaille.argent { color: #6b6f76; }
+.medaille.bronze { color: #8a5a2b; }
+
+/* ------------------------------------------------------------ rappel doigté dans les colonnes */
+.colonne td.doigte { font-size: 0.72rem; color: var(--discret); padding-left: 12px; white-space: nowrap; text-align: left; }
+
+/* ------------------------------------------------------------ marathon et lièvre */
+.ruban-entete { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.ruban-consigne { font-size: 0.85rem; color: var(--discret); margin: 4px 0 8px; }
+.lievre tr { transition: opacity 0.15s; }
+.lievre tr.avenir { opacity: 0; }
+.lievre tr.suivante { opacity: 0.55; }
+.lievre tr.courante td { background: #dbe8fb; }
+.lievre tr.passee { opacity: 0; }
+.jauge-arcade { height: 12px; background: var(--ligne); border-radius: 6px; overflow: hidden; margin: 8px 0; }
+.jauge-arcade > div { height: 100%; background: #256abf; transition: width 0.1s linear; }
+.jauge-arcade.alerte > div { background: var(--erreur); }
+.jauge-arcade.flash { outline: 2px solid var(--erreur); }
+.etoiles { font-size: 1.3rem; letter-spacing: 2px; }
+.etoile-vide { color: var(--ligne); }
+.etoile-pleine { color: #a87b00; }
+
+.ligne-palier.priorite { border-left: 3px solid var(--accent); }
+.plan li.priorite { color: var(--accent); }
+details.carte.objectif { margin: 12px 0; }
+.avertissement { color: #9a5b00; }
+.quotidien { font-size: 1.15rem; line-height: 1.6; }
+.quotidien .ticket { font-variant-numeric: tabular-nums; border-left: 2px dashed var(--ligne); padding-left: 12px; margin: 6px 0; }
+.quotidien .ticket div { display: flex; justify-content: space-between; gap: 24px; max-width: 280px; }
+.quotidien.compacte { font-size: 0.9rem; }
+.consigne-situation { font-size: 0.95rem; color: var(--discret); margin-bottom: 6px; }

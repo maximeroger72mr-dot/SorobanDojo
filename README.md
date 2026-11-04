@@ -100,6 +100,33 @@ le suit avec retard, puisque chaque leçon s'ouvre quand la leçon soroban `apre
    Le mini-test se fait à chaîne complète, sans image.
 5. 5 nombres à 1 chiffre avec tous les gestes, puis seulement ensuite 2 chiffres.
 
+## Automatiser, tenir, se mesurer
+
+- **Rythme et endurance** (`modules/rythme.js`) :
+  - *Marathon ruban* : une colonne sans fin, 5 lignes à la fois, sans remettre à zéro ; sous-total à
+    chaque tranche, 1 joker. Ciblé sur un geste, c'est le drill d'automatisation (20 à 50 lignes).
+  - *Le lièvre* : la ligne en cours est surlignée, la suivante déjà visible, la passée disparaît, à
+    une cadence imposée (+10 % de vitesse toutes les 3 colonnes justes, −10 % après une erreur).
+    Il entraîne la lecture anticipée.
+- **Mode pur** (planches, marathon, lièvre) : seulement les gestes choisis, aucun geste direct.
+  Un geste qui ne peut pas s'enchaîner seul reçoit son miroir (+4 petit ami ↔ −4 petit ami).
+- **Rappel doigté** (option) : pouce, index, céleste à côté de chaque ligne. Masqué d'office dans
+  une leçon dont le geste est acquis.
+- **Plateaux** : temps médians par semaine pour chaque geste et chaque leçon. Moins de 5 % de gain
+  en 2 à 3 semaines = plateau. La séance donne alors une **priorité du jour** chiffrée, avec un
+  remède qui tourne d'un jour à l'autre : surentraînement au lièvre, marathon, drill rythmé.
+  Sans plateau, la priorité va au geste en difficulté, sinon au plus lent.
+- **Consolidation** : 2 à 7 jours après une leçon à un seul ami, une planche qui mélange ce geste
+  avec les précédents.
+- **Défis chrono** : fantôme visible (deux barres, écart affiché à chaque calcul). Sans record, on
+  court contre « le maître », calé sur le seuil confirmé. Médailles bronze, argent et or d'après les
+  seuils. Défi de la semaine en 3 étoiles (précision, vitesse, sans filet). Contre-la-montre arcade.
+  Échelle des kyū en 10 marches.
+- **Objectif daté** (séance du jour) : un grade pour une date. L'application calcule les leçons
+  restantes, le rythme hebdomadaire nécessaire et le rythme mesuré.
+- **Au quotidien** : ticket de caisse, rendu de monnaie, pourcentages (remise, TVA), factures.
+- **Résultats négatifs** (leçon facultative, fin du palier 8) : emprunt imaginaire et lecture du complément.
+
 ## Niveaux d'acquisition
 
 Calculés sur les 30 derniers essais d'un geste ou d'une leçon : réussite ET temps médian des réussites,

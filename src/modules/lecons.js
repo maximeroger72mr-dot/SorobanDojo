@@ -24,6 +24,7 @@ import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
+import { rendreEnonce } from '../ui/enonce.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { creerPlacement } from '../ui/placement.js';
 import { conseilsVitesse, GENERAUX, ANZAN } from '../core/conseils.js';
@@ -134,6 +135,8 @@ export default {
         h('h1', {}, sp.titre),
         h('p', { class: 'discret' }, sp.pourquoi),
         ...sp.sections.map(([titre, texte]) => h('div', { class: 'carte theorie' }, h('h3', { style: 'margin-top:0' }, titre), h('p', {}, texte))),
+        sp.pourquoiCaMarche ? h('details', { class: 'carte' }, h('summary', {}, 'Pourquoi ça marche (facultatif)'),
+          sp.pourquoiCaMarche.map(([titre, texte]) => h('div', {}, h('h4', { style: 'margin:12px 0 4px' }, titre), h('p', { style: 'margin:0' }, texte)))) : null,
         sp.mental
           ? h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour bien visualiser, en résumé'), h('ul', {}, ANZAN.map((c) => h('li', {}, c))))
           : h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
@@ -191,6 +194,12 @@ export default {
               h('li', {}, 'Gardez l\'image du total, pas le nombre lu : à la fin, on LIT le soroban imaginaire.'),
               h('li', {}, 'Ensuite, entraînez-vous dans « Flash anzan » en réduisant le temps d\'affichage.'))),
           h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
+          return null;
+        }
+        if (sp.type === 'negatif') {
+          const ex = genererExercice(sp);
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Exemple : '), rendreEnonce(ex, { compact: true, sousTotaux: true }), h('p', {}, ex.astuce)),
+            h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Passer à l\'entraînement →'));
           return null;
         }
         if (sp.type === 'photo' || sp.type === 'tenir') {
@@ -281,6 +290,7 @@ export default {
               generer: () => genererExercice(sp, poidsDe(sp), ctxAnzan()),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
+              doigteMasque: () => evaluerPalier(sp.id, famille(sp)).index >= 2,
               // Aide « Je suis bloqué » ou réponse auto-évaluée (mode Espace) : compte pour le
               // volume d'entraînement, pas pour le niveau.
               surExercice: (res) => {

@@ -61,6 +61,14 @@ export const PALIERS = [
           ['Pourquoi de gauche à droite', 'On lit un nombre de gauche à droite : on le pose dans le même ordre, sans rien retenir de tête. Les retenues tombent sur des tiges déjà traitées, elles s\'ajoutent simplement.'],
           ['Remise à zéro', 'Inclinez le soroban vers vous (les terrestres tombent), reposez-le à plat, puis faites glisser l\'index de gauche à droite le long de la barre pour écarter les célestes. Deux secondes.'],
         ],
+        pourquoiCaMarche: [
+          ['La mémoire de travail est petite', 'De tête, on ne garde que 4 éléments environ à la fois. Sur papier, retenues et chiffres intermédiaires l\'encombrent vite. Le soroban la décharge : le total est posé sur les boules, la tête n\'a rien à retenir à part le nombre qu\'on lit.'],
+          ['Pourquoi 5 et 4 boules', 'L\'œil reconnaît d\'un coup, sans compter, jusqu\'à 4 objets. Une tige se lit donc en un regard : la céleste (5 ou rien) plus un petit groupe de terrestres. C\'est aussi pour cela qu\'on lit les grands nombres par tranches de 3 chiffres.'],
+          ['Du geste au réflexe', 'Au début, chaque ami demande une réflexion (« 4 = 5 − 1 »). Avec la répétition, le cerveau transforme cette règle en geste automatique, qui ne coûte plus d\'attention. D\'où les volumes d\'entraînement, et la vitesse qui vient d\'elle-même : on ne peut pas aller vite tant qu\'on réfléchit.'],
+          ['Pourquoi les révisions espacées', 'Revoir une leçon juste avant de l\'oublier (après 1, 3, 7, 14, 30 jours) la fixe bien mieux que de la répéter le même jour. C\'est le rôle des révisions du jour.'],
+          ['Pourquoi mélanger ensuite', 'Répéter un geste en bloc l\'installe vite ; le mélanger ensuite avec les autres oblige à le CHOISIR, comme dans un vrai calcul. C\'est ce qui le rend durable : d\'où les séances de consolidation après chaque leçon.'],
+          ['Et la tête dans tout ça ?', 'À force de manipuler, l\'image du soroban s\'installe dans la tête : c\'est l\'anzan. Le calcul mental des bons joueurs n\'est pas un don, c\'est ce soroban imaginaire, construit geste après geste.'],
+        ],
         demos: [] },
     ],
   },
@@ -260,6 +268,9 @@ export const PALIERS = [
       { id: 'p8-7', titre: 'Division par 3 chiffres', type: 'div', nd: 3, nq: 2, repetitions: 30, corrections: true,
         pourquoi: 'Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare les 3 premiers chiffres du dividende au diviseur pour savoir où poser le quotient.',
         demos: [{ a: 5832, b: 243 }] },
+      { id: 'p8-n', titre: 'Résultats négatifs : le complément (facultatif)', type: 'negatif', chiffres: 2, lignes: 4, repetitions: 20, optionnel: true,
+        pourquoi: 'Quand une soustraction « dépasse » (il faut retirer plus que ce qui est posé), on emprunte un 1 IMAGINAIRE sur la tige à gauche de la colonne (100 pour une colonne à 2 chiffres) et on continue normalement. À la fin, le soroban affiche le COMPLÉMENT du résultat : s\'il affiche 63 après un emprunt de 100, le résultat est −(100 − 63) = −37. Lecture rapide : complément à 9 de chaque chiffre, à 10 pour le dernier (63 → 3 et 7 → −37). Si le calcul repasse au-dessus de zéro, la retenue rend le 1 emprunté. Tapez le résultat avec le signe moins.',
+        demos: [] },
     ],
   },
   {
@@ -278,6 +289,11 @@ export const PALIERS = [
           ['Les yeux', 'En mitori-anzan (colonne affichée), fermer les yeux un instant entre deux nombres aide au début. En flash, regardez le nombre, puis l\'image intérieure.'],
           ['Quand l\'image se brouille', 'On réduit le NOMBRE de nombres, pas la vitesse : mieux vaut 3 nombres nets que 5 flous. Quand on est perdu, on ne devine pas : on le note faux et on recommence. L\'application allonge la chaîne quand vous réussissez, et la raccourcit après une erreur.'],
           ['Peu, mais tous les jours', '5 minutes d\'anzan chaque jour valent mieux que 20 minutes une fois par semaine. L\'image se construit par la répétition, entre les séances.'],
+        ],
+        pourquoiCaMarche: [
+          ['Une image plutôt que des mots', 'Garder « 47 » en mots occupe la mémoire de travail, déjà petite. Une image de soroban se garde mieux : c\'est une forme, pas une suite de sons. C\'est pourquoi on évite la voix intérieure.'],
+          ['Les doigts aident la tête', 'Les zones du cerveau qui commandent un geste s\'activent aussi quand on l\'imagine. Bouger les doigts dans l\'air relie l\'image au geste appris sur le vrai soroban.'],
+          ['Pourquoi aller lentement', 'Si l\'image se brouille, on s\'entraîne à… deviner. Mieux vaut des chaînes courtes et nettes : la longueur vient ensuite, puis la vitesse.'],
         ],
         demos: [] },
       { id: 'pa-1', titre: 'Photo du soroban : 1 tige', type: 'photo', apres: 'p1-4', chiffres: 1, duree: 1.5, repetitions: 20,
@@ -348,7 +364,7 @@ export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 export function familleLecon(sp) {
   if (sp.type === 'placement' || sp.type === 'table') return sp.type;
   if (sp.type === 'photo' || sp.type === 'tenir') return 'photo';
-  if (sp.type === 'addsub' || sp.type === 'anzan' || sp.type === 'addsubdec') return 'addsub';
+  if (['addsub', 'anzan', 'addsubdec', 'negatif'].includes(sp.type)) return 'addsub';
   return 'muldiv';
 }
 
@@ -369,6 +385,28 @@ function produitTable(memoire) {
     memoire.signatures.push(cle);
     if (memoire.signatures.length > 12) memoire.signatures.shift();
     return { type: 'table', a, b, resultat: a * b, attendu: String(a * b).padStart(2, '0') };
+  }
+}
+
+/**
+ * Colonne dont le résultat est NÉGATIF (calcul par complément). Le résultat reste au-dessus de
+ * −10^chiffres : un seul emprunt imaginaire suffit. ex.astuce explique la lecture du complément.
+ */
+export function genererNegatif(chiffres, lignes) {
+  const k = 10 ** chiffres;
+  const nombre = () => 10 ** (chiffres - 1) + Math.floor(Math.random() * (k - 10 ** (chiffres - 1)));
+  for (;;) {
+    const l = [{ op: '+', n: nombre() }];
+    for (let i = 1; i < lignes; i++) l.push({ op: Math.random() < 0.7 ? '-' : '+', n: nombre() });
+    let v = 0;
+    const sous = l.map((x) => (v = x.op === '+' ? v + x.n : v - x.n));
+    const r = sous.at(-1);
+    if (r >= 0 || r <= -k || sous.slice(0, -1).some((x) => x <= -k || x >= k)) continue;
+    const c = k + r;
+    return {
+      type: 'addsub', negatif: true, lignes: l, resultat: r,
+      astuce: `On emprunte un 1 imaginaire de ${k} quand la soustraction dépasse : le soroban affiche ${c}, le complément. Résultat : −(${k} − ${c}) = ${r}.`,
+    };
   }
 }
 
@@ -413,6 +451,7 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
     return genererDivision(sp.nd, sp.nq);
   }
   if (sp.type === 'photo') return genererPhoto(sp.chiffres, sp.duree, memoireDe(sp.id));
+  if (sp.type === 'negatif') return genererNegatif(sp.chiffres, sp.lignes);
   if (sp.type === 'tenir') {
     const ex = genererPhoto(entre(1, sp.chiffres), sp.duree, memoireDe(sp.id));
     return { ...ex, type: 'tenir', flash: { duree: sp.duree, tenir: sp.tenir } };

@@ -146,6 +146,7 @@ export function diagnostiquerPhoto(ex, reponse) {
 
 export function diagnostiquer(ex, reponse) {
   if (ex.type === 'photo' || ex.type === 'tenir') return diagnostiquerPhoto(ex, reponse);
+  if (ex.type === 'quotidien' || ex.negatif) return ex.astuce ? [ex.astuce] : [];
   if (ex.type === 'table') {
     return reponse === ex.resultat ? [`Le nombre est juste, mais il s'écrit sur DEUX tiges : « ${ex.attendu} ». La tige des dizaines compte même vide.`] : [`${ex.a} × ${ex.b} = ${ex.attendu}.`];
   }
@@ -163,7 +164,7 @@ export function diagnostiquer(ex, reponse) {
  * @returns {{ ligne:number, motifs:string[], raison:string } | null}
  */
 export function localiserErreur(ex, reponse) {
-  if (ex.type !== 'addsub') return null;
+  if (ex.type !== 'addsub' || ex.negatif) return null;
   const u = unSeulChiffre(reponse - ex.resultat);
   if (!u) return null;
   const occ = occurrencesColonne(ex.lignes);
