@@ -442,3 +442,4 @@ details.carte.objectif { margin: 12px 0; }
 .quotidien .ticket div { max-width: none; }
 .quotidien .ticket .ticket-total { border-top: 1px dashed var(--discret); margin-top: 6px; padding-top: 6px; font-weight: 700; }
 .quotidien .ticket .sous-total { color: var(--discret); font-size: 0.85em; }
+.colonne td.relance { font-size: 0.72rem; color: var(--discret); padding-left: 10px; font-style: italic; }

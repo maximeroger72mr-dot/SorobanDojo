@@ -100,7 +100,11 @@ export default {
     // ------------------------------------------------------------ marathon
     function lancerMarathon(cibles = null) {
       const r = { ...reglages.marathon };
-      const { c, note } = contraintesDe(r, cibles);
+      const { c, note: notePur } = contraintesDe(r, cibles);
+      // Un seul geste (et son miroir) à 1 chiffre : les lignes se ressemblent forcément.
+      const note = [notePur, c.cibles.length <= 2 && r.chiffres === 1
+        ? 'Avec un seul geste à 1 chiffre, les lignes se ressemblent forcément : une ligne « relance » (geste direct) déplace parfois le soroban pour que les sous-totaux changent. Pour plus de variété, passez à 2 chiffres.'
+        : null].filter(Boolean).join(' ') || null;
       const cle = `marathon-${cibles ? cibles.join('+') : r.cible}${r.pur ? '-pur' : ''}-${r.chiffres}-${r.objectif}`;
       const rec = records()[cle];
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Rythme et endurance'),

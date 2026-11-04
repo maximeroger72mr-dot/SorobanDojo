@@ -19,6 +19,9 @@ import { noterGestes, noterReponse, poidsAdaptatifs } from '../core/progression.
 import { lireReponse } from '../core/nombres.js';
 import { creerCourse } from './course.js';
 import { doigte } from './drill.js';
+import { famille } from '../core/motifs.js';
+
+const DIRECTS = new Set(famille('direct'));
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 export const TRANCHE = 5;
@@ -71,32 +74,81 @@ export function creerMarathon(conteneur, o) {
     course?.maj(lignesTenues, ecoule());
   }, 100);
 
-  /** 5 lignes de plus, à partir de la valeur posée (la 1re tranche part de zéro). */
-  function genererTranche() {
-    if (valeur === 0 && lignesTenues === 0) {
-      const col = genererColonneVariee({ chiffres: o.chiffres, lignes: TRANCHE, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles) }, memoire);
-      return { lignes: col.lignes, motifs: col.motifs, resultat: col.resultat, depart: 0 };
+  // Anti-répétition : une tranche ne doit pas reproduire les précédentes, ni leur sous-total
+  // (sinon on devine la réponse au lieu de la calculer).
+  const recents = { signatures: [], resultats: [] };
+  const signature = (lignes) => lignes.map((l) => `${l.op}${l.n}`).join(',');
+  const nouvelle = (t) => !recents.signatures.includes(signature(t.lignes)) && !recents.resultats.includes(t.resultat);
+  const retenir = (t) => {
+    recents.signatures.push(signature(t.lignes));
+    recents.resultats.push(t.resultat);
+    if (recents.signatures.length > 3) recents.signatures.shift();
+    if (recents.resultats.length > 3) recents.resultats.shift();
+    return t;
+  };
+
+  /** Une ligne du geste visé (ou, si coincé, avec les gestes appris). */
+  function ligne(v) {
+    const poids = poidsAdaptatifs(c.cibles);
+    const poidsLigne = Object.fromEntries(c.cibles.map((k) => [k, (poids[k] ?? 1) / (1 + (vus[k] ?? 0) % 6) ** 2]));
+    try {
+      return genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, poids: poidsLigne });
+    } catch (e) {
+      if (!(e instanceof ErreurGeneration)) throw e;
+      return genererTerme(v, { chiffres: o.chiffres, autorises: null, cibles: null });
     }
+  }
+
+  /** Le geste visé peut-il partir de cette valeur (sans relâcher les contraintes) ? */
+  function possible(v) {
+    try { genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles }); return true; } catch (e) {
+      if (!(e instanceof ErreurGeneration)) throw e;
+      return false;
+    }
+  }
+
+  /**
+   * Tranche à partir de v. Avec `relance`, la 1re ligne est un geste DIRECT qui déplace le soroban
+   * sur une autre valeur : indispensable quand le geste visé tourne en rond (en mode pur sur un
+   * seul geste à 1 chiffre, +4 et −4 petit ami ne font qu'aller et venir entre deux valeurs).
+   */
+  function construire(v0, relance) {
     const lignes = [];
     const motifs = [];
-    let v = valeur;
-    const poids = poidsAdaptatifs(c.cibles);
-    while (lignes.length < TRANCHE) {
-      const poidsLigne = Object.fromEntries(c.cibles.map((k) => [k, (poids[k] ?? 1) / (1 + (vus[k] ?? 0) % 6) ** 2]));
-      let t;
-      try {
-        t = genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, poids: poidsLigne });
-      } catch (e) {
-        if (!(e instanceof ErreurGeneration)) throw e;
-        // Coincé (rare) : une ligne avec les gestes appris pour débloquer la valeur.
-        t = genererTerme(v, { chiffres: o.chiffres, autorises: null, cibles: null });
+    let v = v0;
+    if (relance) {
+      // Un geste direct qui change la valeur ET d'où le geste visé reste possible.
+      for (let k = 0; k < 30; k++) {
+        const t = genererTerme(v0, { chiffres: o.chiffres, autorises: DIRECTS, cibles: null });
+        if (t.resultat === v0 || !possible(t.resultat)) continue;
+        lignes.push({ op: t.op, n: t.n, relance: true });
+        motifs.push(...t.motifs);
+        v = t.resultat;
+        break;
       }
-      t.motifs.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
+    }
+    while (lignes.length < TRANCHE) {
+      const t = ligne(v);
       lignes.push({ op: t.op, n: t.n });
       motifs.push(...t.motifs);
       v = t.resultat;
     }
-    return { lignes, motifs, resultat: v, depart: valeur };
+    return { lignes, motifs, resultat: v, depart: v0 };
+  }
+
+  /** 5 lignes de plus, à partir de la valeur posée (la 1re tranche part de zéro). */
+  function genererTranche() {
+    if (valeur === 0 && lignesTenues === 0) {
+      const col = genererColonneVariee({ chiffres: o.chiffres, lignes: TRANCHE, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles) }, memoire);
+      return retenir({ lignes: col.lignes, motifs: col.motifs, resultat: col.resultat, depart: 0 });
+    }
+    let t = null;
+    for (let essai = 0; essai < 32; essai++) {
+      t = construire(valeur, essai >= 8);
+      if (nouvelle(t)) break;
+    }
+    t.motifs.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
+    return retenir(t);
   }
 
   function afficherTranche() {
@@ -104,7 +156,8 @@ export function creerMarathon(conteneur, o) {
     remplir(zoneLignes, h('table', { class: 'colonne' }, tranche.lignes.map((l, i) => h('tr', {},
       h('td', { class: 'signe' }, premiere && i === 0 ? '' : l.op === '+' ? '+' : '−'),
       h('td', { class: 'nombre' }, formaterNombre(l.n)),
-      o.doigte ? h('td', { class: 'doigte' }, '') : null))));
+      o.doigte ? h('td', { class: 'doigte' }, '') : null,
+      l.relance ? h('td', { class: 'relance', title: 'Ligne de relance (geste direct) : elle déplace le soroban pour que la suite ne tourne pas en rond.' }, 'relance') : null))));
     consigne.textContent = premiere
       ? 'Soroban à zéro : posez la 1re ligne, calculez les 5 lignes, tapez le sous-total. Ensuite, on continue sans jamais remettre à zéro.'
       : 'Continuez sur le soroban tel qu\'il est (sans remettre à zéro), puis tapez le nouveau sous-total.';
