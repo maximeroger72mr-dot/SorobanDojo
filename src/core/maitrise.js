@@ -32,6 +32,9 @@ export const NIVEAUX = [
   { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0, photo: 0.6 } },
 ];
 
+/** Unité de temps de chaque famille (« ≤ 1,5 s par chiffre »). Une seule liste pour tout l'affichage. */
+export const UNITES_TEMPS = { addsub: 'chiffre', muldiv: 'produit', placement: 'placement', table: 'produit', photo: 'chiffre lu' };
+
 const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').length;
 
 /** Nombre d'unités de travail d'un exercice. */
@@ -86,7 +89,7 @@ export function evaluer(hist = [], famille = 'addsub') {
   if (prochain?.reussite) {
     if (essais < MIN_ESSAIS) manque.push(`${MIN_ESSAIS - essais} essai${MIN_ESSAIS - essais > 1 ? 's' : ''} de plus`);
     if (reussite < prochain.reussite) manque.push(`réussite ≥ ${Math.round(prochain.reussite * 100)} %`);
-    if (temps === null || temps > prochain.temps[famille]) manque.push(`≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${{ addsub: 'chiffre', muldiv: 'produit', placement: 'placement', table: 'produit' }[famille]}`);
+    if (temps === null || temps > prochain.temps[famille]) manque.push(`≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
   }
   return { niveau: NIVEAUX[index], index, essais, reussite, temps, prochain, manque };
 }

@@ -9,10 +9,12 @@
  *
  * 3 colonnes justes d'affilée : le lièvre accélère de 10 %. Une erreur : il ralentit de 10 %.
  * Option métronome : un clic à chaque ligne, pour garder un écart régulier entre les nombres.
+ * Les gestes sont notés sur la carte de maîtrise, au temps de la cadence imposée.
  */
 
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
-import { noterReponse, poidsAdaptatifs } from '../core/progression.js';
+import { noterReponse, noterGestes, poidsAdaptatifs } from '../core/progression.js';
+import { localiserErreur } from '../core/diagnostic.js';
 import { lireReponse } from '../core/nombres.js';
 import { Metronome } from './metronome.js';
 import { h, raccourcis, formaterNombre, remplir } from './dom.js';
@@ -107,6 +109,11 @@ export function creerLievre(conteneur, o) {
     if (rep === null) return;
     const juste = rep === col.resultat;
     await noterReponse(juste);
+    // Carte de maîtrise : une colonne juste crédite ses gestes, au temps de la cadence imposée
+    // (on l'a tenue, donc au moins aussi vite) ; une erreur n'accuse qu'un geste prouvé.
+    const t = cadence / o.chiffres;
+    if (juste) await noterGestes(col.motifs, [], t);
+    else await noterGestes([], localiserErreur(col, rep)?.motifs ?? [], t);
     k += 1;
     saisie.disabled = true;
     zone.querySelectorAll('tr').forEach((tr) => { tr.className = ''; });

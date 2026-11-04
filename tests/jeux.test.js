@@ -84,3 +84,18 @@ test('objectif daté et consolidation', () => {
   d.sessions.push({ date: '2026-11-01', mode: 'consolidation:p2-1' });
   assert.equal(consolidationDuJour(d, '2026-11-04'), null);
 });
+
+import { evaluer } from '../src/core/maitrise.js';
+import { formaterValeur } from '../src/ui/enonce.js';
+
+test('corrections 0.10.1 : unités, montants, succès de palier', async () => {
+  const ev = evaluer(Array.from({ length: 10 }, () => ({ ok: 1, t: 5 })), 'photo');
+  assert.ok(ev.manque.every((m) => !m.includes('undefined')), ev.manque.join());
+  const { SUCCES } = await import('../src/core/succes.js');
+  for (const p of ['pd', 'p8', 'pa']) assert.ok(SUCCES.some((s) => s.id === `palier-${p}`), p);
+  const { ticket, monnaie } = await import('../src/core/quotidien.js');
+  const t = ticket();
+  assert.equal(t.ticket.length, t.lignes.length);
+  assert.ok(monnaie().euros && t.euros);
+  assert.match(formaterValeur({ euros: true }, 76.6), /^76,60\s€$/);
+});

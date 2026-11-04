@@ -23,7 +23,7 @@ const G = {
   bas: 34,          // espace sous le cadre (étiquettes)
 };
 
-const ABREV = ['u', 'd', 'c', 'm', 'dm', 'cm', 'M', 'dM', 'cM', 'G', 'dG', 'cG'];
+const ABREV = ['u', 'd', 'c', 'm', 'dm', 'cm', 'M', 'dM', 'cM', 'G', 'dG', 'cG', 'B', 'dB', 'cB'];
 const ABREV_DECIMALES = ['1/10', '1/100', '1/1000', '1/10⁴'];
 const abrev = (rang) => (rang < 0 ? ABREV_DECIMALES[-rang - 1] ?? '' : ABREV[rang] ?? '');
 

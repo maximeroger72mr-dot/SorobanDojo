@@ -22,13 +22,22 @@ function prix(min, max) {
   return Math.max(min, c - (c % 10) + fin);
 }
 
+/** Articles de courses, avec une fourchette de prix réaliste (en centimes). */
+const ARTICLES = [
+  ['Pain', 95, 320], ['Lait 1 L', 89, 159], ['Café', 299, 899], ['Fromage', 249, 899], ['Pâtes', 79, 249],
+  ['Pommes 1 kg', 199, 399], ['Poulet', 599, 1299], ['Yaourts x8', 189, 449], ['Riz', 129, 349], ['Huile d\'olive', 499, 1199],
+  ['Chocolat', 129, 399], ['Lessive', 599, 1499], ['Jus d\'orange', 159, 389], ['Tomates', 199, 449], ['Beurre', 199, 399],
+  ['Œufs x12', 249, 499], ['Eau x6', 199, 449], ['Biscuits', 119, 329],
+];
+
 /** Ticket de caisse : 4 à 7 articles à additionner. */
 export function ticket() {
   const n = entier(4, 7);
-  const cents = Array.from({ length: n }, () => prix(39, 2499));
+  const articles = [...ARTICLES].sort(() => Math.random() - 0.5).slice(0, n);
+  const cents = articles.map(([, min, max]) => prix(min, max));
   const total = cents.reduce((a, b) => a + b, 0);
   return {
-    type: 'addsub', decimales: 2, consigne: 'Ticket de caisse : quel est le total à payer (en €) ?',
+    type: 'addsub', decimales: 2, euros: true, ticket: articles.map(([nom]) => nom), consigne: 'Ticket de caisse : quel est le total à payer (en €) ?',
     lignes: cents.map((c) => ({ op: '+', n: c / 100 })), echelles: cents, resultat: total / 100,
   };
 }
@@ -43,7 +52,7 @@ export function monnaie() {
   const etapes = palier === total || palier === paye ? `de ${euros(total)} à ${euros(paye)} : ${euros(rendu)} €`
     : `de ${euros(total)} à ${euros(palier)} il manque ${euros(palier - total)}, puis de ${euros(palier)} à ${euros(paye)} il manque ${euros(paye - palier)} : ${euros(rendu)} €`;
   return {
-    type: 'quotidien', decimales: 2, resultat: rendu / 100, unites: chiffres(total),
+    type: 'quotidien', decimales: 2, euros: true, resultat: rendu / 100, unites: chiffres(total),
     texte: [`Total : ${euros(total)} €`, `Payé avec un billet de ${euros(paye)} €`, 'Combien rendre (en €) ?'],
     astuce: `Comme un commerçant, on complète : ${etapes}. Sur le soroban : posez ${euros(paye)}, retirez ${euros(total)} (des grands amis à chaque tige).`,
   };
@@ -74,7 +83,7 @@ export function pourcentage() {
     const ht = entier(2, 60) * 5;
     const ttc = ht * 1.2;
     return {
-      type: 'quotidien', decimales: 2, resultat: ttc, unites: chiffres(ht) + 1,
+      type: 'quotidien', decimales: 2, euros: true, resultat: ttc, unites: chiffres(ht) + 1,
       texte: [`Prix hors taxes : ${ht} €`, 'TVA de 20 %', 'Prix TTC (en €) ?'],
       astuce: `20 % de ${ht} = ${fmt(ht * 0.2)} (10 % doublé), donc ${ht} + ${fmt(ht * 0.2)} = ${fmt(ttc)}. Ou en un calcul : ${ht} × 1,2.`,
     };
@@ -84,13 +93,13 @@ export function pourcentage() {
   const part = (x * p) / 100;
   if (sorte === 'remise') {
     return {
-      type: 'quotidien', decimales: 2, resultat: x - part, unites: chiffres(x) + 1,
+      type: 'quotidien', decimales: 2, euros: true, resultat: x - part, unites: chiffres(x) + 1,
       texte: [`Prix affiché : ${x} €`, `Remise de ${p} %`, 'Prix payé (en €) ?'],
       astuce: `La remise vaut ${p} % de ${x} = ${fmt(part)} (${methode(p, x).split('. Au')[0]}), donc ${x} − ${fmt(part)} = ${fmt(x - part)}. Ou directement : ${x} × ${fmt((100 - p) / 100)}.`,
     };
   }
   return {
-    type: 'quotidien', decimales: 2, resultat: part, unites: chiffres(x) + 1,
+    type: 'quotidien', decimales: 2, euros: true, resultat: part, unites: chiffres(x) + 1,
     texte: [`${p} % de ${x} €`, 'Combien (en €) ?'],
     astuce: methode(p, x),
   };
@@ -101,7 +110,7 @@ export function facture() {
   const lignes = Array.from({ length: entier(2, 4) }, () => ({ q: entier(2, 6), c: prix(50, 3000) }));
   const total = lignes.reduce((t, l) => t + l.q * l.c, 0);
   return {
-    type: 'quotidien', decimales: 2, resultat: total / 100, unites: lignes.length * 3,
+    type: 'quotidien', decimales: 2, euros: true, resultat: total / 100, unites: lignes.length * 3,
     texte: ['Facture :', ...lignes.map((l) => `${l.q} × ${euros(l.c)} €`), 'Total (en €) ?'],
     astuce: `Chaque ligne est une multiplication : ${lignes.map((l) => `${l.q} × ${euros(l.c)} = ${euros(l.q * l.c)}`).join(' ; ')}. Au soroban, posez chaque produit à la suite du précédent : le total se fait tout seul.`,
   };

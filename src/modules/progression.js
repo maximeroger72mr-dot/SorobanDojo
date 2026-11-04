@@ -22,6 +22,7 @@ import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 const NOMS_MODULES = {
   lecture: 'Lecture des nombres', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches', drills: 'Drills',
   muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles', dictee: 'Dictée (yomiage)',
+  rythme: 'Rythme et endurance', quotidien: 'Au quotidien',
 };
 const nf = (x) => (x === null ? '—' : `${x.toLocaleString('fr-FR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`);
 

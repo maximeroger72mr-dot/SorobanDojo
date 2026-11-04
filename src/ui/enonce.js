@@ -12,6 +12,12 @@ import { h, formaterNombre } from './dom.js';
 
 const signe = (op) => (op === '+' ? '' : '−');
 
+/** Valeur d'un résultat ou d'une réponse : montants toujours en euros, avec 2 décimales (76,60 €). */
+export function formaterValeur(ex, v) {
+  if (v === null || v === undefined) return '';
+  return ex?.euros ? `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : formaterNombre(v);
+}
+
 /** « au millième », « au dix-millième »… */
 export function consigneArrondi(decimales) {
   return ['à l\'unité', 'au dixième', 'au centième', 'au millième', 'au dix-millième'][decimales] ?? `à ${decimales} décimales`;
@@ -26,6 +32,13 @@ export function rendreEnonce(ex, o = {}) {
   // Consigne de situation (ex. « Ticket de caisse : … ») au-dessus de l'énoncé.
   if (ex.consigne && !o.sansConsigne) {
     return h('div', {}, h('div', { class: 'consigne-situation' }, ex.consigne), rendreEnonce(ex, { ...o, sansConsigne: true }));
+  }
+  if (ex.ticket) {
+    // Ticket de caisse : articles et prix alignés, comme un vrai ticket (sous-totaux en option).
+    const st = o.sousTotaux ? sousTotaux(ex.lignes) : null;
+    return h('div', { class: `quotidien${o.compact ? ' compacte' : ''}` }, h('div', { class: 'ticket' },
+      ex.lignes.map((l, i) => h('div', {}, h('span', {}, ex.ticket[i]), h('span', {}, formaterValeur(ex, l.n), st ? h('span', { class: 'sous-total' }, `  = ${formaterValeur(ex, st[i])}`) : null))),
+      h('div', { class: 'ticket-total' }, h('span', {}, 'TOTAL'), h('span', {}, '?'))));
   }
   if (ex.type === 'quotidien') {
     return h('div', { class: `quotidien${o.compact ? ' compacte' : ''}` }, ex.texte.map((t) => h('div', {}, t)));

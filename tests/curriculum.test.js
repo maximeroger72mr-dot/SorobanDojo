@@ -94,6 +94,9 @@ test('anzan : piste parallèle qui suit le soroban, chaîne qui s\'allonge, imag
   assert.equal(c.lignes, 2);
   for (let k = 0; k < 20; k++) c.noter(true);
   assert.equal(c.lignes, 4);
+  // Reprise : dernière longueur sauvegardée moins un nombre.
+  assert.equal(chaineAnzan({ id: 'test-reprise', lignes: 5 }, 5).lignes, 4);
+  assert.equal(chaineAnzan({ id: 'test-reprise2', lignes: 5 }, 2).lignes, 2);
   // genererExercice respecte la chaîne et l'image demandées ; sans contexte : chaîne complète, sans image.
   const ex = genererExercice(sp, {}, { lignes: 2, image: 0.5 });
   assert.ok(ex.lignes.length <= 3 && ex.flash.image === 0.5);

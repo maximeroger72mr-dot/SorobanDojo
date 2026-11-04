@@ -38,6 +38,7 @@ const NOMS_RANGS = [
   'milliers', 'dizaines de milliers', 'centaines de milliers',
   'millions', 'dizaines de millions', 'centaines de millions',
   'milliards', 'dizaines de milliards', 'centaines de milliards',
+  'billions', 'dizaines de billions', 'centaines de billions',
 ];
 
 const NOMS_DECIMALES = ['dixièmes', 'centièmes', 'millièmes', 'dix-millièmes'];

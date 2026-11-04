@@ -208,6 +208,14 @@ export async function compterRepetition(id, juste, t) {
   await sauver();
 }
 
+/** Longueur de chaîne d'anzan atteinte dans une leçon (reprise à la prochaine séance). */
+export async function memoriserChaine(id, lignes) {
+  const e = palier(id);
+  if (e.chaine === lignes) return;
+  e.chaine = lignes;
+  await sauver();
+}
+
 /**
  * Coupe-file de maîtrise : les 15 premiers exercices d'une leçon tous justes et rapides
  * (temps médian ≤ seuil « Acquis confirmé ») ouvrent le mini-test sans attendre le volume prévu.
@@ -294,8 +302,9 @@ export function seanceEnCours() {
   return s && s.date === aujourdhui() ? s : null;
 }
 
-export async function commencerSeance() {
-  donnees.seance = { debut: Date.now(), date: aujourdhui(), instantane: instantane(donnees, Object.keys(donnees.succes)) };
+/** @param {object} [extra]  ce qui doit rester fixe toute la séance (ex. { priorite }) */
+export async function commencerSeance(extra = {}) {
+  donnees.seance = { debut: Date.now(), date: aujourdhui(), instantane: instantane(donnees, Object.keys(donnees.succes)), ...extra };
   await sauver();
   return donnees.seance;
 }

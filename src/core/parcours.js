@@ -193,7 +193,7 @@ export function prioriteDuJour(d, date, difficiles = []) {
     const remedes = [
       { titre: 'Casser le plateau : surentraînement', texte: 'Moins de chiffres, plus vite : 6 colonnes à 1 chiffre au rythme du lièvre, qui accélère. Le geste doit partir sans réfléchir.', aller: ['rythme', { jeu: 'lievre', cibles, chiffres: 1, accelere: true, auto: true }] },
       { titre: 'Casser le plateau : marathon', texte: '40 lignes d\'affilée sur ce geste, sans remettre à zéro. Le volume ancre le mouvement.', aller: ['rythme', { jeu: 'marathon', cibles, lignes: 40, auto: true }] },
-      { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d).id }] },
+      { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d).id, priorite: true }] },
     ];
     const r = remedes[jourDe(date) % remedes.length];
     return { ...r, raison: constat };

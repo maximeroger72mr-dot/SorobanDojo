@@ -23,16 +23,23 @@ import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Éléments du plan, avec leur état « fait pendant la séance ». */
-function plan(d, debut) {
+/**
+ * @param {object|null} seance  séance en cours : sa priorité du jour est FIGÉE au démarrage (sinon,
+ *   une fois le plateau cassé, elle changerait ou disparaîtrait au lieu de se cocher).
+ */
+function plan(d, debut, seance = null) {
   const depuis = d.sessions.filter((s) => (s.horodatage ?? 0) >= debut);
   const fait = (f) => depuis.some(f);
   const items = [];
   // Priorité du jour : une consigne franche (geste à ancrer, geste lent, ou plateau à casser).
-  const priorite = prioriteDuJour(d, aujourdhui(), motifsEnDifficulte());
+  const priorite = seance ? seance.priorite ?? null : prioriteDuJour(d, aujourdhui(), motifsEnDifficulte());
   if (priorite) {
+    const [module, p] = priorite.aller;
+    // Cochée seulement par l'exercice prescrit (pas par le drill d'échauffement, par exemple).
+    const prescrit = (s) => s.module === module && (module === 'rythme' ? s.mode === p.jeu : !!s.reglages?.priorite);
     items.push({
       titre: `Priorité du jour · ${priorite.titre}`, detail: `${priorite.raison} ${priorite.texte}`,
-      fait: fait((s) => s.module === priorite.aller[0]), aller: priorite.aller, priorite: true,
+      fait: fait(prescrit), aller: priorite.aller, priorite: true,
     });
   }
   const drill = drillEchauffement(d);
@@ -218,13 +225,13 @@ export default {
         const apercu = plan(d, Date.now());
         el.append(h('div', { class: 'carte' },
           h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, bilan ? 'Une autre séance ?' : 'Votre séance'),
-            h('button', { class: 'btn principal', onclick: async () => { await commencerSeance(); afficher(); } }, 'Commencer la séance')),
+            h('button', { class: 'btn principal', onclick: async () => { await commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()) }); afficher(); } }, 'Commencer la séance')),
           h('ol', { class: 'plan' }, apercu.map((it) => h('li', { class: it.priorite ? 'priorite' : '' }, h('strong', {}, it.titre), ` · ${it.detail}${it.optionnel ? ' (facultatif)' : ''}`)))),
         niveauAddsub(d) === 0 && !d.sessions.length
           ? h('p', { class: 'discret' }, 'Première fois ? Commencez par « Lecture des nombres », puis les leçons guidées.') : '');
         return;
       }
-      const items = plan(d, seance.debut);
+      const items = plan(d, seance.debut, seance);
       el.append(h('div', { class: 'carte' },
         h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Séance en cours · commencée à ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`),
           h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir la séance')),

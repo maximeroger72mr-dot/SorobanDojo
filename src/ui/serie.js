@@ -24,7 +24,7 @@ import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
 import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
-import { rendreEnonce } from './enonce.js';
+import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
 import { creerCourse } from './course.js';
 import { sousTotaux } from '../core/generateur.js';
 
@@ -307,7 +307,7 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     majChronoExo(dureeMs);
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
-    pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${formaterNombre(ex.resultat)})` }, juste ? '✓' : '✗'));
+    pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
@@ -326,14 +326,14 @@ export function creerSerie(conteneur, o) {
     }
     if (juste) {
       retour.className = 'retour ok';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(ex.resultat)}`, temps, course ? course.ecart(resultats.length, performance.now() - debut) : null);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${valeur(ex, ex.resultat)}`, temps, course ? course.ecart(resultats.length, performance.now() - debut) : null);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
     }
     if (opts.defi) {
       retour.className = 'retour erreur';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${formaterNombre(ex.resultat)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${valeur(ex, ex.resultat)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
@@ -346,13 +346,13 @@ export function creerSerie(conteneur, o) {
     if (localisation) {
       remplir(zoneLocalisation, h('strong', {}, 'Erreur localisée : '),
         `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). Ce geste est noté à retravailler.`);
-    } else if (ex.type === 'addsub') {
+    } else if (ex.type === 'addsub' && !ex.ticket) {
       remplir(zoneLocalisation, h('span', { class: 'discret' },
         'Pour un diagnostic juste, refaites la colonne en comparant avec les sous-totaux (S), puis cliquez la ligne où votre soroban a divergé. Sinon, aucun geste n\'est accusé.'));
     }
     retour.className = 'retour erreur';
     remplir(retour, 
-      h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${formaterNombre(reponse)}, le résultat est `, h('strong', {}, formaterNombre(ex.resultat)), '.'),
+      h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${valeur(ex, reponse)}, le résultat est `, h('strong', {}, valeur(ex, ex.resultat)), '.'),
       ex.type === 'photo' ? h('div', {}, h('div', { class: 'discret' }, 'Le soroban montrait :'), rendreEnonce(ex, { compact: true })) : null,
       causes.length ? h('ul', { class: 'detail' }, causes.map((c) => h('li', {}, c))) : null,
       zoneLocalisation,
@@ -369,7 +369,7 @@ export function creerSerie(conteneur, o) {
     majChronoExo(dureeCalcul);
     phase = 'auto';
     retour.className = 'retour';
-    remplir(retour, 'Résultat : ', h('strong', { class: 'resultat-drill' }, formaterNombre(ex.resultat)), '. Votre soroban affiche-t-il ce nombre ? ',
+    remplir(retour, 'Résultat : ', h('strong', { class: 'resultat-drill' }, valeur(ex, ex.resultat)), '. Votre soroban affiche-t-il ce nombre ? ',
       h('button', { class: 'btn ok-btn', onclick: () => autoEvaluer(true) }, 'Oui ', h('kbd', {}, 'O')), ' ',
       h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Non ', h('kbd', {}, 'N')));
   }
@@ -394,7 +394,7 @@ export function creerSerie(conteneur, o) {
     retour.className = 'retour erreur';
     remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ex.type === 'tenir'
       ? ' Pas grave : la prochaine fois, posez la céleste d\'abord, puis les terrestres, et gardez les doigts actifs.'
-      : [' Résultat attendu : ', h('strong', {}, formaterNombre(ex.resultat)), '.']),
+      : [' Résultat attendu : ', h('strong', {}, valeur(ex, ex.resultat)), '.']),
       h('div', { class: 'ligne', style: 'margin-top:8px' },
         ex.type === 'addsub' ? h('button', { class: 'btn', onclick: () => basculerSousTotaux() }, 'Sous-totaux ', h('kbd', {}, 'S')) : null,
         explicable(ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer ', h('kbd', {}, 'E')) : null,
@@ -465,7 +465,7 @@ export function listeErreurs(resultats) {
   return h('div', {}, h('h2', {}, 'À revoir'),
     h('div', { class: 'liste-erreurs' }, erreurs.map((r) => h('div', { class: 'carte erreur-item' },
       rendreEnonce(r.ex, { compact: true }),
-      r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${formaterNombre(r.reponse)} · résultat : `, h('strong', {}, formaterNombre(r.ex.resultat))),
+      r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
       r.reponse === null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
       explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null))));
 }

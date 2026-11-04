@@ -57,7 +57,7 @@ export default {
       const drill = creerDrill(el, d, {
         record: record(d.id),
         surFin: async ({ juste, dureeMs }) => {
-          await enregistrerSession({ module: 'drills', mode: d.id, total: 1, justes: juste ? 1 : 0, dureeMs });
+          await enregistrerSession({ module: 'drills', mode: d.id, reglages: { priorite: !!params.priorite }, total: 1, justes: juste ? 1 : 0, dureeMs });
           const nouveau = juste && await proposerRecord(`drill-${d.id}`, dureeMs);
           return h('div', { class: 'ligne', style: 'margin-top:8px' },
             nouveau ? h('strong', {}, 'Nouveau record personnel ! ') : null,

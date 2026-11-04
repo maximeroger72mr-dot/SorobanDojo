@@ -487,12 +487,16 @@ export function imageAnzan(sp, justes) {
 
 /**
  * Longueur de chaîne de l'anzan : on commence court (2 nombres) ; 3 réussites de suite ajoutent
- * un nombre, une erreur en retire un. Mémorisée par leçon tant que l'application est ouverte.
+ * un nombre, une erreur en retire un. La longueur est sauvegardée avec la progression (voir
+ * progression.memoriserChaine) : à la reprise, on repart de la dernière longueur moins un
+ * nombre (échauffement).
+ * @param {number} [sauvee]  dernière longueur sauvegardée pour cette leçon
  */
 const chaines = new Map();
-export function chaineAnzan(sp) {
-  const min = sp.lignesDepart ?? 2;
-  if (!chaines.has(sp.id)) chaines.set(sp.id, { lignes: Math.min(min, sp.lignes), serie: 0 });
+export function chaineAnzan(sp, sauvee) {
+  const min = Math.min(sp.lignesDepart ?? 2, sp.lignes);
+  const depart = sauvee ? Math.min(sp.lignes, Math.max(min, sauvee - 1)) : min;
+  if (!chaines.has(sp.id)) chaines.set(sp.id, { lignes: depart, serie: 0 });
   const c = chaines.get(sp.id);
   return {
     get lignes() { return c.lignes; },
@@ -503,7 +507,7 @@ export function chaineAnzan(sp) {
         if (c.serie >= 3 && c.lignes < sp.lignes) { c.lignes += 1; c.serie = 0; }
       } else {
         c.serie = 0;
-        c.lignes = Math.max(Math.min(min, sp.lignes), c.lignes - 1);
+        c.lignes = Math.max(min, c.lignes - 1);
       }
     },
   };

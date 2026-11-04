@@ -11,7 +11,7 @@ import { evaluer } from './maitrise.js';
 import { serieJours } from './regularite.js';
 import { famille } from './motifs.js';
 
-const palierValide = (ctx, idPalier) => PALIERS.find((p) => p.id === idPalier).sousPaliers.every((s) => ctx.valides.has(s.id));
+const palierValide = (ctx, idPalier) => PALIERS.find((p) => p.id === idPalier).sousPaliers.every((s) => s.optionnel || ctx.valides.has(s.id));
 const record = (ctx, cle) => ctx.records[cle];
 const recordSous = (ctx, cle, ms) => record(ctx, cle) && record(ctx, cle).dureeMs <= ms;
 const reussiGrade = (ctx, id) => !!record(ctx, `epreuve-${id}`)?.reussi;
@@ -33,7 +33,7 @@ export const SUCCES = [
   })),
   // Parcours
   { id: 'lecon-1', theme: 'Parcours', nom: 'Premier pas', description: 'Valider une première leçon.', test: (c) => c.valides.size >= 1 },
-  ...[['p1', 'Gestes directs'], ['p2', 'Petits amis'], ['p3', 'Grands amis (addition)'], ['p4', 'Grands amis (soustraction)'], ['p5', 'Combinaisons'], ['p6', 'Multiplication'], ['p7', 'Division']].map(([p, nom]) => ({
+  ...[['p1', 'Gestes directs'], ['p2', 'Petits amis'], ['p3', 'Grands amis (addition)'], ['p4', 'Grands amis (soustraction)'], ['p5', 'Combinaisons'], ['p6', 'Multiplication'], ['p7', 'Division'], ['pd', 'Décimaux et arrondis'], ['p8', 'Vers le 5e et le 4e kyū'], ['pa', 'Anzan et visualisation']].map(([p, nom]) => ({
     id: `palier-${p}`, theme: 'Parcours', nom, description: `Valider toutes les leçons « ${nom} ».`, test: (c) => palierValide(c, p),
   })),
   // Maîtrise (juste ET rapide)

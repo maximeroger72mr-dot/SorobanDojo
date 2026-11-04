@@ -16,7 +16,7 @@ import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
-  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile,
+  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile, memoriserChaine,
 } from '../core/progression.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
@@ -248,7 +248,7 @@ export default {
         majConseil();
         zone.append(bandeau, ['anzan', 'photo', 'tenir', 'placement', 'table'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, conseil);
 
-        const chaine = chaineAnzan(sp);
+        const chaine = chaineAnzan(sp, etatPalier(sp.id).chaine);
         // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
         const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: imageAnzan(sp, etatPalier(sp.id).justes).opacite } : {});
         const majBandeau = () => {
@@ -271,7 +271,8 @@ export default {
         };
         const compter = async (juste, dureeMs, t) => {
           await compterRepetition(sp.id, juste, t);
-          if (await verifierCoupeFile(sp.id, sp.repetitions, famille(sp))) {
+          // Pas de coupe-file pour une leçon auto-évaluée (« Tenir une image ») : aucun temps mesuré.
+          if (sp.type !== 'tenir' && await verifierCoupeFile(sp.id, sp.repetitions, famille(sp))) {
             notifier('Coupe-file : mini-test débloqué', '15 premiers exercices justes et rapides : vous pouvez passer le mini-test dès maintenant.');
           }
           lot.total += 1;
@@ -295,7 +296,7 @@ export default {
               // volume d'entraînement, pas pour le niveau.
               surExercice: (res) => {
                 n += 1;
-                if (sp.type === 'anzan') chaine.noter(res.juste);
+                if (sp.type === 'anzan') { chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes); }
                 if (n % 5 === 0) majConseil();
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);
               },

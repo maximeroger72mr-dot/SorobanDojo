@@ -438,3 +438,7 @@ details.carte.objectif { margin: 12px 0; }
 .quotidien .ticket div { display: flex; justify-content: space-between; gap: 24px; max-width: 280px; }
 .quotidien.compacte { font-size: 0.9rem; }
 .consigne-situation { font-size: 0.95rem; color: var(--discret); margin-bottom: 6px; }
+.quotidien .ticket { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 1.05rem; background: var(--surface); border: 1px solid var(--ligne); border-left: 2px dashed var(--ligne); padding: 10px 14px; max-width: 340px; }
+.quotidien .ticket div { max-width: none; }
+.quotidien .ticket .ticket-total { border-top: 1px dashed var(--discret); margin-top: 6px; padding-top: 6px; font-weight: 700; }
+.quotidien .ticket .sous-total { color: var(--discret); font-size: 0.85em; }
