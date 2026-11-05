@@ -100,6 +100,23 @@ le suit avec retard, puisque chaque leçon s'ouvre quand la leçon soroban `apre
    Le mini-test se fait à chaîne complète, sans image.
 5. 5 nombres à 1 chiffre avec tous les gestes, puis seulement ensuite 2 chiffres.
 
+## Le prof et le menu
+
+- **Menu à 5 entrées** : Aujourd'hui, Apprendre, S'entraîner, Se mesurer, Progression. Les trois
+  sections du milieu ouvrent une page de cartes (`modules/hubs.js`), une carte par activité avec sa
+  prochaine étape ou son record.
+- **Séance du jour (« le prof »)** (`core/prof.js`) :
+  - un **mot du prof** : la veille, la décision du jour et pourquoi, l'examen de la semaine, l'objectif ;
+  - l'**essentiel**, dans l'ordre et chiffré en minutes : échauffement, révisions, kyū de la semaine
+    (en fin de semaine), priorité du jour, **avancer ou ancrer**, consolidation, tables et placement ;
+  - le **bonus** : anzan, jeu du jour (il change chaque jour), défi de la semaine, au quotidien.
+  - Avancer ou ancrer : on n'avance que si la dernière leçon est acquise (juste ET rapide). Après
+    3 jours d'absence, on reprend en ancrant. Une leçon commencée se termine.
+- **Kyū de la semaine** (`core/examen.js`) : grades préparatoires du 20e au 11e kyū, un par étape
+  du parcours, puis un examen hebdomadaire. 20 colonnes, gestes appris uniquement, temps fixe,
+  70 % pour réussir, une seule tentative compte par semaine.
+- **Jeux** (`modules/jeux.js`) : le bon geste, complément éclair, survie anzan, chasse à l'erreur.
+
 ## Automatiser, tenir, se mesurer
 
 - **Rythme et endurance** (`modules/rythme.js`) :

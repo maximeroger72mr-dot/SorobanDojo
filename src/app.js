@@ -4,7 +4,8 @@
  * Chaque écran est un module qui exporte par défaut :
  *   { id, titre, monter(conteneur, app, params) }   — monter() renvoie une fonction de nettoyage.
  *   Option : badge() → nombre affiché en pastille dans le menu.
- * Pour ajouter un écran : créer le fichier dans modules/ et l'ajouter à une section de MENU.
+ * Pour ajouter un écran : créer le fichier dans modules/, l'ajouter à ECRANS, et une carte
+ * dans modules/hubs.js pour qu'on puisse l'ouvrir.
  */
 
 import { h, remplir } from './ui/dom.js';
@@ -25,16 +26,25 @@ import dictee from './modules/dictee.js';
 import defis from './modules/defis.js';
 import epreuves from './modules/epreuves.js';
 import progressionEcran from './modules/progression.js';
+import jeux from './modules/jeux.js';
+import examen from './modules/examen.js';
+import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
-/** Menu en sections (option A). */
+/**
+ * Menu à 5 entrées. Apprendre, S'entraîner et Se mesurer ouvrent une page de cartes (hubs.js) ;
+ * les autres écrans existent toujours (on y va par les cartes, la séance, ou un lien).
+ */
 const MENU = [
-  { titre: 'Aujourd\'hui', ecrans: [seance, revisions] },
-  { titre: 'Apprendre', ecrans: [lecons, lecture, libre] },
-  { titre: 'S\'entraîner', ecrans: [planches, drills, rythme, muldiv, anzan, dictee, quotidien] },
-  { titre: 'Se mesurer', ecrans: [defis, epreuves] },
-  { titre: null, ecrans: [progressionEcran] },
+  { ecran: seance, nom: 'Aujourd\'hui', icone: '☀' },
+  { ecran: apprendre, nom: 'Apprendre', icone: '◎' },
+  { ecran: entrainer, nom: 'S\'entraîner', icone: '⟳' },
+  { ecran: mesurer, nom: 'Se mesurer', icone: '⏱' },
+  { ecran: progressionEcran, nom: 'Progression', icone: '▤' },
 ];
-const ECRANS = MENU.flatMap((s) => s.ecrans);
+const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves];
+/** Entrée du menu à surligner pour un écran. */
+const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? 'seance');
 
 const nav = document.getElementById('navigation');
 const zone = document.getElementById('ecran');
@@ -49,15 +59,15 @@ export const app = {
     remplir(zone);
     zone.parentElement.scrollTop = 0; // la zone défilante est <main>, autour du contenu centré
     nettoyage = ecran.monter(zone, app, params) ?? null;
-    for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === ecran.id);
+    for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === entreeDe(ecran.id));
     app.majBadges();
   },
-  /** Met à jour les pastilles du menu (ex. nombre de révisions dues). */
+  /** Met à jour les pastilles du menu (ex. révisions dues, sur « Aujourd'hui »). */
   majBadges() {
-    for (const e of ECRANS) {
-      const pastille = nav.querySelector(`button[data-id="${e.id}"] .pastille`);
-      if (!pastille || !e.badge) continue;
-      const n = e.badge();
+    for (const m of MENU) {
+      const pastille = nav.querySelector(`button[data-id="${m.ecran.id}"] .pastille`);
+      if (!pastille) continue;
+      const n = m.ecran.badge?.() ?? 0;
       pastille.textContent = n || '';
       pastille.style.display = n ? '' : 'none';
     }
@@ -66,12 +76,10 @@ export const app = {
 
 function construireNavigation() {
   nav.append(h('div', { class: 'titre-app' }, 'Soroban'));
-  for (const section of MENU) {
-    nav.append(section.titre ? h('div', { class: 'section-menu' }, section.titre) : h('hr', { class: 'separateur-menu' }));
-    for (const e of section.ecrans) {
-      nav.append(h('button', { 'data-id': e.id, onclick: () => app.aller(e.id) },
-        e.titre, e.badge ? h('span', { class: 'pastille', style: 'display:none' }) : null));
-    }
+  for (const m of MENU) {
+    if (m.ecran === progressionEcran) nav.append(h('hr', { class: 'separateur-menu' }));
+    nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', onclick: () => app.aller(m.ecran.id) },
+      h('span', { class: 'icone-menu', 'aria-hidden': 'true' }, m.icone), m.nom, h('span', { class: 'pastille', style: 'display:none' })));
   }
 }
 

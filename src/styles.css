@@ -452,3 +452,30 @@ details.carte.objectif { margin: 12px 0; }
 .badge-classement.or, .niveau-confirme { background: #e2b33c; color: #1d1604; }
 .badge-classement.platine, .niveau-expert { background: #7a4fd0; color: #ffffff; }
 .classement-objectifs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+/* ------------------------------------------------------------ pages de cartes (Apprendre, S'entraîner, Se mesurer, Jeux) */
+.cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.carte-hub { display: flex; flex-direction: column; gap: 6px; text-align: left; background: var(--surface); border: 1px solid var(--ligne); border-radius: 10px; padding: 14px 16px; cursor: pointer; font: inherit; color: inherit; transition: border-color 0.12s, box-shadow 0.12s; }
+.carte-hub:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+.carte-hub strong { font-size: 1.02rem; }
+.carte-hub span { color: var(--discret); font-size: 0.88rem; line-height: 1.4; }
+.carte-hub .carte-info { color: var(--texte); font-size: 0.82rem; font-weight: 600; }
+.carte-hub .carte-info.a-faire { color: var(--accent); }
+.carte-hub.recommande { border-left: 3px solid var(--accent); }
+.colonne tr.cliquable { cursor: pointer; }
+.colonne tr.cliquable:hover td { background: #eef3fb; }
+
+/* ------------------------------------------------------------ menu à 5 entrées */
+#navigation button.entree-menu { display: flex; align-items: center; gap: 10px; font-size: 1rem; padding: 11px 12px; margin-bottom: 4px; }
+#navigation .icone-menu { width: 20px; text-align: center; font-size: 1.05rem; opacity: 0.8; }
+#navigation button.entree-menu .pastille { margin-left: auto; }
+
+/* ------------------------------------------------------------ séance : le mot du prof */
+.mot-prof { border-left: 3px solid var(--accent); margin: 14px 0; }
+.mot-prof-titre { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+.mot-prof p { margin: 6px 0; }
+.titre-plan { font-size: 1rem; margin: 18px 0 8px; }
+div.ligne-palier { cursor: default; }
+.bon-geste { display: flex; align-items: center; gap: 28px; margin: 10px 0 14px; }
+.bon-geste .flash-image { margin: 0; }
+.bon-geste .operation { margin: 0; }

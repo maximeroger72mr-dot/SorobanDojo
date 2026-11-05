@@ -20,96 +20,96 @@ import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
+import { decisionDuJour, jeuDuJour, motDuProf } from '../core/prof.js';
+import { examenDeLaSemaine, resultatSemaine, minutesExamen, joursRestants, meilleurPrekyu } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-/** Éléments du plan, avec leur état « fait pendant la séance ». */
 /**
- * @param {object|null} seance  séance en cours : sa priorité du jour est FIGÉE au démarrage (sinon,
- *   une fois le plateau cassé, elle changerait ou disparaîtrait au lieu de se cocher).
+ * Le plan du jour, comme un prof : l'ESSENTIEL (ce qui fait progresser vers l'objectif, dans
+ * l'ordre), puis le BONUS (le plaisir, qui entraîne aussi). Chaque point a une durée estimée
+ * et se coche quand il a été fait pendant la séance.
+ * @param {object|null} seance  séance en cours : sa priorité et sa décision sont FIGÉES au
+ *   démarrage (sinon, une fois le plateau cassé, elles changeraient au lieu de se cocher).
+ * @returns {{ essentiel: object[], bonus: object[], mot: string[], minutes: number }}
  */
 function plan(d, debut, seance = null) {
+  const date = aujourdhui();
   const depuis = d.sessions.filter((s) => (s.horodatage ?? 0) >= debut);
   const fait = (f) => depuis.some(f);
-  const items = [];
-  // Priorité du jour : une consigne franche (geste à ancrer, geste lent, ou plateau à casser).
-  const priorite = seance ? seance.priorite ?? null : prioriteDuJour(d, aujourdhui(), motifsEnDifficulte());
+  const essentiel = [];
+  const bonus = [];
+  const sp = prochainSousPalier();
+
+  // 1. Échauffement : le prochain drill à valider (3 min).
+  const drill = drillEchauffement(d);
+  essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3,
+    fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
+  // 2. Révisions dues : la mémoire avant tout.
+  const dues = revisionsDues().length;
+  if (dues) {
+    essentiel.push({ titre: 'Révisions', detail: `${dues} leçon${dues > 1 ? 's' : ''} à revoir (10 calculs chacune)`, minutes: 3 * dues,
+      fait: fait((s) => s.module === 'revisions'), aller: ['revisions'] });
+  }
+  // 3. Kyū de la semaine : dans l'essentiel à partir de 3 jours de la fin de semaine.
+  const exam = examenDeLaSemaine(d);
+  const examFait = resultatSemaine(d, date);
+  const itemExamen = exam ? { titre: `Kyū de la semaine · ${exam.nom}`, detail: examFait ? `${examFait.points} / ${examFait.total} cette semaine${examFait.reussi ? ', réussi' : ''}` : `20 colonnes en ${minutesExamen(exam)} min, sous pression`, minutes: minutesExamen(exam),
+    fait: !!examFait, aller: ['examen', {}], examen: true } : null;
+  // Dans l'essentiel en fin de semaine (ou s'il a été passé pendant cette séance, pour le voir coché).
+  const examEssentiel = itemExamen && (joursRestants(date) <= 3 || fait((s) => s.module === 'examen' && s.mode === 'semaine'));
+  if (examEssentiel) essentiel.push(itemExamen);
+  // 4. Priorité du jour : le geste à ancrer, à accélérer, ou le plateau à casser.
+  const priorite = seance ? seance.priorite ?? null : prioriteDuJour(d, date, motifsEnDifficulte());
   if (priorite) {
     const [module, p] = priorite.aller;
-    // Cochée seulement par l'exercice prescrit (pas par le drill d'échauffement, par exemple).
     const prescrit = (s) => s.module === module && (module === 'rythme' ? s.mode === p.jeu : !!s.reglages?.priorite);
-    items.push({
-      titre: `Priorité du jour · ${priorite.titre}`, detail: `${priorite.raison} ${priorite.texte}`,
-      fait: fait(prescrit), aller: priorite.aller, priorite: true,
-    });
+    essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true });
   }
-  const drill = drillEchauffement(d);
-  items.push({
-    titre: 'Échauffement', detail: `${drill.titre} (adapté à votre niveau)`,
-    fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }],
-  });
-  const dues = revisionsDues().length;
-  const conso = consolidationDuJour(d, aujourdhui());
+  // 5. Avancer ou ancrer : la décision du prof.
+  const decision = seance?.decision ?? decisionDuJour(d, date, sp);
+  essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: decision.minutes, aller: decision.aller, decision: true,
+    fait: fait((s) => (decision.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === decision.aller[1].sousPalier
+      : s.module === 'rythme' && s.mode === 'marathon' && (!decision.cibles || (s.reglages?.cibles ?? []).includes(decision.cibles[0])))) });
+  // 6. Consolidation (2 à 7 jours après une leçon) : mélanger pour retenir.
+  const conso = consolidationDuJour(d, date);
   if (conso) {
-    items.push({
-      titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`,
-      fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }],
-    });
+    essentiel.push({ titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`, minutes: 5,
+      fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
-  if (dues) {
-    items.push({
-      titre: 'Révisions dues', detail: `${dues} leçon${dues > 1 ? 's' : ''} à réviser (test flash de 10 calculs)`,
-      fait: dues === 0 || fait((s) => s.module === 'revisions'), aller: ['revisions'],
-    });
+  // 7. Multiplication / division : tables et placement deviennent des réflexes quotidiens.
+  if (coursMultiplicationAtteint(d, sp)) {
+    essentiel.push({ titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité', minutes: 3,
+      fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
   }
-  const lents = gestesLents(d);
-  if (lents.length && !priorite) {
-    items.push({
-      titre: 'Vitesse', detail: `vos gestes les plus lents : ${lents.map((l) => nomMotif(l.cle)).join(', ')}`,
-      fait: fait((s) => s.module === 'planches' && s.mode === 'lents'), aller: ['planches', { cible: 'lents', auto: true }],
-    });
+  const placement = placementDuJour(d, date, sp);
+  if (placement && placement.id !== sp?.id) {
+    essentiel.push({ titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`, minutes: 2,
+      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === placement.id), aller: ['lecons', { sousPalier: placement.id, onglet: 'entrainement' }] });
   }
-  // Anzan, 5 minutes : la prochaine leçon de la piste anzan si elle est ouverte (elle suit le
-  // soroban avec retard), sinon une série de flash adaptée aux leçons d'anzan validées.
+
+  // ---- Bonus
+  if (itemExamen && !examEssentiel) bonus.push(examFait ? itemExamen : { ...itemExamen, detail: `${itemExamen.detail} : à passer avant dimanche, un jour de forme` });
   const lecAnzan = prochainAnzan();
   if (lecAnzan) {
-    items.push({
-      titre: 'Anzan (5 min)', detail: lecAnzan.titre,
-      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === lecAnzan.id), aller: ['lecons', { sousPalier: lecAnzan.id }],
-    });
+    bonus.push({ titre: 'Anzan', detail: lecAnzan.titre, minutes: 5,
+      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === lecAnzan.id), aller: ['lecons', { sousPalier: lecAnzan.id }] });
   } else if (d.paliers['p1-a']?.valide) {
     const a = anzanAdapte(d);
-    items.push({
-      titre: 'Anzan (5 min)', detail: `${a.questions} calculs de tête, ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}, ${a.duree.toLocaleString('fr-FR')} s par nombre`,
-      fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }],
-    });
+    bonus.push({ titre: 'Anzan', detail: `${a.questions} calculs de tête, ${a.termes} nombres, ${a.duree.toLocaleString('fr-FR')} s par nombre`, minutes: 5,
+      fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }] });
   }
-  const sp = prochainSousPalier();
-  // Tables : dès le cours de multiplication, 20 produits ciblés sur les plus lents.
-  if (coursMultiplicationAtteint(d, sp)) {
-    items.push({
-      titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité',
-      fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }],
-    });
+  const jeu = jeuDuJour(d, date);
+  bonus.push({ titre: `Jeu du jour · ${jeu.titre}`, detail: jeu.detail, minutes: 5,
+    fait: fait((s) => (s.module === 'jeux' && String(s.mode).startsWith(jeu.mode)) || (s.module === 'defis' && s.mode === jeu.mode)), aller: jeu.aller });
+  bonus.push({ titre: 'Défi de la semaine', detail: 'la même feuille toute la semaine : gagnez les 3 étoiles', minutes: 5,
+    fait: fait((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode)), aller: ['defis', { semaine: true }] });
+  if (d.reglages?.objectifGrade?.pourquoi || new Date(`${date}T12:00`).getDay() === 3) {
+    bonus.push({ titre: 'Au quotidien', detail: 'ticket de caisse, monnaie, pourcentages', minutes: 5, fait: fait((s) => s.module === 'quotidien'), aller: ['quotidien'] });
   }
-  // Réflexe de placement : seulement une fois arrivé au cours de multiplication, mais alors tous les jours.
-  const placement = placementDuJour(d, aujourdhui(), sp);
-  if (placement && placement.id !== sp?.id) {
-    items.push({
-      titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`,
-      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === placement.id), aller: ['lecons', { sousPalier: placement.id, onglet: 'entrainement' }],
-    });
-  }
-  if (sp) {
-    items.push({
-      titre: 'Leçon', detail: sp.titre,
-      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === sp.id), aller: ['lecons', { sousPalier: sp.id }],
-    });
-  }
-  items.push({
-    titre: 'Défi de la semaine', detail: 'la même feuille toute la semaine : battez votre temps',
-    fait: fait((s) => s.module === 'defis' && s.mode === 'semaine'), aller: ['defis', { semaine: true }], optionnel: true,
-  });
-  return items;
+
+  const minutes = essentiel.reduce((t, it) => t + it.minutes, 0);
+  const mot = motDuProf(d, date, decision, minutes, reglagesUtilisateur().objectifMinutes);
+  return { essentiel, bonus, mot, minutes, decision };
 }
 
 /** Suggestion pour la prochaine séance. */
@@ -174,6 +174,7 @@ function carteObjectif(d, rafraichir) {
 export default {
   id: 'seance',
   titre: 'Séance du jour',
+  badge: () => revisionsDues().length,
   monter(el, app) {
     function afficher(bilan = null) {
       remplir(el);
@@ -199,7 +200,7 @@ export default {
             h('div', { class: 'jauge', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
               h('div', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
           h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Grade'),
-            h('div', { class: 'tuile-valeur' }, g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : 'aucun pour l\'instant'),
+            h('div', { class: 'tuile-valeur' }, g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : meilleurPrekyu(d) ? `${meilleurPrekyu(d).nom} (préparatoire)` : 'aucun pour l\'instant'),
             h('div', { class: 'discret' }, !g.prochain ? 'Tous les kyū sont obtenus.'
               : g.pret ? `Prêt pour le ${g.prochain.nom} : tentez l'épreuve.`
                 : `Prochain : ${g.prochain.nom} · ${g.manquantes.length} leçon${g.manquantes.length > 1 ? 's' : ''} à valider`))));
@@ -220,25 +221,28 @@ export default {
           h('p', { class: 'discret' }, 'Vous pouvez continuer à vous entraîner librement.')));
       }
 
-      // --- plan
-      if (!seance) {
-        const apercu = plan(d, Date.now());
-        el.append(h('div', { class: 'carte' },
-          h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, bilan ? 'Une autre séance ?' : 'Votre séance'),
-            h('button', { class: 'btn principal', onclick: async () => { await commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()) }); afficher(); } }, 'Commencer la séance')),
-          h('ol', { class: 'plan' }, apercu.map((it) => h('li', { class: it.priorite ? 'priorite' : '' }, h('strong', {}, it.titre), ` · ${it.detail}${it.optionnel ? ' (facultatif)' : ''}`)))),
-        niveauAddsub(d) === 0 && !d.sessions.length
-          ? h('p', { class: 'discret' }, 'Première fois ? Commencez par « Lecture des nombres », puis les leçons guidées.') : '');
-        return;
-      }
-      const items = plan(d, seance.debut, seance);
-      el.append(h('div', { class: 'carte' },
-        h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Séance en cours · commencée à ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`),
-          h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir la séance')),
-        h('div', { class: 'liste-paliers', style: 'margin-top:10px' }, items.map((it) => h('button', {
-          class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`, onclick: () => app.aller(...it.aller),
-        }, h('span', { class: 'icone' }, it.fait ? '✓' : '○'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
-        h('span', { class: 'statut' }, it.fait ? 'fait' : it.optionnel ? 'facultatif' : 'à faire'))))));
+      // --- le prof et le plan
+      const p = plan(d, seance ? seance.debut : Date.now(), seance);
+      const ligne = (it, i, enCours) => h(enCours ? 'button' : 'div', {
+        class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`, onclick: enCours ? () => app.aller(...it.aller) : null,
+      }, h('span', { class: 'icone' }, it.fait ? '✓' : i !== null ? String(i + 1) : '★'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
+      h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
+      el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
+      const entete = seance
+        ? h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Séance en cours · commencée à ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`),
+          h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir la séance'))
+        : h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, bilan ? 'Une autre séance ?' : 'Votre séance'),
+          h('button', { class: 'btn principal', onclick: async () => {
+            await commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
+            afficher();
+          } }, 'Commencer la séance'));
+      el.append(h('div', { class: 'carte' }, entete,
+        h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : pour atteindre votre objectif, dans cet ordre')),
+        h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i, !!seance))),
+        h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
+        h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null, !!seance))),
+        !seance ? h('p', { class: 'discret' }, 'Commencez la séance pour ouvrir chaque exercice d\'un clic ; chacun se coche quand il est fait.') : null));
+      if (niveauAddsub(d) === 0 && !d.sessions.length) el.append(h('p', { class: 'discret' }, 'Première fois ? Commencez par « Lecture des nombres » (Apprendre), puis les leçons guidées.'));
     }
     afficher();
   },
