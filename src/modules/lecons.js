@@ -84,7 +84,7 @@ export default {
   titre: 'Leçons guidées',
   monter(el, app, params = {}) {
     let nettoyerVue = null;
-    const changer = (f) => { nettoyerVue?.(); remplir(el); el.scrollTop = 0; nettoyerVue = f() ?? null; };
+    const changer = (f) => { nettoyerVue?.(); remplir(el); el.closest('main').scrollTop = 0; nettoyerVue = f() ?? null; };
 
     // ---------------------------------------------------------------- carte du parcours
     function carte() {

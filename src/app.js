@@ -47,7 +47,7 @@ export const app = {
     const ecran = ECRANS.find((e) => e.id === id) ?? seance;
     nettoyage?.();
     remplir(zone);
-    zone.scrollTop = 0;
+    zone.parentElement.scrollTop = 0; // la zone défilante est <main>, autour du contenu centré
     nettoyage = ecran.monter(zone, app, params) ?? null;
     for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === ecran.id);
     app.majBadges();

@@ -160,7 +160,7 @@ export default {
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, formaterDuree(score)),
             h('p', {}, `${b.justes} / ${b.total} justes · temps ${formaterDuree(b.dureeMs)}${erreurs ? ` + ${erreurs} × ${PENALITE_MS / 1000} s de pénalité` : ''}`),
-            med ? h('p', { class: `medaille ${med.nom}` }, med.texte) : null,
+            med ? h('p', {}, h('span', { class: `badge-classement ${med.nom}` }, med.nom[0].toUpperCase() + med.nom.slice(1)), med.texte) : null,
             nouveau ? h('p', { class: 'retour ok' }, r ? `Nouveau record : ${formaterDuree(r.dureeMs - score)} de mieux que votre fantôme.` : 'Premier record : votre fantôme est né.') : h('p', { class: 'discret' }, `Fantôme (record) : ${formaterDuree(records()[cle()].dureeMs)}`),
             h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer() }, 'Rejouer'), h('button', { class: 'btn', onclick: () => accueil() }, 'Changer de défi'))),
           listeErreurs(b.resultats) ?? '');

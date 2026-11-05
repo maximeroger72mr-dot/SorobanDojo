@@ -11,6 +11,7 @@
  *   records:  { [cle]: { dureeMs | points, date } }        // drills, défis, planches, épreuves
  *   motifs:   { [cleMotif]: { essais, erreurs, dette, hist: [{ ok, t }] } }   // par geste
  *   paliers:  { [idSousPalier]: { reps, justes, valide, carte: { boite, echeance }, hist: [{ ok, t }] } },
+ *   drills:   { [idDrill]: { validations, valide } }       // parcours des drills (2 passages sous bronze)
  *   reglages: { decouverte: false, objectifMinutes: 15 },
  *   avis:     [ messages à montrer une fois ],
  *   stats:    { suite, meilleureSuite }                       // réponses justes d'affilée
@@ -267,6 +268,20 @@ export async function modifierReglages(r) {
 /** Remet à zéro le diagnostic des gestes (sans toucher aux leçons ni aux records). */
 export async function reinitialiserGestes() {
   donnees.motifs = {};
+  await sauver();
+}
+
+// ------------------------------------------------------------------ drills (parcours et validation)
+
+/** État d'un drill : nombre de passages validés (justes et sous le temps bronze). */
+export const etatDrill = (id) => donnees.drills?.[id] ?? { validations: 0 };
+
+/** Un passage juste et sous le temps bronze compte pour la validation du drill. */
+export async function noterDrill(id) {
+  donnees.drills ??= {};
+  const e = (donnees.drills[id] ??= { validations: 0 });
+  e.validations += 1;
+  if (e.validations === 2) e.valide = aujourdhui();
   await sauver();
 }
 

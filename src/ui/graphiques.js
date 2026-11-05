@@ -20,11 +20,15 @@ const s = (nom, attrs = {}, ...enfants) => {
   return e;
 };
 
-/** Rampe des niveaux d'acquisition (validée : une teinte, clarté monotone, écarts visibles). */
+/**
+ * Couleurs des niveaux d'acquisition, comme des médailles : bronze (en progrès), argent (acquis
+ * débutant), or (confirmé), platine violet (expert). Teintes bien distinctes ; le texte de chaque
+ * case garde le nom du niveau, la couleur n'est jamais la seule information.
+ */
 export const COULEUR_NIVEAU = {
-  decouverte: '#eeece8', progres: '#86b6ef', debutant: '#5598e7', confirme: '#256abf', expert: '#104281',
+  decouverte: '#eeece8', progres: '#c98a52', debutant: '#c3c8cf', confirme: '#e2b33c', expert: '#7a4fd0',
 };
-export const ENCRE_NIVEAU = { decouverte: '#52514e', progres: '#0b0b0b', debutant: '#0b0b0b', confirme: '#ffffff', expert: '#ffffff' };
+export const ENCRE_NIVEAU = { decouverte: '#52514e', progres: '#1d1208', debutant: '#15181c', confirme: '#1d1604', expert: '#ffffff' };
 
 // ------------------------------------------------------------------ info-bulle partagée
 

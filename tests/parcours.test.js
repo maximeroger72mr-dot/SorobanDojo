@@ -1,3 +1,4 @@
+import { catalogueDrills, famillesDrill, chiffresDrill, classement } from '../src/core/drills.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { grade, drillEchauffement, defiSemaine, motifsAppris } from '../src/core/parcours.js';
@@ -19,13 +20,32 @@ test('grade : prochain conseillé et leçons manquantes', () => {
   assert.ok(grade(d).pret);
 });
 
-test('échauffement adapté au niveau', () => {
+test('échauffement : le prochain drill à valider, jamais un geste pas encore appris', () => {
   const d = vide();
-  assert.equal(drillEchauffement(d).id, '123-1');
+  assert.equal(drillEchauffement(d).id, 'directs');
+  // Petits amis appris, deux premiers drills validés : on passe au suivant, pas à 12 × 9.
+  for (const id of ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5', 'p2-6', 'p2-7']) d.paliers[id] = { valide: '2026-11-01' };
+  d.drills = { directs: { validations: 2 }, '123-1': { validations: 2 } };
+  assert.equal(drillEchauffement(d).id, 'r-4');
+  const liste = catalogueDrills();
+  const avant = liste.filter((x) => x.groupe === 'Avant les grands amis');
+  for (const x of avant) d.drills[x.id] = { validations: 2 };
+  // Tout le groupe validé, mais pas de grands amis : on reste sur le dernier drill accessible.
+  assert.equal(drillEchauffement(d).id, 'tour-petits');
+  for (const x of avant) assert.deepEqual(famillesDrill(x).filter((f) => f !== 'petit'), [], x.id);
+  // Tout appris et tout validé : le plus long drill, pour améliorer son classement.
   for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
-  assert.equal(drillEchauffement(d).id, '123-9');
-  d.records['epreuve-6'] = { reussi: true };
-  assert.equal(drillEchauffement(d).id, '123-9-ar');
+  for (const x of liste) d.drills[x.id] = { validations: 2 };
+  assert.equal(drillEchauffement(d).id, liste.at(-1).id);
+});
+
+test('classement des drills : bronze, argent, or, platine', () => {
+  const d = catalogueDrills().find((x) => x.id === 'r-4');
+  assert.equal(chiffresDrill(d), 36);
+  assert.equal(classement(d, 80000), null);
+  assert.equal(classement(d, 72000).id, 'bronze');
+  assert.equal(classement(d, 30000).id, 'or');
+  assert.equal(classement(d, 20000).id, 'platine');
 });
 
 test('défi de la semaine : identique toute la semaine, strict sur les gestes appris', () => {

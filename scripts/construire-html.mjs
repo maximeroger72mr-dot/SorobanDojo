@@ -37,7 +37,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 <nav id="navigation" aria-label="Navigation principale"></nav>
-<main id="ecran"></main>
+<main id="defilement"><div id="ecran" class="contenu"></div></main>
 <script type="module">${js}</script>
 </body>
 </html>

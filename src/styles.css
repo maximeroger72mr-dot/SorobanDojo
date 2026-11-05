@@ -48,7 +48,8 @@ body {
 #navigation .bientot { font-size: 0.75rem; margin-left: 4px; }
 
 main { flex: 1; overflow-y: auto; padding: 28px 36px 48px; }
-main > * { max-width: 1000px; }
+/* Écran de travail centré : une colonne de 920 px au plus, au milieu de la zone. */
+.contenu { max-width: 920px; margin: 0 auto; }
 
 h1 { font-size: 1.5rem; margin: 0 0 6px; }
 h2 { font-size: 1.1rem; margin: 24px 0 8px; }
@@ -259,8 +260,9 @@ table.colonne.compacte td { padding: 0 4px; }
 /* ------------------------------------------------------------ impression : la feuille seule, corrigé sur une autre page */
 @media print {
   body { display: block; height: auto; overflow: visible; background: white; }
-  #navigation, .reglages, .lien, button, .chrono-feuille, .bilan, main > h1, main > p, main > details, main > .carte { display: none !important; }
+  #navigation, .reglages, .lien, button, .chrono-feuille, .bilan, .contenu > h1, .contenu > p, .contenu > details, .contenu > .carte { display: none !important; }
   main { padding: 0; overflow: visible; }
+  .contenu { max-width: none; }
   .barre-feuille { position: static; border: none; }
   .probleme { break-inside: avoid; border-color: #999; }
   .probleme input { border: none; border-bottom: 1px solid #333; border-radius: 0; color: transparent; }
@@ -273,10 +275,10 @@ table.colonne.compacte td { padding: 0 4px; }
 /* ------------------------------------------------------------ niveaux d'acquisition et chronomètre */
 .niveau { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
 .niveau-decouverte { background: #eeece8; color: #52514e; }
-.niveau-progres { background: #86b6ef; color: #0b0b0b; }
-.niveau-debutant { background: #5598e7; color: #0b0b0b; }
-.niveau-confirme { background: #256abf; color: #ffffff; }
-.niveau-expert { background: #104281; color: #ffffff; }
+
+
+
+
 .ligne-palier .niveau { margin-left: 6px; }
 .disposition-enonce { display: flex; gap: 32px; align-items: flex-start; max-width: 720px; }
 .chrono-exercice { margin: 10px 0 0 auto; text-align: right; min-width: 130px; }
@@ -443,3 +445,10 @@ details.carte.objectif { margin: 12px 0; }
 .quotidien .ticket .ticket-total { border-top: 1px dashed var(--discret); margin-top: 6px; padding-top: 6px; font-weight: 700; }
 .quotidien .ticket .sous-total { color: var(--discret); font-size: 0.85em; }
 .colonne td.relance { font-size: 0.72rem; color: var(--discret); padding-left: 10px; font-style: italic; }
+/* ------------------------------------------------------------ classement : bronze, argent, or, platine */
+.badge-classement { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-right: 6px; white-space: nowrap; }
+.badge-classement.bronze, .niveau-progres { background: #c98a52; color: #1d1208; }
+.badge-classement.argent, .niveau-debutant { background: #c3c8cf; color: #15181c; }
+.badge-classement.or, .niveau-confirme { background: #e2b33c; color: #1d1604; }
+.badge-classement.platine, .niveau-expert { background: #7a4fd0; color: #ffffff; }
+.classement-objectifs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

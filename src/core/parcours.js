@@ -10,7 +10,7 @@
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
 import { famille, nomMotif } from './motifs.js';
-import { catalogueDrills } from './drills.js';
+import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL } from './drills.js';
 import { evaluer, plateau } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
@@ -58,13 +58,36 @@ export function grade(d) {
 /** Niveau global de 0 à 1 : part des leçons d'addition/soustraction validées. */
 export const niveauAddsub = (d) => ADDSUB.filter((sp) => estValide(d, sp.id)).length / ADDSUB.length;
 
-/** Drill d'échauffement adapté : 1 × 9 au début, jusqu'à 123456789 × 9 aller-retour. */
+/** Familles d'amis apprises (leçons validées) : 'petit', 'grand', 'mixte', 'cascade'. */
+export function famillesApprises(d) {
+  const f = new Set();
+  for (const c of motifsAppris(d)) f.add(c.startsWith('cascade') ? 'cascade' : c.split(':')[1]);
+  return f;
+}
+
+/** Ce qu'un drill demande et que l'élève n'a pas encore appris (ex. ['grand', 'cascade']). */
+export const manqueDrill = (d, drill) => famillesDrill(drill).filter((f) => !famillesApprises(d).has(f));
+export const drillValide = (d, id) => (d.drills?.[id]?.validations ?? 0) >= VALIDATIONS_DRILL;
+
+/**
+ * Un drill est ouvert si le précédent du parcours est validé ET si ses gestes sont appris
+ * (le mode découverte ouvre tout).
+ */
+export function drillOuvert(d, drill) {
+  if (d.reglages?.decouverte) return true;
+  const liste = catalogueDrills();
+  const i = liste.findIndex((x) => x.id === drill.id);
+  return manqueDrill(d, drill).length === 0 && (i <= 0 || drillValide(d, liste[i - 1].id));
+}
+
+/**
+ * Drill d'échauffement : le prochain drill à valider (ouvert, pas encore validé) ; une fois le
+ * parcours accessible validé, le plus long drill validé, pour améliorer son classement.
+ */
 export function drillEchauffement(d) {
-  const drills = catalogueDrills();
-  const g = grade(d).obtenu;
-  if (g && Number(g.id) <= 6) return drills.find((x) => x.id === '123-9-ar');
-  const k = Math.min(9, 1 + Math.floor(niveauAddsub(d) * 8));
-  return drills.find((x) => x.id === `123-${k}`);
+  const liste = catalogueDrills();
+  const ouverts = liste.filter((x) => drillOuvert({ ...d, reglages: { ...d.reglages, decouverte: false } }, x));
+  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? liste[0];
 }
 
 /** Gestes appris (au moins 8 essais réussis) les plus lents : à accélérer. */

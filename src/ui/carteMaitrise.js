@@ -10,6 +10,8 @@ import { NIVEAUX } from '../core/maitrise.js';
 import { progression, evaluerMotif } from '../core/progression.js';
 import { motifsAppris } from '../core/parcours.js';
 import { COULEUR_NIVEAU, ENCRE_NIVEAU, montrerBulle, cacherBulle } from './graphiques.js';
+
+const MEDAILLE = { progres: 'bronze', debutant: 'argent', confirme: 'or', expert: 'platine' };
 import { h } from './dom.js';
 
 const LIGNES = [
@@ -65,7 +67,7 @@ export function carteMaitrise(o = {}) {
       }))));
   const legende = h('div', { class: 'legende' },
     h('span', { class: 'pastille-legende non-pratique' }), 'pas pratiqué',
-    NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), n.nom]),
+    NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), `${n.nom}${MEDAILLE[n.id] ? ` (${MEDAILLE[n.id]})` : ''}`]),
     modeSelection ? [h('span', { class: 'pastille-legende choisi-legende' }), 'choisi'] : null);
   return h('div', {}, tableau, legende);
 }

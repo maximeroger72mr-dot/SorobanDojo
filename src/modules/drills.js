@@ -3,13 +3,16 @@
  * Tout se fait sur son soroban ; seul le chronomètre compte (voir ui/drill.js).
  */
 
-import { catalogueDrills, drillRepetition } from '../core/drills.js';
-import { enregistrerSession, proposerRecord, progression } from '../core/progression.js';
+import { catalogueDrills, drillRepetition, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement } from '../core/drills.js';
+import { enregistrerSession, proposerRecord, progression, etatDrill, noterDrill } from '../core/progression.js';
+import { drillOuvert, manqueDrill, drillValide } from '../core/parcours.js';
 import { creerDrill } from '../ui/drill.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, produitLent, cleProduit } from '../core/tables.js';
 import { noterProduit, statsTables } from '../core/progression.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
+
+const NOMS_FAMILLES = { petit: 'petits amis', grand: 'grands amis', mixte: 'combinaisons', cascade: 'cascades' };
 
 export default {
   id: 'drills',
@@ -23,7 +26,26 @@ export default {
       const drills = catalogueDrills();
       const groupes = [...new Set(drills.map((d) => d.groupe))];
       el.append(h('h1', {}, 'Drills'),
-        h('p', { class: 'discret' }, 'Des suites classiques à faire sur votre soroban, chronométrées. Le résultat attendu n\'apparaît qu\'à la fin, pour vérifier. Commencez par les variantes courtes.'));
+        h('p', { class: 'discret' }, `Des suites classiques à faire sur votre soroban, chronométrées. Elles se suivent du plus simple au plus long : un drill est validé après ${VALIDATIONS_DRILL} passages justes sous le temps bronze, et ouvre le suivant. Revenez-y ensuite pour décrocher l'argent, l'or et le platine.`));
+      const prog = progression();
+      for (const g of groupes.filter((x) => x !== 'Même nombre répété')) {
+        el.append(h('h2', {}, g), h('div', { class: 'liste-paliers' }, drills.filter((d) => d.groupe === g).map((d) => {
+          const ouvert = drillOuvert(prog, d);
+          const valide = drillValide(prog, d.id);
+          const rec = record(d.id);
+          const cl = rec ? classement(d, rec.dureeMs) : null;
+          const manque = manqueDrill(prog, d);
+          const precedent = drills[drills.indexOf(d) - 1];
+          let statut;
+          if (!ouvert) statut = manque.length ? `demande : ${manque.map((f) => NOMS_FAMILLES[f]).join(', ')}` : `après « ${precedent.titre} »`;
+          else if (valide) statut = `validé${rec ? ` · record ${formaterDuree(rec.dureeMs)}` : ''}`;
+          else statut = `à valider : ${etatDrill(d.id).validations} / ${VALIDATIONS_DRILL} sous ${formaterDuree(tempsClassement(d, 'bronze'))}`;
+          return h('button', { class: `ligne-palier${valide ? ' valide' : ''}`, disabled: !ouvert, onclick: () => changer(() => ecran(d)) },
+            h('span', { class: 'icone' }, valide ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, d.titre),
+            cl ? h('span', { class: `badge-classement ${cl.id}` }, cl.nom) : null,
+            h('span', { class: 'statut' }, statut));
+        })));
+      }
       // Tables de multiplication (九九)
       const choixTable = h('select', {}, [2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19].map((n) => h('option', { value: n }, n < 10 ? `table de ${n}` : `table de ${n} (diviseur)`)));
       choixTable.value = '7';
@@ -42,25 +64,33 @@ export default {
         h('p', { class: 'discret' }, 'Ajouter le même nombre en boucle fait passer chaque tige par tous les cas : le meilleur exercice pour ancrer les amis d\'un chiffre.'),
         h('div', { class: 'ligne' }, 'Ajouter', choixN, choixFois, h('label', {}, ar, ' puis revenir à 0'),
           h('button', { class: 'btn principal', onclick: () => changer(() => ecran(drillRepetition(Number(choixN.value), Number(choixFois.value), ar.checked))) }, 'Commencer')));
-      for (const g of groupes.filter((x) => x !== 'Même nombre répété')) {
-        el.append(h('h2', {}, g), h('div', { class: 'liste-paliers' }, drills.filter((d) => d.groupe === g).map((d) => h('button', {
-          class: 'ligne-palier', onclick: () => changer(() => ecran(d)),
-        }, h('span', { class: 'icone' }, record(d.id) ? '✓' : '○'), h('span', { class: 'titre' }, d.titre),
-        h('span', { class: 'statut' }, `${d.operations.length} opérations${record(d.id) ? ` · record ${formaterDuree(record(d.id).dureeMs)}` : ''}`)))));
-      }
     }
 
     /** Écran d'un drill ; `retour` permet de revenir ailleurs (ex. séance du jour). */
     function ecran(d) {
       el.append(h('button', { class: 'lien', onclick: () => changer(catalogue) }, '← Tous les drills'),
-        h('h1', {}, d.titre), h('p', {}, d.description));
+        h('h1', {}, d.titre), h('p', {}, d.description),
+        h('p', { class: 'classement-objectifs' }, CLASSEMENT.map((c) => h('span', { class: `badge-classement ${c.id}` }, `${c.nom} ≤ ${formaterDuree(tempsClassement(d, c.id))}`)),
+          h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)));
       const drill = creerDrill(el, d, {
         record: record(d.id),
         surFin: async ({ juste, dureeMs }) => {
           await enregistrerSession({ module: 'drills', mode: d.id, reglages: { priorite: !!params.priorite }, total: 1, justes: juste ? 1 : 0, dureeMs });
           const nouveau = juste && await proposerRecord(`drill-${d.id}`, dureeMs);
+          const cl = juste ? classement(d, dureeMs) : null;
+          const avant = drillValide(progression(), d.id);
+          if (cl) await noterDrill(d.id);
+          const n = etatDrill(d.id).validations;
+          const suivant = CLASSEMENT[CLASSEMENT.findIndex((c) => c.id === cl?.id) + 1];
+          const message = !juste ? 'Résultat faux : ce passage ne compte pas. Reprenez lentement, avec les points de contrôle.'
+            : !cl ? `Juste, mais au-dessus du temps bronze (${formaterDuree(tempsClassement(d, 'bronze'))}) : encore un peu de rythme.`
+              : !avant && n >= VALIDATIONS_DRILL ? `${cl.nom} ! Drill validé : le suivant est ouvert.`
+                : !avant ? `${cl.nom} ! Passage validé (${n} / ${VALIDATIONS_DRILL}).`
+                  : `${cl.nom}.${suivant ? ` Prochain objectif : ${suivant.nom.toLowerCase()} en ${formaterDuree(tempsClassement(d, suivant.id))}.` : ' Le meilleur classement !'}`;
           return h('div', { class: 'ligne', style: 'margin-top:8px' },
-            nouveau ? h('strong', {}, 'Nouveau record personnel ! ') : null,
+            cl ? h('span', { class: `badge-classement ${cl.id}` }, cl.nom) : null,
+            h('span', {}, message),
+            nouveau ? h('strong', {}, ' Nouveau record personnel ! ') : null,
             h('button', { class: 'btn principal', onclick: () => changer(() => ecran(d)) }, 'Recommencer'),
             h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'));
         },

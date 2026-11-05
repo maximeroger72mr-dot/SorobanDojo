@@ -53,12 +53,15 @@ export function fantomeMaitre(generer, niveau = 'confirme') {
   return { msParExercice: ms, nom: `le maître (${n.nom.toLowerCase().replace('acquis ', '')})` };
 }
 
-/** Médaille d'une série, d'après les seuils de niveau : or (expert), argent (confirmé), bronze (débutant). */
+/**
+ * Médaille d'une série, avec les couleurs des niveaux : platine (rythme expert), or (confirmé),
+ * argent (débutant), bronze (au moins 90 % de justes, plus lentement).
+ */
 export function medaille(dureeMoyenneMs, exemples, justes, total) {
   if (!total || justes / total < 0.9) return null;
   const seuil = (id) => exemples.reduce((s, ex) => s + tempsCible(ex, NIVEAUX.find((x) => x.id === id)) * 1000, 0) / exemples.length;
-  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'or', texte: 'Médaille d\'or : rythme expert.' };
-  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'argent', texte: 'Médaille d\'argent : rythme confirmé.' };
-  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'bronze', texte: 'Médaille de bronze : rythme débutant.' };
-  return null;
+  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'platine', texte: 'Platine : rythme expert.' };
+  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'or', texte: 'Or : rythme confirmé.' };
+  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'argent', texte: 'Argent : rythme débutant.' };
+  return { nom: 'bronze', texte: 'Bronze : juste, la vitesse viendra.' };
 }
