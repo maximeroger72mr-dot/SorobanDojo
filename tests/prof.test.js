@@ -55,3 +55,17 @@ test('le prof : on termine une leçon commencée, on ancre ce qui n\'est pas acq
   const mot = motDuProf(d, '2026-11-04', decisionDuJour(d, '2026-11-04', prochain), 40, 15);
   assert.ok(mot.some((p) => p.includes('90 %')) && mot.some((p) => p.includes('40 min')), mot.join(' | '));
 });
+
+import { planObjectif } from '../src/core/parcours.js';
+
+test('objectif daté : honnête sur le temps de pratique, pas seulement les leçons', () => {
+  const d = vide();
+  valider(d, ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5'], '2026-10-25');
+  // 1er kyū en 8 mois : pas réaliste ; date réaliste dans près de 3 ans ; un kyū intermédiaire proposé.
+  const p = planObjectif(d, '1', '2027-07-12', '2026-11-06');
+  assert.equal(p.verdict, 'irrealiste');
+  assert.ok(p.dateRealiste > '2029-06-01', p.dateRealiste);
+  assert.ok(['8', '7'].includes(p.atteignable.id), p.atteignable?.id);
+  // 10e kyū en 4 mois : réaliste.
+  assert.equal(planObjectif(d, '10', '2027-03-10', '2026-11-06').verdict, 'realiste');
+});

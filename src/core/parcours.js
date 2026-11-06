@@ -243,9 +243,31 @@ export function prioriteDuJour(d, date, difficiles = []) {
 // ------------------------------------------------------------------ objectif choisi
 
 /**
- * Plan à rebours vers un grade choisi pour une date : leçons restantes, rythme nécessaire par
- * semaine, rythme réellement mesuré (leçons validées les 4 dernières semaines), temps conseillé
- * par jour, et verdict (réaliste ou non).
+ * Repères PRUDENTS (pas des chiffres officiels) : mois de pratique quotidienne (20 à 30 min)
+ * qu'il faut en général à un adulte débutant pour atteindre chaque kyū. Les leçons ne sont qu'une
+ * partie du chemin : à partir du 6e kyū, c'est la VITESSE et l'endurance exigées aux examens
+ * (colonnes de plus en plus longues, temps limité) qui demandent des mois de drills.
+ */
+export const MOIS_REPERE = { 10: 3, 9: 4, 8: 6, 7: 8, 6: 11, 5: 14, 4: 18, 3: 24, 2: 30, 1: 36 };
+const ajouterMois = (date, mois) => { const x = new Date(`${date}T12:00`); x.setDate(x.getDate() + Math.round(mois * 30.4)); return x.toISOString().slice(0, 10); };
+
+/** Où en est l'élève, en « mois de pratique » sur l'échelle des repères. */
+export function moisAcquis(d) {
+  const obtenu = [...GRADES].reverse().find((g) => d.records[`epreuve-${g.id}`]?.reussi);
+  const base = obtenu ? MOIS_REPERE[obtenu.id] : 0;
+  // Avant le 10e kyū : la part des leçons du 10e kyū déjà validées.
+  if (!obtenu) {
+    const ids = PREREQUIS[10];
+    return (MOIS_REPERE[10] * ids.filter((id) => estValide(d, id)).length) / ids.length;
+  }
+  return base;
+}
+
+/**
+ * Plan à rebours vers un grade choisi pour une date. Deux contraintes, et le verdict prend la
+ * plus dure : les LEÇONS restantes (au rythme mesuré) et le TEMPS DE PRATIQUE réaliste
+ * (MOIS_REPERE). Verdict : 'realiste', 'ambitieux' (possible en pratiquant plus), 'irrealiste'
+ * (avec une date réaliste et le grade qu'on peut viser à la date choisie).
  * @param {string} gradeId  ex. '6'
  * @param {string} dateCible, date  AAAA-MM-JJ
  */
@@ -260,10 +282,25 @@ export function planObjectif(d, gradeId, dateCible, date) {
   const parSemaine = manquantes / semaines;
   const recentes = SOUS_PALIERS.filter((sp) => !sp.mental && d.paliers[sp.id]?.valide && jour(date) - jour(d.paliers[sp.id].valide) <= 28 * 86400000).length;
   const rythme = recentes / 4;
-  // Repère : une leçon ≈ 25 minutes de travail (entraînement + mini-test), 6 jours sur 7.
-  const minutesJour = Math.min(60, Math.max(10, Math.round((parSemaine * 25) / 6 / 5) * 5));
-  const realiste = jours > 0 && (manquantes === 0 || parSemaine <= Math.max(rythme * 1.2, 3));
-  return { grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, realiste };
+  // Temps de pratique encore nécessaire, et temps disponible.
+  const acquis = moisAcquis(d);
+  const moisRestants = Math.max(0, MOIS_REPERE[g.id] - acquis);
+  const moisDispo = Math.max(0, jours / 30.4);
+  const leconsOk = manquantes === 0 || parSemaine <= Math.max(rythme * 1.2, 3);
+  let verdict;
+  if (jours <= 0) verdict = 'irrealiste';
+  else if (moisDispo >= moisRestants && leconsOk) verdict = 'realiste';
+  else if (moisDispo >= moisRestants * 0.75 && parSemaine <= 4) verdict = 'ambitieux';
+  else verdict = 'irrealiste';
+  // Temps quotidien : 20 min au rythme des repères, davantage si la date est serrée.
+  const minutesJour = Math.min(60, Math.max(15, Math.round((20 * (moisRestants / Math.max(moisDispo, 0.1))) / 5) * 5));
+  // Date réaliste, et le grade qu'on peut viser à la date choisie.
+  const dateRealiste = ajouterMois(date, moisRestants);
+  const atteignable = [...GRADES].reverse().find((x) => MOIS_REPERE[x.id] <= acquis + moisDispo) ?? null;
+  return {
+    grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, verdict, realiste: verdict === 'realiste',
+    moisRestants, dateRealiste, atteignable: atteignable && atteignable !== g ? atteignable : null,
+  };
 }
 
 // ------------------------------------------------------------------ consolidation

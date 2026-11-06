@@ -114,7 +114,12 @@ export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes) 
   const o = d.reglages?.objectifGrade;
   if (o) {
     const p = planObjectif(d, o.grade, o.date, date);
-    if (p && !p.reussi && p.jours > 0 && p.manquantes) phrases.push(`Objectif ${p.grade.nom} : ${nf(p.parSemaine)} leçon${p.parSemaine >= 2 ? 's' : ''} par semaine à tenir, ${p.realiste ? 'vous êtes dans les temps' : 'vous êtes en retard : allongez un peu les séances'}.`);
+    if (p && !p.reussi && p.jours > 0) {
+      const dateR = new Date(`${p.dateRealiste}T12:00`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      if (p.verdict === 'realiste') phrases.push(`Objectif ${p.grade.nom} : vous êtes dans les temps, tenez le rythme.`);
+      else if (p.verdict === 'ambitieux') phrases.push(`Objectif ${p.grade.nom} : c'est serré, il faudrait environ ${p.minutesJour} min par jour (date réaliste : ${dateR}).`);
+      else phrases.push(`Objectif ${p.grade.nom} : soyons honnêtes, la date n'est pas réaliste (visez plutôt ${dateR}${p.atteignable ? ` ; d'ici là, le ${p.atteignable.nom} est atteignable` : ''}).`);
+    }
   }
   if (minutesEssentiel > objectifMinutes) phrases.push(`L'essentiel prend environ ${minutesEssentiel} min (objectif du jour : ${objectifMinutes}) : si le temps manque, faites au moins les trois premiers points.`);
   return phrases;
