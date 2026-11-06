@@ -54,3 +54,23 @@ test('tout mélangé : colonnes valides et variées', () => {
   }
   assert.equal(vues.size, 50);
 });
+
+test('colonnes mélangées : variées, jamais « +1 −1 » à la suite', async () => {
+  const { motifsAppris } = await import('../src/core/parcours.js');
+  const d = { paliers: {} };
+  for (const id of ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5']) d.paliers[id] = { valide: '2026-10-01' };
+  const appris = motifsAppris(d);
+  const amis = [...appris].filter((c) => !c.endsWith(':direct'));
+  let distincts = 0; let repetes = 0; let lignes = 0; let avecAmi = 0;
+  for (let i = 0; i < 150; i++) {
+    const col = genererColonne({ chiffres: 1, lignes: 8, autorises: appris, cibles: amis });
+    const ns = col.lignes.slice(1).map((l) => l.n);
+    distincts += new Set(ns).size;
+    repetes += ns.filter((n, k) => k > 0 && n === ns[k - 1]).length;
+    lignes += ns.length;
+    if (col.motifs.some((m) => !m.endsWith(':direct'))) avecAmi += 1;
+  }
+  assert.ok(distincts / 150 >= 5, `chiffres distincts par colonne : ${distincts / 150}`);
+  assert.ok(repetes / lignes < 0.05, `même nombre deux fois de suite : ${repetes / lignes}`);
+  assert.ok(avecAmi / 150 > 0.95, 'les amis restent présents');
+});

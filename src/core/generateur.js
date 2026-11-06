@@ -161,11 +161,36 @@ function scoreEquilibre(analyse, cibles, poids, chiffres) {
 }
 
 /**
+ * Variété d'une colonne : une colonne prévisible (« +1 −1 +2 −2… ») se devine sans calculer.
+ *  - annuler la ligne précédente (+3 puis −3) : forte pénalité ;
+ *  - répéter le nombre de la ligne précédente : pénalité ;
+ *  - un nombre déjà vu dans les 3 dernières lignes : petite pénalité ;
+ *  - un nombre pas encore vu dans la colonne : bonus ; un peu d'élan pour les chiffres 4 à 9 ;
+ *  - signes qui alternent sans fin (+ − + −) : petite pénalité.
+ * À cumuler avec scoreEquilibre : les amis restent fréquents, mais mélangés.
+ * @param {Array<{op, n}>} precedents  lignes déjà posées (la 1re comprise)
+ */
+export function scoreVariete(op, n, precedents) {
+  if (!precedents.length) return 0;
+  const prec = precedents.at(-1);
+  let s = 0;
+  if (prec.n === n) s -= prec.op !== op ? 14 : 8;
+  s -= 3 * precedents.slice(-4, -1).filter((l) => l.n === n).length;
+  if (!precedents.some((l) => l.n === n)) s += 4;
+  // Les tout petits nombres (1, 2, 3) ne doivent pas tout envahir : un peu d'élan pour les plus grands.
+  if (n % 10 >= 4) s += 2;
+  // Rythme des signes trop régulier (+ − + −) : on le casse de temps en temps.
+  const ops = precedents.slice(1).map((l) => l.op);
+  if (ops.length >= 2 && ops.at(-1) !== ops.at(-2) && op !== ops.at(-1)) s -= 2.5;
+  return s;
+}
+
+/**
  * Génère la ligne suivante d'une colonne, à partir de la valeur courante.
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
  */
-export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false }) {
+export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [] }) {
   const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
   let meilleur = null;
   let valides = 0;
@@ -209,7 +234,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
     // Un peu de hasard départage les candidats proches : sinon le « meilleur » chemin revient sans cesse.
-    const score = (cibles ? scoreEquilibre(a, cibles, poids, chiffres) : 0) + Math.random() * 3;
+    const score = (cibles ? scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents) + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');
@@ -249,7 +274,17 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
       compterVus(premiere.motifs);
       while (liste.length < lignes) {
         const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
-        const t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros });
+        // Colonne mélangée (au moins 3 gestes visés) : une ligne sur quatre environ est « libre »
+        // (toujours dans les gestes permis, mais sans viser un ami) ; elle apporte d'autres chiffres et
+        // casse la monotonie. Une planche ciblée sur 1 ou 2 gestes garde, elle, la répétition maximale.
+        const libre = cibles.length >= 3 && liste.length > 2 && Math.random() < 0.25;
+        let t;
+        try {
+          t = genererTerme(valeur, { chiffres, autorises, cibles: libre ? null : cibles, poids: poidsLigne, ops, zeros, precedents: liste });
+        } catch (e) {
+          if (!(e instanceof ErreurGeneration) || !libre) throw e;
+          t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste });
+        }
         compterVus(t.motifs);
         liste.push({ op: t.op, n: t.n });
         motifs.push(...t.motifs);
@@ -292,7 +327,7 @@ export function genererColonneVariee(params, memoire) {
     // Une ligne de plus, choisie pour donner un résultat nouveau.
     for (let essai = 0; essai < 20; essai++) {
       try {
-        const t = genererTerme(col.resultat, { ...params, poids: params.poids ?? {} });
+        const t = genererTerme(col.resultat, { ...params, poids: params.poids ?? {}, precedents: col.lignes });
         if (memoire.resultats.includes(t.resultat) || uniteUsee(t.resultat)) continue;
         col = { ...col, lignes: [...col.lignes, { op: t.op, n: t.n }], resultat: t.resultat, motifs: [...col.motifs, ...t.motifs] };
         break;
