@@ -1,16 +1,14 @@
 /*
- * Thèmes graphiques. Chaque thème est un jeu de variables sur :root[data-theme="…"] (clair),
- * redéfinies pour le sombre (data-mode="sombre", ou « auto » si le système est en sombre),
- * plus les surcharges qui lui donnent sa forme. Polices : src/polices.css (embarquées).
- *
- *   actuel      l'ancien style (pour comparer)
- *   examen      feuille d'examen : grille réglée, encre noire, correction au stylo rouge
- *   chrono      chronométrage sportif : chiffres géants condensés, jaune de signalisation
- *   suisse      typographie suisse : grille asymétrique, grotesque, noir, blanc et vermillon
- *   instrument  instrument de précision : boîtier gris chaud, afficheur, touches franches
- *   signal      signalétique : bandeaux, codes couleur par activité, contraste maximal
- *
- * Le motif commun est la boule du soroban (ui/perles.js, et les masques --perle-* ci-dessous).
+ * Thème graphique de l'application : TYPOGRAPHIE SUISSE (choisi parmi cinq propositions).
+ * Trois polices, chacune avec un rôle (voir src/polices.css, embarquées) :
+ *   - « Suisse » (Archivo)            les titres et le texte ;
+ *   - « Examen Mono » (IBM Plex Mono) les nombres À CALCULER : colonnes, saisie, correction.
+ *     Chasse fixe : un chiffre = une case, comme une tige du soroban ; 1 et 7, 3 et 8, 6, 9 et 0
+ *     bien distincts à 60 cm ;
+ *   - « Chrono Cond » (Barlow Condensed) la PERFORMANCE : chronomètre, records, écart au fantôme,
+ *     scores, statistiques. Jamais dans les colonnes (en gras étroit, 3, 6, 8 et 0 se ressemblent).
+ * Variables sur :root[data-theme="suisse"] (clair), redéfinies pour le sombre (data-mode="sombre",
+ * ou « auto » si le système est en sombre). Motif commun : la boule du soroban (ui/perles.js).
  */
 
 /* ================================================================ commun à tous les thèmes */
@@ -72,7 +70,7 @@
   table.colonne { font-size: 2.3rem; }
 }
 
-/* ================================================================ structure commune aux 5 nouveaux thèmes */
+/* ================================================================ structure du thème */
 html:not([data-theme="actuel"]) body { font-size: 17px; line-height: 1.5; }
 html:not([data-theme="actuel"]) *, html:not([data-theme="actuel"]) *::before { box-shadow: none !important; text-shadow: none !important; }
 html:not([data-theme="actuel"]) h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 10px; }
@@ -207,151 +205,8 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
   *:focus, *:focus-visible { outline: none !important; }
 }
 
-/* ================================================================ 1. FEUILLE D'EXAMEN
- * Papier, grille réglée, encre noire ; la correction au stylo rouge : un cercle autour d'une
- * réponse juste (maru), un trait sur une réponse fausse. */
-:root[data-theme="examen"] {
-  --fond: #f9f8f3; --surface: #ffffff; --texte: #141414; --discret: #4b4a45; --tres-discret: #6b6a64;
-  --ligne: #b8c4cc; --ligne-forte: #141414; --survol: #eef1f2; --surligne: #e5edf1; --reglure: #e4e9ec;
-  --accent: #141414; --sur-accent: #f9f8f3; --accent-texte: #b8141c;
-  --ok: #b8141c; --erreur: #b8141c; --alerte: #8a4b00; --fond-alerte: #fbf3e3; --ligne-alerte: #8a4b00; --donnees: #141414;
-  --niveau-decouverte: #ecebe4; --encre-decouverte: #4b4a45; --niveau-progres: #e3dccd; --encre-progres: #141414;
-  --niveau-debutant: #b9b4a8; --encre-debutant: #141414; --niveau-confirme: #6b665c; --encre-confirme: #ffffff;
-  --niveau-expert: #141414; --encre-expert: #ffffff;
-  --cal-0: #ecebe4; --cal-1: #cfcbc0; --cal-2: #a29d91; --cal-3: #6b665c; --cal-4: #141414;
-  --police: "Examen Serif", Georgia, "Times New Roman", serif;
-  --police-chiffres: "Examen Mono", ui-monospace, "Courier New", monospace;
-  --police-titres: "Examen Serif", Georgia, serif;
-  --rayon: 0; --rayon-petit: 0; --filet: 2px;
-}
-:root[data-theme="examen"][data-mode="sombre"] {
-  --fond: #15171a; --surface: #1d2024; --texte: #ece8de; --discret: #b3ada0; --tres-discret: #9a958a;
-  --ligne: #3b434b; --ligne-forte: #ece8de; --survol: #22262b; --surligne: #2a2f35; --reglure: #1f2327;
-  --accent: #ece8de; --sur-accent: #15171a; --accent-texte: #ff7a7a; --ok: #ff7a7a; --erreur: #ff7a7a;
-  --alerte: #f0b46a; --fond-alerte: #2a2318; --ligne-alerte: #f0b46a; --donnees: #ece8de;
-  --niveau-decouverte: #262a2f; --encre-decouverte: #b3ada0; --niveau-progres: #3a3f45; --encre-progres: #ece8de;
-  --niveau-debutant: #6d6a63; --encre-debutant: #ffffff; --niveau-confirme: #b9b3a6; --encre-confirme: #15171a;
-  --niveau-expert: #ece8de; --encre-expert: #15171a;
-  --cal-0: #262a2f; --cal-1: #3a3f45; --cal-2: #6d6a63; --cal-3: #b9b3a6; --cal-4: #ece8de;
-  --bois: #4a4440; --fond-soroban: #2a2d31; --axe-soroban: #8a8378;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="examen"][data-mode="auto"] {
-    --fond: #15171a; --surface: #1d2024; --texte: #ece8de; --discret: #b3ada0; --tres-discret: #9a958a;
-    --ligne: #3b434b; --ligne-forte: #ece8de; --survol: #22262b; --surligne: #2a2f35; --reglure: #1f2327;
-    --accent: #ece8de; --sur-accent: #15171a; --accent-texte: #ff7a7a; --ok: #ff7a7a; --erreur: #ff7a7a;
-    --alerte: #f0b46a; --fond-alerte: #2a2318; --ligne-alerte: #f0b46a; --donnees: #ece8de;
-    --niveau-decouverte: #262a2f; --encre-decouverte: #b3ada0; --niveau-progres: #3a3f45; --encre-progres: #ece8de;
-    --niveau-debutant: #6d6a63; --encre-debutant: #ffffff; --niveau-confirme: #b9b3a6; --encre-confirme: #15171a;
-    --niveau-expert: #ece8de; --encre-expert: #15171a;
-    --cal-0: #262a2f; --cal-1: #3a3f45; --cal-2: #6d6a63; --cal-3: #b9b3a6; --cal-4: #ece8de;
-    --bois: #4a4440; --fond-soroban: #2a2d31; --axe-soroban: #8a8378;
-  }
-}
-/* La feuille : réglure fine sur toute la zone de travail. */
-:root[data-theme="examen"] main { background-image: repeating-linear-gradient(to bottom, transparent 0 31px, var(--reglure) 31px 32px); }
-:root[data-theme="examen"] .contenu > h1 { border-bottom: 4px solid var(--texte); padding-bottom: 8px; }
-:root[data-theme="examen"] #navigation { background: var(--fond); }
-:root[data-theme="examen"] #navigation button.entree-menu { border-bottom: 1px solid var(--ligne); }
-:root[data-theme="examen"] #navigation button.actif { background: transparent; color: var(--texte); }
-/* Entrée active : entourée au stylo rouge, comme une réponse juste. */
-:root[data-theme="examen"] #navigation button.actif .nom-menu { border: 2px solid var(--accent-texte); border-radius: 50%; padding: 1px 10px; margin: -3px -12px; }
-:root[data-theme="examen"] #navigation button.actif .icone-menu { color: var(--accent-texte); }
-/* Colonnes : chiffres à la plume, une ligne de la grille par nombre. */
-:root[data-theme="examen"] table.colonne td { border-bottom: 1px solid var(--ligne); padding: 2px 12px; }
-:root[data-theme="examen"] .probleme .num-probleme { align-self: stretch; text-align: center; font-family: var(--police-chiffres); font-weight: 700; border-bottom: 1px solid var(--texte); color: var(--texte); }
-:root[data-theme="examen"] .probleme { border: 1px solid var(--ligne); border-top: 1px solid var(--ligne); padding: 0 8px 6px; }
-/* Correction : maru rouge autour de la réponse juste, trait rouge sur la fausse. */
-:root[data-theme="examen"] .probleme.ok input { border: 2.5px solid var(--ok) !important; border-radius: 50%; }
-:root[data-theme="examen"] .probleme.ko input { text-decoration: line-through; text-decoration-color: var(--erreur); text-decoration-thickness: 2px; }
-:root[data-theme="examen"] .probleme.ok, :root[data-theme="examen"] .probleme.ko { border-color: var(--ligne); }
-:root[data-theme="examen"] .retour.ok .grand-signe, :root[data-theme="examen"] .pastille-res.ok {
-  -webkit-mask: none; mask: none; background: transparent; border: 2.5px solid var(--ok); border-radius: 50%;
-}
-:root[data-theme="examen"] .retour.ok .grand-signe { width: 30px; height: 22px; vertical-align: -5px; }
-:root[data-theme="examen"] .retour.erreur .grand-signe, :root[data-theme="examen"] .pastille-res.ko {
-  -webkit-mask: none; mask: none; background: linear-gradient(to top right, transparent 44%, var(--erreur) 44% 56%, transparent 56%);
-}
-:root[data-theme="examen"] .pastille-res { width: 16px; height: 13px; }
-:root[data-theme="examen"] .mot-prof-titre { color: var(--accent-texte); font-style: italic; }
-:root[data-theme="examen"] .icone.etat-fait { color: var(--ok); }
-:root[data-theme="examen"] table.carte-maitrise td { border: 1px solid var(--ligne); }
-:root[data-theme="examen"] .flash-ecran { background: var(--fond); }
-:root[data-theme="examen"] .serie-perles, :root[data-theme="examen"] .etoiles .rangee-perles { color: var(--accent-texte); }
-
-/* ================================================================ 2. CHRONOMÉTRAGE SPORTIF
- * Afficheurs de piste : chiffres condensés géants, jaune de signalisation, tableaux de résultats. */
-:root[data-theme="chrono"] {
-  --fond: #efeee9; --surface: #ffffff; --texte: #0c0c0c; --discret: #474747; --tres-discret: #5f5f5f;
-  --ligne: #c2c1ba; --ligne-forte: #0c0c0c; --survol: #e2e1da; --surligne: #ffe27a;
-  --accent: #ffb400; --sur-accent: #0c0c0c; --accent-texte: #8a5a00; --panneau: #0c0c0c; --sur-panneau: #f4f4ef; --chiffre-panneau: #ffc21a;
-  --ok: #0b7a34; --erreur: #c8102e; --alerte: #8a5a00; --fond-alerte: #fff3cc; --ligne-alerte: #ffb400; --donnees: #0c0c0c;
-  --niveau-decouverte: #e2e1da; --encre-decouverte: #474747; --niveau-progres: #ffe08a; --encre-progres: #0c0c0c;
-  --niveau-debutant: #ffb400; --encre-debutant: #0c0c0c; --niveau-confirme: #ff7a1a; --encre-confirme: #0c0c0c;
-  --niveau-expert: #0c0c0c; --encre-expert: #ffcc00;
-  --cal-0: #e2e1da; --cal-1: #ffe9a8; --cal-2: #ffcc4d; --cal-3: #ff9a1f; --cal-4: #0c0c0c;
-  --police: "Chrono Texte", "Arial Narrow", Arial, sans-serif;
-  --police-chiffres: "Chrono Cond", "Arial Narrow", Arial, sans-serif;
-  --police-titres: "Chrono Cond", "Arial Narrow", Arial, sans-serif;
-  --rayon: 0; --rayon-petit: 0; --filet: 3px;
-}
-:root[data-theme="chrono"][data-mode="sombre"] {
-  --fond: #0b0b0c; --surface: #141416; --texte: #f4f4ef; --discret: #b5b5ad; --tres-discret: #8d8d86;
-  --ligne: #34343a; --ligne-forte: #f4f4ef; --survol: #1c1c20; --surligne: #3a3000;
-  --accent: #ffc21a; --sur-accent: #0b0b0c; --accent-texte: #ffc21a; --panneau: #000000; --sur-panneau: #f4f4ef; --chiffre-panneau: #ffc21a;
-  --ok: #3ddc84; --erreur: #ff5c6c; --alerte: #ffc21a; --fond-alerte: #241e05; --ligne-alerte: #ffc21a; --donnees: #ffc21a;
-  --niveau-decouverte: #1c1c20; --encre-decouverte: #b5b5ad; --niveau-progres: #4a3d10; --encre-progres: #f4f4ef;
-  --niveau-debutant: #a07400; --encre-debutant: #0b0b0c; --niveau-confirme: #ff8a1f; --encre-confirme: #0b0b0c;
-  --niveau-expert: #ffc21a; --encre-expert: #0b0b0c;
-  --cal-0: #1c1c20; --cal-1: #3d3412; --cal-2: #7a5f10; --cal-3: #c48f10; --cal-4: #ffc21a;
-  --bois: #2a2a2e; --fond-soroban: #1c1c20; --axe-soroban: #77776f;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="chrono"][data-mode="auto"] {
-    --fond: #0b0b0c; --surface: #141416; --texte: #f4f4ef; --discret: #b5b5ad; --tres-discret: #8d8d86;
-    --ligne: #34343a; --ligne-forte: #f4f4ef; --survol: #1c1c20; --surligne: #3a3000;
-    --accent: #ffc21a; --sur-accent: #0b0b0c; --accent-texte: #ffc21a; --panneau: #000000; --sur-panneau: #f4f4ef; --chiffre-panneau: #ffc21a;
-    --ok: #3ddc84; --erreur: #ff5c6c; --alerte: #ffc21a; --fond-alerte: #241e05; --ligne-alerte: #ffc21a; --donnees: #ffc21a;
-    --niveau-decouverte: #1c1c20; --encre-decouverte: #b5b5ad; --niveau-progres: #4a3d10; --encre-progres: #f4f4ef;
-    --niveau-debutant: #a07400; --encre-debutant: #0b0b0c; --niveau-confirme: #ff8a1f; --encre-confirme: #0b0b0c;
-    --niveau-expert: #ffc21a; --encre-expert: #0b0b0c;
-    --cal-0: #1c1c20; --cal-1: #3d3412; --cal-2: #7a5f10; --cal-3: #c48f10; --cal-4: #ffc21a;
-    --bois: #2a2a2e; --fond-soroban: #1c1c20; --axe-soroban: #77776f;
-  }
-}
-:root[data-theme="chrono"] h1 { font-size: 3rem; font-weight: 800; text-transform: uppercase; line-height: 1; }
-:root[data-theme="chrono"] h2 { font-family: var(--police-titres); font-size: 1.6rem; font-weight: 800; text-transform: uppercase; }
-/* Le menu : un panneau d'affichage noir, l'entrée active en jaune. */
-:root[data-theme="chrono"] #navigation { background: var(--panneau); color: var(--sur-panneau); border-right: none; }
-:root[data-theme="chrono"] #navigation .titre-app { color: var(--chiffre-panneau); font-size: 1.6rem; font-weight: 800; text-transform: uppercase; }
-:root[data-theme="chrono"] #navigation button.entree-menu { color: var(--sur-panneau); font-family: var(--police-titres); font-size: 1.25rem; text-transform: uppercase; }
-:root[data-theme="chrono"] #navigation button.entree-menu:hover { background: #222; }
-:root[data-theme="chrono"] #navigation button.actif { background: var(--chiffre-panneau); color: #0c0c0c; }
-:root[data-theme="chrono"] .choix-theme select { background: #1a1a1a; color: var(--sur-panneau); border-bottom-color: var(--sur-panneau); }
-/* Chiffres géants et temps en avant. */
-:root[data-theme="chrono"] table.colonne { font-size: 3rem; font-weight: 600; }
-:root[data-theme="chrono"] .operation { font-size: 3.2rem; font-weight: 600; }
-:root[data-theme="chrono"] .chrono-exercice .temps { font-family: var(--police-chiffres); font-size: 3rem; font-weight: 800; color: var(--texte); line-height: 1; }
-:root[data-theme="chrono"] .compteur, :root[data-theme="chrono"] .chrono-feuille, :root[data-theme="chrono"] .chrono-discret { font-family: var(--police-chiffres); font-size: 1.5rem; font-weight: 800; color: var(--texte); }
-:root[data-theme="chrono"] .tuile-valeur, :root[data-theme="chrono"] .bilan .grand { font-family: var(--police-chiffres); font-size: 3.4rem; font-weight: 800; line-height: 1; }
-:root[data-theme="chrono"] .flash-ecran { background: var(--panneau); color: var(--chiffre-panneau); border: none; font-size: 9rem; font-weight: 800; }
-:root[data-theme="chrono"] .flash-ecran.decompte { color: var(--sur-panneau); font-size: 5rem; }
-/* Tableaux de résultats : lignes alternées, rang en grand. */
-:root[data-theme="chrono"] .ligne-palier:nth-child(even), :root[data-theme="chrono"] .carte-hub:nth-child(even) { background: var(--survol); }
-:root[data-theme="chrono"] .carte-hub::before { font-size: 2.4rem; font-weight: 800; color: var(--texte); }
-:root[data-theme="chrono"] .carte-hub strong { font-family: var(--police-titres); font-size: 1.5rem; font-weight: 800; text-transform: uppercase; }
-:root[data-theme="chrono"] .carte-hub.recommande::before { background: var(--accent); color: #0c0c0c; padding: 0 6px; }
-:root[data-theme="chrono"] button.btn { font-family: var(--police-titres); text-transform: uppercase; font-size: 1.1rem; letter-spacing: 0; }
-:root[data-theme="chrono"] button.btn.principal { font-weight: 800; }
-:root[data-theme="chrono"] .retour.ok { font-family: var(--police-titres); font-size: 1.4rem; }
-:root[data-theme="chrono"] .jauge > div, :root[data-theme="chrono"] .course-remplissage.vous, :root[data-theme="chrono"] .jauge-arcade > div { background: var(--accent); }
-:root[data-theme="chrono"] .jauge, :root[data-theme="chrono"] .course-piste { height: 14px; -webkit-mask-size: 20px 14px; mask-size: 20px 14px; }
-:root[data-theme="chrono"] .ecart { font-family: var(--police-chiffres); font-size: 1.3rem; font-weight: 800; }
-:root[data-theme="chrono"] .serie-perles, :root[data-theme="chrono"] .etoiles .rangee-perles { color: var(--texte); }
-
-/* ================================================================ 3. TYPOGRAPHIE SUISSE
- * Grille stricte et asymétrique, une grotesque, de très grands chiffres comme seul élément
- * graphique ; noir, blanc et un vermillon. Aucune décoration. */
+/* ================================================================ TYPOGRAPHIE SUISSE
+ * Grille stricte et asymétrique, une grotesque ; noir, blanc et un vermillon. Aucune décoration. */
 :root[data-theme="suisse"] {
   --fond: #ffffff; --surface: #ffffff; --texte: #000000; --discret: #3a3a3a; --tres-discret: #595959;
   --ligne: #000000; --ligne-forte: #000000; --survol: #f0f0f0; --surligne: #ffe5dc;
@@ -361,7 +216,9 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
   --niveau-debutant: #8c8c8c; --encre-debutant: #000000; --niveau-confirme: #000000; --encre-confirme: #ffffff;
   --niveau-expert: #c42a00; --encre-expert: #ffffff;
   --cal-0: #f0f0f0; --cal-1: #c8c8c8; --cal-2: #8c8c8c; --cal-3: #3a3a3a; --cal-4: #000000;
-  --police: "Suisse", "Helvetica Neue", Arial, sans-serif; --police-chiffres: "Suisse", "Helvetica Neue", Arial, sans-serif; --police-titres: "Suisse", "Helvetica Neue", Arial, sans-serif;
+  --police: "Suisse", "Helvetica Neue", Arial, sans-serif; --police-titres: "Suisse", "Helvetica Neue", Arial, sans-serif;
+  --police-chiffres: "Examen Mono", ui-monospace, Consolas, monospace;
+  --police-perf: "Chrono Cond", "Arial Narrow", Arial, sans-serif;
   --rayon: 0; --rayon-petit: 0; --filet: 1px;
 }
 :root[data-theme="suisse"][data-mode="sombre"] {
@@ -390,166 +247,36 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
 }
 /* Grille asymétrique : une colonne de titres étroite à gauche, le contenu large à droite. */
 :root[data-theme="suisse"] .contenu { max-width: 1080px; }
-:root[data-theme="suisse"] h1 { font-size: 4.2rem; font-weight: 900; letter-spacing: -0.03em; line-height: 0.95; margin-bottom: 22px; }
 :root[data-theme="suisse"] h2 { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.01em; border-top: 1px solid var(--texte); padding-top: 8px; }
 :root[data-theme="suisse"] .carte, :root[data-theme="suisse"] .tuile, :root[data-theme="suisse"] .liste-paliers, :root[data-theme="suisse"] .cartes { border-top-width: 1px; }
 :root[data-theme="suisse"] .carte-hub { grid-template-columns: 6rem minmax(10rem, 16rem) 1fr; }
-:root[data-theme="suisse"] .carte-hub::before { font-size: 3.4rem; font-weight: 900; letter-spacing: -0.04em; color: var(--texte); line-height: 0.9; }
+:root[data-theme="suisse"] .carte-hub::before { font-family: var(--police-titres); font-size: 3rem; font-weight: 900; letter-spacing: -0.04em; color: var(--texte); line-height: 0.9; }
 :root[data-theme="suisse"] .carte-hub.recommande::before { color: var(--accent-texte); }
 :root[data-theme="suisse"] .carte-hub strong { font-size: 1.25rem; font-weight: 700; }
-:root[data-theme="suisse"] .bilan .grand { font-size: 3.6rem; font-weight: 900; letter-spacing: -0.03em; }
-:root[data-theme="suisse"] table.colonne { font-weight: 700; font-size: 2.8rem; letter-spacing: -0.01em; }
-:root[data-theme="suisse"] .operation { font-weight: 700; font-size: 3rem; }
-:root[data-theme="suisse"] .flash-ecran { border: none; border-top: 1px solid var(--texte); font-size: 10rem; font-weight: 900; letter-spacing: -0.04em; justify-content: flex-start; }
-:root[data-theme="suisse"] .chrono-exercice .temps { font-size: 2rem; font-weight: 900; color: var(--texte); }
 /* Menu : du texte, l'entrée active en vermillon, rien d'autre. */
 :root[data-theme="suisse"] #navigation { border-right: 1px solid var(--texte); }
 :root[data-theme="suisse"] #navigation .titre-app { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; }
 :root[data-theme="suisse"] #navigation button.entree-menu { font-size: 1.15rem; font-weight: 700; }
 :root[data-theme="suisse"] #navigation button.actif { background: transparent; color: var(--accent-texte); }
 :root[data-theme="suisse"] button.btn { border-width: 1px; }
-:root[data-theme="suisse"] .saisie-nombre { font-weight: 700; }
 :root[data-theme="suisse"] .icone.etat-fait { color: var(--texte); }
 :root[data-theme="suisse"] .serie-perles, :root[data-theme="suisse"] .etoiles .rangee-perles { color: var(--accent); }
 
-/* ================================================================ 4. INSTRUMENT DE PRÉCISION
- * Calculatrice de bureau des années 70–80 : boîtier gris chaud, afficheur sombre aux chiffres
- * nets (pas d'imitation LCD), touches franches, légendes techniques. */
-:root[data-theme="instrument"] {
-  --fond: #d8d3c8; --surface: #e9e5dc; --texte: #1b1a17; --discret: #474339; --tres-discret: #5a554b;
-  --ligne: #a69f92; --ligne-forte: #1b1a17; --survol: #cbc5b8; --surligne: #f2c9a6;
-  --accent: #e2662a; --sur-accent: #1b1a17; --accent-texte: #8f3a0e;
-  --touche: #ece8df; --panneau: #24272a; --sur-panneau: #f1ece0;
-  --ok: #255a25; --erreur: #a3261a; --alerte: #7a4a00; --fond-alerte: #eadcc0; --ligne-alerte: #7a4a00; --donnees: #1b1a17;
-  --niveau-decouverte: #e9e5dc; --encre-decouverte: #474339; --niveau-progres: #c9b79a; --encre-progres: #1b1a17;
-  --niveau-debutant: #9d9585; --encre-debutant: #1b1a17; --niveau-confirme: #4d4a43; --encre-confirme: #f1ece0;
-  --niveau-expert: #e2662a; --encre-expert: #1b1a17;
-  --cal-0: #e9e5dc; --cal-1: #c9b79a; --cal-2: #9d9585; --cal-3: #5c584f; --cal-4: #1b1a17;
-  --police: "Instrument", "Segoe UI", Arial, sans-serif; --police-chiffres: "Instrument Mono", ui-monospace, monospace; --police-titres: "Instrument", "Segoe UI", Arial, sans-serif;
-  --rayon: 3px; --rayon-petit: 2px; --filet: 2px;
-}
-:root[data-theme="instrument"][data-mode="sombre"] {
-  --fond: #1e1d1b; --surface: #282724; --texte: #ece7dc; --discret: #bab4a7; --tres-discret: #9b958a;
-  --ligne: #4a4741; --ligne-forte: #ece7dc; --survol: #2f2e2a; --surligne: #4a2f1c;
-  --accent: #f07a3c; --sur-accent: #1e1d1b; --accent-texte: #f39a66; --touche: #34332f; --panneau: #0f1011; --sur-panneau: #f1ece0;
-  --ok: #7ccf7c; --erreur: #ff8a7a; --alerte: #e0b060; --fond-alerte: #2c2618; --ligne-alerte: #e0b060; --donnees: #ece7dc;
-  --niveau-decouverte: #282724; --encre-decouverte: #bab4a7; --niveau-progres: #4d4536; --encre-progres: #ece7dc;
-  --niveau-debutant: #7a7466; --encre-debutant: #ffffff; --niveau-confirme: #c9c2b2; --encre-confirme: #1e1d1b;
-  --niveau-expert: #f07a3c; --encre-expert: #1e1d1b;
-  --cal-0: #282724; --cal-1: #4d4536; --cal-2: #7a7466; --cal-3: #b3ab9a; --cal-4: #ece7dc;
-  --bois: #3a3936; --fond-soroban: #2a2926; --axe-soroban: #8a8478;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="instrument"][data-mode="auto"] {
-    --fond: #1e1d1b; --surface: #282724; --texte: #ece7dc; --discret: #bab4a7; --tres-discret: #9b958a;
-    --ligne: #4a4741; --ligne-forte: #ece7dc; --survol: #2f2e2a; --surligne: #4a2f1c;
-    --accent: #f07a3c; --sur-accent: #1e1d1b; --accent-texte: #f39a66; --touche: #34332f; --panneau: #0f1011; --sur-panneau: #f1ece0;
-    --ok: #7ccf7c; --erreur: #ff8a7a; --alerte: #e0b060; --fond-alerte: #2c2618; --ligne-alerte: #e0b060; --donnees: #ece7dc;
-    --niveau-decouverte: #282724; --encre-decouverte: #bab4a7; --niveau-progres: #4d4536; --encre-progres: #ece7dc;
-    --niveau-debutant: #7a7466; --encre-debutant: #ffffff; --niveau-confirme: #c9c2b2; --encre-confirme: #1e1d1b;
-    --niveau-expert: #f07a3c; --encre-expert: #1e1d1b;
-    --cal-0: #282724; --cal-1: #4d4536; --cal-2: #7a7466; --cal-3: #b3ab9a; --cal-4: #ece7dc;
-    --bois: #3a3936; --fond-soroban: #2a2926; --axe-soroban: #8a8478;
-  }
-}
-/* Touches : franches, avec un peu de course (bord bas plus épais), qui s'enfoncent au clic. */
-:root[data-theme="instrument"] button.btn { background: var(--touche); border: 2px solid var(--texte); border-bottom-width: 5px; border-radius: 3px; padding: 8px 18px; }
-:root[data-theme="instrument"] button.btn:active { border-bottom-width: 2px; transform: translateY(3px); }
-:root[data-theme="instrument"] button.btn.principal { background: var(--accent); border-color: var(--texte); color: var(--sur-accent); }
-/* L'afficheur : l'énoncé, le chrono et la saisie, chiffres clairs sur fond sombre. */
-:root[data-theme="instrument"] .zone-enonce table.colonne, :root[data-theme="instrument"] .zone-enonce .operation, :root[data-theme="instrument"] .flash-ecran,
-:root[data-theme="instrument"] .marathon table.colonne, :root[data-theme="instrument"] .lievre-jeu table.colonne {
-  background: var(--panneau); color: var(--sur-panneau); padding: 12px 22px; border: 3px solid var(--texte); border-radius: 3px;
-}
-:root[data-theme="instrument"] .zone-enonce table.colonne td.signe { color: var(--sur-panneau); opacity: 0.7; }
-:root[data-theme="instrument"] .lievre tr.courante td { background: #4a3a28; }
-:root[data-theme="instrument"] .saisie-nombre { background: var(--panneau); color: var(--sur-panneau); border: 3px solid var(--texte); border-radius: 3px; padding: 6px 12px; }
-:root[data-theme="instrument"] .chrono-exercice .temps { font-family: var(--police-chiffres); background: var(--panneau); color: var(--sur-panneau); padding: 2px 10px; display: inline-block; border-radius: 2px; }
-/* Façade : le menu comme un clavier de fonctions. */
-:root[data-theme="instrument"] #navigation { background: var(--surface); border-right: 3px solid var(--texte); }
-:root[data-theme="instrument"] #navigation .titre-app { font-weight: 700; font-size: 1rem; color: var(--discret); }
-:root[data-theme="instrument"] #navigation button.entree-menu { background: var(--touche); border: 2px solid var(--texte); border-bottom-width: 4px; border-radius: 3px; margin-bottom: 8px; }
-:root[data-theme="instrument"] #navigation button.actif { background: var(--texte); color: var(--surface); }
-:root[data-theme="instrument"] .tuile-titre, :root[data-theme="instrument"] .titre-graphique, :root[data-theme="instrument"] .mot-prof-titre { font-size: 0.82rem; font-weight: 700; color: var(--discret); }
-:root[data-theme="instrument"] .tuile-valeur { font-family: var(--police-chiffres); }
-:root[data-theme="instrument"] .carte-hub::before { color: var(--texte); background: var(--touche); border: 2px solid var(--texte); border-bottom-width: 4px; border-radius: 3px; text-align: center; font-size: 1.1rem; padding: 2px 0; }
-:root[data-theme="instrument"] .carte-hub.recommande::before { background: var(--accent); }
-:root[data-theme="instrument"] .serie-perles, :root[data-theme="instrument"] .etoiles .rangee-perles { color: var(--accent-texte); }
-
-/* ================================================================ 5. SIGNALÉTIQUE
- * Gares et aéroports : bandeaux, un code couleur par type d'activité (apprendre, s'entraîner,
- * se mesurer), pictogrammes géométriques maison, contraste maximal. */
-:root[data-theme="signal"] {
-  --fond: #ffffff; --surface: #ffffff; --texte: #000000; --discret: #2e2e2e; --tres-discret: #555555;
-  --ligne: #8a8a8a; --ligne-forte: #000000; --survol: #f0f0f0; --surligne: #fff1c2;
-  --c-seance: #1a1a1a; --s-seance: #ffffff; --c-apprendre: #0050a0; --s-apprendre: #ffffff;
-  --c-entrainer: #006b3c; --s-entrainer: #ffffff; --c-mesurer: #ffb600; --s-mesurer: #000000; --c-progression: #5a5a5a; --s-progression: #ffffff;
-  --section: var(--c-seance); --sur-section: var(--s-seance);
-  --accent: var(--section); --sur-accent: var(--sur-section); --accent-texte: #0050a0;
-  --ok: #006b3c; --erreur: #c00000; --alerte: #8a5a00; --fond-alerte: #fff4d6; --ligne-alerte: #ffb600; --donnees: #000000;
-  --niveau-decouverte: #eeeeee; --encre-decouverte: #2e2e2e; --niveau-progres: #b3d4f5; --encre-progres: #000000;
-  --niveau-debutant: #0050a0; --encre-debutant: #ffffff; --niveau-confirme: #ffb600; --encre-confirme: #000000;
-  --niveau-expert: #000000; --encre-expert: #ffffff;
-  --cal-0: #eeeeee; --cal-1: #b3cde8; --cal-2: #5b8fd0; --cal-3: #0050a0; --cal-4: #002a55;
-  --police: "Signal", "Segoe UI", Arial, sans-serif; --police-chiffres: "Signal Mono", ui-monospace, monospace; --police-titres: "Signal", "Segoe UI", Arial, sans-serif;
-  --rayon: 0; --rayon-petit: 0; --filet: 3px;
-}
-:root[data-theme="signal"][data-mode="sombre"] {
-  --fond: #000000; --surface: #000000; --texte: #ffffff; --discret: #d0d0d0; --tres-discret: #a8a8a8;
-  --ligne: #6a6a6a; --ligne-forte: #ffffff; --survol: #1a1a1a; --surligne: #3a2f00;
-  --c-seance: #e6e6e6; --s-seance: #000000; --c-apprendre: #4f9be8; --s-apprendre: #000000;
-  --c-entrainer: #3fbf7f; --s-entrainer: #000000; --c-mesurer: #ffc21a; --s-mesurer: #000000; --c-progression: #9a9a9a; --s-progression: #000000;
-  --accent-texte: #4f9be8; --ok: #3fbf7f; --erreur: #ff6b6b; --alerte: #ffc21a; --fond-alerte: #241e05; --ligne-alerte: #ffc21a; --donnees: #ffffff;
-  --niveau-decouverte: #1a1a1a; --encre-decouverte: #d0d0d0; --niveau-progres: #12365e; --encre-progres: #ffffff;
-  --niveau-debutant: #4f9be8; --encre-debutant: #000000; --niveau-confirme: #ffc21a; --encre-confirme: #000000;
-  --niveau-expert: #ffffff; --encre-expert: #000000;
-  --cal-0: #1a1a1a; --cal-1: #12365e; --cal-2: #2a63a8; --cal-3: #4f9be8; --cal-4: #bcd9f7;
-  --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8a8a8a;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="signal"][data-mode="auto"] {
-    --fond: #000000; --surface: #000000; --texte: #ffffff; --discret: #d0d0d0; --tres-discret: #a8a8a8;
-    --ligne: #6a6a6a; --ligne-forte: #ffffff; --survol: #1a1a1a; --surligne: #3a2f00;
-    --c-seance: #e6e6e6; --s-seance: #000000; --c-apprendre: #4f9be8; --s-apprendre: #000000;
-    --c-entrainer: #3fbf7f; --s-entrainer: #000000; --c-mesurer: #ffc21a; --s-mesurer: #000000; --c-progression: #9a9a9a; --s-progression: #000000;
-    --accent-texte: #4f9be8; --ok: #3fbf7f; --erreur: #ff6b6b; --alerte: #ffc21a; --fond-alerte: #241e05; --ligne-alerte: #ffc21a; --donnees: #ffffff;
-    --niveau-decouverte: #1a1a1a; --encre-decouverte: #d0d0d0; --niveau-progres: #12365e; --encre-progres: #ffffff;
-    --niveau-debutant: #4f9be8; --encre-debutant: #000000; --niveau-confirme: #ffc21a; --encre-confirme: #000000;
-    --niveau-expert: #ffffff; --encre-expert: #000000;
-    --cal-0: #1a1a1a; --cal-1: #12365e; --cal-2: #2a63a8; --cal-3: #4f9be8; --cal-4: #bcd9f7;
-    --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8a8a8a;
-  }
-}
-/* Le code couleur suit la section en cours. */
-:root[data-theme="signal"] body[data-section="apprendre"] { --section: var(--c-apprendre); --sur-section: var(--s-apprendre); }
-:root[data-theme="signal"] body[data-section="entrainer"] { --section: var(--c-entrainer); --sur-section: var(--s-entrainer); }
-:root[data-theme="signal"] body[data-section="mesurer"] { --section: var(--c-mesurer); --sur-section: var(--s-mesurer); }
-:root[data-theme="signal"] body[data-section="progression"] { --section: var(--c-progression); --sur-section: var(--s-progression); }
-:root[data-theme="signal"] body { --accent: var(--section); --sur-accent: var(--sur-section); }
-/* Bandeau de titre, comme un panneau de quai. */
-:root[data-theme="signal"] .contenu > h1 { background: var(--section); color: var(--sur-section); padding: 14px 18px; font-weight: 800; font-size: 2.1rem; }
-:root[data-theme="signal"] h2 { font-weight: 800; border-bottom: 3px solid var(--texte); padding-bottom: 4px; }
-/* Menu : chaque entrée porte la couleur de son activité dans un carré-pictogramme. */
-:root[data-theme="signal"] #navigation { background: var(--fond); border-right: 3px solid var(--texte); }
-:root[data-theme="signal"] #navigation .titre-app { font-weight: 800; font-size: 1.3rem; }
-:root[data-theme="signal"] #navigation button.entree-menu { font-weight: 800; font-size: 1.05rem; padding: 6px 8px; }
-:root[data-theme="signal"] #navigation .icone-menu { width: 36px; height: 36px; padding: 7px; display: flex; align-items: center; justify-content: center; }
-:root[data-theme="signal"] #navigation .icone-menu .picto { width: 22px; height: 22px; }
-:root[data-theme="signal"] #navigation button[data-id="seance"] .icone-menu { background: var(--c-seance); color: var(--s-seance); }
-:root[data-theme="signal"] #navigation button[data-id="apprendre"] .icone-menu { background: var(--c-apprendre); color: var(--s-apprendre); }
-:root[data-theme="signal"] #navigation button[data-id="entrainer"] .icone-menu { background: var(--c-entrainer); color: var(--s-entrainer); }
-:root[data-theme="signal"] #navigation button[data-id="mesurer"] .icone-menu { background: var(--c-mesurer); color: var(--s-mesurer); }
-:root[data-theme="signal"] #navigation button[data-id="progression"] .icone-menu { background: var(--c-progression); color: var(--s-progression); }
-:root[data-theme="signal"] #navigation button.actif { background: transparent; color: var(--texte); text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 6px; }
-/* Tableau des départs : rang dans un carré de la couleur de la section. */
-:root[data-theme="signal"] .carte-hub::before { background: var(--section); color: var(--sur-section); text-align: center; font-size: 1.3rem; padding: 4px 0; }
-:root[data-theme="signal"] .carte-hub strong { font-weight: 800; font-size: 1.15rem; }
-:root[data-theme="signal"] .ligne-palier { border-bottom: 2px solid var(--texte); }
-:root[data-theme="signal"] table.colonne { font-weight: 600; }
-:root[data-theme="signal"] .flash-ecran { border-width: 4px; font-weight: 600; }
-:root[data-theme="signal"] button.btn { font-weight: 800; border-width: 3px; }
-:root[data-theme="signal"] .serie-perles, :root[data-theme="signal"] .etoiles .rangee-perles { color: var(--texte); }
-:root[data-theme="suisse"] .tuile-valeur { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+/* Titres : nets, mais sans pousser le contenu vers le bas. */
+:root[data-theme="suisse"] h1 { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; margin-bottom: 14px; }
+/* Nombres à calculer : Examen Mono 500, 28 px (26 px en compact) ; la réponse saisie en 700. */
+:root[data-theme="suisse"] table.colonne, :root[data-theme="suisse"] .operation { font-weight: 500; font-size: 1.75rem; letter-spacing: 0; }
+:root[data-theme="suisse"] table.colonne.compacte, :root[data-theme="suisse"] .operation.compacte { font-size: 1.625rem; }
+:root[data-theme="suisse"] .saisie-nombre, :root[data-theme="suisse"] .probleme input { font-weight: 700; }
+:root[data-theme="suisse"] .retour strong, :root[data-theme="suisse"] .probleme .correction, :root[data-theme="suisse"] .liste-erreurs strong { font-family: var(--police-chiffres); font-weight: 700; }
+:root[data-theme="suisse"] .flash-ecran { border: none; border-top: 1px solid var(--texte); font-size: 8rem; font-weight: 500; justify-content: flex-start; }
+/* Performance : Chrono Cond, étroite et grasse, comme un tableau d'affichage. */
+:root[data-theme="suisse"] .chrono-exercice .temps { font-size: 2.2rem; font-weight: 800; color: var(--texte); }
+:root[data-theme="suisse"] .tuile-valeur { font-size: 2.6rem; font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
+:root[data-theme="suisse"] .bilan .grand { font-size: 3.4rem; font-weight: 800; }
+:root[data-theme="suisse"] .chrono-feuille, :root[data-theme="suisse"] .chrono-discret, :root[data-theme="suisse"] .compteur.chrono,
+:root[data-theme="suisse"] .ecart { font-size: 1.35rem; font-weight: 800; }
+:root[data-theme="suisse"] .ruban-entete strong { font-family: var(--police-perf); font-size: 1.6rem; font-weight: 800; }
 
 /* Petit écran, quel que soit le thème : les 5 entrées tiennent dans la barre du bas. */
 @media (max-width: 700px) {

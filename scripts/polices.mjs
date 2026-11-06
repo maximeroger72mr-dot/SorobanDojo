@@ -14,15 +14,9 @@ const racine = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Famille CSS (nom maison) ← paquet @fontsource, graisses.
 const POLICES = [
-  ['Examen Serif', 'source-serif-4', [400, 700]],
-  ['Examen Mono', 'ibm-plex-mono', [500, 700]],
-  ['Chrono Cond', 'barlow-condensed', [600, 800]],
-  ['Chrono Texte', 'barlow', [400, 600]],
-  ['Suisse', 'archivo', [400, 700, 900]],
-  ['Instrument', 'b612', [400, 700]],
-  ['Instrument Mono', 'b612-mono', [400, 700]],
-  ['Signal', 'overpass', [400, 800]],
-  ['Signal Mono', 'overpass-mono', [600]],
+  ['Suisse', 'archivo', [400, 700, 900]],      // titres et texte
+  ['Examen Mono', 'ibm-plex-mono', [500, 700]], // nombres à calculer
+  ['Chrono Cond', 'barlow-condensed', [800]],   // performance (chrono, records, scores)
 ];
 
 let css = '/* Fichier généré par scripts/polices.mjs. Ne pas modifier à la main. Polices sous licence SIL OFL 1.1. */\n';

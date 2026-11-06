@@ -33,6 +33,7 @@
   --cal-0: #eeece8; --cal-1: #b7d3f6; --cal-2: #6da7ec; --cal-3: #2a78d6; --cal-4: #184f95;
   --police: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
   --police-chiffres: var(--police);
+  --police-perf: var(--police-chiffres);
   --police-titres: var(--police);
   --rayon: 8px;
   --rayon-petit: 6px;
@@ -506,7 +507,10 @@ div.ligne-palier { cursor: default; }
 .bon-geste .operation { margin: 0; }
 
 /* ------------------------------------------------------------ polices des nombres (thèmes) */
-.nombre-cible, .saisie-nombre, .enonce, table.planche, table.colonne, .operation, .flash-ecran, .tuile-valeur,
-.bilan .grand, .chrono-feuille, .chrono-exercice .temps, .chrono-discret, .probleme input, .drill-operations,
-.resultat-drill, .ticket, .dictee-ecran { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; }
+/* Nombres à CALCULER (colonnes, saisie, correction) : --police-chiffres. */
+.nombre-cible, .saisie-nombre, .enonce, table.planche, table.colonne, .operation, .flash-ecran,
+.probleme input, .drill-operations, .resultat-drill, .ticket, .dictee-ecran { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; }
+/* Nombres de PERFORMANCE (chrono, records, écarts, scores, statistiques) : --police-perf. */
+.tuile-valeur, .bilan .grand, .chrono-feuille, .chrono-exercice .temps, .chrono-discret, .compteur.chrono, .ecart,
+.course-nom, .chrono-exercice .objectif { font-family: var(--police-perf); font-variant-numeric: tabular-nums; }
 h1, h2, h3 { font-family: var(--police-titres); }

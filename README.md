@@ -100,23 +100,21 @@ le suit avec retard, puisque chaque leçon s'ouvre quand la leçon soroban `apre
    Le mini-test se fait à chaîne complète, sans image.
 5. 5 nombres à 1 chiffre avec tous les gestes, puis seulement ensuite 2 chiffres.
 
-## Thèmes graphiques
+## Identité graphique
 
-Six thèmes au choix, en bas du menu ou dans Progression > Apparence, chacun en clair et en sombre
-(`src/themes.css`, `ui/theme.js`) :
-- **Actuel** : l'ancien style ;
-- **Feuille d'examen** : grille réglée, encre noire, correction au stylo rouge (cercle sur la réponse juste) ;
-- **Chronométrage** : chiffres condensés géants, jaune de signalisation, tableaux de résultats ;
-- **Typographie suisse** : grille asymétrique, grotesque, noir, blanc et vermillon ;
-- **Instrument** : boîtier gris chaud, afficheur sombre, touches franches ;
-- **Signalétique** : bandeaux et code couleur par activité, contraste maximal.
+Typographie suisse (`src/themes.css`) : grille asymétrique, noir, blanc et un vermillon, en clair et en
+sombre (choix du mode en bas du menu ou dans Progression > Apparence). Trois polices, chacune avec un rôle :
+- **Archivo** (« Suisse ») : titres et texte ;
+- **IBM Plex Mono** (« Examen Mono ») : les nombres à calculer, c'est-à-dire colonnes (500, 26 à 28 px),
+  saisie et correction (700). Chasse fixe : un chiffre = une case, comme une tige du soroban ;
+- **Barlow Condensed** (« Chrono Cond ») : la performance, c'est-à-dire chronomètre, records, écart au
+  fantôme, scores et statistiques. Jamais dans les colonnes.
 
 Le motif commun est la boule du soroban (`ui/perles.js`). Elle remplace les icônes, les étoiles, les
 médailles, la série de jours et les barres de progression.
 
 Les polices sont embarquées en base64 dans `src/polices.css`, généré par `npm run polices` à partir des
-paquets @fontsource (licence SIL Open Font License) : Source Serif 4, IBM Plex Mono, Barlow et Barlow
-Condensed, Archivo, B612 et B612 Mono, Overpass et Overpass Mono. Aucune requête réseau.
+paquets @fontsource (licence SIL Open Font License). Aucune requête réseau.
 
 Sous 700 px, le menu devient une barre en bas de l'écran. Les animations sont coupées si le système
 demande moins de mouvement. L'impression reste en noir sur blanc, avec le corrigé sur une page séparée.

@@ -28,7 +28,7 @@ const js = resultat.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = ['styles.css', 'polices.css', 'themes.css'].map((f) => readFileSync(join(racine, 'src', f), 'utf8')).join('\n');
 
 const html = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="suisse" data-mode="auto">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
