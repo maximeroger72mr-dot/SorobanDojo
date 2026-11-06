@@ -1,16 +1,41 @@
-/* Style minimaliste : fond clair, un seul accent, rien d'inutile. */
+/*
+ * Style de base (thème « Actuel »). Toutes les couleurs, polices et formes sont des variables :
+ * les thèmes (themes.css) les redéfinissent sur :root[data-theme="…"], avec leurs surcharges.
+ */
 :root {
   --fond: #f6f5f2;
   --surface: #ffffff;
   --texte: #1f2328;
   --discret: #6b6f76;
   --ligne: #e1dfda;
+  --ligne-forte: #c9c6bf;
+  --survol: #ebe9e4;
+  --surligne: #eaf0fc;
   --accent: #2f6fdf;
+  --sur-accent: #ffffff;
   --ok: #2e8b57;
   --erreur: #d1352b;
+  --alerte: #9a5b00;
+  --tres-discret: #a9a6a0;
+  --donnees: #2a78d6;
   --bois: #3b3530;
   --boule: #7a6b60;
   --boule-active: #2a231e;
+  --fond-soroban: #efece6;
+  --axe-soroban: #9c958c;
+  --fond-alerte: #fff8ec;
+  --ligne-alerte: #e39b21;
+  --niveau-decouverte: #eeece8; --encre-decouverte: #52514e;
+  --niveau-progres: #c98a52; --encre-progres: #1d1208;
+  --niveau-debutant: #c3c8cf; --encre-debutant: #15181c;
+  --niveau-confirme: #e2b33c; --encre-confirme: #1d1604;
+  --niveau-expert: #7a4fd0; --encre-expert: #ffffff;
+  --cal-0: #eeece8; --cal-1: #b7d3f6; --cal-2: #6da7ec; --cal-3: #2a78d6; --cal-4: #184f95;
+  --police: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+  --police-chiffres: var(--police);
+  --police-titres: var(--police);
+  --rayon: 8px;
+  --rayon-petit: 6px;
   font-size: 16px;
 }
 
@@ -18,7 +43,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+  font-family: var(--police);
   background: var(--fond);
   color: var(--texte);
   display: flex;
@@ -42,9 +67,9 @@ body {
   text-align: left; background: none; border: none; padding: 8px 10px; border-radius: 6px;
   font: inherit; color: var(--texte); cursor: pointer;
 }
-#navigation button:hover { background: #ebe9e4; }
-#navigation button.actif { background: var(--texte); color: white; }
-#navigation button:disabled { color: #a9acb2; cursor: default; background: none; }
+#navigation button:hover { background: var(--survol); }
+#navigation button.actif { background: var(--texte); color: var(--fond); }
+#navigation button:disabled { color: var(--tres-discret); cursor: default; background: none; }
 #navigation .bientot { font-size: 0.75rem; margin-left: 4px; }
 
 main { flex: 1; overflow-y: auto; padding: 28px 36px 48px; }
@@ -61,8 +86,8 @@ button.btn {
   font: inherit; padding: 8px 16px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--ligne); background: var(--surface); color: var(--texte);
 }
-button.btn:hover { border-color: #c9c6bf; }
-button.btn.principal { background: var(--accent); border-color: var(--accent); color: white; }
+button.btn:hover { border-color: var(--ligne-forte); }
+button.btn.principal { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
 button.btn:disabled { opacity: 0.45; cursor: default; }
 kbd {
   font: 0.75rem ui-monospace, monospace; border: 1px solid var(--ligne); border-bottom-width: 2px;
@@ -81,7 +106,7 @@ select, input[type="number"], input[type="text"] {
 .segments { display: inline-flex; border: 1px solid var(--ligne); border-radius: 6px; overflow: hidden; }
 .segments button { font: inherit; border: none; background: var(--surface); padding: 6px 14px; cursor: pointer; }
 .segments button + button { border-left: 1px solid var(--ligne); }
-.segments button.actif { background: var(--texte); color: white; }
+.segments button.actif { background: var(--texte); color: var(--fond); }
 
 .carte { background: var(--surface); border: 1px solid var(--ligne); border-radius: 8px; padding: 16px 18px; }
 details.carte summary { cursor: pointer; font-weight: 600; }
@@ -106,10 +131,10 @@ details.carte ul { margin: 10px 0 0; padding-left: 20px; line-height: 1.6; }
 .zone-soroban { margin: 8px 0; }
 svg.soroban { width: 100%; max-height: 360px; display: block; user-select: none; touch-action: none; }
 svg.soroban .cadre { fill: var(--bois); }
-svg.soroban .fond { fill: #efece6; }
-svg.soroban .axe { stroke: #9c958c; stroke-width: 2; }
+svg.soroban .fond { fill: var(--fond-soroban); }
+svg.soroban .axe { stroke: var(--axe-soroban); stroke-width: 2; }
 svg.soroban .barre { fill: var(--bois); }
-svg.soroban .repere { fill: #f6f5f2; }
+svg.soroban .repere { fill: var(--fond); }
 svg.soroban .boule {
   fill: var(--boule); stroke: #00000030; stroke-width: 1;
   transition: transform 110ms ease-out, fill 120ms;
@@ -133,13 +158,13 @@ svg.soroban .doigt { font-size: 12px; font-weight: 600; fill: var(--accent); }
 .etapes li.annonce { font-style: italic; }
 .etapes .regle {
   display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 1px 6px; border-radius: 4px; background: #ebe9e4; margin-right: 6px; font-style: normal;
+  padding: 1px 6px; border-radius: 4px; background: var(--survol); margin-right: 6px; font-style: normal;
 }
 
 /* ------------------------------------------------------------ accueil / progression */
 .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
 .grille .carte { cursor: pointer; }
-.grille .carte:hover { border-color: #c9c6bf; }
+.grille .carte:hover { border-color: var(--ligne-forte); }
 .grille .carte.indisponible { cursor: default; opacity: 0.55; }
 .grille .carte h3 { margin: 0 0 4px; font-size: 1rem; }
 .grille .carte p { margin: 0; color: var(--discret); font-size: 0.92rem; }
@@ -153,14 +178,14 @@ th { font-weight: 600; color: var(--discret); font-size: 0.9rem; }
 button.lien { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0 0 8px; }
 .pastille {
   display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px;
-  background: var(--erreur); color: white; font-size: 0.75rem; text-align: center; line-height: 18px;
+  background: var(--erreur); color: #ffffff; font-size: 0.75rem; text-align: center; line-height: 18px;
 }
 .liste-paliers { display: flex; flex-direction: column; gap: 4px; }
 .ligne-palier {
   display: flex; align-items: center; gap: 12px; text-align: left; font: inherit; color: var(--texte);
   background: var(--surface); border: 1px solid var(--ligne); border-radius: 6px; padding: 9px 12px; cursor: pointer;
 }
-.ligne-palier:hover:not(:disabled) { border-color: #c9c6bf; }
+.ligne-palier:hover:not(:disabled) { border-color: var(--ligne-forte); }
 .ligne-palier:disabled { opacity: 0.45; cursor: default; }
 .ligne-palier .icone { width: 16px; text-align: center; color: var(--accent); }
 .ligne-palier.valide .icone { color: var(--ok); }
@@ -177,8 +202,8 @@ button.lien { background: none; border: none; color: var(--accent); font: inheri
 .jauge > div { height: 100%; background: var(--accent); transition: width 200ms; }
 
 .diagnostic {
-  margin-top: 14px; padding: 12px 16px; border-radius: 8px; background: #fff8ec; border: 1px solid #f0d9ae;
-  border-left: 4px solid #e39b21; display: flex; flex-direction: column; gap: 10px;
+  margin-top: 14px; padding: 12px 16px; border-radius: 8px; background: var(--fond-alerte); border: 1px solid var(--ligne-alerte);
+  border-left: 4px solid var(--ligne-alerte); display: flex; flex-direction: column; gap: 10px;
 }
 .diag-motif { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; line-height: 1.45; }
 
@@ -187,8 +212,8 @@ table.planche { width: auto; min-width: 150px; font-size: 1.6rem; font-weight: 6
 table.planche td { padding: 2px 10px; border: none; text-align: right; }
 table.planche td.num { font-size: 0.8rem; color: var(--discret); font-weight: normal; }
 table.planche td.signe { width: 20px; text-align: center; }
-table.planche tr.fait { color: #b3b0aa; }
-table.planche tr.courant { color: var(--accent); background: #eaf0fc; }
+table.planche tr.fait { color: var(--tres-discret); }
+table.planche tr.courant { color: var(--accent); background: var(--surligne); }
 .chrono { margin-right: 14px; }
 td.a-retravailler { color: var(--erreur); font-weight: 600; }
 
@@ -206,7 +231,7 @@ table.colonne td.signe { width: 24px; text-align: center; color: var(--discret);
 table.colonne td.num { font-size: 0.75rem; color: var(--discret); font-weight: normal; }
 table.colonne td.sous-total { font-size: 0.55em; color: var(--accent); font-weight: 500; text-align: left; }
 table.colonne tr.cliquable { cursor: pointer; }
-table.colonne tr.cliquable:hover { background: #eaf0fc; }
+table.colonne tr.cliquable:hover { background: var(--surligne); }
 table.colonne td.jouer { font-size: 0.5em; color: var(--accent); }
 table.colonne.compacte { font-size: 1.15rem; margin: 4px 0; }
 table.colonne.compacte td { padding: 0 4px; }
@@ -214,7 +239,7 @@ table.colonne.compacte td { padding: 0 4px; }
 .operation.compacte { font-size: 1.15rem; margin: 4px 0; }
 .grand-signe { font-size: 1.5rem; font-weight: 700; }
 .pastilles { display: flex; flex-wrap: wrap; gap: 3px; min-height: 22px; }
-.pastille-res { width: 22px; height: 22px; border-radius: 4px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; color: white; }
+.pastille-res { width: 22px; height: 22px; border-radius: 4px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; color: #ffffff; }
 .pastille-res.ok { background: var(--ok); }
 .pastille-res.ko { background: var(--erreur); }
 .serie .saisie-nombre { width: 260px; }
@@ -247,7 +272,7 @@ table.colonne.compacte td { padding: 0 4px; }
 /* ------------------------------------------------------------ drills, flash anzan */
 .drill-operations { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px 14px; margin: 12px 0; font-variant-numeric: tabular-nums; }
 .drill-op { display: flex; gap: 10px; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; }
-.drill-op:hover { background: #eaf0fc; }
+.drill-op:hover { background: var(--surligne); }
 .drill-op .num { width: 26px; color: var(--discret); font-size: 0.8rem; }
 .drill-op .sous-total { color: var(--accent); margin-left: auto; font-size: 0.95rem; }
 .flash-ecran {
@@ -274,7 +299,7 @@ table.colonne.compacte td { padding: 0 4px; }
 
 /* ------------------------------------------------------------ niveaux d'acquisition et chronomètre */
 .niveau { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
-.niveau-decouverte { background: #eeece8; color: #52514e; }
+.niveau-decouverte { background: var(--niveau-decouverte); color: var(--encre-decouverte); }
 
 
 
@@ -282,11 +307,11 @@ table.colonne.compacte td { padding: 0 4px; }
 .ligne-palier .niveau { margin-left: 6px; }
 .disposition-enonce { display: flex; gap: 32px; align-items: flex-start; max-width: 720px; }
 .chrono-exercice { margin: 10px 0 0 auto; text-align: right; min-width: 130px; }
-.chrono-exercice .temps { font-size: 1rem; font-variant-numeric: tabular-nums; color: #a9a6a0; }
-.chrono-exercice .objectif { font-size: 0.75rem; color: #a9a6a0; line-height: 1.3; }
+.chrono-exercice .temps { font-size: 1rem; font-variant-numeric: tabular-nums; color: var(--tres-discret); }
+.chrono-exercice .objectif { font-size: 0.75rem; color: var(--tres-discret); line-height: 1.3; }
 .objectif.tenu { color: var(--ok); font-weight: 600; }
 .localisation { margin-top: 6px; color: var(--texte); }
-.avis { border-left: 3px solid #e39b21; margin-bottom: 12px; }
+.avis { border-left: 3px solid var(--ligne-alerte); margin-bottom: 12px; }
 
 /* ------------------------------------------------------------ menu en sections */
 #navigation .section-menu { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--discret); padding: 14px 10px 4px; }
@@ -302,15 +327,15 @@ table.colonne.compacte td { padding: 0 4px; }
 .plan { line-height: 1.8; margin: 10px 0 0; }
 .bilan-seance { border-left: 3px solid var(--accent); margin-bottom: 14px; }
 .bilan-seance ul { padding-left: 18px; line-height: 1.7; }
-.compteur.fantome { color: #a9a6a0; margin-right: 12px; }
+.compteur.fantome { color: var(--tres-discret); margin-right: 12px; }
 .compteur.fantome.devant { color: var(--accent); }
 
 /* ------------------------------------------------------------ drills */
-.chrono-discret { color: #a9a6a0; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+.chrono-discret { color: var(--tres-discret); font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
 .fantome-ligne { margin: 8px 0; font-size: 0.85rem; }
 .fantome-barre { width: 260px; height: 6px; background: var(--ligne); border-radius: 3px; overflow: hidden; }
-.fantome-barre > div { height: 100%; width: 0; background: #86b6ef; }
-.fantome-barre.depasse > div { background: #a9a6a0; }
+.fantome-barre > div { height: 100%; width: 0; background: var(--donnees); }
+.fantome-barre.depasse > div { background: var(--tres-discret); }
 .drill-op { flex-direction: column; gap: 2px; }
 .drill-op-ligne { display: flex; gap: 10px; align-items: baseline; }
 .drill-operations.avec-doigte { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 14px; }
@@ -322,17 +347,17 @@ table.colonne.compacte td { padding: 0 4px; }
 .titre-graphique { font-size: 0.85rem; color: var(--discret); margin-bottom: 4px; }
 svg.calendrier { width: 100%; max-width: 360px; display: block; }
 svg.calendrier .case-jour:hover { stroke: var(--texte); stroke-width: 1; }
-svg .axe-texte { font-size: 9px; fill: #6b6f76; font-family: inherit; }
+svg .axe-texte { font-size: 9px; fill: var(--discret); font-family: inherit; }
 svg.courbe { width: 100%; display: block; }
 svg.courbe .axe-texte { font-size: 11px; }
-svg.courbe .grille { stroke: #ebe9e4; stroke-width: 1; }
-svg.courbe .seuil { stroke: #b3b0aa; stroke-width: 1; stroke-dasharray: 4 4; }
-svg.courbe .trace { fill: none; stroke: #2a78d6; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-svg.courbe .reticule { stroke: #b3b0aa; stroke-width: 1; }
-svg.courbe .point { fill: #2a78d6; stroke: var(--surface); stroke-width: 2; }
+svg.courbe .grille { stroke: var(--survol); stroke-width: 1; }
+svg.courbe .seuil { stroke: var(--tres-discret); stroke-width: 1; stroke-dasharray: 4 4; }
+svg.courbe .trace { fill: none; stroke: var(--donnees); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg.courbe .reticule { stroke: var(--tres-discret); stroke-width: 1; }
+svg.courbe .point { fill: var(--donnees); stroke: var(--surface); stroke-width: 2; }
 .legende { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 0.8rem; color: var(--discret); margin-top: 6px; }
 .pastille-legende { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-.pastille-legende.non-pratique { background: var(--surface); border: 1px dashed #b3b0aa; }
+.pastille-legende.non-pratique { background: var(--surface); border: 1px dashed var(--tres-discret); }
 .infobulle {
   position: fixed; z-index: 50; display: none; pointer-events: none; max-width: 300px;
   background: var(--surface); color: var(--texte); border: 1px solid var(--ligne); border-radius: 6px;
@@ -343,19 +368,19 @@ table.carte-maitrise th { font-size: 0.75rem; text-align: center; padding: 2px 4
 table.carte-maitrise th.libelle { text-align: right; padding-right: 8px; white-space: nowrap; }
 table.carte-maitrise td { width: 40px; height: 30px; text-align: center; padding: 0; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 table.carte-maitrise td.vide { background: none; cursor: default; }
-table.carte-maitrise td.non-pratique { background: var(--surface); border: 1px dashed #b3b0aa; color: var(--discret); font-weight: 400; }
+table.carte-maitrise td.non-pratique { background: var(--surface); border: 1px dashed var(--tres-discret); color: var(--discret); font-weight: 400; }
 table.carte-maitrise td.pas-vu { opacity: 0.45; }
 table.carte-maitrise td.geste:hover, table.carte-maitrise td.geste:focus { outline: 2px solid var(--texte); outline-offset: 1px; }
 tr.cliquable { cursor: pointer; }
-tr.cliquable:hover td { background: #f3f1ec; }
+tr.cliquable:hover td { background: var(--survol); }
 .grille-succes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-.succes { background: var(--surface); border: 1px dashed #c9c6bf; border-radius: 8px; padding: 8px 10px; font-size: 0.9rem; }
+.succes { background: var(--surface); border: 1px dashed var(--ligne-forte); border-radius: 8px; padding: 8px 10px; font-size: 0.9rem; }
 .succes.obtenu { border-style: solid; border-left: 3px solid var(--accent); }
 h3 { font-size: 0.95rem; margin: 16px 0 8px; }
 
 /* ------------------------------------------------------------ notifications */
 .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
-.toast { background: var(--texte); color: white; border-radius: 8px; padding: 10px 14px; max-width: 320px; font-size: 0.9rem; box-shadow: 0 6px 18px #0003; transition: opacity 0.4s, transform 0.4s; }
+.toast { background: var(--texte); color: var(--fond); border-radius: 8px; padding: 10px 14px; max-width: 320px; font-size: 0.9rem; box-shadow: 0 6px 18px #0003; transition: opacity 0.4s, transform 0.4s; }
 .toast.sortie { opacity: 0; transform: translateY(8px); }
 
 /* ------------------------------------------------------------ division, dictée, sélection, sauvegarde */
@@ -388,7 +413,7 @@ table.carte-maitrise.selection td.choisi { opacity: 1; }
 .photo-soroban svg.soroban { max-height: 170px; }
 .photo-soroban.compacte svg.soroban { max-height: 110px; }
 svg.soroban .zone-tige { cursor: pointer; }
-svg.soroban .zone-tige:hover { fill: #2a78d61a; }
+svg.soroban .zone-tige:hover { fill: var(--surligne); fill-opacity: 0.6; }
 .zone-soroban.placement svg.soroban { max-height: 300px; }
 .liste-grades { display: flex; flex-direction: column; gap: 8px; }
 .carte.grade .icone { width: 16px; color: var(--accent); }
@@ -402,8 +427,8 @@ svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
 .course-nom { width: 130px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .course-piste { flex: 1; height: 7px; background: var(--ligne); border-radius: 4px; overflow: hidden; }
 .course-remplissage { height: 100%; width: 0; border-radius: 4px; transition: width 0.1s linear; }
-.course-remplissage.vous { background: #256abf; }
-.course-remplissage.fantome { background: #a9a6a0; }
+.course-remplissage.vous { background: var(--donnees); }
+.course-remplissage.fantome { background: var(--tres-discret); }
 .ecart { font-variant-numeric: tabular-nums; }
 .ecart.avance { color: var(--ok); }
 .ecart.retard { color: var(--erreur); }
@@ -421,10 +446,10 @@ svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
 .lievre tr { transition: opacity 0.15s; }
 .lievre tr.avenir { opacity: 0; }
 .lievre tr.suivante { opacity: 0.55; }
-.lievre tr.courante td { background: #dbe8fb; }
+.lievre tr.courante td { background: var(--surligne); }
 .lievre tr.passee { opacity: 0; }
 .jauge-arcade { height: 12px; background: var(--ligne); border-radius: 6px; overflow: hidden; margin: 8px 0; }
-.jauge-arcade > div { height: 100%; background: #256abf; transition: width 0.1s linear; }
+.jauge-arcade > div { height: 100%; background: var(--donnees); transition: width 0.1s linear; }
 .jauge-arcade.alerte > div { background: var(--erreur); }
 .jauge-arcade.flash { outline: 2px solid var(--erreur); }
 .etoiles { font-size: 1.3rem; letter-spacing: 2px; }
@@ -434,7 +459,7 @@ svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
 .ligne-palier.priorite { border-left: 3px solid var(--accent); }
 .plan li.priorite { color: var(--accent); }
 details.carte.objectif { margin: 12px 0; }
-.avertissement { color: #9a5b00; }
+.avertissement { color: var(--alerte); }
 .quotidien { font-size: 1.15rem; line-height: 1.6; }
 .quotidien .ticket { font-variant-numeric: tabular-nums; border-left: 2px dashed var(--ligne); padding-left: 12px; margin: 6px 0; }
 .quotidien .ticket div { display: flex; justify-content: space-between; gap: 24px; max-width: 280px; }
@@ -447,10 +472,10 @@ details.carte.objectif { margin: 12px 0; }
 .colonne td.relance { font-size: 0.72rem; color: var(--discret); padding-left: 10px; font-style: italic; }
 /* ------------------------------------------------------------ classement : bronze, argent, or, platine */
 .badge-classement { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-right: 6px; white-space: nowrap; }
-.badge-classement.bronze, .niveau-progres { background: #c98a52; color: #1d1208; }
-.badge-classement.argent, .niveau-debutant { background: #c3c8cf; color: #15181c; }
-.badge-classement.or, .niveau-confirme { background: #e2b33c; color: #1d1604; }
-.badge-classement.platine, .niveau-expert { background: #7a4fd0; color: #ffffff; }
+.badge-classement.bronze, .niveau-progres { background: var(--niveau-progres); color: var(--encre-progres); }
+.badge-classement.argent, .niveau-debutant { background: var(--niveau-debutant); color: var(--encre-debutant); }
+.badge-classement.or, .niveau-confirme { background: var(--niveau-confirme); color: var(--encre-confirme); }
+.badge-classement.platine, .niveau-expert { background: var(--niveau-expert); color: var(--encre-expert); }
 .classement-objectifs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 
 /* ------------------------------------------------------------ pages de cartes (Apprendre, S'entraîner, Se mesurer, Jeux) */
@@ -463,7 +488,7 @@ details.carte.objectif { margin: 12px 0; }
 .carte-hub .carte-info.a-faire { color: var(--accent); }
 .carte-hub.recommande { border-left: 3px solid var(--accent); }
 .colonne tr.cliquable { cursor: pointer; }
-.colonne tr.cliquable:hover td { background: #eef3fb; }
+.colonne tr.cliquable:hover td { background: var(--surligne); }
 
 /* ------------------------------------------------------------ menu à 5 entrées */
 #navigation button.entree-menu { display: flex; align-items: center; gap: 10px; font-size: 1rem; padding: 11px 12px; margin-bottom: 4px; }
@@ -479,3 +504,9 @@ div.ligne-palier { cursor: default; }
 .bon-geste { display: flex; align-items: center; gap: 28px; margin: 10px 0 14px; }
 .bon-geste .flash-image { margin: 0; }
 .bon-geste .operation { margin: 0; }
+
+/* ------------------------------------------------------------ polices des nombres (thèmes) */
+.nombre-cible, .saisie-nombre, .enonce, table.planche, table.colonne, .operation, .flash-ecran, .tuile-valeur,
+.bilan .grand, .chrono-feuille, .chrono-exercice .temps, .chrono-discret, .probleme input, .drill-operations,
+.resultat-drill, .ticket, .dictee-ecran { font-family: var(--police-chiffres); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--police-titres); }

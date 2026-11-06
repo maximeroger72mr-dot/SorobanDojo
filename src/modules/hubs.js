@@ -16,7 +16,6 @@ import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { recordJeu, JEUX } from './jeux.js';
 import { h } from '../ui/dom.js';
 
-const etoiles = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
 const bits = (m) => [1, 2, 4].filter((b) => m & b).length;
 
 /** Cartes de chaque section : écran visé, titre, description, info (texte ou null), à faire. */
@@ -53,7 +52,7 @@ const CARTES = {
         return r ? { texte: `${g.nom} : ${r.points} / ${r.total} cette semaine${r.reussi ? ' ✓' : ''}` } : { texte: `${g.nom} à passer cette semaine`, aFaire: true };
       } },
     { ecran: 'defis', titre: 'Défis chrono', description: 'Défi de la semaine en 3 étoiles, défis libres contre votre fantôme, arcade, échelle des kyū.',
-      info: () => { const d = progression(); const s = defiSemaine(d, aujourdhui()); return { texte: `Semaine : ${etoiles(bits(d.records[`${s.cle}-etoiles`]?.points ?? 0))}` }; } },
+      info: () => { const d = progression(); const s = defiSemaine(d, aujourdhui()); return { texte: `Défi de la semaine : ${bits(d.records[`${s.cle}-etoiles`]?.points ?? 0)} étoile(s) sur 3` }; } },
     { ecran: 'epreuves', titre: 'Épreuves officielles', description: 'Les vrais kyū (10e au 1er), au format des examens japonais.',
       info: () => { const g = grade(progression()); return g.prochain ? { texte: g.pret ? `Prêt pour le ${g.prochain.nom}` : `Prochain : ${g.prochain.nom}`, aFaire: g.pret } : null; } },
   ],
@@ -65,7 +64,7 @@ function page(id, titre, intro) {
     titre,
     section: true,
     monter(el, app) {
-      el.append(h('h1', {}, titre), h('p', { class: 'discret' }, intro),
+      el.append(h('h1', {}, titre), h('p', { class: 'discret chapeau' }, intro),
         h('div', { class: 'cartes' }, CARTES[id].map((c) => {
           const info = c.info?.();
           return h('button', { class: `carte-hub${info?.aFaire ? ' recommande' : ''}`, onclick: () => app.aller(c.ecran, c.params?.() ?? {}) },

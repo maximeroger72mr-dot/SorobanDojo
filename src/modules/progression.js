@@ -3,6 +3,8 @@
  * (leçons, gestes, modules, jours).
  */
 
+import { libelleGrade } from '../core/examen.js';
+import { selecteursTheme } from '../ui/theme.js';
 import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
 import {
   statistiques, progression, aujourdhui, SEUIL_DIFFICULTE, evaluerMotif, evaluerPalier, reinitialiserGestes,
@@ -52,6 +54,11 @@ function carte(app) {
   return h('div', {},
     h('p', { class: 'discret' }, `${acquis} geste${acquis > 1 ? 's' : ''} acquis sur ${TOUS_LES_MOTIFS.length}. Cliquez une case pour voir sa courbe de vitesse, le geste animé, ou lancer une planche de ce geste.`),
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
+}
+
+/** Apparence : thème graphique et mode clair / sombre (aussi en bas du menu). */
+function sectionApparence() {
+  return h('div', {}, h('h2', {}, 'Apparence'), h('div', { class: 'reglages' }, ...selecteursTheme()));
 }
 
 /** Sauvegarde : export (fichier, presse-papiers) et import (remplacer ou fusionner). */
@@ -118,9 +125,10 @@ export default {
 
     // Grade et régularité
     el.append(h('div', { class: 'tuiles' },
-      h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Grade obtenu'),
-        h('div', { class: 'tuile-valeur' }, g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : 'aucun'),
-        h('div', { class: 'discret' }, !g.prochain ? 'Tous les kyū sont obtenus.' : g.pret ? `Prêt à tenter le ${g.prochain.nom}.` : `Pour le ${g.prochain.nom} : ${g.manquantes.slice(0, 3).map((s) => s.titre).join(', ')}${g.manquantes.length > 3 ? ` et ${g.manquantes.length - 3} autres` : ''}.`)),
+      h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Grade'),
+        h('div', { class: 'tuile-valeur' }, libelleGrade(d).valeur),
+        h('div', { class: 'discret' }, libelleGrade(d).detail),
+        !g.pret && g.prochain && g.manquantes.length ? h('div', { class: 'discret' }, `À valider : ${g.manquantes.slice(0, 3).map((s) => s.titre).join(', ')}${g.manquantes.length > 3 ? ` et ${g.manquantes.length - 3} autres` : ''}.`) : null),
       h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
         h('div', { class: 'tuile-valeur' }, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`),
         h('div', { class: 'discret' }, 'Un jour de repos par semaine ne casse pas la série.'))));
@@ -140,7 +148,7 @@ export default {
       h('div', { class: 'grille-succes' }, prochains.map((s) => h('div', { class: 'succes' }, h('strong', {}, s.nom), h('div', { class: 'discret' }, `${s.theme} · ${s.description}`)))));
 
     if (Object.keys(parModule).length === 0) {
-      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'), sectionSauvegarde(app));
+      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'), sectionApparence(), sectionSauvegarde(app));
       return;
     }
 
@@ -190,6 +198,6 @@ export default {
       h('h2', {}, 'Par jour'),
       h('table', {}, entete('Date'), Object.entries(parJour).sort(([a], [b]) => b.localeCompare(a)).slice(0, 30)
         .map(([date, t]) => ligne(new Date(`${date}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), t))));
-    el.append(sectionSauvegarde(app));
+    el.append(sectionApparence(), sectionSauvegarde(app));
   },
 };

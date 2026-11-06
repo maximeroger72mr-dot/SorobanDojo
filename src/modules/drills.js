@@ -7,6 +7,7 @@ import { catalogueDrills, drillRepetition, CLASSEMENT, VALIDATIONS_DRILL, tempsC
 import { enregistrerSession, proposerRecord, progression, etatDrill, noterDrill } from '../core/progression.js';
 import { drillOuvert, manqueDrill, drillValide } from '../core/parcours.js';
 import { creerDrill } from '../ui/drill.js';
+import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, produitLent, cleProduit } from '../core/tables.js';
 import { noterProduit, statsTables } from '../core/progression.js';
@@ -41,8 +42,8 @@ export default {
           else if (valide) statut = `validé${rec ? ` · record ${formaterDuree(rec.dureeMs)}` : ''}`;
           else statut = `à valider : ${etatDrill(d.id).validations} / ${VALIDATIONS_DRILL} sous ${formaterDuree(tempsClassement(d, 'bronze'))}`;
           return h('button', { class: `ligne-palier${valide ? ' valide' : ''}`, disabled: !ouvert, onclick: () => changer(() => ecran(d)) },
-            h('span', { class: 'icone' }, valide ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, d.titre),
-            cl ? h('span', { class: `badge-classement ${cl.id}` }, cl.nom) : null,
+            h('span', { class: `icone etat-${valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, valide ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, d.titre),
+            cl ? badgeClassement(cl.id, cl.nom) : null,
             h('span', { class: 'statut' }, statut));
         })));
       }
@@ -70,7 +71,7 @@ export default {
     function ecran(d) {
       el.append(h('button', { class: 'lien', onclick: () => changer(catalogue) }, '← Tous les drills'),
         h('h1', {}, d.titre), h('p', {}, d.description),
-        h('p', { class: 'classement-objectifs' }, CLASSEMENT.map((c) => h('span', { class: `badge-classement ${c.id}` }, `${c.nom} ≤ ${formaterDuree(tempsClassement(d, c.id))}`)),
+        h('p', { class: 'classement-objectifs' }, CLASSEMENT.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(tempsClassement(d, c.id))}`)),
           h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)));
       const drill = creerDrill(el, d, {
         record: record(d.id),
@@ -88,7 +89,7 @@ export default {
                 : !avant ? `${cl.nom} ! Passage validé (${n} / ${VALIDATIONS_DRILL}).`
                   : `${cl.nom}.${suivant ? ` Prochain objectif : ${suivant.nom.toLowerCase()} en ${formaterDuree(tempsClassement(d, suivant.id))}.` : ' Le meilleur classement !'}`;
           return h('div', { class: 'ligne', style: 'margin-top:8px' },
-            cl ? h('span', { class: `badge-classement ${cl.id}` }, cl.nom) : null,
+            cl ? badgeClassement(cl.id, cl.nom) : null,
             h('span', {}, message),
             nouveau ? h('strong', {}, ' Nouveau record personnel ! ') : null,
             h('button', { class: 'btn principal', onclick: () => changer(() => ecran(d)) }, 'Recommencer'),

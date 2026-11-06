@@ -10,6 +10,8 @@
 
 import { h, remplir } from './ui/dom.js';
 import { chargerProgression, surSucces } from './core/progression.js';
+import { pictogramme } from './ui/perles.js';
+import { appliquerTheme, selecteursTheme } from './ui/theme.js';
 import { notifier } from './ui/toast.js';
 import seance from './modules/seance.js';
 import revisions from './modules/revisions.js';
@@ -35,11 +37,11 @@ import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
  * les autres écrans existent toujours (on y va par les cartes, la séance, ou un lien).
  */
 const MENU = [
-  { ecran: seance, nom: 'Aujourd\'hui', icone: '☀' },
-  { ecran: apprendre, nom: 'Apprendre', icone: '◎' },
-  { ecran: entrainer, nom: 'S\'entraîner', icone: '⟳' },
-  { ecran: mesurer, nom: 'Se mesurer', icone: '⏱' },
-  { ecran: progressionEcran, nom: 'Progression', icone: '▤' },
+  { ecran: seance, nom: 'Aujourd\'hui', picto: 'aujourdhui' },
+  { ecran: apprendre, nom: 'Apprendre', picto: 'apprendre' },
+  { ecran: entrainer, nom: 'S\'entraîner', picto: 'entrainer' },
+  { ecran: mesurer, nom: 'Se mesurer', picto: 'mesurer' },
+  { ecran: progressionEcran, nom: 'Progression', picto: 'progression' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
   quotidien, muldiv, anzan, dictee, defis, examen, epreuves];
@@ -59,7 +61,10 @@ export const app = {
     remplir(zone);
     zone.parentElement.scrollTop = 0; // la zone défilante est <main>, autour du contenu centré
     nettoyage = ecran.monter(zone, app, params) ?? null;
+    replierReglages(zone);
     for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === entreeDe(ecran.id));
+    // Section courante (codes couleur du thème « signalétique »).
+    document.body.dataset.section = entreeDe(ecran.id);
     app.majBadges();
   },
   /** Met à jour les pastilles du menu (ex. révisions dues, sur « Aujourd'hui »). */
@@ -79,11 +84,28 @@ function construireNavigation() {
   for (const m of MENU) {
     if (m.ecran === progressionEcran) nav.append(h('hr', { class: 'separateur-menu' }));
     nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', onclick: () => app.aller(m.ecran.id) },
-      h('span', { class: 'icone-menu', 'aria-hidden': 'true' }, m.icone), m.nom, h('span', { class: 'pastille', style: 'display:none' })));
+      h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, m.nom), h('span', { class: 'pastille', style: 'display:none' })));
+  }
+  // Choix du thème et du mode (clair / sombre), en bas du menu : pour comparer sur les vrais écrans.
+  nav.append(h('div', { class: 'choix-theme' }, ...selecteursTheme()));
+}
+
+/**
+ * Une seule action principale visible : pendant un exercice (série, feuille, drill, marathon,
+ * lièvre…), les réglages de l'écran sont repliés derrière un bouton « Réglages ».
+ */
+function replierReglages(zoneEcran) {
+  for (const r of zoneEcran.querySelectorAll(':scope > .reglages')) {
+    if (r.previousElementSibling?.classList.contains('bouton-reglages')) continue;
+    r.before(h('button', { class: 'bouton-reglages', 'aria-expanded': 'false', onclick: (e) => {
+      const ouvert = r.classList.toggle('ouvert');
+      e.currentTarget.setAttribute('aria-expanded', String(ouvert));
+    } }, 'Réglages'));
   }
 }
 
 await chargerProgression();
+appliquerTheme();
 surSucces((s) => notifier(`Succès : ${s.nom}`, s.description));
 construireNavigation();
 app.aller('seance');

@@ -69,3 +69,18 @@ test('objectif daté : honnête sur le temps de pratique, pas seulement les leç
   // 10e kyū en 4 mois : réaliste.
   assert.equal(planObjectif(d, '10', '2027-03-10', '2026-11-06').verdict, 'realiste');
 });
+
+import { libelleGrade } from '../src/core/examen.js';
+
+test('grade : les deux échelles, et le nombre de points conseillés suit l\'essentiel', () => {
+  const d = vide();
+  assert.match(libelleGrade(d).valeur, /aucun/);
+  d.records['prekyu-20'] = { reussi: true }; d.records['prekyu-18'] = { reussi: true };
+  const l = libelleGrade(d);
+  assert.equal(l.valeur, '18e kyū (entraînement)');
+  assert.match(l.detail, /Prochain grade officiel : 10e kyū/);
+  const dec = { raison: 'On avance.' };
+  const deux = motDuProf(d, '2026-11-04', dec, 30, 15, 2);
+  assert.ok(deux.some((p) => p.includes('les deux premiers points')) && !deux.some((p) => p.includes('trois')));
+  assert.ok(!motDuProf(d, '2026-11-04', dec, 30, 15, 1).some((p) => p.includes('premier')));
+});

@@ -113,7 +113,7 @@ export default {
           return h('button', {
             class: `ligne-palier${e.valide ? ' valide' : ''}`, disabled: !ouvert,
             onclick: () => changer(() => vueSousPalier(sp)),
-          }, h('span', { class: 'icone' }, icone), h('span', { class: 'titre' }, sp.titre),
+          }, h('span', { class: `icone etat-${e.valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, icone), h('span', { class: 'titre' }, sp.titre),
           e.reps ? badgeNiveau(evaluerPalier(sp.id, famille(sp))) : null,
           h('span', { class: 'statut' }, statut));
         })));

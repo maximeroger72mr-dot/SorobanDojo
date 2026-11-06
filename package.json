@@ -1,6 +1,6 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {
@@ -8,11 +8,21 @@
     "test": "node --test \"tests/**/*.test.js\"",
     "dist:win": "electron-builder --win portable",
     "dist:mac": "electron-builder --mac",
-    "html": "node scripts/construire-html.mjs"
+    "html": "node scripts/construire-html.mjs",
+    "polices": "node scripts/polices.mjs"
   },
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/b612": "^5.3.0",
+    "@fontsource/b612-mono": "^5.3.0",
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/overpass": "^5.3.0",
+    "@fontsource/overpass-mono": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
     "electron": "^45.2.1",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2"

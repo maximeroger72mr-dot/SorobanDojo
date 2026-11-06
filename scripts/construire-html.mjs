@@ -24,7 +24,8 @@ const resultat = await build({
 });
 // Échappe toute séquence « </script » qui fermerait la balise prématurément.
 const js = resultat.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const css = readFileSync(join(racine, 'src/styles.css'), 'utf8');
+// Styles : base, polices embarquées (base64) et thèmes, dans cet ordre.
+const css = ['styles.css', 'polices.css', 'themes.css'].map((f) => readFileSync(join(racine, 'src', f), 'utf8')).join('\n');
 
 const html = `<!DOCTYPE html>
 <html lang="fr">

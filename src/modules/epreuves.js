@@ -68,7 +68,7 @@ export default {
           'Du 6e au 1er kyū : tableau de référence retenu (seuils 210/300 puis 240/300, décimaux à partir du 3e kyū, réponses arrondies comme indiqué). Du 10e au 7e kyū : formats publics japonais, seuil indicatif de 70 %. Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.'),
         h('div', { class: 'liste-grades' }, GRADES.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
-            h('span', { class: 'icone' }, meilleur(g)?.reussi ? '✓' : '○'),
+            h('span', { class: `icone etat-${meilleur(g)?.reussi ? 'fait' : 'ouvert'}` }, meilleur(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
           h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g)),

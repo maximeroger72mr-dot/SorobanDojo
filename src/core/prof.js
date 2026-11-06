@@ -88,7 +88,7 @@ export function jeuDuJour(d, date) {
  * @param {object} decision  resultat de decisionDuJour
  * @param {number} minutesEssentiel  durée estimée de l'essentiel
  */
-export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes) {
+export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes, nbEssentiel = 3) {
   const phrases = [];
   const absence = joursAbsence(d, date);
   if (absence === null) phrases.push('Bienvenue ! Je vous propose chaque jour une séance : d\'abord l\'essentiel pour progresser, puis un bonus pour le plaisir.');
@@ -121,6 +121,8 @@ export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes) 
       else phrases.push(`Objectif ${p.grade.nom} : soyons honnêtes, la date n'est pas réaliste (visez plutôt ${dateR}${p.atteignable ? ` ; d'ici là, le ${p.atteignable.nom} est atteignable` : ''}).`);
     }
   }
-  if (minutesEssentiel > objectifMinutes) phrases.push(`L'essentiel prend environ ${minutesEssentiel} min (objectif du jour : ${objectifMinutes}) : si le temps manque, faites au moins les trois premiers points.`);
+  // Le nombre de points conseillés suit le contenu réel de l'essentiel.
+  const premiers = nbEssentiel >= 3 ? 'les trois premiers points' : nbEssentiel === 2 ? 'les deux premiers points' : 'le premier point';
+  if (minutesEssentiel > objectifMinutes && nbEssentiel > 1) phrases.push(`L'essentiel prend environ ${minutesEssentiel} min (objectif du jour : ${objectifMinutes}). Si le temps manque, faites au moins ${premiers}.`);
   return phrases;
 }

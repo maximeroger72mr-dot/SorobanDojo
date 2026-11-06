@@ -2,8 +2,8 @@
  * Se mesurer : défis sur son soroban.
  *
  *  - Défi de la semaine : la même feuille toute la semaine, adaptée au niveau, en 3 étoiles :
- *      ★ précision (≥ 90 % de justes), ★★ vitesse (0 erreur et sous le temps « confirmé »),
- *      ★★★ sans filet (5 colonnes NOUVELLES du même format, une par une, au rythme expert).
+ *      1 précision (≥ 90 % de justes), 2 vitesse (0 erreur et sous le temps « confirmé »),
+ *      3 sans filet (5 colonnes NOUVELLES du même format, une par une, au rythme expert).
  *  - Défis libres : N calculs le plus vite possible, contre son fantôme (son record), ou contre
  *    « le maître » tant qu'il n'y a pas de record. Médaille d'après les seuils de niveau.
  *  - Contre-la-montre arcade : 60 s au départ ; chaque calcul juste rajoute du temps (plus avec
@@ -22,6 +22,7 @@ import { motifsAppris } from './planches.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { fantomeMaitre, medaille } from '../ui/course.js';
+import { rangee, badgeClassement } from '../ui/perles.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 const memoire = creerMemoire(8);
@@ -77,7 +78,8 @@ const ETOILES = [
   { bit: 2, nom: 'Vitesse', texte: '0 erreur, sous le temps « confirmé »' },
   { bit: 4, nom: 'Sans filet', texte: '5 colonnes nouvelles du même format, une par une, toutes justes, au rythme expert' },
 ];
-const etoilesHtml = (masque) => h('span', { class: 'etoiles' }, ETOILES.map((e) => h('span', { class: masque & e.bit ? 'etoile-pleine' : 'etoile-vide' }, '★')));
+const nbEtoiles = (masque) => ETOILES.filter((e) => masque & e.bit).length;
+const etoilesHtml = (masque) => h('span', { class: 'etoiles' }, rangee(nbEtoiles(masque), 3, `${nbEtoiles(masque)} étoile${nbEtoiles(masque) > 1 ? 's' : ''} sur 3`));
 
 export default {
   id: 'defis',
@@ -105,7 +107,7 @@ export default {
         h('div', { class: 'carte', style: 'margin-bottom:16px' },
           h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Défi de la semaine (${semaine.semaine.split('-S')[1]}e semaine) `, etoilesHtml(masque))),
           h('p', {}, `La même feuille toute la semaine, adaptée à votre niveau : ${semaine.description}. Trois étoiles à gagner :`),
-          h('ul', {}, ETOILES.map((e) => h('li', { class: masque & e.bit ? '' : 'discret' }, `${'★'.repeat(Math.log2(e.bit) + 1)} ${e.nom} : ${e.texte}${masque & e.bit ? ' ✓' : ''}`))),
+          h('ul', {}, ETOILES.map((e) => h('li', { class: masque & e.bit ? '' : 'discret' }, `${Math.log2(e.bit) + 1}. ${e.nom} : ${e.texte}${masque & e.bit ? ' (obtenue)' : ''}`))),
           h('p', { class: 'discret' }, recSemaine ? `Votre meilleur temps cette semaine : ${formaterDuree(recSemaine.dureeMs)}.` : `Pas encore tenté. Score = temps + ${PENALITE_SEMAINE_MS / 1000} s par erreur.`),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn principal', onclick: () => lancerSemaine() }, recSemaine ? 'Refaire la feuille' : 'Relever le défi'),
@@ -160,7 +162,7 @@ export default {
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, formaterDuree(score)),
             h('p', {}, `${b.justes} / ${b.total} justes · temps ${formaterDuree(b.dureeMs)}${erreurs ? ` + ${erreurs} × ${PENALITE_MS / 1000} s de pénalité` : ''}`),
-            med ? h('p', {}, h('span', { class: `badge-classement ${med.nom}` }, med.nom[0].toUpperCase() + med.nom.slice(1)), med.texte) : null,
+            med ? h('p', {}, badgeClassement(med.nom, med.nom[0].toUpperCase() + med.nom.slice(1)), ' ', med.texte) : null,
             nouveau ? h('p', { class: 'retour ok' }, r ? `Nouveau record : ${formaterDuree(r.dureeMs - score)} de mieux que votre fantôme.` : 'Premier record : votre fantôme est né.') : h('p', { class: 'discret' }, `Fantôme (record) : ${formaterDuree(records()[cle()].dureeMs)}`),
             h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer() }, 'Rejouer'), h('button', { class: 'btn', onclick: () => accueil() }, 'Changer de défi'))),
           listeErreurs(b.resultats) ?? '');

@@ -21,8 +21,12 @@ import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, jeuDuJour, motDuProf } from '../core/prof.js';
-import { examenDeLaSemaine, resultatSemaine, minutesExamen, joursRestants, meilleurPrekyu } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, minutesExamen, joursRestants, libelleGrade } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
+import { rangee } from '../ui/perles.js';
+
+/** Jours pratiqués parmi les 7 derniers (aujourd'hui compris). */
+const septJours = (dates) => { const j = aujourdhui(); return dates.filter((x) => x <= j && x > ajouterJours(j, -7)).length; };
 
 /**
  * Le plan du jour, comme un prof : l'ESSENTIEL (ce qui fait progresser vers l'objectif, dans
@@ -108,7 +112,7 @@ function plan(d, debut, seance = null) {
   }
 
   const minutes = essentiel.reduce((t, it) => t + it.minutes, 0);
-  const mot = motDuProf(d, date, decision, minutes, reglagesUtilisateur().objectifMinutes);
+  const mot = motDuProf(d, date, decision, minutes, reglagesUtilisateur().objectifMinutes, essentiel.length);
   return { essentiel, bonus, mot, minutes, decision };
 }
 
@@ -200,16 +204,15 @@ export default {
         h('div', { class: 'tuiles' },
           h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
             h('div', { class: 'tuile-valeur' }, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`),
+            h('div', { class: 'serie-perles' }, rangee(septJours(dates), 7, `${septJours(dates)} jours de pratique sur les 7 derniers`)),
             h('div', { class: 'discret' }, serie.aujourdhuiFait ? 'aujourd\'hui : fait' : serie.jours ? 'pratiquez aujourd\'hui pour la prolonger' : 'commencez aujourd\'hui')),
           h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Objectif du jour ', choixObjectif),
             h('div', { class: 'tuile-valeur' }, `${Math.floor(minutes)} / ${objectif} min`),
             h('div', { class: 'jauge', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
               h('div', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
           h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Grade'),
-            h('div', { class: 'tuile-valeur' }, g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : meilleurPrekyu(d) ? `${meilleurPrekyu(d).nom} (préparatoire)` : 'aucun pour l\'instant'),
-            h('div', { class: 'discret' }, !g.prochain ? 'Tous les kyū sont obtenus.'
-              : g.pret ? `Prêt pour le ${g.prochain.nom} : tentez l'épreuve.`
-                : `Prochain : ${g.prochain.nom} · ${g.manquantes.length} leçon${g.manquantes.length > 1 ? 's' : ''} à valider`))));
+            h('div', { class: 'tuile-valeur' }, libelleGrade(d).valeur),
+            h('div', { class: 'discret' }, libelleGrade(d).detail))));
       prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.tuiles')?.before(h('div', { class: 'carte avis' }, a))));
       el.append(carteObjectif(d, () => afficher(bilan)));
 
@@ -235,7 +238,7 @@ export default {
       const ligne = (it, i) => h('button', {
         class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
         onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...it.aller); },
-      }, h('span', { class: 'icone' }, it.fait ? '✓' : i !== null ? String(i + 1) : '★'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
+      }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
       el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
       const entete = seance

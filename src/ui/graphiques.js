@@ -25,10 +25,13 @@ const s = (nom, attrs = {}, ...enfants) => {
  * débutant), or (confirmé), platine violet (expert). Teintes bien distinctes ; le texte de chaque
  * case garde le nom du niveau, la couleur n'est jamais la seule information.
  */
+// Les valeurs sont des variables CSS : chaque thème (themes.css) redéfinit ses couleurs.
 export const COULEUR_NIVEAU = {
-  decouverte: '#eeece8', progres: '#c98a52', debutant: '#c3c8cf', confirme: '#e2b33c', expert: '#7a4fd0',
+  decouverte: 'var(--niveau-decouverte)', progres: 'var(--niveau-progres)', debutant: 'var(--niveau-debutant)', confirme: 'var(--niveau-confirme)', expert: 'var(--niveau-expert)',
 };
-export const ENCRE_NIVEAU = { decouverte: '#52514e', progres: '#1d1208', debutant: '#15181c', confirme: '#1d1604', expert: '#ffffff' };
+export const ENCRE_NIVEAU = {
+  decouverte: 'var(--encre-decouverte)', progres: 'var(--encre-progres)', debutant: 'var(--encre-debutant)', confirme: 'var(--encre-confirme)', expert: 'var(--encre-expert)',
+};
 
 // ------------------------------------------------------------------ info-bulle partagée
 
@@ -52,11 +55,11 @@ export function cacherBulle() {
 // ------------------------------------------------------------------ calendrier de régularité
 
 const PALIERS_MINUTES = [
-  { min: 0, couleur: '#eeece8', libelle: 'aucune pratique' },
-  { min: 0.01, couleur: '#b7d3f6', libelle: 'moins de 10 min' },
-  { min: 10, couleur: '#6da7ec', libelle: '10 à 19 min' },
-  { min: 20, couleur: '#2a78d6', libelle: '20 à 39 min' },
-  { min: 40, couleur: '#184f95', libelle: '40 min et plus' },
+  { min: 0, couleur: 'var(--cal-0)', libelle: 'aucune pratique' },
+  { min: 0.01, couleur: 'var(--cal-1)', libelle: 'moins de 10 min' },
+  { min: 10, couleur: 'var(--cal-2)', libelle: '10 à 19 min' },
+  { min: 20, couleur: 'var(--cal-3)', libelle: '20 à 39 min' },
+  { min: 40, couleur: 'var(--cal-4)', libelle: '40 min et plus' },
 ];
 const palierMinutes = (m) => [...PALIERS_MINUTES].reverse().find((p) => m >= p.min);
 
@@ -89,7 +92,7 @@ export function calendrier(minutes, aujourdhui, semaines = 18) {
         }
         moisPrecedent = mois;
       }
-      const rect = s('rect', { x: 30 + sem * pas, y: 18 + d * pas, width: c, height: c, rx: 2, fill: palierMinutes(m).couleur, class: 'case-jour' });
+      const rect = s('rect', { x: 30 + sem * pas, y: 18 + d * pas, width: c, height: c, rx: 2, style: `fill:${palierMinutes(m).couleur}`, class: 'case-jour' });
       const texte = `${new Date(`${date}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} : ${m ? `${Math.max(1, Math.round(m))} min` : 'pas de pratique'}`;
       rect.addEventListener('pointermove', (e) => montrerBulle(e, texte));
       rect.addEventListener('pointerleave', cacherBulle);

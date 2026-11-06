@@ -16,7 +16,7 @@
 
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { famille } from './motifs.js';
-import { motifsAppris, estValide } from './parcours.js';
+import { motifsAppris, estValide, grade } from './parcours.js';
 import { semaineISO } from './hasard.js';
 
 export const COLONNES = 20;
@@ -83,4 +83,20 @@ export const resultatSemaine = (d, date) => d.records[cleSemaine(date)] ?? null;
 export function joursRestants(date) {
   const j = new Date(`${date}T12:00`).getDay(); // 0 = dimanche
   return j === 0 ? 1 : 8 - j;
+}
+
+/**
+ * Libellé du grade, avec les DEUX échelles : le grade d'entraînement (préparatoire, gagné au kyū
+ * de la semaine) et le prochain grade officiel. Utilisé par la séance et par Progression.
+ * @returns {{ valeur: string, detail: string }}
+ */
+export function libelleGrade(d) {
+  const g = grade(d);
+  const prep = meilleurPrekyu(d);
+  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : prep ? `${prep.nom} (entraînement)` : 'aucun pour l\'instant';
+  let officiel;
+  if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
+  else if (g.pret) officiel = `Prochain grade officiel : ${g.prochain.nom}, vous pouvez tenter l'épreuve.`;
+  else officiel = `Prochain grade officiel : ${g.prochain.nom}, ${g.manquantes.length} leçon${g.manquantes.length > 1 ? 's' : ''} à valider.`;
+  return { valeur, detail: officiel };
 }

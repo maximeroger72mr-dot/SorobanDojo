@@ -42,7 +42,7 @@ export default {
           const obtenu = prekyuObtenu(d, x);
           const ouvert = prekyuAccessible(d, x);
           return h('div', { class: `ligne-palier${obtenu ? ' valide' : ''}` },
-            h('span', { class: 'icone' }, obtenu ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, `${x.nom} · ${x.theme}`),
+            h('span', { class: `icone etat-${obtenu ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, obtenu ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, `${x.nom} · ${x.theme}`),
             h('span', { class: 'statut' }, obtenu ? `obtenu le ${new Date(`${d.records[`prekyu-${x.id}`].date}T12:00`).toLocaleDateString('fr-FR')}` : ouvert ? 'accessible' : 'leçons à valider'));
         })));
     }
