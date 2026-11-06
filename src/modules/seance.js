@@ -229,8 +229,12 @@ export default {
 
       // --- le prof et le plan
       const p = plan(d, seance ? seance.debut : Date.now(), seance);
-      const ligne = (it, i, enCours) => h(enCours ? 'button' : 'div', {
-        class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`, onclick: enCours ? () => app.aller(...it.aller) : null,
+      // Chaque ligne s'ouvre d'un clic ; si la séance n'est pas commencée, le clic la commence
+      // (la pastille du menu mène ici : la révision doit être accessible tout de suite).
+      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
+      const ligne = (it, i) => h('button', {
+        class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
+        onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...it.aller); },
       }, h('span', { class: 'icone' }, it.fait ? '✓' : i !== null ? String(i + 1) : '★'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
       el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
@@ -238,16 +242,13 @@ export default {
         ? h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Séance en cours · commencée à ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`),
           h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir la séance'))
         : h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, bilan ? 'Une autre séance ?' : 'Votre séance'),
-          h('button', { class: 'btn principal', onclick: async () => {
-            await commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
-            afficher();
-          } }, 'Commencer la séance'));
+          h('button', { class: 'btn principal', onclick: async () => { await demarrer(); afficher(); } }, 'Commencer la séance'));
       el.append(h('div', { class: 'carte' }, entete,
         h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : pour atteindre votre objectif, dans cet ordre')),
-        h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i, !!seance))),
+        h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i))),
         h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
-        h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null, !!seance))),
-        !seance ? h('p', { class: 'discret' }, 'Commencez la séance pour ouvrir chaque exercice d\'un clic ; chacun se coche quand il est fait.') : null));
+        h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
+        !seance ? h('p', { class: 'discret' }, 'Cliquez un point pour l\'ouvrir (la séance commence alors) ; chacun se coche quand il est fait.') : null));
       if (niveauAddsub(d) === 0 && !d.sessions.length) el.append(h('p', { class: 'discret' }, 'Première fois ? Commencez par « Lecture des nombres » (Apprendre), puis les leçons guidées.'));
     }
     afficher();
