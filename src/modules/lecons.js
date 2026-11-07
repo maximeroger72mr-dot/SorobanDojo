@@ -10,13 +10,13 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
-import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon, imageAnzan, chaineAnzan } from '../core/curriculum.js';
+import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
-  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile, memoriserChaine,
+  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
 } from '../core/progression.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
@@ -84,18 +84,29 @@ export default {
   titre: 'Leçons guidées',
   monter(el, app, params = {}) {
     let nettoyerVue = null;
+    let piste = null;
     const changer = (f) => { nettoyerVue?.(); remplir(el); el.closest('main').scrollTop = 0; nettoyerVue = f() ?? null; };
 
     // ---------------------------------------------------------------- carte du parcours
     function carte() {
-      el.append(
+      // Piste anzan seule (carte « Anzan et visualisation » d'Apprendre), ou tout le parcours.
+      if (piste === 'anzan') {
+        const prochain = SOUS_PALIERS.find((sp) => sp.mental && !etatPalier(sp.id).valide);
+        el.append(h('h1', {}, 'Anzan et visualisation'),
+          h('p', {}, prochain && !estDebloque(prochain) && prochain.apres
+            ? `Prochaine leçon d'anzan : « ${prochain.titre} », qui s'ouvrira quand « ${sousPalier(prochain.apres).titre} » sera validée sur le vrai soroban. En attendant, revoyez les leçons faites ou entraînez-vous librement en flash anzan.`
+            : 'La piste du calcul de tête, à son rythme, en parallèle du soroban.'),
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn', onclick: () => app.aller('anzan') }, 'Flash anzan libre'),
+            h('button', { class: 'lien', onclick: () => { piste = null; changer(carte); } }, 'Voir tout le parcours →')));
+      } else el.append(
         h('h1', {}, 'Leçons guidées'),
         h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, à une vitesse au moins « acquis débutant »).`),
         h('p', { class: 'discret' }, 'Niveaux : En progrès → Acquis débutant → Acquis confirmé → Acquis expert. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
       if (diag) el.append(diag);
-      for (const palier of PALIERS) {
+      for (const palier of PALIERS.filter((p) => piste !== 'anzan' || p.mental)) {
         el.append(h('h2', {}, palier.titre));
         if (palier.mental) el.append(h('p', { class: 'discret' }, 'Calcul de tête, à son rythme, en parallèle du soroban : chaque leçon s\'ouvre quand le geste est validé sur le vrai soroban, et ne bloque jamais le parcours. 5 minutes par jour suffisent.'));
         el.append(h('div', { class: 'liste-paliers' }, palier.sousPaliers.map((brut) => {
@@ -292,7 +303,10 @@ export default {
 
         const chaine = chaineAnzan(sp, etatPalier(sp.id).chaine);
         // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
-        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: imageAnzan(sp, etatPalier(sp.id).justes).opacite } : {});
+        // Photo du soroban : durée d'affichage qui raccourcit avec les réussites.
+        const photo = sp.type === 'photo' ? dureePhoto(sp, etatPalier(sp.id).dureePhoto) : null;
+        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: imageAnzan(sp, etatPalier(sp.id).justes).opacite }
+          : photo ? { duree: photo.secondes } : {});
         const majBandeau = () => {
           const et = etatPalier(sp.id);
           remplir(bandeau, ...[
@@ -301,6 +315,7 @@ export default {
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
             sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${imageAnzan(sp, et.justes).nom}`) : null,
+            photo ? h('span', { class: 'discret' }, `· image visible ${photo.secondes.toLocaleString('fr-FR')} s (elle raccourcit quand vous enchaînez les bonnes réponses)`) : null,
             (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null,
           ].filter(Boolean));
         };
@@ -339,6 +354,7 @@ export default {
               surExercice: (res) => {
                 n += 1;
                 if (sp.type === 'anzan') { chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes); }
+                if (photo) { photo.noter(res.juste); memoriserDureePhoto(sp.id, photo.secondes); }
                 if (n % 5 === 0) majConseil();
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);
               },
@@ -430,6 +446,8 @@ export default {
     }
 
     const depart = params.sousPalier ? sousPalier(params.sousPalier) : null;
+    // Venu par la piste anzan : le retour « Toutes les leçons » ramène à cette piste.
+    piste = params.piste ?? (depart?.mental ? 'anzan' : null);
     changer(() => (depart && estDebloque(depart) ? vueSousPalier(depart) : carte()));
     return () => nettoyerVue?.();
   },

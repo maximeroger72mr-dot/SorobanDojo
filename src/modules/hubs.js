@@ -24,7 +24,7 @@ const CARTES = {
     { ecran: 'lecons', titre: 'Leçons guidées', description: 'Le parcours pas à pas : comprendre un geste, l\'ancrer, passer le mini-test.',
       info: () => { const sp = prochainSousPalier(); return sp ? { texte: `Prochaine : ${sp.titre}`, aFaire: true } : { texte: 'Parcours terminé' }; } },
     { ecran: 'lecons', titre: 'Anzan et visualisation', description: 'La piste parallèle du calcul de tête : photo du soroban, image qui s\'estompe, chaîne qui s\'allonge.',
-      info: () => { const sp = prochainAnzan(); return sp ? { texte: `Prochaine : ${sp.titre}`, aFaire: true } : null; }, params: () => ({ sousPalier: prochainAnzan()?.id }) },
+      info: () => { const sp = prochainAnzan(); return sp ? { texte: `Prochaine : ${sp.titre}`, aFaire: true } : null; }, params: () => (prochainAnzan() ? { sousPalier: prochainAnzan().id } : { piste: 'anzan' }) },
     { ecran: 'lecture', titre: 'Lecture des nombres', description: 'Lire et poser un nombre sur le soroban : la base de tout.' },
     { ecran: 'libre', titre: 'Démonstrations', description: 'Voir n\'importe quel calcul geste par geste, au ralenti.' },
     { ecran: 'lexique', titre: 'Lexique', description: 'Anzan, mitori, kyū, petit ami, coupe-file… : tous les mots, définis simplement.' },
@@ -59,11 +59,12 @@ const CARTES = {
   ],
 };
 
-function page(id, titre, intro) {
+function page(id, titre, intro, badge = null) {
   return {
     id,
     titre,
     section: true,
+    badge,
     monter(el, app) {
       el.append(h('h1', {}, titre), h('p', { class: 'discret chapeau' }, intro),
         h('div', { class: 'cartes' }, CARTES[id].map((c) => {
@@ -78,7 +79,8 @@ function page(id, titre, intro) {
 }
 
 export const apprendre = page('apprendre', 'Apprendre', 'Comprendre un nouveau geste, le voir, le poser.');
-export const entrainer = page('entrainer', 'S\'entraîner', 'Ancrer les gestes jusqu\'au réflexe : volume, rythme, vitesse.');
+// La pastille des révisions dues est sur « S'entraîner » : c'est là que sont les révisions.
+export const entrainer = page('entrainer', 'S\'entraîner', 'Ancrer les gestes jusqu\'au réflexe : volume, rythme, vitesse.', () => revisionsDues().length);
 export const mesurer = page('mesurer', 'Se mesurer', 'Travailler sous pression : examens, défis, records.');
 
 /** Section du menu de chaque écran (pour surligner la bonne entrée). */

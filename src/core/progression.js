@@ -307,6 +307,14 @@ export async function compterRepetition(id, juste, t) {
 }
 
 /** Longueur de chaîne d'anzan atteinte dans une leçon (reprise à la prochaine séance). */
+/** Durée d'affichage de la photo du soroban (secondes) atteinte dans une leçon « photo ». */
+export async function memoriserDureePhoto(id, s) {
+  const e = palier(id);
+  if (e.dureePhoto === s) return;
+  e.dureePhoto = s;
+  await sauver();
+}
+
 export async function memoriserChaine(id, lignes) {
   const e = palier(id);
   if (e.chaine === lignes) return;

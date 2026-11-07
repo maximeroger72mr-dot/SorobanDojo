@@ -216,9 +216,10 @@ html:root .separateur-menu { border-top: 1px solid var(--ligne); }
   --ligne: #000000; --ligne-forte: #000000; --survol: #f0f0f0; --surligne: #ffe5dc;
   --accent: #c42a00; --sur-accent: #ffffff; --accent-texte: #c42a00;
   --ok: #000000; --erreur: #c42a00; --alerte: #c42a00; --fond-alerte: #fff0eb; --ligne-alerte: #c42a00; --donnees: #000000;
-  --niveau-decouverte: #f0f0f0; --encre-decouverte: #3a3a3a; --niveau-progres: #d9d9d9; --encre-progres: #000000;
-  --niveau-debutant: #8c8c8c; --encre-debutant: #000000; --niveau-confirme: #000000; --encre-confirme: #ffffff;
-  --niveau-expert: #c42a00; --encre-expert: #ffffff;
+  /* Niveaux d'un geste = les métaux de la légende : bronze, argent, or, platine (violet). */
+  --niveau-decouverte: #f0f0f0; --encre-decouverte: #3a3a3a; --niveau-progres: #9a5b25; --encre-progres: #ffffff;
+  --niveau-debutant: #c3c9d1; --encre-debutant: #000000; --niveau-confirme: #e2b323; --encre-confirme: #000000;
+  --niveau-expert: #7b3fbf; --encre-expert: #ffffff;
   --cal-0: #f0f0f0; --cal-1: #c8c8c8; --cal-2: #8c8c8c; --cal-3: #3a3a3a; --cal-4: #000000;
   --police: "Suisse", "Helvetica Neue", Arial, sans-serif; --police-titres: "Suisse", "Helvetica Neue", Arial, sans-serif;
   --police-chiffres: "Examen Mono", ui-monospace, Consolas, monospace;
@@ -231,9 +232,9 @@ html:root .separateur-menu { border-top: 1px solid var(--ligne); }
   --ligne: #ffffff; --ligne-forte: #ffffff; --survol: #1a1a1a; --surligne: #3a1206;
   --accent: #ff5a2b; --sur-accent: #000000; --accent-texte: #ff5a2b; --ok: #ffffff; --erreur: #ff5a2b;
   --alerte: #ff5a2b; --fond-alerte: #1f0a03; --ligne-alerte: #ff5a2b; --donnees: #ffffff;
-  --niveau-decouverte: #1a1a1a; --encre-decouverte: #c8c8c8; --niveau-progres: #3d3d3d; --encre-progres: #ffffff;
-  --niveau-debutant: #8c8c8c; --encre-debutant: #000000; --niveau-confirme: #ffffff; --encre-confirme: #000000;
-  --niveau-expert: #ff5a2b; --encre-expert: #000000;
+  --niveau-decouverte: #1a1a1a; --encre-decouverte: #c8c8c8; --niveau-progres: #d08a4e; --encre-progres: #000000;
+  --niveau-debutant: #b9c0ca; --encre-debutant: #000000; --niveau-confirme: #f0c040; --encre-confirme: #000000;
+  --niveau-expert: #b48ae8; --encre-expert: #000000;
   --cal-0: #1a1a1a; --cal-1: #3d3d3d; --cal-2: #8c8c8c; --cal-3: #d0d0d0; --cal-4: #ffffff;
   --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8c8c8c;
   --bronze: #d08a4e; --argent: #b9c0ca; --or: #f0c040; --platine: #b48ae8;
@@ -244,9 +245,9 @@ html:root .separateur-menu { border-top: 1px solid var(--ligne); }
     --ligne: #ffffff; --ligne-forte: #ffffff; --survol: #1a1a1a; --surligne: #3a1206;
     --accent: #ff5a2b; --sur-accent: #000000; --accent-texte: #ff5a2b; --ok: #ffffff; --erreur: #ff5a2b;
     --alerte: #ff5a2b; --fond-alerte: #1f0a03; --ligne-alerte: #ff5a2b; --donnees: #ffffff;
-    --niveau-decouverte: #1a1a1a; --encre-decouverte: #c8c8c8; --niveau-progres: #3d3d3d; --encre-progres: #ffffff;
-    --niveau-debutant: #8c8c8c; --encre-debutant: #000000; --niveau-confirme: #ffffff; --encre-confirme: #000000;
-    --niveau-expert: #ff5a2b; --encre-expert: #000000;
+    --niveau-decouverte: #1a1a1a; --encre-decouverte: #c8c8c8; --niveau-progres: #d08a4e; --encre-progres: #000000;
+    --niveau-debutant: #b9c0ca; --encre-debutant: #000000; --niveau-confirme: #f0c040; --encre-confirme: #000000;
+    --niveau-expert: #b48ae8; --encre-expert: #000000;
     --cal-0: #1a1a1a; --cal-1: #3d3d3d; --cal-2: #8c8c8c; --cal-3: #d0d0d0; --cal-4: #ffffff;
     --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8c8c8c;
     --bronze: #d08a4e; --argent: #b9c0ca; --or: #f0c040; --platine: #b48ae8;

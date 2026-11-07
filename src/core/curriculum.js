@@ -466,7 +466,7 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
     }
     return genererDivision(sp.nd, sp.nq);
   }
-  if (sp.type === 'photo') return genererPhoto(sp.chiffres, sp.duree, memoireDe(sp.id));
+  if (sp.type === 'photo') return genererPhoto(sp.chiffres, ctx.duree ?? sp.duree, memoireDe(sp.id));
   if (sp.type === 'negatif') return genererNegatif(sp.chiffres, sp.lignes);
   if (sp.type === 'tenir') {
     const ex = genererPhoto(entre(1, sp.chiffres), sp.duree, memoireDe(sp.id));
@@ -508,6 +508,35 @@ export function imageAnzan(sp, justes) {
  * nombre (échauffement).
  * @param {number} [sauvee]  dernière longueur sauvegardée pour cette leçon
  */
+/**
+ * Durée d'affichage de la « photo du soroban », qui s'adapte : on commence vers 1 s ; deux
+ * réponses justes de suite la raccourcissent de 15 % (jusqu'à 0,2 s), une erreur la rallonge de
+ * 25 % (sans dépasser la durée de départ de la leçon). Sauvegardée avec la progression
+ * (progression.memoriserDureePhoto) : à la reprise, on repart un peu plus lentement (+15 %).
+ * @param {number} [sauvee]  dernière durée sauvegardée (secondes)
+ */
+export const DUREE_PHOTO_MIN = 0.2;
+const durees = new Map();
+export function dureePhoto(sp, sauvee) {
+  const max = sp.duree;
+  const depart = Math.min(max, 1 + 0.2 * ((sp.chiffres ?? 1) - 1));
+  const arrondi = (x) => Math.round(x * 100) / 100;
+  if (!durees.has(sp.id)) durees.set(sp.id, { s: sauvee ? arrondi(Math.min(max, sauvee * 1.15)) : depart, serie: 0 });
+  const c = durees.get(sp.id);
+  return {
+    get secondes() { return c.s; },
+    noter(juste) {
+      if (juste) {
+        c.serie += 1;
+        if (c.serie >= 2) { c.s = arrondi(Math.max(DUREE_PHOTO_MIN, c.s * 0.85)); c.serie = 0; }
+      } else {
+        c.serie = 0;
+        c.s = arrondi(Math.min(max, c.s * 1.25));
+      }
+    },
+  };
+}
+
 const chaines = new Map();
 export function chaineAnzan(sp, sauvee) {
   const min = Math.min(sp.lignesDepart ?? 2, sp.lignes);

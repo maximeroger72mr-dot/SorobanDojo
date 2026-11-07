@@ -66,10 +66,18 @@ function plan(d, debut, seance = null) {
   const examEssentiel = itemExamen && passeAujourdhui;
   if (examEssentiel) essentiel.push(itemExamen);
   // 4. Priorité du jour : le geste à ancrer, à accélérer, ou le plateau à casser.
-  const priorite = seance ? seance.priorite ?? null : prioriteDuJour(d, date, motifsEnDifficulte());
+  //    Elle suit les progrès : recalculée à chaque affichage (le geste le plus lent change), sauf
+  //    si celle fixée en début de séance a déjà été faite (elle reste alors, cochée).
+  const prescritPar = (pr) => {
+    const [module, p] = pr.aller;
+    return (s) => s.module === module && (module === 'rythme'
+      ? s.mode === p.jeu && (!p.cibles || (s.reglages?.cibles ?? []).includes(p.cibles[0]))
+      : !!s.reglages?.priorite);
+  };
+  const fixee = seance?.priorite ?? null;
+  const priorite = fixee && fait(prescritPar(fixee)) ? fixee : prioriteDuJour(d, date, motifsEnDifficulte());
   if (priorite) {
-    const [module, p] = priorite.aller;
-    const prescrit = (s) => s.module === module && (module === 'rythme' ? s.mode === p.jeu : !!s.reglages?.priorite);
+    const prescrit = prescritPar(priorite);
     essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true });
   }
   // 5. Avancer ou ancrer : la décision du prof.
@@ -187,7 +195,6 @@ function carteObjectif(d, rafraichir) {
 export default {
   id: 'seance',
   titre: 'Séance du jour',
-  badge: () => revisionsDues().length,
   monter(el, app) {
     function afficher(bilan = null) {
       remplir(el);

@@ -75,7 +75,11 @@ function detailGeste(app, cle) {
       courbeVitesse(f?.hist ?? []),
       h('div', { class: 'ligne', style: 'margin-top:10px' },
         h('button', { class: 'btn', onclick: () => ouvrirDemo({ titre: nomMotif(cle), texte: gesteMotif(cle), demo: exempleMotif(cle) }) }, 'Voir le geste'),
-        h('button', { class: 'btn principal', onclick: (e) => { e.target.closest('dialog').close(); app.aller('planches', { cible: cle, auto: true }); } }, 'Planche de ce geste')));
+        h('button', { class: 'btn principal', onclick: (e) => { e.target.closest('dialog').close(); app.aller('planches', { cible: cle, auto: true }); } }, 'Planche de ce geste')),
+      // Les autres façons de travailler CE geste : volume (marathon), rythme (lièvre).
+      h('div', { class: 'ligne', style: 'margin-top:8px' },
+        h('button', { class: 'btn', onclick: (e) => { e.target.closest('dialog').close(); app.aller('rythme', { jeu: 'marathon', cibles: [cle], lignes: 40, auto: true }); } }, 'Marathon de ce geste (40 lignes)'),
+        h('button', { class: 'btn', onclick: (e) => { e.target.closest('dialog').close(); app.aller('rythme', { jeu: 'lievre', cibles: [cle], chiffres: 1, auto: true }); } }, 'Lièvre sur ce geste')));
   });
 }
 
@@ -89,7 +93,7 @@ function carte(app) {
   }));
   const acquis = TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluerMotif(c).index >= 2).length;
   return h('div', {},
-    h('p', { class: 'discret' }, `${acquis} geste${acquis > 1 ? 's' : ''} acquis sur ${TOUS_LES_MOTIFS.length}. Cliquez une case pour voir sa courbe de vitesse, le geste animé, ou lancer une planche de ce geste.`),
+    h('p', { class: 'discret' }, `${acquis} geste${acquis > 1 ? 's' : ''} acquis sur ${TOUS_LES_MOTIFS.length}. Cliquez une case pour voir sa courbe de vitesse, le geste animé, ou le travailler : planche, marathon ou lièvre.`),
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
 }
 
