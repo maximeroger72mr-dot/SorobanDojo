@@ -40,12 +40,12 @@ function causesEcartTige(ecart) {
   const tige = `les ${nomRang(u.k)}`;
   const plus = u.d > 0 ? 'en trop' : 'en moins';
   if (Math.abs(u.d) === 5) {
-    return [`Écart de 5 sur ${tige} (${plus}) : la boule céleste. Vérifiez les petits amis (+5 −… / +… −5) sur cette tige.`];
+    return [`Écart de 5 sur ${tige} (${plus}) : probablement la boule céleste. Vérifiez les petits amis (+5 −… / +… −5) sur cette tige.`];
   }
   if (Math.abs(u.d) === 1 && u.k >= 1) {
-    return [`Écart de 1 sur ${tige} (${plus}) : une retenue ou un emprunt du grand ami, posé deux fois ou oublié sur la tige de droite.`];
+    return [`Écart de 1 sur ${tige} (${plus}) : probablement une retenue ou un emprunt du grand ami, posé deux fois ou oublié sur la tige de droite.`];
   }
-  return [`Écart de ${Math.abs(u.d)} ${plus} sur ${tige} uniquement : une seule tige est fausse.`];
+  return [`Écart de ${Math.abs(u.d)} ${plus} sur ${tige} uniquement : une seule tige semble fausse.`];
 }
 
 /**

@@ -1,4 +1,4 @@
-import { catalogueDrills, famillesDrill, chiffresDrill, classement } from '../src/core/drills.js';
+import { catalogueDrills, famillesDrill, chiffresDrill, classement, tempsClassement, tigesFausses } from '../src/core/drills.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { grade, drillEchauffement, defiSemaine, motifsAppris } from '../src/core/parcours.js';
@@ -42,10 +42,21 @@ test('échauffement : le prochain drill à valider, jamais un geste pas encore a
 test('classement des drills : bronze, argent, or, platine', () => {
   const d = catalogueDrills().find((x) => x.id === 'r-4');
   assert.equal(chiffresDrill(d), 36);
-  assert.equal(classement(d, 80000), null);
-  assert.equal(classement(d, 72000).id, 'bronze');
-  assert.equal(classement(d, 30000).id, 'or');
-  assert.equal(classement(d, 20000).id, 'platine');
+  assert.equal(classement(d, 50000), null);
+  assert.equal(classement(d, 46000).id, 'bronze');
+  assert.equal(classement(d, 15000).id, 'or');
+  assert.equal(classement(d, 9000).id, 'platine');
+  // Pondéré par les gestes : les gestes directs vont plus vite que les grands amis.
+  const directs = catalogueDrills().find((x) => x.id === 'directs');
+  const neuf = catalogueDrills().find((x) => x.id === '123-9');
+  assert.ok(tempsClassement(directs, 'platine') <= 15000);
+  assert.ok(tempsClassement(neuf, 'or') <= 60000 && tempsClassement(neuf, 'platine') <= 40000);
+});
+
+test('drill : les tiges fausses sont repérées', () => {
+  assert.deepEqual(tigesFausses(1111111101, 1111111101), []);
+  assert.deepEqual(tigesFausses(1111111111, 1111111101), ['dizaines']);
+  assert.deepEqual(tigesFausses(5050, 5150), ['centaines']);
 });
 
 test('défi de la semaine : identique toute la semaine, strict sur les gestes appris', () => {

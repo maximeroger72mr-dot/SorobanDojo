@@ -45,7 +45,7 @@ const plus = (cles) => cles.filter((c) => c.startsWith('+'));
 const moins = (cles) => cles.filter((c) => c.startsWith('-'));
 
 /** Mini-test : nombre d'exercices et minimum de réussites. */
-export const TEST = { exercices: 10, reussitesMin: 9 };
+export const TEST = { exercices: 15, reussitesMin: 13 };
 
 export const PALIERS = [
   {
@@ -54,16 +54,17 @@ export const PALIERS = [
       { id: 'p0-1', titre: 'Leçon 0 : tenue, lecture et vitesse', type: 'theorie', repetitions: 0,
         pourquoi: 'Quelques réglages qui changent tout, à lire une fois puis à garder en tête.',
         sections: [
-          ['Le soroban', 'Posé à plat, la barre horizontale devant vous, les boules célestes en haut. Choisissez une tige marquée d\'un point, vers la droite, comme tige des unités : tous les nombres s\'alignent dessus.'],
+          ['Le soroban', 'Posé à plat, la barre horizontale devant vous, les boules célestes en haut. Choisissez une tige marquée d\'un point, vers la droite, comme tige des unités : tous les nombres s\'alignent dessus. À l\'écran, l\'application montre moins de tiges que votre soroban (13, 17, 23 ou 27 selon les modèles) et place les unités sur la tige la plus à droite : sur le vôtre, gardez votre tige des unités et alignez-vous dessus.'],
           ['La main gauche', 'Elle tient le bord gauche du soroban pour qu\'il ne glisse pas, sans cacher les tiges. En multiplication et en division, son index sert de repère : il marque la tige où l\'on travaille, pour ne jamais perdre sa place.'],
           ['La main droite et le crayon', 'Seuls le pouce et l\'index bougent les boules : le pouce MONTE les terrestres ; l\'index les DESCEND et manœuvre la céleste dans les deux sens. Le crayon reste dans la main droite, serré entre la paume et l\'annulaire (ou l\'auriculaire), pointe vers l\'extérieur : on écrit le résultat sans le reprendre et sans lâcher le soroban.'],
+          ['Gaucher ?', 'Inversez simplement les mains : la main gauche manipule (pouce et index, mêmes rôles), la main droite tient le bord droit et sert de repère. Les règles de calcul ne changent pas : on lit et on pose toujours les nombres de gauche à droite. Beaucoup de gauchers gardent toutefois la main droite pour les boules, comme on l\'enseigne au Japon : essayez les deux une semaine, puis gardez la plus naturelle.'],
           ['Lire une colonne : nombre par nombre', 'Pour 300 + 156 + 228, on pose 300, puis on AJOUTE 156 en entier (1 aux centaines, 5 aux dizaines, 6 aux unités, de gauche à droite), puis 228 de la même façon. On ne fait PAS colonne par colonne comme sur papier : le total est sur le soroban, il suffit d\'ajouter chaque nombre tel qu\'on le lit.'],
           ['Pourquoi de gauche à droite', 'On lit un nombre de gauche à droite : on le pose dans le même ordre, sans rien retenir de tête. Les retenues tombent sur des tiges déjà traitées, elles s\'ajoutent simplement.'],
           ['Remise à zéro', 'Inclinez le soroban vers vous (les terrestres tombent), reposez-le à plat, puis faites glisser l\'index de gauche à droite le long de la barre pour écarter les célestes. Deux secondes.'],
         ],
         pourquoiCaMarche: [
-          ['La mémoire de travail est petite', 'De tête, on ne garde que 4 éléments environ à la fois. Sur papier, retenues et chiffres intermédiaires l\'encombrent vite. Le soroban la décharge : le total est posé sur les boules, la tête n\'a rien à retenir à part le nombre qu\'on lit.'],
-          ['Pourquoi 5 et 4 boules', 'L\'œil reconnaît d\'un coup, sans compter, jusqu\'à 4 objets. Une tige se lit donc en un regard : la céleste (5 ou rien) plus un petit groupe de terrestres. C\'est aussi pour cela qu\'on lit les grands nombres par tranches de 3 chiffres.'],
+          ['La mémoire de travail est petite', 'De tête, on ne garde qu\'un petit nombre d\'éléments à la fois (environ 4 selon les études de psychologie cognitive, avec de grandes différences entre personnes). Sur papier, retenues et chiffres intermédiaires l\'encombrent vite. Le soroban la décharge : le total est posé sur les boules, la tête n\'a rien à retenir à part le nombre qu\'on lit.'],
+          ['Pourquoi 5 et 4 boules', 'L\'œil reconnaît d\'un coup, sans compter, jusqu\'à 3 ou 4 objets (c\'est la « subitisation », bien étudiée en psychologie). Une tige se lit donc en un regard : la céleste (5 ou rien) plus un petit groupe de terrestres. C\'est aussi pour cela qu\'on lit les grands nombres par tranches de 3 chiffres.'],
           ['Du geste au réflexe', 'Au début, chaque ami demande une réflexion (« 4 = 5 − 1 »). Avec la répétition, le cerveau transforme cette règle en geste automatique, qui ne coûte plus d\'attention. D\'où les volumes d\'entraînement, et la vitesse qui vient d\'elle-même : on ne peut pas aller vite tant qu\'on réfléchit.'],
           ['Pourquoi les révisions espacées', 'Revoir une leçon juste avant de l\'oublier (après 1, 3, 7, 14, 30 jours) la fixe bien mieux que de la répéter le même jour. C\'est le rôle des révisions du jour.'],
           ['Pourquoi mélanger ensuite', 'Répéter un geste en bloc l\'installe vite ; le mélanger ensuite avec les autres oblige à le CHOISIR, comme dans un vrai calcul. C\'est ce qui le rend durable : d\'où les séances de consolidation après chaque leçon.'],
@@ -292,7 +293,7 @@ export const PALIERS = [
         ],
         pourquoiCaMarche: [
           ['Une image plutôt que des mots', 'Garder « 47 » en mots occupe la mémoire de travail, déjà petite. Une image de soroban se garde mieux : c\'est une forme, pas une suite de sons. C\'est pourquoi on évite la voix intérieure.'],
-          ['Les doigts aident la tête', 'Les zones du cerveau qui commandent un geste s\'activent aussi quand on l\'imagine. Bouger les doigts dans l\'air relie l\'image au geste appris sur le vrai soroban.'],
+          ['Les doigts aident la tête', 'D\'après l\'imagerie cérébrale, les zones qui commandent un geste s\'activent en partie quand on l\'imagine. Bouger les doigts dans l\'air relie l\'image au geste appris sur le vrai soroban.'],
           ['Pourquoi aller lentement', 'Si l\'image se brouille, on s\'entraîne à… deviner. Mieux vaut des chaînes courtes et nettes : la longueur vient ensuite, puis la vitesse.'],
         ],
         demos: [] },
@@ -302,25 +303,25 @@ export const PALIERS = [
       { id: 'pa-2', titre: 'Photo du soroban : 2 tiges', type: 'photo', apres: 'p1-4', chiffres: 2, duree: 2, repetitions: 20,
         pourquoi: 'Deux tiges : on photographie la tige des dizaines puis celle des unités, de gauche à droite, comme on lit un nombre.',
         demos: [] },
-      { id: 'pa-3', titre: 'Tenir une image', type: 'tenir', apres: 'p1-4', chiffres: 2, duree: 1.5, tenir: 3, repetitions: 15, testMin: 8,
+      { id: 'pa-3', titre: 'Tenir une image', type: 'tenir', apres: 'p1-4', chiffres: 2, duree: 1.5, tenir: 3, repetitions: 15, testMin: 12,
         pourquoi: 'Un nombre s\'affiche en chiffres. Fermez les yeux et posez-le sur votre soroban imaginaire, avec les doigts dans l\'air. Gardez l\'image nette quelques secondes. Ensuite le vrai soroban s\'affiche : votre image était-elle la même ? Vous répondez honnêtement, O ou N.',
         demos: [] },
-      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', apres: 'p1-4', image: true, cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 5, duree: 3, repetitions: 30, testMin: 8,
+      { id: 'p1-a', titre: 'Anzan : gestes directs', type: 'anzan', apres: 'p1-4', image: true, cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 5, duree: 3, repetitions: 30, testMin: 12,
         pourquoi: 'Les nombres s\'affichent un par un. À chaque nombre, faites le geste avec les doigts dans l\'air et voyez les boules bouger. Au début, un petit soroban montre le TOTAL qui évolue : suivez-le, puis il s\'estompe à mesure que vous réussissez. La chaîne commence à 2 nombres et s\'allonge quand vous réussissez.',
         demos: [] },
-      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', apres: 'p2-7', image: true, cibles: PETIT, chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 8,
+      { id: 'p2-a', titre: 'Anzan : petits amis', type: 'anzan', apres: 'p2-7', image: true, cibles: PETIT, chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 12,
         pourquoi: 'Mêmes gestes qu\'au soroban : le petit ami se « voit » (la céleste descend, des terrestres s\'en vont). Gardez les doigts actifs. Si l\'image se brouille, la chaîne se raccourcit d\'elle-même : ne devinez pas.',
         demos: [] },
-      { id: 'p3-a', titre: 'Anzan : grands amis (addition)', type: 'anzan', apres: 'p3-4', image: true, cibles: plus(GRAND), chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 8,
+      { id: 'p3-a', titre: 'Anzan : grands amis (addition)', type: 'anzan', apres: 'p3-4', image: true, cibles: plus(GRAND), chiffres: 1, lignes: 5, duree: 2.5, repetitions: 30, testMin: 12,
         pourquoi: 'Une deuxième tige apparaît dans l\'image : la retenue monte sur la tige des dizaines. Voyez le complément partir des unités, puis la boule monter à gauche.',
         demos: [] },
-      { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', apres: 'p4-5', image: true, cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 2, repetitions: 30, testMin: 8,
+      { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', apres: 'p4-5', image: true, cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 2, repetitions: 30, testMin: 12,
         pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant le complément sur les unités : même ordre qu\'au soroban.',
         demos: [] },
-      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 8, lignesDepart: 3,
+      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
         pourquoi: 'Avant de passer à deux chiffres, on consolide à un chiffre : tous les gestes mélangés, des chaînes de 5 ou 6 nombres, un peu plus vite. C\'est ici que l\'image devient vraiment stable.',
         demos: [] },
-      { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 8,
+      { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 12,
         pourquoi: 'Deux tiges dans la tête, de gauche à droite comme au soroban : les dizaines, puis les unités. On revient à des chaînes courtes et à un affichage lent, avec l\'image d\'aide : la difficulté a changé, on repart doucement.',
         demos: [] },
     ],

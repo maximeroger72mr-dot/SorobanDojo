@@ -77,7 +77,7 @@ test('grade : les deux échelles, et le nombre de points conseillés suit l\'ess
   assert.match(libelleGrade(d).valeur, /aucun/);
   d.records['prekyu-20'] = { reussi: true }; d.records['prekyu-18'] = { reussi: true };
   const l = libelleGrade(d);
-  assert.equal(l.valeur, '18e kyū (entraînement)');
+  assert.equal(l.valeur, '18e kyū prép.');
   assert.match(l.detail, /Prochain grade officiel : 10e kyū/);
   const dec = { raison: 'On avance.' };
   const deux = motDuProf(d, '2026-11-04', dec, 30, 15, 2);

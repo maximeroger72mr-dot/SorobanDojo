@@ -28,6 +28,7 @@ import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX } from '
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
+import { VERSION_APPLI, comparerVersions } from './version.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -54,12 +55,44 @@ export function aujourdhui(d = new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-const backend = typeof window !== 'undefined' && window.stockage
+/** Version navigateur (Soroban.html) : pas de copie automatique, tout est dans le navigateur. */
+export const versionNavigateur = !(typeof window !== 'undefined' && window.stockage);
+
+const backend = !versionNavigateur
   ? window.stockage
   : {
-    lire: async () => JSON.parse(globalThis.localStorage?.getItem(CLE_LOCALE) ?? 'null'),
-    ecrire: async (d) => globalThis.localStorage?.setItem(CLE_LOCALE, JSON.stringify(d)),
+    lire: async () => {
+      const brut = globalThis.localStorage?.getItem(CLE_LOCALE) ?? null; // peut lever : stockage bloqué
+      if (brut === null) return null;
+      try {
+        return JSON.parse(brut);
+      } catch {
+        // Sauvegarde illisible : on la met de côté (jamais écrasée), puis on repart de zéro.
+        const nom = `${CLE_LOCALE}-illisible-${Date.now()}`;
+        try { globalThis.localStorage.setItem(nom, brut); } catch { /* quota : tant pis, l'original reste lisible à la main */ }
+        return { illisible: nom };
+      }
+    },
+    ecrire: async (d) => { globalThis.localStorage?.setItem(CLE_LOCALE, JSON.stringify(d)); return true; },
   };
+
+/**
+ * État du stockage, affiché par l'interface quand il y a un problème :
+ *   ok | lecture-seule (sauvegarde d'une version plus récente : on n'écrit RIEN)
+ *   | indisponible (le navigateur bloque le stockage) | echec (le dernier enregistrement a échoué)
+ */
+let etatStockage = { etat: 'ok' };
+const ecouteursStockage = new Set();
+export const stockage = () => etatStockage;
+export function surStockage(fn) {
+  ecouteursStockage.add(fn);
+  return () => ecouteursStockage.delete(fn);
+}
+function changerEtat(e) {
+  const avant = etatStockage.etat;
+  etatStockage = e;
+  if (avant !== e.etat || e.etat !== 'ok') ecouteursStockage.forEach((fn) => fn(e));
+}
 
 /** Met à jour d'anciennes données vers la version actuelle. */
 function migrer(lu) {
@@ -72,26 +105,90 @@ function migrer(lu) {
   return lu;
 }
 
-/** À appeler une fois au démarrage. */
+/** Complète des données lues avec les champs par défaut. */
+const completer = (lu) => ({ ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } });
+
+/**
+ * À appeler une fois au démarrage. Ne lève jamais : en cas de problème, l'état du stockage
+ * (stockage()) le dit, et rien n'est écrasé.
+ */
 export async function chargerProgression() {
-  let lu = await backend.lire();
-  if (lu && lu.version < VERSION) {
-    lu = migrer(lu);
-    donnees = { ...vide(), ...lu };
-    await sauver();
+  let lu;
+  try {
+    lu = await backend.lire();
+  } catch {
+    donnees = vide();
+    changerEtat({ etat: 'indisponible' });
+    return donnees;
   }
-  donnees = lu && lu.version === VERSION ? { ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } } : vide();
+  if (lu?.illisible) {
+    donnees = vide();
+    donnees.avis.push(`Votre sauvegarde était illisible (fichier abîmé). Elle a été mise de côté sans être effacée (${lu.illisible}) ; l'application repart de zéro. Si vous avez un export récent, importez-le dans Progression → Sauvegarde.`);
+    lu = null;
+  } else if (lu && lu.version > VERSION) {
+    // Sauvegarde faite par une version plus récente : surtout ne rien écraser.
+    donnees = vide();
+    changerEtat({ etat: 'lecture-seule', brut: lu });
+    return donnees;
+  } else if (lu && lu.version < VERSION) {
+    donnees = completer(migrer(lu));
+  } else if (lu) {
+    donnees = completer(lu);
+  } else {
+    donnees = vide();
+  }
+  // Ancienne copie de l'application ouverte sur des données déjà utilisées par une plus récente.
+  if (comparerVersions(donnees.appli, VERSION_APPLI) > 0) {
+    changerEtat({ etat: 'ancienne-copie', appli: donnees.appli });
+  }
   // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
   for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
+  if (lu && lu.version < VERSION) await sauver();
   return donnees;
 }
 
 async function sauver() {
+  if (etatStockage.etat === 'lecture-seule') return;
   // Nouveaux succès ? On les date, puis on prévient l'interface.
   const nouveaux = succesObtenus(donnees, aujourdhui()).filter((id) => !donnees.succes[id]);
   for (const id of nouveaux) donnees.succes[id] = aujourdhui();
-  await backend.ecrire(donnees);
+  // Version la plus récente qui a écrit ces données (jamais redescendue).
+  if (comparerVersions(donnees.appli, VERSION_APPLI) < 0) donnees.appli = VERSION_APPLI;
+  try {
+    const ok = await backend.ecrire(donnees);
+    if (ok === false) throw new Error('écriture refusée');
+    if (etatStockage.etat === 'echec' || etatStockage.etat === 'indisponible') changerEtat({ etat: 'ok' });
+  } catch (e) {
+    changerEtat({ etat: 'echec', message: e?.message ?? String(e) });
+  }
   for (const id of nouveaux) ecouteursSucces.forEach((fn) => fn(SUCCES.find((x) => x.id === id)));
+}
+
+/**
+ * Un autre onglet a enregistré (version navigateur) : on reprend ses données, pour ne pas
+ * les écraser au prochain enregistrement.
+ */
+export function rechargerDepuis(texte) {
+  try {
+    const lu = JSON.parse(texte);
+    if (lu && lu.version === VERSION) donnees = completer(lu);
+    return true;
+  } catch {
+    return false;
+  }
+}
+export const CLE_STOCKAGE = CLE_LOCALE;
+
+/** Efface TOUTE la progression (après double confirmation dans l'interface). */
+export async function toutEffacer() {
+  donnees = vide();
+  await sauver();
+}
+
+/** Note la date du dernier export (rappel d'export dans la version navigateur). */
+export async function noterExport() {
+  donnees.dernierExport = aujourdhui();
+  await sauver();
 }
 
 export function progression() {

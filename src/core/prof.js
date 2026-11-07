@@ -109,7 +109,7 @@ export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes, 
     if (r) phrases.push(r.reussi ? `${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.` : `Examen de la semaine : ${r.points} / ${r.total}, pas encore. On retravaille, et on retente la semaine prochaine.`);
     else phrases.push(reste <= 3 ? `Le ${g.nom} est à passer avant dimanche : c'est dans l'essentiel aujourd'hui.` : `Le ${g.nom} vous attend cette semaine (encore ${reste} jours) : passez-le un jour où vous êtes en forme.`);
   } else if (!meilleurPrekyu(d)) {
-    phrases.push('Premier examen (20e kyū) dès que les gestes directs sont validés.');
+    phrases.push('Premier examen (20e kyū prép.) dès que les gestes directs sont validés.');
   }
   const o = d.reglages?.objectifGrade;
   if (o) {

@@ -57,13 +57,14 @@ export function creerMarathon(conteneur, o) {
   const zoneLignes = h('div', {});
   const consigne = h('p', { class: 'ruban-consigne' });
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Sous-total', 'aria-label': 'Sous-total' });
-  const retour = h('div', { class: 'retour' });
+  const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const racine = h('div', { class: 'marathon' },
     h('div', { class: 'ruban-entete' }, compteur, infoJoker, h('span', { style: 'flex:1' }), chrono),
     course?.el ?? null, consigne, zoneLignes,
     h('div', { class: 'ligne' }, saisie, h('button', { class: 'btn principal', onclick: () => valider() }, 'Valider ', h('kbd', {}, 'Entrée'))),
     retour);
   conteneur.append(racine);
+  racine.dataset.enCours = '1';
 
   saisie.addEventListener('input', () => {
     if (phase === 'question' && dureeTranche === null && saisie.value.trim()) dureeTranche = performance.now() - debutTranche;
@@ -234,6 +235,7 @@ export function creerMarathon(conteneur, o) {
 
   function terminer(complet) {
     phase = 'fin';
+    delete racine.dataset.enCours;
     clearInterval(minuterie);
     saisie.disabled = true;
     o.surFin?.({ lignes: lignesTenues, dureeMs: dureeTotale, complet, jokerUtilise: joker === 0, resultats });

@@ -67,7 +67,7 @@ export default {
     const btnNon = h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Différent ', h('kbd', {}, 'N'));
     const pastilles = h('div', { class: 'pastilles' });
     const compteur = h('span', { class: 'compteur' });
-    const retour = h('div', { class: 'retour' });
+    const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
     const zoneExercice = h('div', {},
       h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), compteur),
       consigne, cible, zoneSoroban,

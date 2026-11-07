@@ -71,13 +71,20 @@ export function creerSerie(conteneur, o) {
   const zoneEnonce = h('div', { class: 'zone-enonce' });
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Résultat', 'aria-label': 'Résultat' });
   const btnValider = h('button', { class: 'btn principal', onclick: () => valider() }, 'Valider ', h('kbd', {}, 'Entrée'));
+  // Résultats négatifs : certains claviers numériques de téléphone n'ont pas de signe moins.
+  const btnSigne = h('button', { class: 'btn btn-signe', style: 'display:none', 'aria-label': 'Changer le signe', onclick: () => {
+    saisie.value = /^[-−]/.test(saisie.value) ? saisie.value.replace(/^[-−]/, '') : `−${saisie.value}`;
+    saisie.dispatchEvent(new Event('input'));
+    saisie.focus();
+  } }, '±');
   const btnBloque = h('button', { class: 'btn', style: 'display:none', onclick: () => aideSuivante() }, 'Je suis bloqué ', h('kbd', {}, 'B'));
   const zoneAide = h('div', { class: 'aide-division' });
   const compteur = h('span', { class: 'compteur' });
   const chrono = h('span', { class: 'compteur chrono' });
   const fantome = h('span', { class: 'compteur fantome' });
   const course = o.fantome && Number.isFinite(o.nombre ?? Infinity) ? creerCourse({ total: o.nombre, msParUnite: o.fantome.msParExercice, nom: o.fantome.nom ?? 'votre record' }) : null;
-  const chronoExo = h('div', { class: 'chrono-exercice' });
+  // Chrono discret pendant l'apprentissage ; bien visible dans les défis et les jeux.
+  const chronoExo = h('div', { class: `chrono-exercice${opts.defi && !opts.pauseErreur ? ' en-avant' : ''}` });
   const pastilles = h('div', { class: 'pastilles' });
   const caseEspace = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().modeEspace });
   caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
@@ -89,13 +96,14 @@ export function creerSerie(conteneur, o) {
   caseDoigte.addEventListener('change', () => { modifierReglages({ doigte: caseDoigte.checked }); afficherEnonce(); saisie.focus(); });
   const choixDoigte = h('label', { class: 'mode-espace', title: 'Rappelle à côté de chaque ligne quels doigts bougent. Masqué quand le geste est acquis.' }, caseDoigte, ' Rappel doigté');
   const doigteActif = () => caseDoigte.checked && !opts.defi && ex?.type === 'addsub' && !ex.flash && !ex.decimales && !ex.negatif && !opts.doigteMasque?.();
-  const retour = h('div', { class: 'retour' });
+  // Annoncé aux lecteurs d'écran : juste / faux, résultat attendu.
+  const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const zoneDiag = h('div', {});
   const racine = h('div', { class: 'serie' },
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), opts.defi ? null : choixDoigte, opts.defi ? null : choixEspace, fantome, chrono, compteur),
     course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
-    h('div', { class: 'ligne' }, saisie, btnValider, btnBloque),
+    h('div', { class: 'ligne' }, btnSigne, saisie, btnValider, btnBloque),
     zoneAide, retour, zoneDiag);
   conteneur.append(racine);
   saisie.addEventListener('input', () => {
@@ -122,6 +130,7 @@ export function creerSerie(conteneur, o) {
     choixDoigte.style.display = ex?.type !== 'addsub' || ex?.flash || ex?.decimales || ex?.negatif || opts.doigteMasque?.() ? 'none' : '';
     const sansSaisie = modeEspace() || ex?.type === 'tenir';
     saisie.style.display = sansSaisie ? 'none' : '';
+    btnSigne.style.display = !sansSaisie && ex?.negatif ? '' : 'none';
     btnValider.style.display = sansSaisie ? 'none' : '';
     if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : modeEspace() ? 'Calculez sur votre soroban, puis Espace pour voir le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
   }
@@ -298,7 +307,15 @@ export function creerSerie(conteneur, o) {
     if (phase === 'corrige') { i += 1; suivant(); return; }
     if (phase !== 'question') return;
     const reponse = lireReponse(saisie.value, ex.decimales ?? 0);
-    if (reponse === null) { saisie.focus(); return; }
+    if (reponse === null) {
+      // Saisie non reconnue : on le dit (sinon « Entrée » semble ne rien faire).
+      if (saisie.value.trim()) {
+        retour.className = 'retour erreur';
+        remplir(retour, `« ${saisie.value.trim()} » n'est pas un nombre reconnu : tapez seulement des chiffres${ex.decimales ? ', avec une virgule pour les décimales' : ''}${ex.negatif ? ', et un signe − devant si le résultat est négatif' : ''}.`);
+      }
+      saisie.focus();
+      return;
+    }
     // Produit de la table : la convention des deux tiges exige deux chiffres (« 06 »).
     const juste = ex.attendu ? saisie.value.replace(/\s/g, '') === ex.attendu : egal(reponse, ex.resultat, ex.decimales ?? 0);
     // Temps de calcul : jusqu'à la première touche (la frappe n'est pas comptée).
@@ -307,6 +324,7 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     majChronoExo(dureeMs);
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
+    racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);
@@ -331,6 +349,17 @@ export function creerSerie(conteneur, o) {
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
     }
+    if (opts.defi && opts.pauseErreur) {
+      // Mini-test, révision : l'erreur reste affichée jusqu'à Entrée, le temps de regarder son
+      // soroban (les explications détaillées restent pour la fin, comme à un examen).
+      retour.className = 'retour erreur';
+      remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Faux : le résultat est `, h('strong', {}, valeur(ex, ex.resultat)),
+        '. Regardez votre soroban : où a-t-il divergé ? Vous reverrez ce calcul à la fin.'),
+        h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
+      phase = 'corrige';
+      attribue = true;
+      return;
+    }
     if (opts.defi) {
       retour.className = 'retour erreur';
       remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${valeur(ex, ex.resultat)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
@@ -344,8 +373,8 @@ export function creerSerie(conteneur, o) {
     const zoneLocalisation = h('div', { class: 'localisation' });
     zoneLocalisationCourante = zoneLocalisation;
     if (localisation) {
-      remplir(zoneLocalisation, h('strong', {}, 'Erreur localisée : '),
-        `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). Ce geste est noté à retravailler.`);
+      remplir(zoneLocalisation, h('strong', {}, 'Erreur probable : '),
+        `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). C'est une déduction à partir de l'écart : si ce n'est pas là que votre soroban a divergé, refaites la colonne avec les sous-totaux. Ce geste est noté à retravailler.`);
     } else if (ex.type === 'addsub' && !ex.ticket) {
       remplir(zoneLocalisation, h('span', { class: 'discret' },
         'Pour un diagnostic juste, refaites la colonne en comparant avec les sous-totaux (S), puis cliquez la ligne où votre soroban a divergé. Sinon, aucun geste n\'est accusé.'));
@@ -421,6 +450,7 @@ export function creerSerie(conteneur, o) {
 
   function terminer() {
     phase = 'fin';
+    delete racine.dataset.enCours;
     clearInterval(minuterie);
     saisie.disabled = true;
     btnValider.disabled = true;

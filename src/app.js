@@ -9,7 +9,9 @@
  */
 
 import { h, remplir } from './ui/dom.js';
-import { chargerProgression, surSucces } from './core/progression.js';
+import { chargerProgression, surSucces, stockage, surStockage, versionNavigateur, rechargerDepuis, CLE_STOCKAGE, aujourdhui } from './core/progression.js';
+import { VERSION_APPLI } from './core/version.js';
+import { telechargerExport, telechargerTexte } from './ui/exporter.js';
 import { pictogramme } from './ui/perles.js';
 import { appliquerTheme, selecteursTheme } from './ui/theme.js';
 import { notifier } from './ui/toast.js';
@@ -30,6 +32,7 @@ import epreuves from './modules/epreuves.js';
 import progressionEcran from './modules/progression.js';
 import jeux from './modules/jeux.js';
 import examen from './modules/examen.js';
+import lexique from './modules/lexique.js';
 import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
 /**
@@ -37,14 +40,14 @@ import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
  * les autres écrans existent toujours (on y va par les cartes, la séance, ou un lien).
  */
 const MENU = [
-  { ecran: seance, nom: 'Aujourd\'hui', picto: 'aujourdhui' },
-  { ecran: apprendre, nom: 'Apprendre', picto: 'apprendre' },
-  { ecran: entrainer, nom: 'S\'entraîner', picto: 'entrainer' },
-  { ecran: mesurer, nom: 'Se mesurer', picto: 'mesurer' },
-  { ecran: progressionEcran, nom: 'Progression', picto: 'progression' },
+  { ecran: seance, nom: 'Aujourd\'hui', court: 'Jour', picto: 'aujourdhui' },
+  { ecran: apprendre, nom: 'Apprendre', court: 'Apprendre', picto: 'apprendre' },
+  { ecran: entrainer, nom: 'S\'entraîner', court: 'Entraîner', picto: 'entrainer' },
+  { ecran: mesurer, nom: 'Se mesurer', court: 'Mesurer', picto: 'mesurer' },
+  { ecran: progressionEcran, nom: 'Progression', court: 'Progrès', picto: 'progression' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
-  quotidien, muldiv, anzan, dictee, defis, examen, epreuves];
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique];
 /** Entrée du menu à surligner pour un écran. */
 const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? 'seance');
 
@@ -83,11 +86,66 @@ function construireNavigation() {
   nav.append(h('div', { class: 'titre-app' }, 'Soroban'));
   for (const m of MENU) {
     if (m.ecran === progressionEcran) nav.append(h('hr', { class: 'separateur-menu' }));
-    nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', onclick: () => app.aller(m.ecran.id) },
-      h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, m.nom), h('span', { class: 'pastille', style: 'display:none' })));
+    nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', 'aria-label': m.nom, onclick: () => app.aller(m.ecran.id) },
+      h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, h('span', { class: 'nom-long' }, m.nom), h('span', { class: 'nom-court', 'aria-hidden': 'true' }, m.court)), h('span', { class: 'pastille', style: 'display:none' })));
   }
-  // Choix du thème et du mode (clair / sombre), en bas du menu : pour comparer sur les vrais écrans.
-  nav.append(h('div', { class: 'choix-theme' }, ...selecteursTheme()));
+  // Choix du mode (clair / sombre) et numéro de version, en bas du menu.
+  nav.append(h('div', { class: 'choix-theme' }, ...selecteursTheme()),
+    h('div', { class: 'version-appli' }, `Version ${VERSION_APPLI}${versionNavigateur ? ' · navigateur' : ''}`));
+}
+
+/**
+ * Bandeau d'alerte du stockage, en haut de la zone principale : il reste affiché tant que le
+ * problème dure (un enregistrement raté ne doit jamais passer inaperçu).
+ */
+const bandeau = h('div', { class: 'bandeau-stockage', role: 'alert', hidden: true });
+zone.before(bandeau);
+function majBandeau(e) {
+  const exporter = h('button', { class: 'btn', onclick: () => telechargerExport() }, 'Exporter maintenant');
+  const fermer = h('button', { class: 'btn', onclick: () => { bandeau.hidden = true; } }, 'Compris');
+  const textes = {
+    indisponible: ['Ce navigateur bloque l\'enregistrement : votre progression ne sera PAS conservée. Autorisez les données de site (cookies) pour cette page, ou utilisez l\'application Windows.', null],
+    echec: [`Attention : le dernier enregistrement a échoué${e.message ? ` (${e.message})` : ''}. Vos derniers résultats ne sont peut-être pas sauvegardés : exportez-les.`, exporter],
+    'lecture-seule': ['Mode sans enregistrement : votre progression vient d\'une version plus récente de Soroban, cette copie n\'écrit rien. Ouvrez la version la plus récente.', null],
+    'ancienne-copie': [`Vous ouvrez une ancienne copie de Soroban (version ${VERSION_APPLI}) alors que votre progression a déjà servi avec la version ${e.appli}. Rien n'est perdu, mais ouvrez de préférence la version la plus récente.`, fermer],
+  };
+  const t = textes[e.etat];
+  bandeau.hidden = !t;
+  if (t) remplir(bandeau, h('span', {}, t[0]), t[1]);
+}
+surStockage(majBandeau);
+
+/**
+ * Sauvegarde faite par une version PLUS RÉCENTE de l'application : on n'écrit rien, et on le dit.
+ * L'utilisateur peut exporter ces données ou continuer sans enregistrer.
+ */
+function ecranLectureSeule(brut) {
+  remplir(zone,
+    h('h1', {}, 'Ouvrez la version la plus récente'),
+    h('div', { class: 'carte avis' },
+      h('p', {}, h('strong', {}, 'Votre progression a été enregistrée par une version plus récente de Soroban.')),
+      h('p', {}, `Cette copie (version ${VERSION_APPLI}) ne sait pas la lire. Pour ne rien abîmer, elle n'enregistrera rien. Ouvrez la version la plus récente (la page des téléchargements garde toujours la dernière), et supprimez les anciennes copies.`),
+      h('div', { class: 'ligne' },
+        h('button', { class: 'btn principal', onclick: () => telechargerTexte(JSON.stringify(brut, null, 2), `soroban-sauvegarde-${aujourdhui()}.json`) }, 'Exporter cette progression (fichier)'),
+        h('button', { class: 'btn', onclick: () => { construireNavigation(); app.aller('seance'); } }, 'Continuer sans enregistrer'))));
+}
+
+/** Version navigateur : un autre onglet a enregistré → on reprend ses données (sinon on les écraserait). */
+function surveillerOnglets() {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== CLE_STOCKAGE || e.newValue === null) return;
+    if (!rechargerDepuis(e.newValue)) return;
+    notifier('Soroban est ouvert dans un autre onglet', 'Ses résultats ont été repris ici. Pour éviter les mélanges, gardez un seul onglet ouvert.', 9000);
+  });
+}
+
+/** Version navigateur : prévenir avant de fermer ou d'actualiser la page pendant un exercice. */
+function prevenirAvantDeQuitter() {
+  window.addEventListener('beforeunload', (e) => {
+    if (!zone.querySelector('[data-en-cours]')) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 }
 
 /**
@@ -107,5 +165,10 @@ function replierReglages(zoneEcran) {
 await chargerProgression();
 appliquerTheme();
 surSucces((s) => notifier(`Succès : ${s.nom}`, s.description));
-construireNavigation();
-app.aller('seance');
+majBandeau(stockage());
+if (versionNavigateur) { surveillerOnglets(); prevenirAvantDeQuitter(); }
+if (stockage().etat === 'lecture-seule') ecranLectureSeule(stockage().brut);
+else {
+  construireNavigation();
+  app.aller('seance');
+}

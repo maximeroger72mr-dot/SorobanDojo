@@ -53,7 +53,7 @@ export function creerLievre(conteneur, o) {
   const zone = h('div', {});
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Résultat', 'aria-label': 'Résultat', disabled: true });
   const btn = h('button', { class: 'btn principal', onclick: () => action() });
-  const retour = h('div', { class: 'retour' });
+  const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const racine = h('div', { class: 'lievre-jeu' },
     h('div', { class: 'ruban-entete' }, infoCadence, compteur),
     h('p', { class: 'ruban-consigne' }, 'Posez la ligne surlignée en lisant déjà la suivante. Le surligneur n\'attend pas : la ligne passée disparaît.'),
@@ -77,6 +77,7 @@ export function creerLievre(conteneur, o) {
   /** Fait défiler le surligneur : ligne i en cours, i+1 visible, le reste caché. */
   function lancerColonne() {
     phase = 'defile';
+    racine.dataset.enCours = '1';
     majEntete();
     majBouton('');
     remplir(retour);
@@ -133,6 +134,7 @@ export function creerLievre(conteneur, o) {
     }
     if (k >= o.colonnes) {
       phase = 'fin';
+      delete racine.dataset.enCours;
       majBouton('');
       o.surFin?.({ justes, total: k, cadenceDepart: borne(o.cadence), meilleureCadence: meilleure, cadenceFin: cadence });
       return;

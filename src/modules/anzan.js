@@ -129,7 +129,7 @@ export default {
       const zoneImage = h('div', { class: 'flash-image' });
       const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', placeholder: 'Somme', autocomplete: 'off', style: 'display:none' });
       const btn = h('button', { class: 'btn principal', onclick: () => action() });
-      const retour = h('div', { class: 'retour' });
+      const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
       const pastilles = h('div', { class: 'pastilles' });
       zone.append(h('div', { class: 'ligne' }, pastilles), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour);
       // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.

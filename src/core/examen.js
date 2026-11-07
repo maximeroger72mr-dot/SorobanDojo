@@ -24,16 +24,16 @@ export const SEUIL = 0.7;
 
 /** Grades préparatoires : leçons à valider, et format des colonnes de l'examen. */
 export const PREKYU = [
-  { id: '20', nom: '20e kyū', lecons: ['p1-1', 'p1-2', 'p1-3'], chiffres: 1, lignes: 4, theme: 'gestes directs, 1 chiffre' },
-  { id: '19', nom: '19e kyū', lecons: ['p1-4'], chiffres: 2, lignes: 4, theme: 'gestes directs, 2 chiffres' },
-  { id: '18', nom: '18e kyū', lecons: ['p2-1', 'p2-2', 'p2-3'], chiffres: 2, lignes: 5, theme: 'petits amis en addition' },
-  { id: '17', nom: '17e kyū', lecons: ['p2-4', 'p2-5', 'p2-6', 'p2-7'], chiffres: 2, lignes: 5, theme: 'tous les petits amis' },
-  { id: '16', nom: '16e kyū', lecons: ['p3-1', 'p3-2', 'p3-3'], chiffres: 1, lignes: 5, theme: 'grands amis en addition, 1 chiffre' },
-  { id: '15', nom: '15e kyū', lecons: ['p3-4'], chiffres: 2, lignes: 5, theme: 'grands amis en addition, 2 chiffres' },
-  { id: '14', nom: '14e kyū', lecons: ['p4-1', 'p4-2', 'p4-3', 'p4-4'], chiffres: 2, lignes: 5, theme: 'grands amis en soustraction' },
-  { id: '13', nom: '13e kyū', lecons: ['p4-5'], chiffres: 3, lignes: 5, theme: 'tous les grands amis, 3 chiffres' },
-  { id: '12', nom: '12e kyū', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 6, theme: 'combinaisons' },
-  { id: '11', nom: '11e kyū', lecons: ['p5-4', 'p5-5'], chiffres: 3, lignes: 6, theme: 'cascades et révision générale' },
+  { id: '20', nom: '20e kyū prép.', lecons: ['p1-1', 'p1-2', 'p1-3'], chiffres: 1, lignes: 4, theme: 'gestes directs, 1 chiffre' },
+  { id: '19', nom: '19e kyū prép.', lecons: ['p1-4'], chiffres: 2, lignes: 4, theme: 'gestes directs, 2 chiffres' },
+  { id: '18', nom: '18e kyū prép.', lecons: ['p2-1', 'p2-2', 'p2-3'], chiffres: 2, lignes: 5, theme: 'petits amis en addition' },
+  { id: '17', nom: '17e kyū prép.', lecons: ['p2-4', 'p2-5', 'p2-6', 'p2-7'], chiffres: 2, lignes: 5, theme: 'tous les petits amis' },
+  { id: '16', nom: '16e kyū prép.', lecons: ['p3-1', 'p3-2', 'p3-3'], chiffres: 1, lignes: 5, theme: 'grands amis en addition, 1 chiffre' },
+  { id: '15', nom: '15e kyū prép.', lecons: ['p3-4'], chiffres: 2, lignes: 5, theme: 'grands amis en addition, 2 chiffres' },
+  { id: '14', nom: '14e kyū prép.', lecons: ['p4-1', 'p4-2', 'p4-3', 'p4-4'], chiffres: 2, lignes: 5, theme: 'grands amis en soustraction' },
+  { id: '13', nom: '13e kyū prép.', lecons: ['p4-5'], chiffres: 3, lignes: 5, theme: 'tous les grands amis, 3 chiffres' },
+  { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 6, theme: 'combinaisons' },
+  { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 3, lignes: 6, theme: 'cascades et révision générale' },
 ];
 const APRES = { id: 'hebdo', nom: 'Examen de la semaine', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
 
@@ -93,7 +93,7 @@ export function joursRestants(date) {
 export function libelleGrade(d) {
   const g = grade(d);
   const prep = meilleurPrekyu(d);
-  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : prep ? `${prep.nom} (entraînement)` : 'aucun pour l\'instant';
+  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : prep ? prep.nom : 'aucun pour l\'instant';
   let officiel;
   if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
   else if (g.pret) officiel = `Prochain grade officiel : ${g.prochain.nom}, vous pouvez tenter l'épreuve.`;

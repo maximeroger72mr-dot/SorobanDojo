@@ -2,8 +2,10 @@
  * Exécution d'un drill sur son propre soroban.
  *
  * Seul le chronomètre compte : on démarre, on enchaîne les opérations sur son soroban, on
- * arrête. Le résultat attendu n'apparaît qu'à la fin, pour vérifier (O / N). Le temps n'est
- * retenu comme record que si le soroban affichait le bon résultat.
+ * arrête (Entrée). Puis on TAPE le nombre lu sur son soroban (la frappe ne compte pas dans le
+ * temps) : l'application le compare au résultat attendu. Validation, médailles et records ne
+ * reposent donc que sur un soroban qui affiche vraiment le bon nombre. En cas d'écart, les
+ * chiffres qui diffèrent sont signalés, pour retrouver la tige fautive.
  *
  * Aides : points de contrôle (sous-totaux) et DOIGTÉ (la suite exacte des gestes de chaque
  * opération), pour repérer un mouvement qui gêne ou bloque ; chaque opération se rejoue en animation.
@@ -12,12 +14,13 @@
  * régulièrement ; « + 5 % » pour accélérer doucement.
  */
 
-import { controles } from '../core/drills.js';
+import { controles, tigesFausses } from '../core/drills.js';
 import { calculerGestes } from '../core/gestes.js';
 import { Soroban } from '../core/soroban.js';
 import { PanneauDemo, ouvrirDialogue } from './panneauDemo.js';
 import { Metronome } from './metronome.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
+import { lireReponse } from '../core/nombres.js';
 
 const ABREV = ['u', 'd', 'c', 'm', 'dm', 'cm', 'M', 'dM', 'cM', 'G', 'dG', 'cG'];
 const signe = (op) => (op === '+' ? '+' : '−');
@@ -38,6 +41,14 @@ export function doigte(depart, op, n) {
   });
 }
 
+function ecartChiffres(lu, attendu) {
+  const f = tigesFausses(lu, attendu);
+  const texte = f.length === 1 ? `Une seule tige diffère : les ${f[0]}.`
+    : f.length <= 3 ? `${f.length} tiges diffèrent : ${f.reverse().join(', ')}.`
+      : `${f.length} tiges diffèrent : le calcul a dû dérailler tôt, reprenez avec les points de contrôle.`;
+  return h('div', { class: 'discret' }, texte);
+}
+
 /**
  * @param {HTMLElement} conteneur
  * @param {object} d  drill (voir core/drills.js)
@@ -55,8 +66,10 @@ export function creerDrill(conteneur, d, o = {}) {
   const barreFantome = h('div', { class: 'fantome-barre' }, h('div', {}));
   const libelleFantome = h('span', { class: 'discret' }, o.record ? `fantôme : votre record ${formaterDuree(o.record.dureeMs)}` : 'pas encore de record : ce temps deviendra votre fantôme');
   const btn = h('button', { class: 'btn principal', onclick: () => action() });
-  const btnOui = h('button', { class: 'btn ok-btn', style: 'display:none', onclick: () => verifier(true) }, 'Oui ', h('kbd', {}, 'O'));
-  const btnNon = h('button', { class: 'btn ko-btn', style: 'display:none', onclick: () => verifier(false) }, 'Non ', h('kbd', {}, 'N'));
+  // Vérification : on tape le nombre que montre son soroban.
+  const saisieLue = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Nombre lu', 'aria-label': 'Nombre lu sur votre soroban', style: 'display:none' });
+  const btnVerifier = h('button', { class: 'btn principal', style: 'display:none', onclick: () => lireSoroban() }, 'Vérifier ', h('kbd', {}, 'Entrée'));
+  const btnPerdu = h('button', { class: 'btn', style: 'display:none', onclick: () => verifier(false, null) }, 'Je me suis perdu');
   const caseControles = h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { voirControles = e.target.checked; dessiner(); } }), ' Points de contrôle');
   const caseDoigte = h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { voirDoigte = e.target.checked; dessiner(); } }), ' Doigté');
   const tableau = h('div', { class: 'drill-operations' });
@@ -75,10 +88,10 @@ export function creerDrill(conteneur, d, o = {}) {
   } }, '+ 5 %');
   const ligneMetronome = h('div', { class: 'ligne metronome' }, h('label', {}, caseMetronome, ' Métronome'), choixTempo, btnPlus5,
     h('span', { class: 'discret' }, 'un clic par opération'));
-  const retour = h('div', { class: 'retour' });
+  const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
 
   const racine = h('div', { class: 'drill' },
-    h('div', { class: 'ligne' }, btn, btnOui, btnNon, h('span', { style: 'flex:1' }), caseControles, caseDoigte, chrono),
+    h('div', { class: 'ligne' }, btn, saisieLue, btnVerifier, btnPerdu, h('span', { style: 'flex:1' }), caseControles, caseDoigte, chrono),
     o.record !== undefined ? h('div', { class: 'ligne fantome-ligne' }, barreFantome, libelleFantome) : null,
     ligneMetronome,
     tableau, retour);
@@ -106,13 +119,13 @@ export function creerDrill(conteneur, d, o = {}) {
   function majBouton() {
     btn.style.display = etat === 'pret' || etat === 'course' ? '' : 'none';
     remplir(btn, etat === 'pret' ? 'Démarrer ' : 'J\'ai fini ', h('kbd', {}, 'Entrée'));
-    btnOui.style.display = etat === 'verification' ? '' : 'none';
-    btnNon.style.display = etat === 'verification' ? '' : 'none';
+    for (const b of [saisieLue, btnVerifier, btnPerdu]) b.style.display = etat === 'verification' ? '' : 'none';
   }
 
   function action() {
     if (etat === 'pret') {
       etat = 'course';
+      racine.dataset.enCours = '1';
       debut = performance.now();
       if (caseMetronome.checked) metronome.demarrer(Number(choixTempo.value));
       remplir(retour, h('span', { class: 'discret' }, 'Posez 0 sur votre soroban et enchaînez. Entrée quand vous avez terminé.'));
@@ -122,19 +135,36 @@ export function creerDrill(conteneur, d, o = {}) {
       etat = 'verification';
       chrono.textContent = formaterDuree(dureeMs);
       retour.className = 'retour';
-      remplir(retour, `Temps : ${formaterDuree(dureeMs)}. Résultat attendu : `, h('strong', { class: 'resultat-drill' }, formaterNombre(d.resultat)), '. Votre soroban affiche-t-il ce nombre ?');
+      remplir(retour, `Temps : ${formaterDuree(dureeMs)}. Tapez maintenant le nombre que montre votre soroban (la frappe ne compte pas dans le temps).`);
     }
     majBouton();
+    if (etat === 'verification') saisieLue.focus();
   }
 
-  async function verifier(juste) {
+  /** Compare le nombre lu sur le soroban au résultat attendu. */
+  function lireSoroban() {
+    if (etat !== 'verification') return;
+    const lu = lireReponse(saisieLue.value);
+    if (lu === null) {
+      remplir(retour, 'Tapez le nombre affiché sur votre soroban (seulement des chiffres), puis Entrée.');
+      saisieLue.focus();
+      return;
+    }
+    verifier(lu === d.resultat, lu);
+  }
+
+  async function verifier(juste, lu) {
     if (etat !== 'verification') return;
     etat = 'fini';
+    delete racine.dataset.enCours;
     majBouton();
     retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
     remplir(retour, juste
-      ? h('span', {}, h('span', { class: 'grand-signe' }, '✓'), ` ${formaterDuree(dureeMs)}`)
-      : h('span', {}, h('span', { class: 'grand-signe' }, '✗'), ' Comparez vos étapes aux points de contrôle, et activez le doigté pour repérer le geste qui a coincé.'));
+      ? h('span', {}, h('span', { class: 'grand-signe' }, '✓'), ` Votre soroban montre bien ${formaterNombre(d.resultat)} · ${formaterDuree(dureeMs)}`)
+      : h('div', {},
+        h('div', {}, h('span', { class: 'grand-signe' }, '✗'), lu === null ? ' Résultat attendu : ' : [' Votre soroban montre ', h('strong', {}, formaterNombre(lu)), ', le résultat attendu est '], h('strong', {}, formaterNombre(d.resultat)), '.'),
+        lu !== null ? ecartChiffres(lu, d.resultat) : null,
+        h('div', {}, 'Comparez vos étapes aux points de contrôle, et activez le doigté pour repérer le geste qui a coincé.')));
     if (!juste) {
       voirControles = true;
       caseControles.querySelector('input').checked = true;
@@ -156,11 +186,7 @@ export function creerDrill(conteneur, d, o = {}) {
   }, 100);
 
   const sansRaccourcis = raccourcis({
-    Enter: () => (etat === 'pret' || etat === 'course' ? action() : false),
-    o: () => (etat === 'verification' ? verifier(true) : false),
-    O: () => (etat === 'verification' ? verifier(true) : false),
-    n: () => (etat === 'verification' ? verifier(false) : false),
-    N: () => (etat === 'verification' ? verifier(false) : false),
+    Enter: () => (etat === 'pret' || etat === 'course' ? action() : etat === 'verification' ? lireSoroban() : false),
   });
 
   dessiner();

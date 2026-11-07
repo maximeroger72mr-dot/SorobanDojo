@@ -2,8 +2,8 @@
  * Révisions du jour (répétition espacée, boîtes de Leitner J+1, J+3, J+7, J+14, J+30).
  *
  * Liste les leçons dont la révision est arrivée à échéance. Chacune se révise par un test flash
- * de 10 calculs sur son soroban : 9 réussites font monter la leçon d'une boîte, sinon elle revient
- * en boîte 1. Propose aussi une révision ciblée sur les points faibles détectés.
+ * de 10 calculs sur son soroban : 9 réussites font monter la leçon d'une boîte, sinon elle
+ * redescend d'une boîte. Propose aussi une révision ciblée sur les points faibles détectés.
  */
 
 import { sousPalier, SOUS_PALIERS, genererExercice } from '../core/curriculum.js';
@@ -77,7 +77,7 @@ export default {
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
       serie = (placement ? creerPlacement : creerSerie)(el, {
-        generer, nombre: FLASH.exercices, chrono: true, defi: true,
+        generer, nombre: FLASH.exercices, chrono: true, defi: true, pauseErreur: true,
         surFin: async (bilan) => {
           serie.detruire();
           serie = null;
@@ -105,7 +105,7 @@ export default {
           const c = etatPalier(sp.id).carte;
           return reussi
             ? `Automatisme entretenu : boîte ${c.boite}, prochaine révision ${dateFr(c.echeance)}.`
-            : `Moins de ${FLASH.reussitesMin} réussites : la leçon revient en boîte 1, à revoir ${dateFr(c.echeance)}.`;
+            : `Moins de ${FLASH.reussitesMin} réussites : la leçon redescend en boîte ${c.boite}, à revoir ${dateFr(c.echeance)}.`;
         },
       });
     }

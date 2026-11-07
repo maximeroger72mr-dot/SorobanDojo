@@ -11,10 +11,11 @@
 
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
-  minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte,
+  minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur,
 } from '../core/progression.js';
+import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, niveauAddsub, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
 import { GRADES } from '../core/epreuves.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
@@ -200,6 +201,17 @@ export default {
       const choixObjectif = h('select', { onchange: async (e) => { await modifierReglages({ objectifMinutes: Number(e.target.value) }); afficher(bilan); } },
         [5, 10, 15, 20, 30, 45, 60].map((m) => h('option', { value: m }, `${m} min`)));
       choixObjectif.value = String(objectif);
+      const premiereFois = !d.sessions.length && !Object.values(d.paliers).some((x) => x.valide);
+      if (premiereFois) {
+        // Premier lancement : une seule action, pas de compteurs à zéro.
+        const sp = prochainSousPalier();
+        el.append(h('h1', {}, 'Bienvenue'),
+          h('div', { class: 'carte accueil' },
+            h('p', {}, 'Ici, on apprend le soroban sur un VRAI soroban : l\'application propose les calculs, vous les faites avec vos doigts, puis vous tapez le résultat. Elle corrige, explique, et décide chaque jour de la suite.'),
+            h('p', {}, 'Installez votre soroban devant vous, un crayon à portée de main, et commencez par la première leçon : elle montre comment le tenir et lire un nombre.'),
+            h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)));
+        return;
+      }
       el.append(h('h1', {}, 'Séance du jour'),
         h('div', { class: 'tuiles' },
           h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
@@ -214,6 +226,13 @@ export default {
             h('div', { class: 'tuile-valeur' }, libelleGrade(d).valeur),
             h('div', { class: 'discret' }, libelleGrade(d).detail))));
       prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.tuiles')?.before(h('div', { class: 'carte avis' }, a))));
+      // Version navigateur : rappel d'export (les données ne vivent que dans ce navigateur).
+      const premiere = d.sessions[0]?.date;
+      if (versionNavigateur && premiere && premiere <= ajouterJours(aujourdhui(), -7) && (!d.dernierExport || d.dernierExport <= ajouterJours(aujourdhui(), -14))) {
+        el.append(h('div', { class: 'carte avis ligne' },
+          h('span', { style: 'flex:1' }, d.dernierExport ? `Dernier export de votre progression : il y a plus de 14 jours.` : 'Vous n\'avez encore jamais exporté votre progression.', ' Elle ne vit que dans ce navigateur : un nettoyage des données de navigation l\'effacerait.'),
+          h('button', { class: 'btn', onclick: async () => { await telechargerExport(); afficher(bilan); } }, 'Exporter maintenant')));
+      }
       el.append(carteObjectif(d, () => afficher(bilan)));
 
       // --- bilan de la séance qui vient de se terminer
@@ -252,7 +271,6 @@ export default {
         h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
         !seance ? h('p', { class: 'discret' }, 'Cliquez un point pour l\'ouvrir (la séance commence alors) ; chacun se coche quand il est fait.') : null));
-      if (niveauAddsub(d) === 0 && !d.sessions.length) el.append(h('p', { class: 'discret' }, 'Première fois ? Commencez par « Lecture des nombres » (Apprendre), puis les leçons guidées.'));
     }
     afficher();
   },

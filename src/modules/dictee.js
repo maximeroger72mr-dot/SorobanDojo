@@ -62,7 +62,7 @@ export default {
     const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', placeholder: 'Résultat', autocomplete: 'off', style: 'display:none' });
     const btn = h('button', { class: 'btn principal', onclick: () => action() });
     const btnReecouter = h('button', { class: 'btn', style: 'display:none', onclick: () => lire(true) }, 'Réécouter');
-    const retour = h('div', { class: 'retour' });
+    const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
     saisie.addEventListener('input', () => { if (etat === 'reponse' && dureeCalcul === null && saisie.value.trim()) dureeCalcul = performance.now() - debutReponse; });
 
     el.append(h('h1', {}, 'Dictée (yomiage)'),

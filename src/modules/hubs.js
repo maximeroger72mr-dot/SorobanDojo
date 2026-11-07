@@ -27,6 +27,7 @@ const CARTES = {
       info: () => { const sp = prochainAnzan(); return sp ? { texte: `Prochaine : ${sp.titre}`, aFaire: true } : null; }, params: () => ({ sousPalier: prochainAnzan()?.id }) },
     { ecran: 'lecture', titre: 'Lecture des nombres', description: 'Lire et poser un nombre sur le soroban : la base de tout.' },
     { ecran: 'libre', titre: 'Démonstrations', description: 'Voir n\'importe quel calcul geste par geste, au ralenti.' },
+    { ecran: 'lexique', titre: 'Lexique', description: 'Anzan, mitori, kyū, petit ami, coupe-file… : tous les mots, définis simplement.' },
   ],
   entrainer: [
     { ecran: 'revisions', titre: 'Révisions du jour', description: 'Les leçons à revoir aujourd\'hui (répétition espacée : J+1, 3, 7, 14, 30).',

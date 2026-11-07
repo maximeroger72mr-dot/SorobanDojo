@@ -8,10 +8,15 @@ const fs = require('node:fs');
 const fichierProgression = () => path.join(app.getPath('userData'), 'progression.json');
 
 ipcMain.handle('progression:lire', () => {
+  const f = fichierProgression();
+  if (!fs.existsSync(f)) return null; // première utilisation
   try {
-    return JSON.parse(fs.readFileSync(fichierProgression(), 'utf8'));
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
   } catch {
-    return null; // première utilisation ou fichier illisible
+    // Fichier illisible : on le met de côté (jamais écrasé) ; l'interface prévient l'utilisateur.
+    const nom = `progression-illisible-${Date.now()}.json`;
+    try { fs.renameSync(f, path.join(path.dirname(f), nom)); } catch { /* reste en place : il sera copié dans sauvegardes/ */ }
+    return { illisible: nom };
   }
 });
 

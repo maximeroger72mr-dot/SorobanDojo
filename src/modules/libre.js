@@ -19,7 +19,8 @@ export default {
   id: 'libre',
   titre: 'Démonstrations',
   monter(el) {
-    const soroban = new Soroban(13);
+    // Sur téléphone, 7 tiges : des cibles assez larges pour le doigt.
+    const soroban = new Soroban(window.innerWidth < 560 ? 7 : 13);
     let lecteur = null;
 
     // ---------------------------------------------------------------- interface

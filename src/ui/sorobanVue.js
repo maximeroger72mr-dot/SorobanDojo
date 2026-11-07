@@ -166,6 +166,8 @@ export class SorobanVue {
       b.classList.toggle('active', active);
     });
     r.valeur.textContent = String(this.s.chiffre(t));
+    // Valeur annoncée aux lecteurs d'écran (le dessin seul ne dit rien).
+    this.svg.setAttribute('aria-label', `Soroban : ${this.s.valeur().toLocaleString('fr-FR')}`);
   }
 
   definirInteractif(oui) {

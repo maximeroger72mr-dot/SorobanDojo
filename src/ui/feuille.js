@@ -49,6 +49,7 @@ export function creerFeuille(conteneur, o) {
     h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), chrono, btnImprimer, btnCorriger),
     sectionsEl, bilan, corrige);
   conteneur.append(racine);
+  racine.dataset.enCours = '1'; // feuille en cours : on prévient avant de quitter la page
 
   // Entrée passe à la case suivante (comme sur une feuille, on enchaîne).
   cases.forEach((c, i) => c.input.addEventListener('keydown', (e) => {
@@ -79,6 +80,7 @@ export function creerFeuille(conteneur, o) {
   function corriger() {
     if (fini) return;
     fini = true;
+    delete racine.dataset.enCours;
     clearInterval(minuterie);
     const dureeMs = Math.min(performance.now() - debut, limiteMs ?? Infinity);
     btnCorriger.disabled = true;

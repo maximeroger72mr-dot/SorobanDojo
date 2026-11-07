@@ -19,7 +19,7 @@ export function creerPlacement(conteneur, o) {
   const pastilles = h('div', { class: 'pastilles' });
   const compteur = h('span', { class: 'compteur' });
   const chrono = h('span', { class: 'compteur chrono' });
-  const retour = h('div', { class: 'retour' });
+  const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const racine = h('div', { class: 'serie' },
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), chrono, compteur),
     enonce, consigne, zoneSoroban, retour);
@@ -79,13 +79,9 @@ export function creerPlacement(conteneur, o) {
     retour.className = 'retour erreur';
     remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ' La bonne tige est en vert.'),
       h('div', { class: 'detail' }, ex.explication),
-      opts.defi ? null : h('div', { class: 'discret' }, 'Entrée pour continuer.'));
-    if (opts.defi) {
-      phase = 'transition';
-      timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 1500);
-    } else {
-      phase = 'corrige';
-    }
+      h('div', { class: 'discret' }, 'Entrée pour continuer.'));
+    // L'explication reste affichée jusqu'à Entrée (plus de disparition au bout de 1,5 s).
+    phase = 'corrige';
   }
 
   function terminer() {

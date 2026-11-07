@@ -91,18 +91,45 @@ export function famillesDrill(d) {
 export const chiffresDrill = (d) => d.operations.reduce((t, o) => t + String(o.n).length, 0);
 
 /**
- * Classement d'un drill, en secondes par chiffre traité. Bronze = validation (pas trop dur),
- * puis argent, or et platine pour revenir s'améliorer. Il faut DEUX passages justes sous le
- * temps bronze pour valider un drill et ouvrir le suivant.
+ * Classement d'un drill, en secondes par GESTE pondéré. Un chiffre posé par un geste direct va
+ * bien plus vite qu'un grand ami : compter des chiffres rendait l'or et le platine trop faciles
+ * sur les drills de gestes directs. Bronze = validation (pas trop dur), puis argent, or et
+ * platine (niveau d'un bon pratiquant de club) pour revenir s'améliorer. Il faut DEUX passages
+ * justes sous le temps bronze pour valider un drill et ouvrir le suivant.
  */
 export const CLASSEMENT = [
-  { id: 'bronze', nom: 'Bronze', s: 2.0 },
-  { id: 'argent', nom: 'Argent', s: 1.5 },
-  { id: 'or', nom: 'Or', s: 1.0 },
-  { id: 'platine', nom: 'Platine', s: 0.7 },
+  { id: 'bronze', nom: 'Bronze', s: 1.6 },
+  { id: 'argent', nom: 'Argent', s: 1.0 },
+  { id: 'or', nom: 'Or', s: 0.55 },
+  { id: 'platine', nom: 'Platine', s: 0.35 },
 ];
+/** Poids d'un geste selon sa famille (un geste direct = 0,6 geste « petit ami »). */
+export const POIDS_GESTE = { direct: 0.6, petit: 1, grand: 1.1, mixte: 1.4, cascade: 1.4 };
+const memoPoids = new WeakMap();
+/** Charge d'un drill : somme des gestes, pondérés par leur difficulté. */
+export function poidsDrill(d) {
+  if (!memoPoids.has(d)) {
+    const famille = (cle) => (cle.startsWith('cascade') ? 'cascade' : cle.split(':')[1]);
+    const w = occurrencesColonne(d.operations).flat().reduce((t, o) => t + (POIDS_GESTE[famille(o.cle)] ?? 1), 0);
+    memoPoids.set(d, w);
+  }
+  return memoPoids.get(d);
+}
+/** Les tiges où le soroban diffère du résultat attendu (alignées à droite, sur les unités). */
+export function tigesFausses(lu, attendu) {
+  const a = String(Math.abs(lu));
+  const b = String(Math.abs(attendu));
+  const n = Math.max(a.length, b.length);
+  const pa = a.padStart(n, '0');
+  const pb = b.padStart(n, '0');
+  const noms = ['unités', 'dizaines', 'centaines', 'milliers', 'dizaines de mille', 'centaines de mille', 'millions', 'dizaines de millions', 'centaines de millions', 'milliards', 'dizaines de milliards'];
+  const fausses = [];
+  for (let i = 0; i < n; i++) if (pa[i] !== pb[i]) fausses.push(noms[n - 1 - i] ?? `tige ${n - i}`);
+  return fausses;
+}
+
 export const VALIDATIONS_DRILL = 2;
-export const tempsClassement = (d, id) => CLASSEMENT.find((c) => c.id === id).s * chiffresDrill(d) * 1000;
+export const tempsClassement = (d, id) => Math.round(CLASSEMENT.find((c) => c.id === id).s * poidsDrill(d)) * 1000;
 /** Meilleur classement obtenu pour un temps (null : plus lent que bronze). */
 export function classement(d, dureeMs) {
   let r = null;

@@ -8,8 +8,10 @@ import { selecteursTheme } from '../ui/theme.js';
 import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
 import {
   statistiques, progression, aujourdhui, SEUIL_DIFFICULTE, evaluerMotif, evaluerPalier, reinitialiserGestes,
-  exporterDonnees, importerDonnees,
+  exporterDonnees, importerDonnees, versionNavigateur, noterExport, toutEffacer,
 } from '../core/progression.js';
+import { telechargerExport } from '../ui/exporter.js';
+import { VERSION_APPLI } from '../core/version.js';
 import { NIVEAUX } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
@@ -20,6 +22,41 @@ import { badgeNiveau } from '../ui/niveau.js';
 import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
+import { prochainSousPalier } from './lecons.js';
+import { meilleurPrekyu } from '../core/examen.js';
+import { revisionsDues } from '../core/progression.js';
+
+/**
+ * « Où j'en suis » : une phrase de synthèse, puis à quoi sert chaque indicateur.
+ * Ce qui mesure vraiment la progression : les leçons validées et le grade.
+ */
+function ouJenSuis(app, d) {
+  const soroban = SOUS_PALIERS.filter((sp) => !sp.mental);
+  const valides = soroban.filter((sp) => d.paliers[sp.id]?.valide).length;
+  const prochain = prochainSousPalier();
+  const prep = meilleurPrekyu(d);
+  const g = grade(d);
+  const gestes = TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluerMotif(c).index >= 2).length;
+  const dues = revisionsDues().length;
+  const indicateurs = [
+    ['Leçons validées', 'LE fil du parcours : chaque leçon se valide par un mini-test (justesse et vitesse).'],
+    ['Grade', 'Kyū prép. (20e au 11e) : jalons propres à l\'application, par l\'examen de la semaine. Kyū officiels (10e au 1er) : épreuves au format japonais.'],
+    ['Niveau d\'un geste', 'À découvrir → Acquis expert : la justesse ET la vitesse sur un geste précis (carte de maîtrise). Sert à choisir quoi retravailler.'],
+    ['Boîte de révision (1 à 5)', 'Combien de temps une leçon validée tient sans être revue. Sert à planifier les révisions.'],
+    ['Médailles des drills, étoiles, records', 'Votre vitesse sur des exercices précis : pour le plaisir de progresser, sans effet sur le parcours.'],
+    ['Série de jours', 'Votre régularité : quelques minutes chaque jour valent mieux qu\'une longue séance par semaine.'],
+  ];
+  return h('div', { class: 'carte' },
+    h('p', { class: 'ou-jen-suis' },
+      'Parcours : ', h('strong', {}, `${valides} / ${soroban.length}`), ' leçons validées',
+      prochain ? [' · étape « ', prochain.palier.titre, ' », prochaine leçon « ', prochain.titre, ' »'] : ' · parcours terminé', '. ',
+      'Grade : ', h('strong', {}, g.obtenu ? g.obtenu.nom : prep ? prep.nom : 'aucun'), g.prochain ? ` (prochain officiel : ${g.prochain.nom})` : '', '. ',
+      `Gestes acquis : ${gestes} / ${TOUS_LES_MOTIFS.length}.`,
+      dues ? ` ${dues} révision${dues > 1 ? 's' : ''} à faire aujourd'hui.` : ''),
+    h('details', {}, h('summary', {}, 'Que veulent dire tous ces indicateurs ?'),
+      h('table', { class: 'grille-niveaux' }, indicateurs.map(([a, b]) => h('tr', {}, h('td', {}, a), h('td', {}, b)))),
+      h('p', {}, h('button', { class: 'lien', onclick: () => app.aller('lexique') }, 'Tous les mots dans le lexique →'))));
+}
 
 const NOMS_MODULES = {
   lecture: 'Lecture des nombres', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches', drills: 'Drills',
@@ -58,18 +95,15 @@ function carte(app) {
 
 /** Apparence : thème graphique et mode clair / sombre (aussi en bas du menu). */
 function sectionApparence() {
-  return h('div', {}, h('h2', {}, 'Apparence'), h('div', { class: 'reglages' }, ...selecteursTheme()));
+  return h('div', {}, h('h2', {}, 'Apparence'), h('div', { class: 'reglages' }, ...selecteursTheme()), h('p', { class: 'discret' }, `Soroban, version ${VERSION_APPLI}.`));
 }
 
 /** Sauvegarde : export (fichier, presse-papiers) et import (remplacer ou fusionner). */
 function sectionSauvegarde(app) {
+  const d0 = progression();
   const message = h('p', { class: 'discret' });
-  const telecharger = () => {
-    const blob = new Blob([exporterDonnees()], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `soroban-sauvegarde-${aujourdhui()}.json` });
-    document.body.append(a);
-    a.click();
-    a.remove();
+  const telecharger = async () => {
+    await telechargerExport();
     message.textContent = 'Fichier de sauvegarde créé (dossier Téléchargements).';
   };
   const copier = async () => {
@@ -83,7 +117,16 @@ function sectionSauvegarde(app) {
       document.execCommand('copy');
       zone.remove();
     }
+    await noterExport();
     message.textContent = 'Sauvegarde copiée dans le presse-papiers.';
+  };
+  // Tout effacer : double confirmation, et proposition d'export juste avant.
+  const effacer = async () => {
+    if (!window.confirm('Effacer TOUTE votre progression (leçons, révisions, records, réglages) ? Cette action est définitive.')) return;
+    if (window.confirm('Exporter d\'abord une sauvegarde, au cas où ? (OK : exporter puis effacer ; Annuler : effacer sans exporter)')) await telechargerExport();
+    if (!window.confirm('Dernière confirmation : tout effacer maintenant ?')) return;
+    await toutEffacer();
+    app.aller('seance');
   };
   const importer = () => ouvrirDialogue('Importer une sauvegarde', 'Choisissez un fichier .json exporté, ou collez le texte copié.', (corps) => {
     const fichier = h('input', { type: 'file', accept: '.json,application/json' });
@@ -105,12 +148,16 @@ function sectionSauvegarde(app) {
     return null;
   });
   return h('div', {}, h('h2', {}, 'Sauvegarde'),
-    h('p', { class: 'discret' }, 'Exportez vos données pour les garder en lieu sûr, ou pour passer de la version navigateur (Soroban.html) à l\'application, et inversement. L\'application de bureau garde aussi une copie automatique par jour (5 dernières).'),
+    versionNavigateur
+      ? h('p', {}, h('strong', {}, 'Version navigateur : '), 'votre progression est enregistrée dans CE navigateur, sur CET appareil, pas dans le fichier Soroban.html. Effacer les données de navigation, changer de navigateur ou d\'appareil la fait disparaître. Exportez-la régulièrement (un rappel s\'affiche si le dernier export date de plus de 14 jours).')
+      : h('p', { class: 'discret' }, 'L\'application garde votre progression sur cet ordinateur, avec une copie automatique par jour (les 5 dernières, dans le dossier « sauvegardes » à côté du fichier de progression). Exportez pour la garder ailleurs ou la passer à la version navigateur.'),
+    h('p', { class: 'discret' }, `Ce qui est enregistré : vos résultats (séances, leçons, gestes, records), vos réglages et votre texte « Mon pourquoi ». Rien n'est envoyé sur Internet.${d0.dernierExport ? ` Dernier export : ${new Date(`${d0.dernierExport}T12:00`).toLocaleDateString('fr-FR')}.` : ''}`),
     h('div', { class: 'ligne' },
       h('button', { class: 'btn', onclick: telecharger }, 'Exporter (fichier .json)'),
       h('button', { class: 'btn', onclick: copier }, 'Copier dans le presse-papiers'),
       h('button', { class: 'btn', onclick: importer }, 'Importer une sauvegarde')),
-    message);
+    message,
+    h('div', { class: 'ligne', style: 'margin-top:18px' }, h('button', { class: 'btn danger', onclick: effacer }, 'Tout effacer…')));
 }
 
 export default {
@@ -121,7 +168,7 @@ export default {
     const { parModule, parJour } = statistiques();
     const g = grade(d);
     const serie = serieJours([...new Set(d.sessions.map((s) => s.date))], aujourdhui());
-    el.append(h('h1', {}, 'Progression'));
+    el.append(h('h1', {}, 'Progression'), h('h2', { style: 'margin-top:0' }, 'Où j\'en suis'), ouJenSuis(app, d));
 
     // Grade et régularité
     el.append(h('div', { class: 'tuiles' },

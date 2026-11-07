@@ -4,7 +4,8 @@
  * Chaque sous-palier validé devient une « carte » rangée dans une boîte de 1 à 5.
  * Boîte 1 : à revoir à J+1, boîte 2 : J+3, boîte 3 : J+7, boîte 4 : J+14, boîte 5 : J+30.
  * Test flash réussi : la carte monte d'une boîte (la boîte 5 reste à 30 jours).
- * Test flash raté : la carte retourne en boîte 1 (à revoir demain).
+ * Test flash raté : la carte redescend d'UNE boîte (une inattention ne remet pas tout à zéro ;
+ * des échecs répétés la ramènent quand même en boîte 1).
  *
  * Les dates sont des chaînes 'AAAA-MM-JJ' en heure locale (comparables directement).
  */
@@ -26,7 +27,7 @@ export function nouvelleCarte(aujourdhui) {
 
 /** Nouvelle carte après un test flash. */
 export function reviser(carte, reussi, aujourdhui) {
-  const boite = reussi ? Math.min(carte.boite + 1, INTERVALLES.length) : 1;
+  const boite = reussi ? Math.min(carte.boite + 1, INTERVALLES.length) : Math.max(1, carte.boite - 1);
   return { boite, echeance: ajouterJours(aujourdhui, INTERVALLES[boite - 1]) };
 }
 

@@ -20,6 +20,7 @@ import {
 } from '../core/progression.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
+import { verdictMiniTest, testMin, exigeVitesse } from '../core/minitest.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision } from '../ui/explication.js';
@@ -75,7 +76,6 @@ function encadreVitesse(sp) {
   return h('div', { class: 'carte vitesse' }, h('strong', {}, sp.mental ? 'Pour bien visualiser' : 'Pour aller plus vite'), h('ul', {}, conseils.map((c) => h('li', {}, c))));
 }
 const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
-const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
 const libelleDemo = (sp, d) => (sp.type === 'mul' || sp.type === 'table' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 
@@ -90,7 +90,7 @@ export default {
     function carte() {
       el.append(
         h('h1', {}, 'Leçons guidées'),
-        h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées).`),
+        h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, à une vitesse au moins « acquis débutant »).`),
         h('p', { class: 'discret' }, 'Niveaux : En progrès → Acquis débutant → Acquis confirmé → Acquis expert. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
@@ -342,7 +342,7 @@ export default {
         }
         let serie = null;
         const intro = h('div', { class: 'carte' },
-          h('p', {}, `${TEST.exercices} calculs à la suite. Il en faut ${testMin(sp)} justes. Les erreurs sont revues à la fin.`),
+          h('p', {}, `${TEST.exercices} calculs à la suite. Il en faut ${testMin(sp)} justes${exigeVitesse(sp) ? `, à ${verdictMiniTest(sp, { justes: 0 }).seuil.toLocaleString('fr-FR')} s par ${verdictMiniTest(sp, { justes: 0 }).unite} au plus (temps médian des réponses justes)` : ''}. Une erreur reste affichée jusqu'à Entrée ; les explications sont revues à la fin.`),
           et.valide ? h('p', { class: 'discret' }, `Déjà validé le ${dateFr(et.valide)}. Vous pouvez le repasser pour vous entraîner.`) : null,
           h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer le mini-test'));
         zone.append(intro);
@@ -354,12 +354,14 @@ export default {
             nombre: TEST.exercices,
             chrono: true,
             defi: true,
+            pauseErreur: true,
             filtreDiagnostic: sp.autorises,
             evaluation: () => evaluerPalier(sp.id, famille(sp)),
             surFin: async (bilan) => {
               serie.detruire();
               serie = null;
-              const reussi = bilan.justes >= testMin(sp);
+              const verdict = verdictMiniTest(sp, bilan);
+              const reussi = verdict.reussi;
               await enregistrerSession({ module: 'lecons', mode: 'test', reglages: { sousPalier: sp.id }, total: bilan.total, justes: bilan.justes, dureeMs: bilan.dureeMs });
               if (reussi) await validerPalier(sp.id);
               const c = etatPalier(sp.id).carte;
@@ -368,7 +370,7 @@ export default {
                 h('p', {}, `Temps : ${formaterDuree(bilan.dureeMs)}`),
                 reussi
                   ? h('p', { class: 'retour ok' }, `Leçon validée. Première révision le ${dateFr(c.echeance)}.`)
-                  : h('p', {}, `Il faut ${testMin(sp)} réussites. Reprenez un peu d'entraînement, puis retentez.`),
+                  : h('p', {}, `${verdict.raison} Reprenez un peu d'entraînement, puis retentez.`),
                 h('div', { class: 'ligne' },
                   reussi && suivant && estDebloque(suivant) ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
                   h('button', { class: 'btn', onclick: () => afficher(reussi ? 'test' : 'entrainement') }, reussi ? 'Repasser le test' : 'Retour à l\'entraînement'),

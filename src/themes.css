@@ -53,7 +53,7 @@
     flex-direction: row; justify-content: space-around; align-items: stretch; padding: 0 4px;
     border-right: none; border-top: 2px solid var(--texte); background: var(--fond); overflow: visible;
   }
-  #navigation .titre-app, #navigation .separateur-menu, #navigation .choix-theme { display: none; }
+  #navigation .titre-app, #navigation .separateur-menu, #navigation .choix-theme, #navigation .version-appli { display: none; }
   #navigation button.entree-menu { flex: 1; flex-direction: column; justify-content: center; gap: 3px; padding: 6px 2px; margin: 0; font-size: 0.72rem; text-align: center; position: relative; }
   #navigation button.entree-menu .pastille { position: absolute; top: 4px; right: 18%; margin: 0; }
   main { padding: 16px 14px 88px; }
@@ -71,135 +71,139 @@
 }
 
 /* ================================================================ structure du thème */
-html:not([data-theme="actuel"]) body { font-size: 17px; line-height: 1.5; }
-html:not([data-theme="actuel"]) *, html:not([data-theme="actuel"]) *::before { box-shadow: none !important; text-shadow: none !important; }
-html:not([data-theme="actuel"]) h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 10px; }
-html:not([data-theme="actuel"]) h2 { font-size: 1.25rem; margin: 30px 0 10px; }
+html:root body { font-size: 1.0625rem; line-height: 1.5; }
+html:root *, html:root *::before { box-shadow: none !important; text-shadow: none !important; }
+html:root h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 10px; }
+html:root h2 { font-size: 1.25rem; margin: 30px 0 10px; }
 /* La phrase sous un titre reste à l'encre du texte (pas de gris), et l'intro des pages de cartes disparaît. */
-html:not([data-theme="actuel"]) .contenu > h1 + p.discret { color: var(--texte); max-width: 62ch; }
-html:not([data-theme="actuel"]) .contenu > p.chapeau { display: none; }
+html:root .contenu > h1 + p.discret { color: var(--texte); max-width: 62ch; }
+html:root .contenu > p.chapeau { display: none; }
 /* Pas de cartes blanches encadrées : des zones séparées par des filets. */
-html:not([data-theme="actuel"]) .carte, html:not([data-theme="actuel"]) .tuile, html:not([data-theme="actuel"]) .succes {
+html:root .carte, html:root .tuile, html:root .succes {
   background: transparent; border: none; border-top: var(--filet, 2px) solid var(--texte); border-radius: 0; padding: 14px 0 6px;
 }
-html:not([data-theme="actuel"]) .carte.vitesse, html:not([data-theme="actuel"]) .pourquoi, html:not([data-theme="actuel"]) .mot-prof,
-html:not([data-theme="actuel"]) .bilan-seance, html:not([data-theme="actuel"]) .avis, html:not([data-theme="actuel"]) .suggestion,
-html:not([data-theme="actuel"]) .carte-hub.recommande, html:not([data-theme="actuel"]) .ligne-palier.priorite, html:not([data-theme="actuel"]) .diagnostic {
+html:root .carte.vitesse, html:root .pourquoi, html:root .mot-prof,
+html:root .bilan-seance, html:root .avis, html:root .suggestion,
+html:root .carte-hub.recommande, html:root .ligne-palier.priorite, html:root .diagnostic {
   border-left: none;
 }
-html:not([data-theme="actuel"]) .mot-prof-titre { text-transform: none; letter-spacing: 0; font-size: 1.05rem; color: var(--texte); }
-html:not([data-theme="actuel"]) .diagnostic { border-radius: 0; border: none; border-top: var(--filet, 2px) solid var(--alerte); background: var(--fond-alerte); }
-html:not([data-theme="actuel"]) .tuiles { gap: 0 28px; }
-html:not([data-theme="actuel"]) .tuile-valeur { font-size: 2rem; line-height: 1.1; }
-html:not([data-theme="actuel"]) .tuile-titre, html:not([data-theme="actuel"]) .titre-graphique { font-size: 0.9rem; color: var(--discret); text-transform: none; letter-spacing: 0; }
+html:root .mot-prof-titre { text-transform: none; letter-spacing: 0; font-size: 1.05rem; color: var(--texte); }
+html:root .diagnostic { border-radius: 0; border: none; border-top: var(--filet, 2px) solid var(--alerte); background: var(--fond-alerte); }
+html:root .tuiles { gap: 0 28px; }
+html:root .tuile-valeur { font-size: 2rem; line-height: 1.1; }
+html:root .tuile-titre, html:root .titre-graphique { font-size: 0.9rem; color: var(--discret); text-transform: none; letter-spacing: 0; }
 
 /* Boutons : formes franches, une seule action principale par écran. */
-html:not([data-theme="actuel"]) button.btn { border-radius: var(--rayon); border: var(--filet, 2px) solid var(--texte); background: transparent; color: var(--texte); padding: 9px 18px; font-weight: 600; }
-html:not([data-theme="actuel"]) button.btn:hover { background: var(--survol); }
-html:not([data-theme="actuel"]) button.btn.principal { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
-html:not([data-theme="actuel"]) kbd { border-radius: 0; border: 1px solid currentColor; background: transparent; color: inherit; opacity: 0.75; font-family: var(--police-chiffres); }
-html:not([data-theme="actuel"]) button.lien { color: var(--texte); text-decoration: underline; text-underline-offset: 4px; }
+html:root button.btn { border-radius: var(--rayon); border: var(--filet, 2px) solid var(--texte); background: transparent; color: var(--texte); padding: 9px 18px; font-weight: 600; }
+html:root button.btn:hover { background: var(--survol); }
+html:root button.btn.principal { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
+html:root kbd { border-radius: 0; border: 1px solid currentColor; background: transparent; color: inherit; opacity: 0.75; font-family: var(--police-chiffres); }
+html:root button.lien { color: var(--texte); text-decoration: underline; text-underline-offset: 4px; }
 
 /* Champs de saisie : une ligne d'écriture sous un filet, pas une boîte arrondie. */
-html:not([data-theme="actuel"]) select, html:not([data-theme="actuel"]) input[type="text"], html:not([data-theme="actuel"]) input[type="number"], html:not([data-theme="actuel"]) input[type="date"] {
+html:root select, html:root input[type="text"], html:root input[type="number"], html:root input[type="date"] {
   border-radius: 0; border: none; border-bottom: var(--filet, 2px) solid var(--texte); background: transparent; color: var(--texte); padding: 6px 4px;
 }
-html:not([data-theme="actuel"]) .saisie-nombre { font-size: 2.2rem; padding: 4px 6px; border-bottom-width: 4px; }
+html:root .saisie-nombre { font-size: 2.2rem; padding: 4px 6px; border-bottom-width: 4px; }
 
 /* Listes (leçons, séance, drills, grades) : des lignes, pas des boîtes. */
-html:not([data-theme="actuel"]) .liste-paliers { gap: 0; border-top: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .ligne-palier { background: transparent; border: none; border-bottom: 1px solid var(--ligne); border-radius: 0; padding: 12px 4px; }
-html:not([data-theme="actuel"]) .ligne-palier:hover:not(:disabled) { background: var(--survol); border-color: var(--ligne); }
-html:not([data-theme="actuel"]) .ligne-palier .icone { width: 24px; font-family: var(--police-chiffres); font-weight: 700; color: var(--texte); }
+html:root .liste-paliers { gap: 0; border-top: var(--filet, 2px) solid var(--texte); }
+html:root .ligne-palier { background: transparent; border: none; border-bottom: 1px solid var(--ligne); border-radius: 0; padding: 12px 4px; }
+html:root .ligne-palier:hover:not(:disabled) { background: var(--survol); border-color: var(--ligne); }
+html:root .ligne-palier .icone { width: 24px; font-family: var(--police-chiffres); font-weight: 700; color: var(--texte); }
 /* États : la boule du soroban (pleine = fait, creuse = ouvert, absente = fermé). */
-html:not([data-theme="actuel"]) .icone.etat-fait, html:not([data-theme="actuel"]) .icone.etat-ouvert, html:not([data-theme="actuel"]) .icone.etat-ferme {
+html:root .icone.etat-fait, html:root .icone.etat-ouvert, html:root .icone.etat-ferme {
   font-size: 0; height: 12px; background: currentColor; -webkit-mask: var(--perle-creuse) center / contain no-repeat; mask: var(--perle-creuse) center / contain no-repeat;
 }
-html:not([data-theme="actuel"]) .icone.etat-fait { color: var(--ok); -webkit-mask-image: var(--perle-pleine); mask-image: var(--perle-pleine); }
-html:not([data-theme="actuel"]) .icone.etat-ferme { opacity: 0.3; }
-html:not([data-theme="actuel"]) .ligne-palier .statut { color: var(--texte); font-family: var(--police-chiffres); font-size: 0.85rem; }
+html:root .icone.etat-fait { color: var(--ok); -webkit-mask-image: var(--perle-pleine); mask-image: var(--perle-pleine); }
+html:root .icone.etat-ferme { opacity: 0.3; }
+html:root .ligne-palier .statut { color: var(--texte); font-family: var(--police-chiffres); font-size: 0.85rem; }
 
 /* Pages de cartes : un tableau, une activité par ligne (titre | ce qu'elle fait | où vous en êtes). */
-html:not([data-theme="actuel"]) .cartes { display: block; border-top: var(--filet, 2px) solid var(--texte); margin: 8px 0 24px; counter-reset: rang; }
-html:not([data-theme="actuel"]) .carte-hub {
-  display: grid; grid-template-columns: 3.2rem minmax(10rem, 15rem) 1fr; grid-template-rows: auto auto; column-gap: 18px; row-gap: 2px; width: 100%;
+/* Pas de numéros décoratifs (ils suggéraient un ordre obligatoire) ; une flèche dit « cliquable ». */
+html:root .cartes { display: block; border-top: var(--filet, 2px) solid var(--texte); margin: 8px 0 24px; }
+html:root .carte-hub {
+  display: grid; grid-template-columns: minmax(10rem, 16rem) 1fr auto; grid-template-rows: auto auto; column-gap: 18px; row-gap: 2px; width: 100%;
   background: transparent; border: none; border-bottom: 1px solid var(--ligne); border-radius: 0; padding: 14px 4px; align-items: baseline;
 }
-html:not([data-theme="actuel"]) .carte-hub::before { counter-increment: rang; content: counter(rang, decimal-leading-zero); grid-row: 1 / span 2; font-family: var(--police-chiffres); font-size: 1.6rem; font-weight: 700; color: var(--discret); }
-html:not([data-theme="actuel"]) .carte-hub strong { grid-column: 2; font-size: 1.1rem; }
-html:not([data-theme="actuel"]) .carte-hub span { grid-column: 3; color: var(--texte); font-size: 0.95rem; }
-html:not([data-theme="actuel"]) .carte-hub .carte-info { grid-column: 3; color: var(--discret); font-weight: 600; font-family: var(--police-chiffres); font-size: 0.85rem; }
-html:not([data-theme="actuel"]) .carte-hub .carte-info.a-faire { color: var(--accent-texte, var(--accent)); }
-html:not([data-theme="actuel"]) .carte-hub.recommande::before { color: var(--accent-texte, var(--accent)); }
-html:not([data-theme="actuel"]) .carte-hub:hover { background: var(--survol); }
+html:root .carte-hub::after { content: "→"; grid-column: 3; grid-row: 1 / span 2; align-self: center; font-size: 1.3rem; color: var(--discret); }
+html:root .carte-hub strong { grid-column: 1; grid-row: 1 / span 2; font-size: 1.1rem; }
+html:root .carte-hub span { grid-column: 2; color: var(--texte); font-size: 0.95rem; }
+html:root .carte-hub .carte-info { grid-column: 2; color: var(--discret); font-weight: 600; font-family: var(--police-chiffres); font-size: 0.85rem; }
+html:root .carte-hub .carte-info.a-faire { color: var(--accent-texte, var(--accent)); }
+html:root .carte-hub.recommande::after { color: var(--accent-texte, var(--accent)); }
+html:root .carte-hub:hover { background: var(--survol); }
 @media (max-width: 700px) {
-  html:not([data-theme="actuel"]) .carte-hub { grid-template-columns: 2.4rem 1fr; }
-  html:not([data-theme="actuel"]) .carte-hub span, html:not([data-theme="actuel"]) .carte-hub .carte-info { grid-column: 2; }
+  html:root .carte-hub { grid-template-columns: 1fr auto; }
+  html:root .carte-hub strong { grid-row: auto; }
+  html:root .carte-hub strong, html:root .carte-hub span, html:root .carte-hub .carte-info { grid-column: 1; }
+  html:root .carte-hub::after { grid-column: 2; grid-row: 1 / span 3; }
 }
 
 /* Correction : la marque juste / faux est dessinée, plus de symbole ✓ ✗. */
-html:not([data-theme="actuel"]) .grand-signe { font-size: 0; display: inline-block; width: 30px; height: 16px; vertical-align: -2px; margin-right: 8px; background: currentColor; -webkit-mask: var(--perle-pleine) center / contain no-repeat; mask: var(--perle-pleine) center / contain no-repeat; }
-html:not([data-theme="actuel"]) .retour.erreur .grand-signe { -webkit-mask-image: var(--perle-creuse); mask-image: var(--perle-creuse); }
-html:not([data-theme="actuel"]) .pastille-res { font-size: 0; width: 18px; height: 10px; border-radius: 0; background: var(--ok); -webkit-mask: var(--perle-pleine) center / contain no-repeat; mask: var(--perle-pleine) center / contain no-repeat; }
-html:not([data-theme="actuel"]) .pastille-res.ko { background: var(--erreur); -webkit-mask-image: var(--perle-creuse); mask-image: var(--perle-creuse); }
-html:not([data-theme="actuel"]) .pastilles { gap: 2px; align-items: center; }
+html:root .grand-signe { font-size: 0; display: inline-block; width: 30px; height: 16px; vertical-align: -2px; margin-right: 8px; background: currentColor; -webkit-mask: var(--perle-pleine) center / contain no-repeat; mask: var(--perle-pleine) center / contain no-repeat; }
+html:root .retour.erreur .grand-signe { -webkit-mask-image: var(--perle-creuse); mask-image: var(--perle-creuse); }
+html:root .pastille-res { font-size: 0; width: 18px; height: 10px; border-radius: 0; background: var(--ok); -webkit-mask: var(--perle-pleine) center / contain no-repeat; mask: var(--perle-pleine) center / contain no-repeat; }
+html:root .pastille-res.ko { background: var(--erreur); -webkit-mask-image: var(--perle-creuse); mask-image: var(--perle-creuse); }
+html:root .pastilles { gap: 2px; align-items: center; }
 
 /* Jauges et barres de course : une tige de boules. */
-html:not([data-theme="actuel"]) .jauge, html:not([data-theme="actuel"]) .course-piste, html:not([data-theme="actuel"]) .fantome-barre, html:not([data-theme="actuel"]) .jauge-arcade {
+html:root .jauge, html:root .course-piste, html:root .fantome-barre, html:root .jauge-arcade {
   border-radius: 0; height: 12px; background: var(--ligne);
   -webkit-mask: var(--chaine) left center / 18px 12px repeat-x; mask: var(--chaine) left center / 18px 12px repeat-x;
 }
-html:not([data-theme="actuel"]) .jauge > div, html:not([data-theme="actuel"]) .course-remplissage, html:not([data-theme="actuel"]) .fantome-barre > div, html:not([data-theme="actuel"]) .jauge-arcade > div { border-radius: 0; background: var(--texte); }
-html:not([data-theme="actuel"]) .course-remplissage.fantome { background: var(--tres-discret); }
-html:not([data-theme="actuel"]) .jauge-arcade { height: 16px; -webkit-mask-size: 24px 16px; mask-size: 24px 16px; }
-html:not([data-theme="actuel"]) .jauge-arcade.alerte > div { background: var(--erreur); }
+html:root .jauge > div, html:root .course-remplissage, html:root .fantome-barre > div, html:root .jauge-arcade > div { border-radius: 0; background: var(--texte); }
+html:root .course-remplissage.fantome { background: var(--tres-discret); }
+html:root .jauge-arcade { height: 16px; -webkit-mask-size: 24px 16px; mask-size: 24px 16px; }
+html:root .jauge-arcade.alerte > div { background: var(--erreur); }
 
 /* Classements et niveaux : pas de pastilles arrondies. */
-html:not([data-theme="actuel"]) .badge-classement { background: transparent !important; border-radius: 0; padding: 0; font-weight: 700; color: var(--texte) !important; }
-html:not([data-theme="actuel"]) .badge-classement.bronze .rangee-perles { color: var(--niveau-progres); }
-html:not([data-theme="actuel"]) .badge-classement.argent .rangee-perles { color: var(--niveau-debutant); }
-html:not([data-theme="actuel"]) .badge-classement.or .rangee-perles { color: var(--niveau-confirme); }
-html:not([data-theme="actuel"]) .badge-classement.platine .rangee-perles { color: var(--niveau-expert); }
-html:not([data-theme="actuel"]) .badge-classement .rangee-perles { height: 11px; }
-html:not([data-theme="actuel"]) .niveau { border-radius: 0; padding: 1px 6px; }
-html:not([data-theme="actuel"]) .pastille { border-radius: 0; background: var(--erreur); }
-html:not([data-theme="actuel"]) table.carte-maitrise td { border-radius: 0; }
-html:not([data-theme="actuel"]) .pastille-legende { border-radius: 0; }
-html:not([data-theme="actuel"]) .segments { border-radius: 0; border: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .segments button { background: transparent; color: var(--texte); }
-html:not([data-theme="actuel"]) .segments button + button { border-left: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .segments button.actif { background: var(--texte); color: var(--fond); }
-html:not([data-theme="actuel"]) .toast { border-radius: 0; }
-html:not([data-theme="actuel"]) dialog.dialogue { border-radius: 0; border: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .infobulle { border-radius: 0; border: 1px solid var(--texte); }
+html:root .badge-classement { background: transparent !important; border-radius: 0; padding: 0; font-weight: 700; color: var(--texte) !important; }
+/* Médailles : les vraies couleurs des métaux (platine en violet), seule exception à la palette noir / vermillon. */
+html:root .badge-classement.bronze .rangee-perles, html:root .medaille.bronze { color: var(--bronze); }
+html:root .badge-classement.argent .rangee-perles, html:root .medaille.argent { color: var(--argent); }
+html:root .badge-classement.or .rangee-perles, html:root .medaille.or { color: var(--or); }
+html:root .badge-classement.platine .rangee-perles, html:root .medaille.platine { color: var(--platine); }
+html:root .badge-classement .rangee-perles { height: 11px; }
+html:root .niveau { border-radius: 0; padding: 1px 6px; }
+html:root .pastille { border-radius: 0; background: var(--erreur); }
+html:root table.carte-maitrise td { border-radius: 0; }
+html:root .pastille-legende { border-radius: 0; }
+html:root .segments { border-radius: 0; border: var(--filet, 2px) solid var(--texte); }
+html:root .segments button { background: transparent; color: var(--texte); }
+html:root .segments button + button { border-left: var(--filet, 2px) solid var(--texte); }
+html:root .segments button.actif { background: var(--texte); color: var(--fond); }
+html:root .toast { border-radius: 0; }
+html:root dialog.dialogue { border-radius: 0; border: var(--filet, 2px) solid var(--texte); }
+html:root .infobulle { border-radius: 0; border: 1px solid var(--texte); }
 
 /* Énoncés : les nombres d'abord. 24 px au minimum, même en version compacte. */
-html:not([data-theme="actuel"]) table.colonne { font-size: 2.4rem; font-weight: 500; }
-html:not([data-theme="actuel"]) table.colonne.compacte, html:not([data-theme="actuel"]) .operation.compacte { font-size: 1.5rem; }
-html:not([data-theme="actuel"]) .operation { font-size: 2.6rem; font-weight: 500; }
-html:not([data-theme="actuel"]) .flash-ecran { border-radius: 0; background: transparent; border: var(--filet, 2px) solid var(--texte); font-weight: 600; }
-html:not([data-theme="actuel"]) .grille-feuille.colonnes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-html:not([data-theme="actuel"]) .probleme { border-radius: 0; background: transparent; border: none; border-top: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .probleme input { border-radius: 0; border: none; border-top: 3px solid var(--texte); background: transparent; font-size: 1.5rem; }
-html:not([data-theme="actuel"]) .probleme.ok, html:not([data-theme="actuel"]) .probleme.ko { box-shadow: none; }
-html:not([data-theme="actuel"]) .probleme.ok { border-top-color: var(--ok); }
-html:not([data-theme="actuel"]) .probleme.ko { border-top-color: var(--erreur); }
-html:not([data-theme="actuel"]) .chrono-exercice .temps { font-size: 1.4rem; color: var(--discret); }
-html:not([data-theme="actuel"]) .chrono-exercice .objectif { font-size: 0.85rem; color: var(--discret); }
-html:not([data-theme="actuel"]) .barre-feuille { background: var(--fond); border-bottom: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) .chrono-feuille { font-size: 1.3rem; color: var(--texte); }
+html:root table.colonne { font-size: 2.4rem; font-weight: 500; }
+html:root table.colonne.compacte, html:root .operation.compacte { font-size: 1.5rem; }
+html:root .operation { font-size: 2.6rem; font-weight: 500; }
+html:root .flash-ecran { border-radius: 0; background: transparent; border: var(--filet, 2px) solid var(--texte); font-weight: 600; }
+html:root .grille-feuille.colonnes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+html:root .probleme { border-radius: 0; background: transparent; border: none; border-top: var(--filet, 2px) solid var(--texte); }
+html:root .probleme input { border-radius: 0; border: none; border-top: 3px solid var(--texte); background: transparent; font-size: 1.5rem; }
+html:root .probleme.ok, html:root .probleme.ko { box-shadow: none; }
+html:root .probleme.ok { border-top-color: var(--ok); }
+html:root .probleme.ko { border-top-color: var(--erreur); }
+html:root .chrono-exercice .temps { font-size: 1.4rem; color: var(--discret); }
+html:root .chrono-exercice .objectif { font-size: 0.85rem; color: var(--discret); }
+html:root .barre-feuille { background: var(--fond); border-bottom: var(--filet, 2px) solid var(--texte); }
+html:root .chrono-feuille { font-size: 1.3rem; color: var(--texte); }
 
 /* Menu : 5 entrées, pictogrammes de boules. */
-html:not([data-theme="actuel"]) #navigation { border-right: var(--filet, 2px) solid var(--texte); }
-html:not([data-theme="actuel"]) #navigation button.entree-menu { border-radius: 0; font-weight: 600; }
-html:not([data-theme="actuel"]) #navigation .icone-menu { opacity: 1; width: 22px; }
-html:not([data-theme="actuel"]) #navigation .titre-app { font-family: var(--police-titres); }
-html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--ligne); }
+html:root #navigation { border-right: var(--filet, 2px) solid var(--texte); }
+html:root #navigation button.entree-menu { border-radius: 0; font-weight: 600; }
+html:root #navigation .icone-menu { opacity: 1; width: 22px; }
+html:root #navigation .titre-app { font-family: var(--police-titres); }
+html:root .separateur-menu { border-top: 1px solid var(--ligne); }
 
 /* Impression : encre noire sur papier blanc, quel que soit le thème (corrigé sur page séparée). */
 @media print {
   :root[data-theme] { --fond: #ffffff; --texte: #000000; --discret: #333333; --ligne: #999999; --accent: #000000; --ok: #000000; --erreur: #000000; }
-  html:not([data-theme="actuel"]) .probleme { border-top: 1px solid #000; }
+  html:root .probleme { border-top: 1px solid #000; }
   .bouton-reglages { display: none !important; }
   main, .barre-feuille, body { background: #ffffff !important; background-image: none !important; }
   *:focus, *:focus-visible { outline: none !important; }
@@ -220,6 +224,7 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
   --police-chiffres: "Examen Mono", ui-monospace, Consolas, monospace;
   --police-perf: "Chrono Cond", "Arial Narrow", Arial, sans-serif;
   --rayon: 0; --rayon-petit: 0; --filet: 1px;
+  --bronze: #9a5b25; --argent: #7d8590; --or: #b8860b; --platine: #7b3fbf;
 }
 :root[data-theme="suisse"][data-mode="sombre"] {
   --fond: #000000; --surface: #000000; --texte: #ffffff; --discret: #c8c8c8; --tres-discret: #a6a6a6;
@@ -231,6 +236,7 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
   --niveau-expert: #ff5a2b; --encre-expert: #000000;
   --cal-0: #1a1a1a; --cal-1: #3d3d3d; --cal-2: #8c8c8c; --cal-3: #d0d0d0; --cal-4: #ffffff;
   --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8c8c8c;
+  --bronze: #d08a4e; --argent: #b9c0ca; --or: #f0c040; --platine: #b48ae8;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="suisse"][data-mode="auto"] {
@@ -243,15 +249,13 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
     --niveau-expert: #ff5a2b; --encre-expert: #000000;
     --cal-0: #1a1a1a; --cal-1: #3d3d3d; --cal-2: #8c8c8c; --cal-3: #d0d0d0; --cal-4: #ffffff;
     --bois: #333333; --fond-soroban: #141414; --axe-soroban: #8c8c8c;
+    --bronze: #d08a4e; --argent: #b9c0ca; --or: #f0c040; --platine: #b48ae8;
   }
 }
 /* Grille asymétrique : une colonne de titres étroite à gauche, le contenu large à droite. */
 :root[data-theme="suisse"] .contenu { max-width: 1080px; }
 :root[data-theme="suisse"] h2 { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.01em; border-top: 1px solid var(--texte); padding-top: 8px; }
 :root[data-theme="suisse"] .carte, :root[data-theme="suisse"] .tuile, :root[data-theme="suisse"] .liste-paliers, :root[data-theme="suisse"] .cartes { border-top-width: 1px; }
-:root[data-theme="suisse"] .carte-hub { grid-template-columns: 6rem minmax(10rem, 16rem) 1fr; }
-:root[data-theme="suisse"] .carte-hub::before { font-family: var(--police-titres); font-size: 3rem; font-weight: 900; letter-spacing: -0.04em; color: var(--texte); line-height: 0.9; }
-:root[data-theme="suisse"] .carte-hub.recommande::before { color: var(--accent-texte); }
 :root[data-theme="suisse"] .carte-hub strong { font-size: 1.25rem; font-weight: 700; }
 /* Menu : du texte, l'entrée active en vermillon, rien d'autre. */
 :root[data-theme="suisse"] #navigation { border-right: 1px solid var(--texte); }
@@ -271,7 +275,9 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
 :root[data-theme="suisse"] .retour strong, :root[data-theme="suisse"] .probleme .correction, :root[data-theme="suisse"] .liste-erreurs strong { font-family: var(--police-chiffres); font-weight: 700; }
 :root[data-theme="suisse"] .flash-ecran { border: none; border-top: 1px solid var(--texte); font-size: 8rem; font-weight: 500; justify-content: flex-start; }
 /* Performance : Chrono Cond, étroite et grasse, comme un tableau d'affichage. */
-:root[data-theme="suisse"] .chrono-exercice .temps { font-size: 2.2rem; font-weight: 800; color: var(--texte); }
+:root[data-theme="suisse"] .chrono-exercice .temps { font-size: 1.2rem; font-weight: 800; color: var(--discret); }
+/* Chrono en avant seulement dans les défis et les jeux : pendant l'apprentissage, le calcul d'abord. */
+:root[data-theme="suisse"] .chrono-exercice.en-avant .temps { font-size: 2rem; color: var(--texte); }
 :root[data-theme="suisse"] .tuile-valeur { font-size: 2.6rem; font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
 :root[data-theme="suisse"] .bilan .grand { font-size: 3.4rem; font-weight: 800; }
 :root[data-theme="suisse"] .chrono-feuille, :root[data-theme="suisse"] .chrono-discret, :root[data-theme="suisse"] .compteur.chrono,
@@ -280,10 +286,65 @@ html:not([data-theme="actuel"]) .separateur-menu { border-top: 1px solid var(--l
 
 /* Petit écran, quel que soit le thème : les 5 entrées tiennent dans la barre du bas. */
 @media (max-width: 700px) {
-  #navigation button.entree-menu { font-size: 0.68rem !important; padding: 6px 1px !important; min-width: 0; text-transform: none !important; }
+  #navigation button.entree-menu { font-size: 0.78rem !important; padding: 6px 1px !important; min-width: 0; text-transform: none !important; }
   #navigation button.entree-menu .nom-menu { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #navigation .icone-menu { width: 26px !important; height: 26px !important; padding: 2px !important; }
   #navigation .icone-menu .picto { width: 22px; height: 22px; }
   #navigation button.actif .nom-menu { border: none !important; margin: 0 !important; padding: 0 !important; }
   .contenu > h1 { font-size: 1.6rem !important; }
 }
+
+/* ================================================================ ajouts v0.15 (audit) */
+/* Taille du texte (réglage) : tout est en rem, tout suit. */
+html[data-taille="grand"] { font-size: 112.5%; }
+html[data-taille="tres-grand"] { font-size: 125%; }
+
+/* Lignes cliquables : un repère visible même sans survol (écran tactile). */
+html:root button.ligne-palier:not(:disabled)::after { content: "›"; margin-left: 10px; font-size: 1.3rem; line-height: 1; color: var(--discret); }
+
+/* Version, en bas du menu. */
+.version-appli { font-size: 0.75rem; color: var(--discret); padding: 8px 4px 0; }
+
+/* Bandeau d'alerte du stockage : il reste tant que le problème dure. */
+.bandeau-stockage { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; max-width: 1080px; margin: 0 auto 14px;
+  padding: 10px 14px; background: var(--fond-alerte); border-top: 3px solid var(--alerte); color: var(--texte); font-weight: 600; }
+.bandeau-stockage[hidden] { display: none; }
+.bandeau-stockage > span { flex: 1; min-width: 16rem; }
+
+/* Bouton dangereux (« Tout effacer »). */
+html:root button.btn.danger { border-color: var(--erreur); color: var(--erreur); }
+
+/* Premier lancement : une seule grande action. */
+.carte.accueil p { max-width: 62ch; font-size: 1.1rem; }
+html:root button.btn.grand-bouton { font-size: 1.2rem; padding: 14px 26px; margin-top: 8px; }
+
+/* Menu : libellés courts sur téléphone. */
+.nom-court { display: none; }
+@media (max-width: 700px) {
+  #navigation .nom-long { display: none; }
+  #navigation .nom-court { display: inline; }
+  /* Notifications au-dessus de la barre du bas, et pas dessous. */
+  .toasts { bottom: 76px; left: 12px; right: 12px; }
+  .toast { max-width: none; }
+}
+/* Hauteur réelle de l'écran sur mobile (barre d'adresse qui se replie). */
+@supports (height: 100dvh) { body { height: 100dvh; } }
+/* Écran tactile sans clavier : pas d'indications de touches. */
+@media (hover: none) and (pointer: coarse) { kbd { display: none !important; } }
+
+/* Placement : la bonne tige en vert, comme le dit le message. */
+:root { --vert-tige: #1e8c45; }
+html:root svg.soroban .tige.ok .axe { stroke: var(--vert-tige); stroke-width: 6; }
+html:root svg.soroban .tige.ok .boule.active { fill: var(--vert-tige); }
+html:root svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
+
+/* Glossaire et « Où j'en suis ». */
+.lexique dt { font-weight: 700; margin-top: 12px; }
+.lexique dd { margin: 2px 0 0; max-width: 70ch; }
+.ou-jen-suis { font-size: 1.15rem; max-width: 70ch; }
+.ou-jen-suis strong { font-family: var(--police-perf); font-size: 1.4rem; }
+.grille-niveaux { width: 100%; }
+.grille-niveaux td:first-child { font-weight: 700; white-space: nowrap; padding-right: 14px; vertical-align: top; }
+
+/* Bouton ± (résultats négatifs) à côté de la saisie. */
+.btn-signe { font-family: var(--police-chiffres); min-width: 3rem; }
