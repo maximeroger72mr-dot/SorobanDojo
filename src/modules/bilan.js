@@ -5,8 +5,7 @@
  */
 
 import { progression, aujourdhui, evaluerMotif } from '../core/progression.js';
-import { SOUS_PALIERS } from '../core/curriculum.js';
-import { grade } from '../core/parcours.js';
+import { grade, compteurs, LECONS_PARCOURS } from '../core/parcours.js';
 import { meilleurPrekyu, PREKYU } from '../core/examen.js';
 import { GRADES } from '../core/epreuves.js';
 import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
@@ -24,8 +23,8 @@ export function donneesBilan(d, date) {
   const depuis30 = ajouterJours(date, -29);
   const recents = d.sessions.filter((s) => s.date >= depuis30);
   const minutes30 = Math.round(recents.reduce((t, s) => t + (s.dureeMs ?? 0), 0) / 60000);
-  const lecons = SOUS_PALIERS.filter((sp) => !sp.mental && sp.type !== 'theorie');
-  const validees = lecons.filter((sp) => d.paliers[sp.id]?.valide);
+  const n = compteurs(d);
+  const validees = LECONS_PARCOURS.filter((sp) => d.paliers[sp.id]?.valide);
   const kyu = d.sessions.filter((s) => s.module === 'examen' || s.module === 'epreuves')
     .map((s) => ({ date: s.date, nom: s.module === 'examen' ? PREKYU.find((g) => g.id === s.reglages?.grade)?.nom ?? 'Examen de niveau' : GRADES.find((g) => g.id === s.reglages?.grade)?.nom ?? 'Épreuve officielle', justes: s.justes, total: s.total, reussi: s.total ? s.justes / s.total >= 0.7 : false }));
   const gestes = TOUS_LES_MOTIFS.filter((c) => d.motifs[c]?.essais >= 10).map((c) => ({ cle: c, ev: evaluerMotif(c) }));
@@ -35,9 +34,9 @@ export function donneesBilan(d, date) {
     debut: jours[0] ?? null, joursPratique: jours.length, jours30: new Set(recents.map((s) => s.date)).size, minutes30,
     exercices: d.sessions.reduce((t, s) => t + (s.total ?? 0), 0),
     reussite: (() => { const t = d.sessions.reduce((a, s) => a + (s.total ?? 0), 0); return t ? d.sessions.reduce((a, s) => a + (s.justes ?? 0), 0) / t : null; })(),
-    lecons: { total: lecons.length, validees: validees.map((sp) => ({ titre: sp.titre, date: d.paliers[sp.id].valide })) },
+    lecons: { total: n.leconsTotal, validees: validees.map((sp) => ({ titre: sp.titre, date: d.paliers[sp.id].valide })) },
     grade: grade(d), prekyu: meilleurPrekyu(d), kyu,
-    gestesAcquis: gestes.filter((g) => g.ev.index >= 2).length, gestesTotal: TOUS_LES_MOTIFS.length,
+    gestesAcquis: n.gestesAcquis, gestesTotal: n.gestesTotal,
     // Les plus sûrs et les plus lents, sans qu'un même geste figure dans les deux listes.
     rapides: tries.slice(0, Math.min(3, Math.floor(tries.length / 2))), lents: tries.slice(Math.max(Math.min(3, Math.floor(tries.length / 2)), tries.length - 3)).reverse(),
     drills,
@@ -52,6 +51,7 @@ export default {
     const b = donneesBilan(d, aujourdhui());
     const ligne = (a, x) => h('tr', {}, h('th', {}, a), h('td', {}, x));
     el.append(
+      h('h1', {}, 'Bilan imprimable'),
       h('div', { class: 'ligne ecran-seul' }, h('button', { class: 'btn principal', onclick: () => window.print() }, 'Imprimer ou enregistrer en PDF'),
         h('span', { class: 'discret' }, 'Une page à montrer à un club ou à un professeur.')),
       h('div', { class: 'rapport' },

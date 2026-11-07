@@ -16,7 +16,7 @@ import { NIVEAUX } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { minutesParJour, serieJours } from '../core/regularite.js';
-import { grade } from '../core/parcours.js';
+import { grade, compteurs } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
 import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
@@ -31,12 +31,10 @@ import { revisionsDues } from '../core/progression.js';
  * Ce qui mesure vraiment la progression : les leçons validées et le grade.
  */
 function ouJenSuis(app, d) {
-  const soroban = SOUS_PALIERS.filter((sp) => !sp.mental);
-  const valides = soroban.filter((sp) => d.paliers[sp.id]?.valide).length;
+  const n = compteurs(d);
   const prochain = prochainSousPalier();
   const prep = meilleurPrekyu(d);
   const g = grade(d);
-  const gestes = TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluerMotif(c).index >= 2).length;
   const dues = revisionsDues().length;
   const indicateurs = [
     ['Leçons validées', 'LE fil du parcours : chaque leçon se valide par un mini-test (justesse et vitesse).'],
@@ -48,10 +46,10 @@ function ouJenSuis(app, d) {
   ];
   return h('div', { class: 'carte' },
     h('p', { class: 'ou-jen-suis' },
-      'Parcours : ', h('strong', {}, `${valides} / ${soroban.length}`), ' leçons validées',
+      'Parcours : ', h('strong', {}, `${n.leconsValidees} / ${n.leconsTotal}`), ' leçons validées',
       prochain ? [' · étape « ', prochain.palier.titre, ' », prochaine leçon « ', prochain.titre, ' »'] : ' · parcours terminé', '. ',
       'Grade : ', h('strong', {}, g.obtenu ? g.obtenu.nom : prep ? prep.nom : 'aucun'), g.prochain ? ` (prochain officiel : ${g.prochain.nom})` : '', '. ',
-      `Gestes acquis : ${gestes} / ${TOUS_LES_MOTIFS.length}.`,
+      `Gestes acquis : ${n.gestesAcquis} / ${n.gestesTotal}.`,
       dues ? ` ${dues} révision${dues > 1 ? 's' : ''} à faire aujourd'hui.` : ''),
     h('details', {}, h('summary', {}, 'Que veulent dire tous ces indicateurs ?'),
       h('table', { class: 'grille-niveaux' }, indicateurs.map(([a, b]) => h('tr', {}, h('td', {}, a), h('td', {}, b)))),
@@ -91,7 +89,7 @@ function carte(app) {
     const pratique = !!d.motifs[cle];
     return h('button', { class: 'btn', style: pratique ? `background:${COULEUR_NIVEAU[ev.niveau.id]};color:${ENCRE_NIVEAU[ev.niveau.id]}` : '', onclick: () => detailGeste(app, cle) }, nomMotif(cle));
   }));
-  const acquis = TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluerMotif(c).index >= 2).length;
+  const acquis = compteurs(d).gestesAcquis;
   return h('div', {},
     h('p', { class: 'discret' }, `${acquis} geste${acquis > 1 ? 's' : ''} acquis sur ${TOUS_LES_MOTIFS.length}. Cliquez une case pour voir sa courbe de vitesse, le geste animé, ou le travailler : planche, marathon ou lièvre.`),
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
@@ -212,9 +210,11 @@ export default {
       const pct = Math.round((1 - med(t.slice(-10)) / med(t.slice(0, 10))) * 100);
       return pct >= 0 ? `${pct} % plus rapide` : `${-pct} % plus lent`;
     };
-    const valides = SOUS_PALIERS.filter((sp) => d.paliers[sp.id]?.valide).length;
+    const nb = compteurs(d);
+    const anzan = SOUS_PALIERS.filter((sp) => sp.mental && sp.type !== 'theorie');
+    const anzanValides = anzan.filter((sp) => d.paliers[sp.id]?.valide).length;
     el.append(h('h2', {}, 'Leçons'),
-      h('p', {}, `${valides} leçon${valides > 1 ? 's' : ''} validée${valides > 1 ? 's' : ''} sur ${SOUS_PALIERS.length}.`),
+      h('p', {}, `Parcours : ${nb.leconsValidees} leçon${nb.leconsValidees > 1 ? 's' : ''} validée${nb.leconsValidees > 1 ? 's' : ''} sur ${nb.leconsTotal} ; piste anzan : ${anzanValides} sur ${anzan.length}.`),
       h('table', {}, h('tr', {}, ['Leçon', 'Exercices', 'Réussite récente', 'Temps par unité', 'Évolution', 'Niveau', 'État'].map((x) => h('th', {}, x))),
         SOUS_PALIERS.filter((sp) => d.paliers[sp.id]).map((sp) => {
           const e = d.paliers[sp.id];

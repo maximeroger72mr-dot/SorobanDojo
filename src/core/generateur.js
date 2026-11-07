@@ -294,6 +294,20 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
           if (!(e instanceof ErreurGeneration) || !libre) throw e;
           t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste });
         }
+        // Jamais de redondance qu'on devine sans calculer : le même nombre deux fois de suite
+        // (+9 +9), ou un ping-pong (+4 −1 +4 −1). On remplace alors la ligne par une ligne libre
+        // (gestes permis, sans viser l'ami) quand c'est possible.
+        if (redondante(liste, t)) {
+          for (let k = 0; k < 4; k++) {
+            try {
+              const autre = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops, zeros, precedents: liste });
+              if (!redondante(liste, autre)) { t = autre; break; }
+            } catch (e) {
+              if (!(e instanceof ErreurGeneration)) throw e;
+              break;
+            }
+          }
+        }
         compterVus(t.motifs);
         liste.push({ op: t.op, n: t.n });
         motifs.push(...t.motifs);
@@ -305,6 +319,15 @@ export function genererColonne({ chiffres, lignes, autorises = null, cibles, poi
     }
   }
   throw new ErreurGeneration('Impossible de générer une colonne');
+}
+
+/** Ligne redondante : même nombre que la précédente, ou ping-pong (+a −b +a −b). */
+export function redondante(liste, t) {
+  const p1 = liste.at(-1);
+  const p2 = liste.at(-2);
+  const p3 = liste.at(-3);
+  if (liste.length >= 2 && p1.n === t.n) return true;
+  return liste.length >= 4 && p2.n === t.n && p2.op === t.op && p3.n === p1.n && p3.op === p1.op;
 }
 
 /**

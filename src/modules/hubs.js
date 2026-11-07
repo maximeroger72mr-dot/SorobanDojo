@@ -19,7 +19,7 @@ import { h } from '../ui/dom.js';
 const bits = (m) => [1, 2, 4].filter((b) => m & b).length;
 
 /** Cartes de chaque section : écran visé, titre, description, info (texte ou null), à faire. */
-const CARTES = {
+export const CARTES = {
   apprendre: [
     { ecran: 'lecons', titre: 'Leçons guidées', description: 'Le parcours pas à pas : comprendre un geste, l\'ancrer, passer le mini-test.',
       info: () => { const sp = prochainSousPalier(); return sp ? { texte: `Prochaine : ${sp.titre}`, aFaire: true } : { texte: 'Parcours terminé' }; } },
@@ -31,7 +31,8 @@ const CARTES = {
   ],
   // S'entraîner, regroupé par INTENTION (une section par but), sur une seule page.
   entrainer: [
-    { groupe: 'Révisions', ecran: 'revisions', titre: 'Révisions du jour', description: 'Les leçons à revoir aujourd\'hui (répétition espacée : J+1, 3, 7, 14, 30).',
+    // Révisions : en tête, sans titre de section (une seule carte, son titre suffit).
+    { ecran: 'revisions', titre: 'Révisions du jour', description: 'Les leçons à revoir aujourd\'hui (répétition espacée : J+1, 3, 7, 14, 30).',
       info: () => { const n = revisionsDues().length; return n ? { texte: `${n} à faire aujourd'hui`, aFaire: true } : { texte: 'Rien de dû aujourd\'hui' }; } },
     { groupe: 'Volume : ancrer par la répétition', ecran: 'planches', titre: 'Planches', description: 'Des colonnes ciblées sur un geste, en mode pur ou avec rappel doigté, imprimables.' },
     { groupe: 'Volume : ancrer par la répétition', ecran: 'rythme', params: () => ({ voir: 'marathon' }), titre: 'Marathon', description: 'Une longue colonne sans remise à zéro : on tient le plus longtemps possible.' },
@@ -39,10 +40,10 @@ const CARTES = {
     { groupe: 'Vitesse : le geste sans réfléchir', ecran: 'drills', titre: 'Drills et tables', description: 'Les suites classiques, du plus simple au 123 456 789 × 9, avec médailles bronze à platine. Et les tables.',
       info: () => ({ texte: `À valider : ${drillEchauffement(progression()).titre}` }) },
     { groupe: 'Vitesse : le geste sans réfléchir', ecran: 'rythme', params: () => ({ voir: 'lievre' }), titre: 'Lièvre', description: 'Un rythme imposé qui accélère : l\'œil apprend à lire la ligne suivante pendant que la main travaille.' },
-    { groupe: 'Calcul de tête', ecran: 'anzan', titre: 'Flash anzan', description: 'Calcul de tête libre : flash, image, mitori, photo du soroban.' },
+    { groupe: 'Calcul de tête', ecran: 'anzan', titre: 'Flash anzan', description: 'Calcul de tête en entraînement libre : flash, image, mitori, photo du soroban (la piste guidée est dans Apprendre).' },
     { groupe: 'Calcul de tête', ecran: 'dictee', titre: 'Dictée (yomiage)', description: 'Les nombres sont lus à voix haute : on calcule à l\'oreille.' },
-    { groupe: 'Au quotidien', ecran: 'quotidien', titre: 'Au quotidien', description: 'Ticket de caisse, monnaie, pourcentages, factures.' },
-    { groupe: 'Jouer', ecran: 'jeux', titre: 'Jeux', description: JEUX.map((j) => j.titre).join(', ') + '.',
+    { groupe: 'Appliquer et jouer', ecran: 'quotidien', titre: 'Au quotidien', description: 'Ticket de caisse, monnaie, pourcentages, factures.' },
+    { groupe: 'Appliquer et jouer', ecran: 'jeux', titre: 'Jeux', description: JEUX.map((j) => j.titre).join(', ') + '.',
       info: () => { const r = JEUX.map((j) => recordJeu(j.id)).filter(Boolean); return r.length ? { texte: r[0] } : null; } },
   ],
   mesurer: [

@@ -147,6 +147,13 @@ export async function chargerProgression() {
   return donnees;
 }
 
+// Écouteurs « les données ont changé » (ex. la barre de séance se met à jour après un exercice).
+const ecouteursChangement = new Set();
+export function surChangement(fn) {
+  ecouteursChangement.add(fn);
+  return () => ecouteursChangement.delete(fn);
+}
+
 async function sauver() {
   if (etatStockage.etat === 'lecture-seule') return;
   // Nouveaux succès ? On les date, puis on prévient l'interface.
@@ -162,6 +169,7 @@ async function sauver() {
     changerEtat({ etat: 'echec', message: e?.message ?? String(e) });
   }
   for (const id of nouveaux) ecouteursSucces.forEach((fn) => fn(SUCCES.find((x) => x.id === id)));
+  ecouteursChangement.forEach((fn) => fn());
 }
 
 /**
@@ -509,6 +517,9 @@ export async function finirSeance() {
   if (!s) return null;
   const bilan = bilanSeance(s.instantane, donnees, s.debut, Object.keys(donnees.succes));
   donnees.seance = null;
+  // Gardée pour la journée : « Aujourd'hui » montre alors la séance terminée, son bilan et une
+  // proposition, sans relancer de séance d'elle-même.
+  donnees.seanceTerminee = { date: aujourdhui(), bilan };
   await sauver();
   return bilan;
 }

@@ -9,13 +9,13 @@
  */
 
 import { h, remplir } from './ui/dom.js';
-import { chargerProgression, surSucces, stockage, surStockage, versionNavigateur, rechargerDepuis, CLE_STOCKAGE, aujourdhui } from './core/progression.js';
+import { chargerProgression, surSucces, surChangement, stockage, surStockage, versionNavigateur, rechargerDepuis, CLE_STOCKAGE, aujourdhui } from './core/progression.js';
 import { VERSION_APPLI } from './core/version.js';
 import { telechargerExport, telechargerTexte } from './ui/exporter.js';
 import { pictogramme } from './ui/perles.js';
 import { appliquerTheme, selecteursTheme } from './ui/theme.js';
 import { notifier } from './ui/toast.js';
-import seance from './modules/seance.js';
+import seance, { etatSeance } from './modules/seance.js';
 import revisions from './modules/revisions.js';
 import lecons from './modules/lecons.js';
 import lecture from './modules/lecture.js';
@@ -68,6 +68,8 @@ export const app = {
     nettoyage = ecran.monter(zone, app, params) ?? null;
     replierReglages(zone);
     majFil(ecran, params);
+    ecranCourant = ecran.id;
+    majBarreSeance();
     for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === entreeDe(ecran.id));
     // Section courante (codes couleur du thème « signalétique »).
     document.body.dataset.section = entreeDe(ecran.id);
@@ -112,6 +114,30 @@ function majFil(ecran, params) {
     h('span', { class: 'separateur', 'aria-hidden': 'true' }, '›'),
     h('button', { class: 'lien', onclick: () => app.aller(ecran.id, params.voir || params.jeu ? { voir: params.voir ?? params.jeu } : {}) }, ecran.titreDe?.(params) ?? ecran.titre));
 }
+
+/**
+ * Barre de séance : pendant une séance, sur tous les autres écrans, l'étape suivante à un clic.
+ * La séance s'enchaîne sans repasser par « Aujourd'hui ».
+ */
+const barreSeance = h('div', { class: 'barre-seance', hidden: true });
+zone.before(barreSeance);
+let ecranCourant = null;
+function majBarreSeance() {
+  const e = ecranCourant && ecranCourant !== 'seance' ? etatSeance() : null;
+  barreSeance.hidden = !e;
+  if (!e) return;
+  // On est déjà sur l'étape à faire : on l'indique, et on propose la suivante.
+  const ici = e.prochaine && e.prochaine.aller[0] === ecranCourant;
+  const suivante = ici ? e.ensuite : e.prochaine;
+  remplir(barreSeance,
+    h('span', {}, h('strong', {}, 'Séance du jour'), ` · ${e.faits} / ${e.total} faits`, ici ? ` · en cours : ${e.prochaine.titre}` : ''),
+    suivante
+      ? h('button', { class: 'btn', onclick: () => app.aller(...suivante.aller) }, `${ici ? 'Ensuite' : 'Suivant'} : ${suivante.titre} →`)
+      : ici ? h('button', { class: 'btn', onclick: () => app.aller('seance') }, 'Voir le plan')
+        : h('button', { class: 'btn principal', onclick: () => app.aller('seance') }, 'Essentiel terminé : voir le bilan →'));
+}
+let attenteBarre = null;
+surChangement(() => { clearTimeout(attenteBarre); attenteBarre = setTimeout(majBarreSeance, 300); });
 
 /**
  * Bandeau d'alerte du stockage, en haut de la zone principale : il reste affiché tant que le

@@ -275,7 +275,7 @@ export default {
       const problemes = semaine.sections.flatMap((s) => s.problemes);
       // Temps « confirmé » de la feuille : seuils du niveau + frappe de chaque réponse.
       const cibleVitesse = problemes.reduce((t, ex) => t + (tempsCible(ex, niveau('confirme')) + SURCOUT_FEUILLE_S) * 1000, 0);
-      remplir(el, retourBtn());
+      remplir(el, retourBtn(), h('h1', {}, 'Défi de la semaine'));
       courant = creerFeuille(el, {
         titre: `Défi de la semaine · ${semaine.description}`,
         sections: semaine.sections,

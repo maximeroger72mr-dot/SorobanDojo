@@ -416,3 +416,14 @@ html:root h2.groupe-cartes + .cartes { margin-top: 6px; }
 .options-serie summary { cursor: pointer; color: var(--discret); text-decoration: underline; text-underline-offset: 3px; list-style: none; }
 .options-serie summary::-webkit-details-marker { display: none; }
 .options-serie[open] .options-contenu { position: absolute; right: 0; top: 1.8em; z-index: 20; background: var(--fond); border: 1px solid var(--texte); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 15rem; }
+
+/* Barre de séance (étape suivante sur les autres écrans). */
+.barre-seance { max-width: 1080px; margin: 0 auto 10px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border: 1px solid var(--conseil); color: var(--texte); }
+.barre-seance[hidden] { display: none; }
+html:root .barre-seance button.btn { border-color: var(--conseil); color: var(--conseil); padding: 6px 12px; }
+html:root .barre-seance button.btn.principal { background: var(--conseil); color: var(--sur-conseil); }
+@media print { .barre-seance { display: none !important; } }
+/* Pourquoi d'un point du plan, et étape de la séance. */
+.pourquoi-point { display: block; font-size: 0.85rem; color: var(--discret); margin-top: 2px; font-weight: 400; }
+.etape-seance { font-size: 0.85rem; color: var(--conseil); font-weight: 700; margin-bottom: 6px; }

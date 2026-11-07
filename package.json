@@ -1,6 +1,6 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {
@@ -8,7 +8,8 @@
     "test": "node --test \"tests/**/*.test.js\"",
     "dist:win": "electron-builder --win portable",
     "html": "node scripts/construire-html.mjs",
-    "polices": "node scripts/polices.mjs"
+    "polices": "node scripts/polices.mjs",
+    "verifier": "node scripts/verifier-ecrans.cjs"
   },
   "author": "",
   "license": "UNLICENSED",

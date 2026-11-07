@@ -141,7 +141,7 @@ export default {
     /** Leçon à lire (Leçon 0) : sections, conseils généraux de vitesse, puis le quiz de vérification. */
     function vueTheorie(sp) {
       const suivant = suivante(sp);
-      el.append(
+      el.append(...[
         h('button', { class: 'lien', onclick: () => changer(carte) }, '← Toutes les leçons'),
         h('h1', {}, sp.titre),
         h('p', { class: 'discret' }, sp.pourquoi),
@@ -153,7 +153,7 @@ export default {
           : h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
         sp.quiz && !etatPalier(sp.id).valide ? quiz(sp, () => valider()) : null,
         sp.quiz && !etatPalier(sp.id).valide ? null : h('div', { class: 'ligne', style: 'margin-top:14px' },
-          h('button', { class: 'btn principal', onclick: () => valider() }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →')));
+          h('button', { class: 'btn principal', onclick: () => valider() }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →'))].filter(Boolean));
       async function valider() {
         await validerPalier(sp.id, false);
         changer(() => (suivant && estDebloque(suivant) ? vueSousPalier(suivant) : carte()));

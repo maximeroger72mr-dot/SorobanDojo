@@ -3,6 +3,20 @@
  *
  *   h('button', { class: 'principal', onclick: f }, 'Valider')
  */
+/**
+ * Garde-fou : append, prepend, before, after et replaceChildren ignorent null, undefined et false
+ * (sinon le navigateur écrit le mot « null » à l'écran) et aplatissent les tableaux.
+ */
+if (typeof Element !== 'undefined' && !Element.prototype.__gardeNull) {
+  for (const m of ['append', 'prepend', 'before', 'after', 'replaceChildren']) {
+    const origine = Element.prototype[m];
+    Element.prototype[m] = function (...enfants) {
+      return origine.apply(this, enfants.flat(Infinity).filter((c) => c != null && c !== false));
+    };
+  }
+  Element.prototype.__gardeNull = true;
+}
+
 export function h(tag, attrs = {}, ...enfants) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs ?? {})) {

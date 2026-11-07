@@ -7,7 +7,10 @@
  *    du quotient au total », seuil 210/300 (6e-4e) ou 240/300 (3e-1er) ;
  *  - décimaux à partir du 3e kyū : la moitié des multiplications et des divisions, résultat
  *    arrondi au millième (au dix-millième pour les divisions du 1er kyū) ;
- *  - 10e au 7e kyū : formats publics japonais (Nihon Shuzan Renmei), seuil indicatif 70 % ;
+ *  - 10e au 7e kyū : inspirés des formats publics japonais (Nihon Shuzan Renmei), seuil indicatif
+ *    70 % ; chaque grade est STRICTEMENT plus exigeant que le précédent (un test le vérifie) :
+ *    10e : mitori 5 lignes + × (2×1) ; 9e : 6 lignes + × + ÷ (÷1, quotient 1 chiffre) ;
+ *    8e : 8 lignes, × à 4 chiffres, ÷ à 3 ; 7e : 10 lignes, ÷ à 4 chiffres ;
  *  - soustractions dans le mitorizan dès le 10e kyū.
  * Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.
  */
@@ -24,14 +27,14 @@ export const GRADES = [
     mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 3, points: 10 } },
   { id: '9', nom: '9e kyū', japonais: '9級', minutes: 20, seuil: 0.7, confirme: false,
-    mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, points: 10 },
-    mul: { nb: 10, total: 3, points: 10 } },
+    mitori: { nb: 10, lignes: 6, min: 2, max: 2, soustractions: true, points: 10 },
+    mul: { nb: 10, total: 3, points: 5 }, div: { nb: 10, total: 2, points: 5 } },
   { id: '8', nom: '8e kyū', japonais: '8級', minutes: 20, seuil: 0.7, confirme: false,
     mitori: { nb: 10, lignes: 8, min: 2, max: 2, soustractions: true, points: 10 },
     mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 3, points: 5 } },
   { id: '7', nom: '7e kyū', japonais: '7級', minutes: 20, seuil: 0.7, confirme: false,
     mitori: { nb: 10, lignes: 10, min: 2, max: 2, soustractions: true, points: 10 },
-    mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 4, points: 5 } },
+    mul: { nb: 10, total: 4, points: 5 }, div: { nb: 10, total: 4, points: 5, maxDiviseur: 2 } },
   { id: '6', nom: '6e kyū', japonais: '6級', minutes: 30, seuil: 0.7, confirme: true,
     mitori: { nb: 10, lignes: 10, min: 3, max: 4, soustractions: true, points: 10 },
     mul: { nb: 20, total: 5, points: 5 }, div: { nb: 20, total: 5, points: 5 } },
@@ -73,6 +76,8 @@ export function genererMitori(f) {
       v += l.op === '+' ? l.n : -l.n;
       if (v < 0) ok = false;
     }
+    // Pas deux fois le même nombre de suite (on le devinerait sans calculer).
+    if (lignes.some((l, i) => i > 0 && l.n === lignes[i - 1].n)) ok = false;
     if (ok) return { type: 'addsub', lignes, resultat: v };
   }
 }
@@ -93,7 +98,9 @@ export function genererMulGrade(f, decimal = false) {
 
 export function genererDivGrade(f, decimal = false) {
   const [x, y] = decouper(f.total);
-  const [nd, nq] = Math.random() < 0.5 ? [x, y] : [y, x]; // diviseur et quotient
+  let [nd, nq] = Math.random() < 0.5 ? [x, y] : [y, x]; // diviseur et quotient
+  // Pas de diviseur plus long que ce qui a été appris pour ce grade (ex. 7e kyū : 2 chiffres).
+  if (f.maxDiviseur && nd > f.maxDiviseur) [nd, nq] = [nq, nd];
   if (decimal) return genererDivisionDecimale(Math.min(nd, 4), nq, f.decimales);
   const diviseur = facteur(nd);
   const quotient = facteur(nq);

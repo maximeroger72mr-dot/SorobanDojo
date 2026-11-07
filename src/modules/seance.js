@@ -21,7 +21,7 @@ import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
-import { decisionDuJour, jeuDuJour, motDuProf } from '../core/prof.js';
+import { decisionDuJour, jeuDuJour, motDuProf, propositionsApresSeance } from '../core/prof.js';
 import { examenDeLaSemaine, resultatSemaine, minutesExamen, libelleGrade } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 import { rangee } from '../ui/perles.js';
@@ -47,18 +47,20 @@ function plan(d, debut, seance = null) {
 
   // 1. Échauffement : le prochain drill à valider (3 min).
   const drill = drillEchauffement(d);
-  essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3,
+  essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3, pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
     fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
   // 1 bis. Les colonnes ratées lors de la dernière séance, rejouées à l'identique.
   const aRejouer = erreursARejouer(date).length;
   if (aRejouer || fait((s) => s.module === 'erreurs')) {
     essentiel.push({ titre: 'Mes erreurs d\'hier', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} ratée${aRejouer > 1 ? 's' : ''}, à refaire telles quelles` : 'refaites', minutes: 2,
+      pourquoi: 'Refaire exactement ce qu\'on a raté, un jour plus tard, corrige le geste mieux qu\'un exercice neuf.',
       fait: fait((s) => s.module === 'erreurs'), aller: ['erreurs'] });
   }
   // 2. Révisions dues : la mémoire avant tout.
   const dues = revisionsDues().length;
   if (dues) {
     essentiel.push({ titre: 'Révisions', detail: `${dues} leçon${dues > 1 ? 's' : ''} à revoir (10 calculs chacune)`, minutes: 3 * dues,
+      pourquoi: 'Revoir une leçon juste avant de l\'oublier la fixe pour longtemps.',
       fait: fait((s) => s.module === 'revisions'), aller: ['revisions'] });
   }
   // 3. Passage de kyū : ouvert en permanence, proposé en bonus (en tête) ; aucune échéance, aucune
@@ -84,27 +86,31 @@ function plan(d, debut, seance = null) {
   const priorite = fixee && fait(prescritPar(fixee)) ? fixee : prioriteDuJour(d, date, motifsEnDifficulte());
   if (priorite) {
     const prescrit = prescritPar(priorite);
-    essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true });
+    essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true,
+      pourquoi: 'Votre point faible du moment, recalculé d\'après vos derniers résultats : c\'est là que le temps rapporte le plus.' });
   }
-  // 5. Avancer ou ancrer : la décision du prof.
-  const decision = seance?.decision ?? decisionDuJour(d, date, sp);
+  // 5. Avancer ou ancrer : la décision du prof. Elle s'adapte aux résultats du jour (leçon validée,
+  //    mini-test raté…) ; seule une décision déjà mise en œuvre reste affichée, cochée.
+  const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
+    : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
+  const decision = seance?.decision && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
   essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: decision.minutes, aller: decision.aller, decision: true,
-    fait: fait((s) => (decision.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === decision.aller[1].sousPalier
-      : s.module === 'rythme' && s.mode === 'marathon' && (!decision.cibles || (s.reglages?.cibles ?? []).includes(decision.cibles[0])))) });
+    pourquoi: decision.raison, fait: decisionFaite(decision) });
   // 6. Consolidation (2 à 7 jours après une leçon) : mélanger pour retenir.
   const conso = consolidationDuJour(d, date);
   if (conso) {
     essentiel.push({ titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`, minutes: 5,
+      pourquoi: 'Mélangé aux autres, le nouveau geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
   // 7. Multiplication / division : tables et placement deviennent des réflexes quotidiens.
   if (coursMultiplicationAtteint(d, sp)) {
-    essentiel.push({ titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité', minutes: 3,
+    essentiel.push({ titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
       fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
   }
   const placement = placementDuJour(d, date, sp);
   if (placement && placement.id !== sp?.id) {
-    essentiel.push({ titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`, minutes: 2,
+    essentiel.push({ titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`, minutes: 2, pourquoi: 'Poser le premier chiffre sur la bonne tige doit devenir immédiat.',
       fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === placement.id), aller: ['lecons', { sousPalier: placement.id, onglet: 'entrainement' }] });
   }
 
@@ -198,6 +204,31 @@ function carteObjectif(d, rafraichir) {
     formulaire());
 }
 
+/**
+ * État de la séance en cours, pour la barre « Suivant » affichée sur les autres écrans :
+ * null si aucune séance n'est en cours.
+ */
+export function etatSeance() {
+  const seance = seanceEnCours();
+  if (!seance) return null;
+  const p = plan(progression(), seance.debut, seance);
+  const restants = p.essentiel.filter((it) => !it.fait);
+  return { faits: p.essentiel.length - restants.length, total: p.essentiel.length, prochaine: restants[0] ?? null, ensuite: restants[1] ?? null };
+}
+
+/** Carte « Séance terminée » : chiffres, progrès, records, succès, et la suite pour demain. */
+function carteBilan(bilan, d) {
+  const succes = bilan.nouveauxSucces.map((id) => SUCCES.find((s) => s.id === id)?.nom).filter(Boolean);
+  return h('div', { class: 'carte bilan-seance' },
+    h('h2', { style: 'margin-top:0' }, 'Séance du jour terminée'),
+    h('p', {}, `${bilan.exercices} exercice${bilan.exercices > 1 ? 's' : ''} · réussite ${formaterPourcent(bilan.justes, bilan.exercices)} · ${bilan.dureeMs >= 90000 ? `${Math.round(bilan.dureeMs / 60000)} min` : formaterDuree(bilan.dureeMs)} de pratique`),
+    h('ul', {},
+      bilan.progres.length ? bilan.progres.map((p) => h('li', {}, `▲ ${p}`)) : h('li', { class: 'discret' }, 'Pas de changement de niveau cette fois : la régularité finit toujours par payer.'),
+      bilan.records.length ? h('li', {}, `${bilan.records.length} record${bilan.records.length > 1 ? 's' : ''} personnel${bilan.records.length > 1 ? 's' : ''} battu${bilan.records.length > 1 ? 's' : ''}`) : null,
+      succes.length ? h('li', {}, `Succès : ${succes.join(', ')}`) : null),
+    h('p', {}, h('strong', {}, conseilDemain(d))));
+}
+
 export default {
   id: 'seance',
   titre: 'Séance du jour',
@@ -231,7 +262,7 @@ export default {
       const p = plan(d, seance ? seance.debut : Date.now(), seance);
       // Fin de séance automatique : tout l'essentiel est fait → le bilan s'affiche de lui-même.
       if (seance && !bilan && p.essentiel.length && p.essentiel.every((it) => it.fait)) {
-        finirSeance().then((b) => afficher(b ?? null));
+        finirSeance().then((b) => { nouvelleDemandee = false; afficher(b ?? null); });
         return;
       }
 
@@ -254,48 +285,56 @@ export default {
       }
       el.append(carteObjectif(d, () => afficher(bilan)));
 
-      // --- bilan de la séance qui vient de se terminer
-      if (bilan) {
-        const succes = bilan.nouveauxSucces.map((id) => SUCCES.find((s) => s.id === id)?.nom).filter(Boolean);
-        el.append(h('div', { class: 'carte bilan-seance' },
-          h('h2', { style: 'margin-top:0' }, 'Bilan de la séance'),
-          h('p', {}, `${bilan.exercices} exercice${bilan.exercices > 1 ? 's' : ''} · réussite ${formaterPourcent(bilan.justes, bilan.exercices)} · ${formaterDuree(bilan.dureeMs)} de pratique`),
-          h('ul', {},
-            bilan.progres.length ? bilan.progres.map((p) => h('li', {}, `▲ ${p}`)) : h('li', { class: 'discret' }, 'Pas de changement de niveau cette fois : la régularité finit toujours par payer.'),
-            bilan.records.length ? h('li', {}, `${bilan.records.length} record${bilan.records.length > 1 ? 's' : ''} personnel${bilan.records.length > 1 ? 's' : ''} battu${bilan.records.length > 1 ? 's' : ''}`) : null,
-            succes.length ? h('li', {}, `Succès : ${succes.join(', ')}`) : null),
-          h('p', {}, h('strong', {}, conseilDemain(d))),
-          h('p', { class: 'discret' }, 'Vous pouvez continuer à vous entraîner librement.')));
+      // --- séance terminée aujourd'hui : bilan, proposition d'activité, et une nouvelle séance
+      //     seulement si on la demande (jamais relancée d'elle-même).
+      const terminee = !seance && (bilan ?? (d.seanceTerminee?.date === aujourdhui() ? d.seanceTerminee.bilan : null));
+      if (terminee && !nouvelleDemandee) {
+        el.append(carteBilan(terminee, d));
+        const idees = propositionsApresSeance(d, aujourdhui());
+        const [principale, ...autres] = idees;
+        el.append(h('div', { class: 'carte suggestion' },
+          h('h2', { style: 'margin-top:0' }, 'Et maintenant ?'),
+          h('p', {}, h('strong', {}, principale.titre), ' : ', principale.detail),
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn principal', onclick: () => app.aller(...principale.aller) }, `${principale.titre} →`),
+            autres.map((x) => h('button', { class: 'btn', title: x.detail, onclick: () => app.aller(...x.aller) }, x.titre))),
+          h('p', { class: 'discret' }, 'Ou arrêtez-vous là : la régularité compte plus que la durée. À demain !')),
+          h('div', { class: 'ligne', style: 'margin-top:12px' },
+            h('button', { class: 'btn', onclick: async () => { nouvelleDemandee = true; afficher(); } }, 'Faire une nouvelle séance')));
+        return;
       }
 
       // --- le prof et le plan
-      // Chaque ligne s'ouvre d'un clic ; si la séance n'est pas commencée, le clic la commence
-      // (la pastille du menu mène ici : la révision doit être accessible tout de suite).
+      // Chaque ligne s'ouvre d'un clic ; si la séance n'est pas commencée, le clic la commence.
       const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
       const ligne = (it, i) => h('button', {
         class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
         onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...it.aller); },
-      }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
+      }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
+      h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
       // Une seule grande action : la prochaine étape non faite (la séance démarre au premier clic).
+      const faits = p.essentiel.filter((it) => it.fait).length;
       const prochaine = p.essentiel.find((it) => !it.fait) ?? p.bonus.find((it) => !it.fait);
       if (prochaine) {
         el.append(h('div', { class: 'continuer' },
+          seance ? h('div', { class: 'etape-seance' }, `Étape ${Math.min(faits + 1, p.essentiel.length)} sur ${p.essentiel.length}`) : null,
           h('button', { class: 'btn principal grand-bouton', onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...prochaine.aller); } },
-            `${seance || bilan ? 'Continuer' : 'Commencer'} : ${prochaine.titre} →`),
+            `${seance ? 'Continuer' : 'Commencer'} : ${prochaine.titre} →`),
           h('div', { class: 'discret' }, prochaine.detail)));
       }
       el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
       const entete = h('div', { class: 'ligne' },
-        h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : bilan ? 'Envie de continuer ?' : 'Votre séance'),
-        seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
+        h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · ${faits} / ${p.essentiel.length}` : 'Votre séance'),
+        seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); nouvelleDemandee = false; afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
       el.append(h('div', { class: 'carte' }, entete,
-        h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : pour atteindre votre objectif, dans cet ordre')),
+        h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : dans cet ordre, chaque point prépare le suivant')),
         h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i))),
         h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
         h('p', { class: 'discret' }, 'Chaque point se coche quand il est fait ; quand tout l\'essentiel est coché, le bilan de la séance s\'affiche tout seul.')));
     }
+    let nouvelleDemandee = false;
     afficher();
   },
 };

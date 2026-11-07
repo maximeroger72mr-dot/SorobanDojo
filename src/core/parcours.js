@@ -9,7 +9,7 @@
 
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
-import { famille, nomMotif } from './motifs.js';
+import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL } from './drills.js';
 import { evaluer, plateau } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
@@ -22,6 +22,22 @@ const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
 const idsPaliers = (...ids) => PALIERS.filter((p) => ids.includes(p.id)).flatMap((p) => p.sousPaliers.filter((s) => !p.mental && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id));
 
 export const estValide = (d, id) => !!d.paliers[id]?.valide;
+
+/**
+ * LES compteurs du parcours, partagés par tous les écrans (Progression, Bilan, carte de
+ * maîtrise) : ils ne peuvent plus diverger.
+ *  - leçons : le parcours sur le vrai soroban (hors piste anzan et hors leçons à lire) ;
+ *  - gestes acquis : niveau « Acquis débutant » ou mieux (justesse ET vitesse).
+ */
+export const LECONS_PARCOURS = SOUS_PALIERS.filter((sp) => !sp.mental && sp.type !== 'theorie');
+export function compteurs(d) {
+  return {
+    leconsValidees: LECONS_PARCOURS.filter((sp) => estValide(d, sp.id)).length,
+    leconsTotal: LECONS_PARCOURS.length,
+    gestesAcquis: TOUS_LES_MOTIFS.filter((c) => d.motifs[c] && evaluer(d.motifs[c].hist ?? []).index >= 2).length,
+    gestesTotal: TOUS_LES_MOTIFS.length,
+  };
+}
 export const leconsValidees = (d) => SOUS_PALIERS.filter((sp) => estValide(d, sp.id));
 
 /** Gestes des leçons validées, plus les gestes directs. */
@@ -32,14 +48,16 @@ export function motifsAppris(d) {
 }
 
 /**
- * Leçons à valider avant de tenter chaque grade (repères : additions/soustractions avec tous
- * les amis dès le 10e kyū ; multiplication 2×1 au 10e kyū ; division à partir du 8e kyū).
+ * Leçons à valider avant de tenter chaque grade : exactement ce que l'épreuve demande
+ * (10e : additions et soustractions avec tous les amis, multiplication 2×1 ; 9e : + division
+ * ÷1 chiffre ; 8e : × 3×1 et 2×2, ÷ à 2 chiffres ; 7e : ÷ 2 chiffres, quotient 2 chiffres).
  */
+const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
 export const PREREQUIS = {
-  10: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1'],
-  9: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1'],
-  8: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p7-1'],
-  7: [...idsPaliers('p1', 'p2', 'p3', 'p4', 'p5'), 'p6-1', 'p6-2', 'p6-3', 'p7-1', 'p7-2'],
+  10: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1'],
+  9: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p7-0', 'p7-1'],
+  8: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p6-2', 'p6-3', 'p7-0', 'p7-1', 'p7-2', 'p7-e', 'p7-3'],
+  7: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p6-2', 'p6-3', 'p7-0', 'p7-1', 'p7-2', 'p7-e', 'p7-3', 'p7-4'],
 };
 const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 

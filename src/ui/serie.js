@@ -30,6 +30,8 @@ import { creerCourse } from './course.js';
 import { sousTotaux } from '../core/generateur.js';
 
 /** Un exercice qui a une explication pas à pas (pas les exercices de visualisation). */
+/** Résultat attendu tel qu'il faut l'écrire (table : sur deux tiges, « 08 »). */
+const attenduTexte = (ex) => ex.attendu ?? valeur(ex, ex.resultat);
 const explicable = (ex) => !['photo', 'tenir', 'quotidien'].includes(ex.type) && !ex.negatif;
 import { ouvrirExplication } from './explication.js';
 import { ouvrirDemo } from './panneauDemo.js';
@@ -365,7 +367,7 @@ export function creerSerie(conteneur, o) {
       // Mini-test, révision : l'erreur reste affichée jusqu'à Entrée, le temps de regarder son
       // soroban (les explications détaillées restent pour la fin, comme à un examen).
       retour.className = 'retour erreur';
-      remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Faux : le résultat est `, h('strong', {}, valeur(ex, ex.resultat)),
+      remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Faux : le résultat est `, h('strong', {}, attenduTexte(ex)),
         '. Regardez votre soroban : où a-t-il divergé ? Vous reverrez ce calcul à la fin.'),
         h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
       phase = 'corrige';
@@ -374,7 +376,7 @@ export function creerSerie(conteneur, o) {
     }
     if (opts.defi) {
       retour.className = 'retour erreur';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${valeur(ex, ex.resultat)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Faux (résultat ${attenduTexte(ex)}) : vous le reverrez à la fin.`, course ? course.ecart(resultats.length, performance.now() - debut) : null);
       phase = 'transition';
       timer = setTimeout(() => { if (phase === 'transition') { i += 1; suivant(); } }, 900);
       return;
@@ -396,7 +398,10 @@ export function creerSerie(conteneur, o) {
     }
     retour.className = 'retour erreur';
     remplir(retour, 
-      h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${valeur(ex, reponse)}, le résultat est `, h('strong', {}, valeur(ex, ex.resultat)), '.'),
+      ex.attendu && reponse === ex.resultat
+        // Table : le bon produit, mais pas écrit sur deux chiffres. On ne dit pas « 8, le résultat est 8 ».
+        ? h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Le produit est juste, mais il s'écrit sur deux chiffres : `, h('strong', {}, ex.attendu), ` (la tige des dizaines compte, même vide).`)
+        : h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez trouvé ${valeur(ex, reponse)}, le résultat est `, h('strong', {}, attenduTexte(ex)), '.'),
       ex.type === 'photo' ? h('div', {}, h('div', { class: 'discret' }, 'Le soroban montrait :'), rendreEnonce(ex, { compact: true })) : null,
       causes.length ? h('ul', { class: 'detail' }, causes.map((c) => h('li', {}, c))) : null,
       zoneLocalisation,
@@ -532,7 +537,7 @@ export function listeErreurs(resultats) {
     if (!colonne) {
       return h('div', { class: 'carte erreur-item' },
         rendreEnonce(r.ex, { compact: true }),
-        r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse == null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
+        r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse == null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, attenduTexte(r.ex))),
         r.reponse == null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
         explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null);
     }
@@ -555,7 +560,7 @@ export function listeErreurs(resultats) {
     }));
     dessiner(loc?.ligne ?? null);
     return h('div', { class: 'carte erreur-item' },
-      h('div', {}, `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
+      h('div', {}, `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, attenduTexte(r.ex))),
       zoneColonne, message,
       h('div', { class: 'ligne', style: 'margin-top:6px' },
         (loc?.motifs ?? []).filter((m) => !m.endsWith(':direct')).map((m) => h('button', { class: 'btn', onclick: () => ouvrirDemo({ titre: nomMotif(m), texte: gesteMotif(m), demo: exempleMotif(m) }) }, `Revoir : ${nomMotif(m)}`)),

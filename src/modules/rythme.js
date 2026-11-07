@@ -74,7 +74,7 @@ export default {
       const l = reglages.lievre;
       // Depuis S'entraîner, on arrive sur UN exercice (voir = 'marathon' | 'lievre') ; sinon les deux.
       const titres = { marathon: 'Marathon', lievre: 'Lièvre' };
-      el.append(h('h1', {}, titres[voir] ?? 'Rythme et endurance'),
+      el.append(...[h('h1', {}, titres[voir] ?? 'Rythme et endurance'),
         voir ? null : h('p', { class: 'discret' }, 'Deux exercices pour automatiser un geste sur votre soroban : le volume sans interruption (marathon), et le rythme qui oblige l\'œil à lire en avance (lièvre).'),
         voir === 'lievre' ? null : h('div', { class: 'carte', style: 'margin-bottom:16px' },
           h('h2', { style: 'margin-top:0' }, 'Marathon ruban'),
@@ -97,7 +97,7 @@ export default {
             select(l, 'cadence', [['auto', 'cadence : selon mes temps'], ...[3, 2.5, 2, 1.6, 1.3, 1, 0.8].map((x) => [x, `départ : ${sec(x)} par ligne`])], (v) => (v === 'auto' ? v : Number(v))),
             caseA(l, 'metronome', 'clic à chaque ligne'),
             caseA(l, 'pur', 'pur'),
-            h('button', { class: 'btn principal', onclick: () => lancerLievre() }, 'Partir'))));
+            h('button', { class: 'btn principal', onclick: () => lancerLievre() }, 'Partir')))].filter(Boolean));
       const recL = records()[`lievre-${l.chiffres}-${l.lignes}`];
       if (recL && voir !== 'marathon') el.lastChild.append(h('p', { class: 'discret' }, `Votre meilleure cadence (${l.chiffres} chiffre${l.chiffres > 1 ? 's' : ''}, ${l.lignes} lignes) : ${sec(recL.dureeMs / 1000)} par ligne.`));
     }

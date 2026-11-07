@@ -12,7 +12,7 @@
  * chaque sous-total, comme partout.
  */
 
-import { genererColonneVariee, genererTerme, creerMemoire, ErreurGeneration } from '../core/generateur.js';
+import { genererColonneVariee, genererTerme, creerMemoire, ErreurGeneration, redondante } from '../core/generateur.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { tempsParUnite } from '../core/maitrise.js';
 import { noterGestes, noterReponse, poidsAdaptatifs } from '../core/progression.js';
@@ -88,16 +88,31 @@ export function creerMarathon(conteneur, o) {
     return t;
   };
 
-  /** Une ligne du geste visé (ou, si coincé, avec les gestes appris). */
-  function ligne(v) {
+  /**
+   * Une ligne du geste visé (ou, si coincé, avec les gestes appris). Elle tient compte des lignes
+   * précédentes (variété) et n'est jamais redondante (même nombre, ou ping-pong +a −b +a −b) quand
+   * une autre ligne est possible.
+   */
+  function ligne(v, precedents = []) {
     const poids = poidsAdaptatifs(c.cibles);
     const poidsLigne = Object.fromEntries(c.cibles.map((k) => [k, (poids[k] ?? 1) / (1 + (vus[k] ?? 0) % 6) ** 2]));
+    let t;
     try {
-      return genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, poids: poidsLigne });
+      t = genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, poids: poidsLigne, precedents });
     } catch (e) {
       if (!(e instanceof ErreurGeneration)) throw e;
-      return genererTerme(v, { chiffres: o.chiffres, autorises: null, cibles: null });
+      return genererTerme(v, { chiffres: o.chiffres, autorises: null, cibles: null, precedents });
     }
+    for (let k = 0; k < 4 && redondante(precedents, t); k++) {
+      try {
+        const autre = genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, viser: false, poids: poidsLigne, precedents });
+        if (!redondante(precedents, autre)) t = autre;
+      } catch (e) {
+        if (!(e instanceof ErreurGeneration)) throw e;
+        break;
+      }
+    }
+    return t;
   }
 
   /** Le geste visé peut-il partir de cette valeur (sans relâcher les contraintes) ? */
@@ -129,7 +144,7 @@ export function creerMarathon(conteneur, o) {
       }
     }
     while (lignes.length < TRANCHE) {
-      const t = ligne(v);
+      const t = ligne(v, [{ op: '+', n: v0 }, ...lignes]);
       lignes.push({ op: t.op, n: t.n });
       motifs.push(...t.motifs);
       v = t.resultat;
