@@ -52,7 +52,6 @@ export default {
     const b = donneesBilan(d, aujourdhui());
     const ligne = (a, x) => h('tr', {}, h('th', {}, a), h('td', {}, x));
     el.append(
-      h('button', { class: 'lien', onclick: () => app.aller('progression') }, '← Progression'),
       h('div', { class: 'ligne ecran-seul' }, h('button', { class: 'btn principal', onclick: () => window.print() }, 'Imprimer ou enregistrer en PDF'),
         h('span', { class: 'discret' }, 'Une page à montrer à un club ou à un professeur.')),
       h('div', { class: 'rapport' },

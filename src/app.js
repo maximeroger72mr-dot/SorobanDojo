@@ -34,6 +34,7 @@ import jeux from './modules/jeux.js';
 import examen from './modules/examen.js';
 import lexique from './modules/lexique.js';
 import bilan from './modules/bilan.js';
+import erreurs from './modules/erreurs.js';
 import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
 /**
@@ -48,7 +49,7 @@ const MENU = [
   { ecran: progressionEcran, nom: 'Progression', court: 'Progrès', picto: 'progression' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
-  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan];
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs];
 /** Entrée du menu à surligner pour un écran. */
 const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? (id === 'bilan' ? 'progression' : 'seance'));
 
@@ -66,6 +67,7 @@ export const app = {
     zone.parentElement.scrollTop = 0; // la zone défilante est <main>, autour du contenu centré
     nettoyage = ecran.monter(zone, app, params) ?? null;
     replierReglages(zone);
+    majFil(ecran, params);
     for (const b of nav.querySelectorAll('button[data-id]')) b.classList.toggle('actif', b.dataset.id === entreeDe(ecran.id));
     // Section courante (codes couleur du thème « signalétique »).
     document.body.dataset.section = entreeDe(ecran.id);
@@ -93,6 +95,22 @@ function construireNavigation() {
   // Choix du mode (clair / sombre) et numéro de version, en bas du menu.
   nav.append(h('div', { class: 'choix-theme' }, ...selecteursTheme()),
     h('div', { class: 'version-appli' }, `Version ${VERSION_APPLI}${versionNavigateur ? ' · navigateur' : ''}`));
+}
+
+/**
+ * Fil d'Ariane, toujours au même endroit en haut : « Section › Activité », chaque niveau cliquable
+ * (l'activité ramène à son écran d'accueil). Absent sur les 5 pages du menu.
+ */
+const fil = h('nav', { class: 'fil-ariane', 'aria-label': 'Vous êtes ici', hidden: true });
+zone.before(fil);
+function majFil(ecran, params) {
+  const section = MENU.find((m) => m.ecran.id === entreeDe(ecran.id));
+  if (!section || section.ecran === ecran) { fil.hidden = true; return; }
+  fil.hidden = false;
+  remplir(fil,
+    h('button', { class: 'lien', onclick: () => app.aller(section.ecran.id) }, section.nom),
+    h('span', { class: 'separateur', 'aria-hidden': 'true' }, '›'),
+    h('button', { class: 'lien', onclick: () => app.aller(ecran.id, params.voir || params.jeu ? { voir: params.voir ?? params.jeu } : {}) }, ecran.titreDe?.(params) ?? ecran.titre));
 }
 
 /**
@@ -162,6 +180,9 @@ function replierReglages(zoneEcran) {
     } }, 'Réglages'));
   }
 }
+
+// Navigation demandée par un composant sans accès à l'app (ex. « 5 colonnes sur ce geste »).
+document.addEventListener('soroban:aller', (e) => app.aller(...e.detail));
 
 await chargerProgression();
 appliquerTheme();

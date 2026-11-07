@@ -23,7 +23,7 @@
  *        pour repérer les plateaux.
  */
 
-import { nouvelleCarte, reviser, estDue } from './revision.js';
+import { nouvelleCarte, reviser, estDue, ajouterJours } from './revision.js';
 import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX } from './maitrise.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
@@ -253,7 +253,19 @@ const fiche = (c) => (donnees.motifs[c] ??= { essais: 0, erreurs: 0, dette: 0, h
  * @param {string[]} rates    motifs RÉELLEMENT mis en cause (localisés), une fois chacun
  * @param {number} t          secondes par unité de l'exercice (vitesse)
  */
-export async function noterGestes(reussis, rates, t) {
+/** Fenêtre (jours) dans laquelle deux erreurs probables sur un même geste le confirment. */
+export const FENETRE_SOUPCON = 10;
+
+/**
+ * Note les gestes d'un exercice.
+ *  - reussis : chaque geste est crédité d'un essai juste ;
+ *  - rates   : gestes accusés. Par défaut c'est une DÉDUCTION (l'écart du résultat) : elle n'est
+ *    d'abord qu'un « soupçon » daté, sans effet sur le niveau ; un 2e soupçon sur le même geste
+ *    dans les 10 jours la confirme. Avec { confirme: true } (l'élève a désigné la ligne fautive
+ *    avec les sous-totaux), l'erreur compte tout de suite.
+ * @returns {Array<{cle, statut: 'soupcon'|'confirme'}>}
+ */
+export async function noterGestes(reussis, rates, t, { confirme = false } = {}) {
   for (const c of reussis) {
     const f = fiche(c);
     f.essais += 1;
@@ -261,14 +273,25 @@ export async function noterGestes(reussis, rates, t) {
     ajouterEssai(f.hist, true, t);
     ajouterSemaine(f, t, aujourdhui());
   }
+  const bilan = [];
+  const limite = ajouterJours(aujourdhui(), -FENETRE_SOUPCON);
   for (const c of new Set(rates)) {
     const f = fiche(c);
+    f.soupcons = (f.soupcons ?? []).filter((x) => x > limite);
+    if (!confirme && !f.soupcons.length) {
+      f.soupcons.push(aujourdhui());
+      bilan.push({ cle: c, statut: 'soupcon' });
+      continue;
+    }
+    f.soupcons = [];
     f.essais += 1;
     f.erreurs += 1;
     f.dette += 1;
     ajouterEssai(f.hist, false, t);
+    bilan.push({ cle: c, statut: 'confirme' });
   }
   await sauver();
+  return bilan;
 }
 
 /** Motifs actuellement en difficulté (erreurs avérées récentes), du plus problématique au moins. */
@@ -412,6 +435,57 @@ export async function noterReponse(juste) {
   donnees.stats.suite = juste ? donnees.stats.suite + 1 : 0;
   donnees.stats.meilleureSuite = Math.max(donnees.stats.meilleureSuite, donnees.stats.suite);
   await sauver();
+}
+
+// ------------------------------------------------------------------ erreurs à rejouer
+
+/** Signature d'une colonne (pour ne pas la garder deux fois). */
+const signature = (ex) => JSON.stringify(ex.lignes.map((l) => [l.op, l.n]));
+
+/**
+ * Garde une colonne ratée, pour la rejouer telle quelle le lendemain (seulement les colonnes
+ * d'addition / soustraction écrites). On garde au plus 30 colonnes, des 14 derniers jours.
+ */
+export async function noterErreurColonne(ex) {
+  if (ex.type !== 'addsub' || ex.flash || ex.ticket || !ex.lignes) return;
+  const liste = (donnees.erreursColonnes ??= []);
+  const sig = signature(ex);
+  if (liste.some((e) => e.sig === sig)) return;
+  liste.push({ date: aujourdhui(), sig, ex: { type: 'addsub', lignes: ex.lignes, resultat: ex.resultat, motifs: ex.motifs, decimales: ex.decimales, negatif: ex.negatif } });
+  const limite = ajouterJours(aujourdhui(), -14);
+  donnees.erreursColonnes = liste.filter((e) => e.date > limite).slice(-30);
+  await sauver();
+}
+
+/** Colonnes ratées lors du dernier jour de pratique AVANT aujourd'hui (au plus 5). */
+export function erreursARejouer(date = aujourdhui()) {
+  const liste = (donnees.erreursColonnes ?? []).filter((e) => e.date < date);
+  const dernier = liste.map((e) => e.date).sort().at(-1);
+  return dernier ? liste.filter((e) => e.date === dernier).slice(0, 5).map((e) => e.ex) : [];
+}
+
+/** Une colonne rejouée juste ne revient plus. */
+export async function retirerErreurColonne(ex) {
+  const sig = signature(ex);
+  const avant = donnees.erreursColonnes?.length ?? 0;
+  donnees.erreursColonnes = (donnees.erreursColonnes ?? []).filter((e) => e.sig !== sig);
+  if (donnees.erreursColonnes.length !== avant) await sauver();
+}
+
+/**
+ * Mode Espace : résultat d'un contrôle surprise (l'élève a tapé ce que montrait son soroban).
+ * Renvoie true quand il faut prévenir, avec bienveillance : 2 écarts sur les 5 derniers contrôles.
+ * Le compteur repart alors de zéro (on ne répète pas le message à chaque contrôle).
+ */
+export async function noterSondage(juste) {
+  donnees.stats ??= { suite: 0, meilleureSuite: 0 };
+  const s = (donnees.stats.sondages ??= []);
+  s.push(juste ? 1 : 0);
+  if (s.length > 5) s.shift();
+  const alerte = s.filter((x) => !x).length >= 2;
+  if (alerte) donnees.stats.sondages = [];
+  await sauver();
+  return alerte;
 }
 
 // ------------------------------------------------------------------ séance du jour

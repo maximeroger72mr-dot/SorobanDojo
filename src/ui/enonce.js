@@ -25,7 +25,8 @@ export function consigneArrondi(decimales) {
 
 /**
  * @param {object} ex  exercice ({type:'addsub', lignes} | {type:'mul'|'div', a, b})
- * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void, doigte?: boolean}} o
+ * @param {{sousTotaux?: boolean, numeros?: boolean, compact?: boolean, surLigne?: (i) => void, surligne?: number, doigte?: boolean}} o
+ *   surligne : index de la ligne à mettre en évidence (ligne probable d'une erreur)
  *   doigte : rappel des doigts à côté de chaque ligne (pouce / index / pincée), colonnes entières seulement
  */
 export function rendreEnonce(ex, o = {}) {
@@ -67,7 +68,7 @@ export function rendreEnonce(ex, o = {}) {
     return h('td', { class: 'doigte' }, i === 0 ? 'poser' : doigte(avant[i], l.op, l.n).join(' / '));
   };
   return h('table', { class: `colonne${o.compact ? ' compacte' : ''}` },
-    ex.lignes.map((l, i) => h('tr', { class: o.surLigne ? 'cliquable' : '', onclick: o.surLigne ? () => o.surLigne(i) : null },
+    ex.lignes.map((l, i) => h('tr', { class: `${o.surLigne ? 'cliquable' : ''}${o.surligne === i ? ' ligne-probable' : ''}`, onclick: o.surLigne ? () => o.surLigne(i) : null },
       o.numeros ? h('td', { class: 'num' }, i + 1) : null,
       h('td', { class: 'signe' }, i === 0 ? '' : signe(l.op)),
       h('td', { class: 'nombre' }, formaterNombre(l.n)),

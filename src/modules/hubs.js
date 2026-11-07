@@ -29,19 +29,21 @@ const CARTES = {
     { ecran: 'libre', titre: 'Démonstrations', description: 'Voir n\'importe quel calcul geste par geste, au ralenti.' },
     { ecran: 'lexique', titre: 'Lexique', description: 'Anzan, mitori, kyū, petit ami, coupe-file… : tous les mots, définis simplement.' },
   ],
+  // S'entraîner, regroupé par INTENTION (une section par but), sur une seule page.
   entrainer: [
-    { ecran: 'revisions', titre: 'Révisions du jour', description: 'Les leçons à revoir aujourd\'hui (répétition espacée : J+1, 3, 7, 14, 30).',
+    { groupe: 'Révisions', ecran: 'revisions', titre: 'Révisions du jour', description: 'Les leçons à revoir aujourd\'hui (répétition espacée : J+1, 3, 7, 14, 30).',
       info: () => { const n = revisionsDues().length; return n ? { texte: `${n} à faire aujourd'hui`, aFaire: true } : { texte: 'Rien de dû aujourd\'hui' }; } },
-    { ecran: 'drills', titre: 'Drills', description: 'Les suites classiques, du plus simple au 123 456 789 × 9, avec validation et classement bronze à platine. Et les tables.',
+    { groupe: 'Volume : ancrer par la répétition', ecran: 'planches', titre: 'Planches', description: 'Des colonnes ciblées sur un geste, en mode pur ou avec rappel doigté, imprimables.' },
+    { groupe: 'Volume : ancrer par la répétition', ecran: 'rythme', params: () => ({ voir: 'marathon' }), titre: 'Marathon', description: 'Une longue colonne sans remise à zéro : on tient le plus longtemps possible.' },
+    { groupe: 'Volume : ancrer par la répétition', ecran: 'muldiv', titre: 'Multiplication et division', description: 'Multiplications et divisions à la japonaise, avec aide pas à pas.' },
+    { groupe: 'Vitesse : le geste sans réfléchir', ecran: 'drills', titre: 'Drills et tables', description: 'Les suites classiques, du plus simple au 123 456 789 × 9, avec médailles bronze à platine. Et les tables.',
       info: () => ({ texte: `À valider : ${drillEchauffement(progression()).titre}` }) },
-    { ecran: 'rythme', titre: 'Rythme et endurance', description: 'Marathon ruban (sans remise à zéro) et lièvre (rythme imposé, lecture anticipée).' },
-    { ecran: 'planches', titre: 'Planches', description: 'Des colonnes ciblées sur un geste, en mode pur ou avec rappel doigté, imprimables.' },
-    { ecran: 'jeux', titre: 'Jeux', description: JEUX.map((j) => j.titre).join(', ') + '.',
+    { groupe: 'Vitesse : le geste sans réfléchir', ecran: 'rythme', params: () => ({ voir: 'lievre' }), titre: 'Lièvre', description: 'Un rythme imposé qui accélère : l\'œil apprend à lire la ligne suivante pendant que la main travaille.' },
+    { groupe: 'Calcul de tête', ecran: 'anzan', titre: 'Flash anzan', description: 'Calcul de tête libre : flash, image, mitori, photo du soroban.' },
+    { groupe: 'Calcul de tête', ecran: 'dictee', titre: 'Dictée (yomiage)', description: 'Les nombres sont lus à voix haute : on calcule à l\'oreille.' },
+    { groupe: 'Au quotidien', ecran: 'quotidien', titre: 'Au quotidien', description: 'Ticket de caisse, monnaie, pourcentages, factures.' },
+    { groupe: 'Jouer', ecran: 'jeux', titre: 'Jeux', description: JEUX.map((j) => j.titre).join(', ') + '.',
       info: () => { const r = JEUX.map((j) => recordJeu(j.id)).filter(Boolean); return r.length ? { texte: r[0] } : null; } },
-    { ecran: 'anzan', titre: 'Flash anzan', description: 'Calcul de tête libre : flash, image, mitori, photo du soroban.' },
-    { ecran: 'muldiv', titre: 'Multiplication et division', description: 'Multiplications et divisions à la japonaise, avec aide pas à pas.' },
-    { ecran: 'dictee', titre: 'Dictée (yomiage)', description: 'Les nombres sont lus à voix haute : on calcule à l\'oreille.' },
-    { ecran: 'quotidien', titre: 'Au quotidien', description: 'Ticket de caisse, monnaie, pourcentages, factures.' },
   ],
   mesurer: [
     { ecran: 'examen', titre: 'Passage de kyū', description: 'L\'examen de votre niveau, quand vous voulez : 20 colonnes chronométrées, 70 % pour réussir. Un échec ne coûte rien.',
@@ -67,12 +69,15 @@ function page(id, titre, intro, badge = null) {
     badge,
     monter(el, app) {
       el.append(h('h1', {}, titre), h('p', { class: 'discret chapeau' }, intro),
-        h('div', { class: 'cartes' }, CARTES[id].map((c) => {
-          const info = c.info?.();
-          return h('button', { class: `carte-hub${info?.aFaire ? ' recommande' : ''}`, onclick: () => app.aller(c.ecran, c.params?.() ?? {}) },
-            h('strong', {}, c.titre), h('span', {}, c.description),
-            info ? h('span', { class: `carte-info${info.aFaire ? ' a-faire' : ''}` }, info.texte) : null);
-        })));
+        // Cartes groupées par section (titre de groupe) quand elles en ont une.
+        ...[...new Set(CARTES[id].map((c) => c.groupe ?? ''))].flatMap((g) => [
+          g ? h('h2', { class: 'groupe-cartes' }, g) : null,
+          h('div', { class: 'cartes' }, CARTES[id].filter((c) => (c.groupe ?? '') === g).map((c) => {
+            const info = c.info?.();
+            return h('button', { class: `carte-hub${info?.aFaire ? ' recommande' : ''}`, onclick: () => app.aller(c.ecran, c.params?.() ?? {}) },
+              h('strong', {}, c.titre), h('span', {}, c.description),
+              info ? h('span', { class: `carte-info${info.aFaire ? ' a-faire' : ''}` }, info.texte) : null);
+          }))].filter(Boolean)));
       return null;
     },
   };

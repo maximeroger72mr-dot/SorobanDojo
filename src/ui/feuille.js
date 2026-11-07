@@ -8,6 +8,7 @@
  */
 
 import { diagnostiquer } from '../core/diagnostic.js';
+import { noterErreurColonne } from '../core/progression.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
@@ -96,6 +97,7 @@ export function creerFeuille(conteneur, o) {
           causes[0] ? h('div', { class: 'discret' }, causes[0]) : null,
           h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex) }, 'Expliquer')));
       }
+      if (!juste && reponse !== null) noterErreurColonne(c.ex); // à rejouer demain
       return { ex: c.ex, reponse, juste, section: c.section };
     });
     const parSection = o.sections.map((sec, si) => {

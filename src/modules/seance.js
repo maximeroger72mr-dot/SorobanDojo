@@ -11,7 +11,7 @@
 
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
-  minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur,
+  minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur, erreursARejouer,
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
@@ -49,6 +49,12 @@ function plan(d, debut, seance = null) {
   const drill = drillEchauffement(d);
   essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3,
     fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
+  // 1 bis. Les colonnes ratées lors de la dernière séance, rejouées à l'identique.
+  const aRejouer = erreursARejouer(date).length;
+  if (aRejouer || fait((s) => s.module === 'erreurs')) {
+    essentiel.push({ titre: 'Mes erreurs d\'hier', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} ratée${aRejouer > 1 ? 's' : ''}, à refaire telles quelles` : 'refaites', minutes: 2,
+      fait: fait((s) => s.module === 'erreurs'), aller: ['erreurs'] });
+  }
   // 2. Révisions dues : la mémoire avant tout.
   const dues = revisionsDues().length;
   if (dues) {
@@ -221,20 +227,24 @@ export default {
             h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)));
         return;
       }
+      // --- plan du jour (calculé tôt : la fin de séance automatique en dépend)
+      const p = plan(d, seance ? seance.debut : Date.now(), seance);
+      // Fin de séance automatique : tout l'essentiel est fait → le bilan s'affiche de lui-même.
+      if (seance && !bilan && p.essentiel.length && p.essentiel.every((it) => it.fait)) {
+        finirSeance().then((b) => afficher(b ?? null));
+        return;
+      }
+
+      // --- une ligne de statut compacte : série, minutes du jour (objectif réglable), grade
       el.append(h('h1', {}, 'Séance du jour'),
-        h('div', { class: 'tuiles' },
-          h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
-            h('div', { class: 'tuile-valeur' }, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`),
-            h('div', { class: 'serie-perles' }, rangee(septJours(dates), 7, `${septJours(dates)} jours de pratique sur les 7 derniers`)),
-            h('div', { class: 'discret' }, serie.aujourdhuiFait ? 'aujourd\'hui : fait' : serie.jours ? 'pratiquez aujourd\'hui pour la prolonger' : 'commencez aujourd\'hui')),
-          h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Objectif du jour ', choixObjectif),
-            h('div', { class: 'tuile-valeur' }, `${Math.floor(minutes)} / ${objectif} min`),
-            h('div', { class: 'jauge', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
-              h('div', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
-          h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Grade'),
-            h('div', { class: 'tuile-valeur' }, libelleGrade(d).valeur),
-            h('div', { class: 'discret' }, libelleGrade(d).detail))));
-      prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.tuiles')?.before(h('div', { class: 'carte avis' }, a))));
+        h('div', { class: 'statut-jour' },
+          h('span', {}, h('strong', {}, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`), ' de série ',
+            h('span', { class: 'serie-perles' }, rangee(septJours(dates), 7, `${septJours(dates)} jours de pratique sur les 7 derniers`))),
+          h('span', {}, h('strong', {}, `${Math.floor(minutes)} / `), choixObjectif, ' aujourd\'hui',
+            h('span', { class: 'jauge mini', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
+              h('span', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
+          h('span', { title: libelleGrade(d).detail }, 'Grade : ', h('strong', {}, libelleGrade(d).valeur))));
+      prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.statut-jour')?.after(h('div', { class: 'carte avis' }, a))));
       // Version navigateur : rappel d'export (les données ne vivent que dans ce navigateur).
       const premiere = d.sessions[0]?.date;
       if (versionNavigateur && premiere && premiere <= ajouterJours(aujourdhui(), -7) && (!d.dernierExport || d.dernierExport <= ajouterJours(aujourdhui(), -14))) {
@@ -259,7 +269,6 @@ export default {
       }
 
       // --- le prof et le plan
-      const p = plan(d, seance ? seance.debut : Date.now(), seance);
       // Chaque ligne s'ouvre d'un clic ; si la séance n'est pas commencée, le clic la commence
       // (la pastille du menu mène ici : la révision doit être accessible tout de suite).
       const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
@@ -268,18 +277,24 @@ export default {
         onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...it.aller); },
       }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'), h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
+      // Une seule grande action : la prochaine étape non faite (la séance démarre au premier clic).
+      const prochaine = p.essentiel.find((it) => !it.fait) ?? p.bonus.find((it) => !it.fait);
+      if (prochaine) {
+        el.append(h('div', { class: 'continuer' },
+          h('button', { class: 'btn principal grand-bouton', onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...prochaine.aller); } },
+            `${seance || bilan ? 'Continuer' : 'Commencer'} : ${prochaine.titre} →`),
+          h('div', { class: 'discret' }, prochaine.detail)));
+      }
       el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
-      const entete = seance
-        ? h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, `Séance en cours · commencée à ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`),
-          h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir la séance'))
-        : h('div', { class: 'ligne' }, h('h2', { style: 'margin:0;flex:1' }, bilan ? 'Une autre séance ?' : 'Votre séance'),
-          h('button', { class: 'btn principal', onclick: async () => { await demarrer(); afficher(); } }, 'Commencer la séance'));
+      const entete = h('div', { class: 'ligne' },
+        h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : bilan ? 'Envie de continuer ?' : 'Votre séance'),
+        seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
       el.append(h('div', { class: 'carte' }, entete,
         h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : pour atteindre votre objectif, dans cet ordre')),
         h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i))),
         h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
-        !seance ? h('p', { class: 'discret' }, 'Cliquez un point pour l\'ouvrir (la séance commence alors) ; chacun se coche quand il est fait.') : null));
+        h('p', { class: 'discret' }, 'Chaque point se coche quand il est fait ; quand tout l\'essentiel est coché, le bilan de la séance s\'affiche tout seul.')));
     }
     afficher();
   },

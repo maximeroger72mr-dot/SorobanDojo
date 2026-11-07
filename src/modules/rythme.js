@@ -50,8 +50,11 @@ function tempsGestes(cibles) {
 export default {
   id: 'rythme',
   titre: 'Rythme et endurance',
+  /** Titre selon l'exercice ouvert (fil d'Ariane). */
+  titreDe: (p) => ({ marathon: 'Marathon', lievre: 'Lièvre' })[p.voir ?? p.jeu] ?? 'Rythme et endurance',
   monter(el, app, params = {}) {
     let courant = null;
+    let voir = null;
     const records = () => progression().records;
     const select = (obj, cle, options, conv = (x) => x) => {
       const s = h('select', { onchange: (e) => { obj[cle] = conv(e.target.value); } },
@@ -69,9 +72,11 @@ export default {
       remplir(el);
       const m = reglages.marathon;
       const l = reglages.lievre;
-      el.append(h('h1', {}, 'Rythme et endurance'),
-        h('p', { class: 'discret' }, 'Deux exercices pour automatiser un geste sur votre soroban : le volume sans interruption (marathon), et le rythme qui oblige l\'œil à lire en avance (lièvre).'),
-        h('div', { class: 'carte', style: 'margin-bottom:16px' },
+      // Depuis S'entraîner, on arrive sur UN exercice (voir = 'marathon' | 'lievre') ; sinon les deux.
+      const titres = { marathon: 'Marathon', lievre: 'Lièvre' };
+      el.append(h('h1', {}, titres[voir] ?? 'Rythme et endurance'),
+        voir ? null : h('p', { class: 'discret' }, 'Deux exercices pour automatiser un geste sur votre soroban : le volume sans interruption (marathon), et le rythme qui oblige l\'œil à lire en avance (lièvre).'),
+        voir === 'lievre' ? null : h('div', { class: 'carte', style: 'margin-bottom:16px' },
           h('h2', { style: 'margin-top:0' }, 'Marathon ruban'),
           h('p', {}, 'Une seule longue colonne, 5 lignes à la fois, sans jamais remettre le soroban à zéro : vous tapez le sous-total, et la suite part de ce nombre. Une erreur : le joker vous laisse continuer ; deux : fin du marathon.'),
           h('div', { class: 'reglages' },
@@ -81,7 +86,7 @@ export default {
             caseA(m, 'pur', 'pur (aucun geste direct)'),
             caseA(m, 'doigte', 'rappel doigté'),
             h('button', { class: 'btn principal', onclick: () => lancerMarathon() }, 'Partir'))),
-        h('div', { class: 'carte' },
+        voir === 'marathon' ? null : h('div', { class: 'carte' },
           h('h2', { style: 'margin-top:0' }, 'Le lièvre (rythme imposé)'),
           h('p', {}, 'La ligne en cours est surlignée, la suivante est déjà visible : lisez-la pendant que vos doigts posent la ligne en cours. Le surligneur descend tout seul et la ligne passée disparaît. 3 colonnes justes d\'affilée : le lièvre accélère de 10 %.'),
           h('div', { class: 'reglages' },
@@ -94,7 +99,7 @@ export default {
             caseA(l, 'pur', 'pur'),
             h('button', { class: 'btn principal', onclick: () => lancerLievre() }, 'Partir'))));
       const recL = records()[`lievre-${l.chiffres}-${l.lignes}`];
-      if (recL) el.lastChild.append(h('p', { class: 'discret' }, `Votre meilleure cadence (${l.chiffres} chiffre${l.chiffres > 1 ? 's' : ''}, ${l.lignes} lignes) : ${sec(recL.dureeMs / 1000)} par ligne.`));
+      if (recL && voir !== 'marathon') el.lastChild.append(h('p', { class: 'discret' }, `Votre meilleure cadence (${l.chiffres} chiffre${l.chiffres > 1 ? 's' : ''}, ${l.lignes} lignes) : ${sec(recL.dureeMs / 1000)} par ligne.`));
     }
 
     // ------------------------------------------------------------ marathon
@@ -107,7 +112,7 @@ export default {
         : null].filter(Boolean).join(' ') || null;
       const cle = `marathon-${cibles ? cibles.join('+') : r.cible}${r.pur ? '-pur' : ''}-${r.chiffres}-${r.objectif}`;
       const rec = records()[cle];
-      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Rythme et endurance'),
+      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
         h('h1', {}, `Marathon : ${c.libelle}`),
         h('p', { class: 'discret' }, `${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${Number.isFinite(r.objectif) ? `${r.objectif} lignes` : 'sans fin'}${rec ? ` · record : ${Number.isFinite(r.objectif) ? formaterDuree(rec.dureeMs) : `${rec.points} lignes`}` : ''}`),
         note ? h('p', { class: 'discret' }, note) : null);
@@ -143,7 +148,7 @@ export default {
       const { c, note } = contraintesDe(r, cibles);
       const cadence = r.cadence === 'auto' ? cadenceDepart(tempsGestes(c.cibles), r.chiffres, accelere) : r.cadence;
       const cle = `lievre-${r.chiffres}-${r.lignes}`;
-      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Rythme et endurance'),
+      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
         h('h1', {}, `Le lièvre : ${c.libelle}`),
         note ? h('p', { class: 'discret' }, note) : null);
       courant = creerLievre(el, {
@@ -168,6 +173,7 @@ export default {
       if (params.auto) courant.demarrer();
     }
 
+    if (params.voir || params.jeu) voir = params.voir ?? params.jeu;
     if (params.jeu === 'marathon') {
       if (params.lignes) reglages.marathon.objectif = params.lignes;
       if (params.chiffres) reglages.marathon.chiffres = params.chiffres;

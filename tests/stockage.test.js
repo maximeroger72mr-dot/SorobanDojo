@@ -77,3 +77,42 @@ test('version de l\'application = package.json', async () => {
   const { VERSION_APPLI } = await import('../src/core/version.js');
   assert.equal(VERSION_APPLI, JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version);
 });
+
+test('erreur déduite : simple soupçon, confirmée au 2e (ou si la ligne est désignée)', async () => {
+  globalThis.localStorage = fauxStockage();
+  const p = await charger();
+  await p.chargerProgression();
+  let b = await p.noterGestes([], ['+3:petit'], 2);
+  assert.equal(b[0].statut, 'soupcon');
+  assert.equal(p.progression().motifs['+3:petit'].erreurs, 0);
+  b = await p.noterGestes([], ['+3:petit'], 2);
+  assert.equal(b[0].statut, 'confirme');
+  assert.equal(p.progression().motifs['+3:petit'].erreurs, 1);
+  b = await p.noterGestes([], ['-4:petit'], 2, { confirme: true });
+  assert.equal(b[0].statut, 'confirme');
+});
+
+test('colonnes ratées : rejouées à la séance suivante, retirées une fois réussies', async () => {
+  globalThis.localStorage = fauxStockage();
+  const p = await charger();
+  await p.chargerProgression();
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 3 }, { op: '+', n: 4 }], resultat: 7, motifs: [] };
+  await p.noterErreurColonne(ex);
+  await p.noterErreurColonne(ex);
+  assert.equal(p.erreursARejouer().length, 0); // aujourd'hui : pas encore « d'hier »
+  const demain = new Date(Date.now() + 86400000);
+  const j = `${demain.getFullYear()}-${String(demain.getMonth() + 1).padStart(2, '0')}-${String(demain.getDate()).padStart(2, '0')}`;
+  assert.equal(p.erreursARejouer(j).length, 1);
+  await p.retirerErreurColonne(ex);
+  assert.equal(p.erreursARejouer(j).length, 0);
+});
+
+test('sondage du mode Espace : alerte bienveillante à 2 écarts sur 5', async () => {
+  globalThis.localStorage = fauxStockage();
+  const p = await charger();
+  await p.chargerProgression();
+  assert.equal(await p.noterSondage(true), false);
+  assert.equal(await p.noterSondage(false), false);
+  assert.equal(await p.noterSondage(false), true);
+  assert.equal(await p.noterSondage(false), false); // compteur remis à zéro après l'alerte
+});

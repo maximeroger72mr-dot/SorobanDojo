@@ -91,6 +91,8 @@ export default {
   monter(el, app, params = {}) {
     let feuille = null;
     if (params.cible) reglages.cible = params.cible;
+    if (params.colonnes) reglages.colonnes = params.colonnes;
+    if (params.chiffres) reglages.chiffres = params.chiffres;
     if (params.consolidation) {
       const sp = sousPalier(params.consolidation);
       Object.assign(reglages, { cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10, pur: false });

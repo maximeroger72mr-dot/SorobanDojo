@@ -386,3 +386,33 @@ html:root #navigation button.actif .nom-menu { text-decoration: underline; text-
   .rapport h3 { break-after: avoid; }
   .tableau-rapport tr { break-inside: avoid; }
 }
+
+/* Revue des erreurs : la ligne probable surlignée. */
+table.colonne tr.ligne-probable td { background: var(--fond-alerte); }
+table.colonne tr.ligne-probable td.nombre { box-shadow: inset 0 -3px 0 var(--erreur) !important; }
+.revue-erreurs .erreur-item { display: flex; flex-direction: column; gap: 6px; }
+
+/* Fil d'Ariane. */
+.fil-ariane { max-width: 1080px; margin: 0 auto 6px; display: flex; gap: 8px; align-items: baseline; font-size: 0.9rem; color: var(--discret); }
+.fil-ariane[hidden] { display: none; }
+.fil-ariane .lien { font-size: 0.9rem; }
+.fil-ariane .lien:last-child { color: var(--texte); font-weight: 700; }
+@media print { .fil-ariane { display: none !important; } }
+/* Titres de groupe dans les pages de cartes (S'entraîner par intention). */
+html:root h2.groupe-cartes { font-size: 1.1rem; margin: 22px 0 0; border-top: none; padding-top: 0; color: var(--discret); text-transform: none; }
+html:root h2.groupe-cartes + .cartes { margin-top: 6px; }
+
+/* Aujourd'hui : statut compact, une grande action. */
+.statut-jour { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: center; padding: 10px 0 12px; border-top: 1px solid var(--texte); border-bottom: 1px solid var(--ligne); }
+.statut-jour strong { font-family: var(--police-perf); font-size: 1.35rem; font-weight: 800; }
+.statut-jour select { font-size: 0.95rem; }
+.statut-jour .serie-perles .rangee-perles { height: 12px; }
+.jauge.mini { display: inline-block; width: 90px; height: 10px; vertical-align: middle; margin-left: 8px; }
+.jauge.mini > span { display: block; height: 100%; background: var(--texte); }
+.continuer { margin: 18px 0 8px; }
+.continuer .discret { margin-top: 6px; max-width: 70ch; }
+/* Options d'une série (rappel doigté, mode Espace), repliées. */
+.options-serie { position: relative; font-size: 0.9rem; }
+.options-serie summary { cursor: pointer; color: var(--discret); text-decoration: underline; text-underline-offset: 3px; list-style: none; }
+.options-serie summary::-webkit-details-marker { display: none; }
+.options-serie[open] .options-contenu { position: absolute; right: 0; top: 1.8em; z-index: 20; background: var(--fond); border: 1px solid var(--texte); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 15rem; }

@@ -23,7 +23,8 @@ import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
-import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
+import { motifsEnDifficulte, noterGestes, noterReponse, noterSondage, reglagesUtilisateur, modifierReglages, noterErreurColonne } from '../core/progression.js';
+import { notifier } from './toast.js';
 import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
 import { creerCourse } from './course.js';
 import { sousTotaux } from '../core/generateur.js';
@@ -100,7 +101,10 @@ export function creerSerie(conteneur, o) {
   const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const zoneDiag = h('div', {});
   const racine = h('div', { class: 'serie' },
-    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), opts.defi ? null : choixDoigte, opts.defi ? null : choixEspace, fantome, chrono, compteur),
+    // Options repliées : pendant le calcul, seuls la colonne, la saisie et un petit chrono restent.
+    h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }),
+      opts.defi ? null : h('details', { class: 'options-serie' }, h('summary', {}, 'Options'), h('div', { class: 'options-contenu' }, choixDoigte, choixEspace)),
+      fantome, chrono, compteur),
     course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
     h('div', { class: 'ligne' }, btnSigne, saisie, btnValider, btnBloque),
@@ -123,6 +127,7 @@ export function creerSerie(conteneur, o) {
   let aideUtilisee = false;
   let aide = null;          // { etapes, index } pour « Je suis bloqué »
   let flashEnCours = false;
+  let sondage = false;      // mode Espace : contrôle surprise en cours (on tape ce que montre le soroban)
   // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
   const modeEspace = () => caseEspace.checked && !opts.defi && !ex?.flash;
   function majModeEspace() {
@@ -324,14 +329,21 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     majChronoExo(dureeMs);
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
+    if (sondage) {
+      sondage = false;
+      if (await noterSondage(juste)) {
+        notifier('Petit point sur le mode Espace', 'Deux fois sur vos derniers contrôles, votre soroban ne montrait pas le bon nombre. Rien de grave, cela arrive quand on va vite : ralentissez un peu, ou tapez vos résultats quelque temps pour vérifier.', 12000);
+      }
+    }
     racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
+    if (!juste && !opts.sansMemoireErreurs) await noterErreurColonne(ex); // à rejouer demain
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
-    if (ex.motifs && !aideUtilisee) await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t);
+    const bilanGestes = ex.motifs && !aideUtilisee ? await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t) : [];
     await noterReponse(juste);
     await opts.surExercice?.({ juste, reponse, dureeMs, t, aide: aideUtilisee }, ex, i);
     majDiag();
@@ -368,13 +380,16 @@ export function creerSerie(conteneur, o) {
       return;
     }
     phase = 'corrige';
-    attribue = !!localisation;
+    // Une erreur seulement soupçonnée peut encore être confirmée en désignant la ligne.
+    attribue = bilanGestes.some((g) => g.statut === 'confirme');
     const causes = diagnostiquer(ex, reponse);
     const zoneLocalisation = h('div', { class: 'localisation' });
     zoneLocalisationCourante = zoneLocalisation;
     if (localisation) {
       remplir(zoneLocalisation, h('strong', {}, 'Erreur probable : '),
-        `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). C'est une déduction à partir de l'écart : si ce n'est pas là que votre soroban a divergé, refaites la colonne avec les sous-totaux. Ce geste est noté à retravailler.`);
+        `ligne ${localisation.ligne + 1}, ${localisation.raison} (${localisation.motifs.map(nomMotif).join(', ')}). C'est une déduction à partir de l'écart. `,
+        attribue ? 'Deuxième fois en 10 jours : ce geste est noté à retravailler.'
+          : 'Simple soupçon pour l\'instant : le geste ne sera noté à retravailler que si cela se reproduit dans les 10 jours, ou si vous confirmez la ligne avec les sous-totaux (S).');
     } else if (ex.type === 'addsub' && !ex.ticket) {
       remplir(zoneLocalisation, h('span', { class: 'discret' },
         'Pour un diagnostic juste, refaites la colonne en comparant avec les sous-totaux (S), puis cliquez la ligne où votre soroban a divergé. Sinon, aucun geste n\'est accusé.'));
@@ -393,9 +408,21 @@ export function creerSerie(conteneur, o) {
 
   /** Mode Espace : on arrête le chrono et on montre le résultat ; l'élève compare avec son soroban. */
   function reveler() {
-    if (phase !== 'question' || flashEnCours) return;
+    if (phase !== 'question' || flashEnCours || sondage) return;
     dureeCalcul ??= performance.now() - debutExercice;
     majChronoExo(dureeCalcul);
+    // Contrôle surprise, une fois sur cinq environ : avant de voir le résultat, on tape ce que
+    // montre son soroban. Juste, il compte comme une vraie réponse (et donc pour le niveau).
+    if (ex.type === 'addsub' && Math.random() < 0.2) {
+      sondage = true;
+      saisie.style.display = '';
+      btnValider.style.display = '';
+      saisie.value = '';
+      retour.className = 'retour';
+      remplir(retour, h('strong', {}, 'Contrôle surprise : '), 'tapez le nombre que montre votre soroban, puis Entrée (la frappe ne compte pas dans le temps).');
+      saisie.focus();
+      return;
+    }
     phase = 'auto';
     retour.className = 'retour';
     remplir(retour, 'Résultat : ', h('strong', { class: 'resultat-drill' }, valeur(ex, ex.resultat)), '. Votre soroban affiche-t-il ce nombre ? ',
@@ -435,7 +462,7 @@ export function creerSerie(conteneur, o) {
     if (attribue || phase !== 'corrige') return;
     attribue = true;
     const motifs = motifsDeLigne(ex, ligne);
-    await noterGestes([], motifs, tempsParUnite(ex, resultats.at(-1).dureeMs));
+    await noterGestes([], motifs, tempsParUnite(ex, resultats.at(-1).dureeMs), { confirme: true });
     majDiag();
     remplir(zoneLocalisationCourante, h('strong', {}, `Ligne ${ligne + 1} : `),
       motifs.length ? `${motifs.map(nomMotif).join(', ')} noté${motifs.length > 1 ? 's' : ''} à retravailler.` : 'noté.');
@@ -489,13 +516,56 @@ export function creerSerie(conteneur, o) {
 }
 
 /** Liste de révision des erreurs, à afficher dans un bilan (avec bouton Expliquer). */
+/**
+ * Revue ciblée des erreurs, en fin de série (mini-test, révision, défi, examen…). Pour chaque
+ * colonne fausse : la colonne avec ses sous-totaux, la ligne probable surlignée (déduite de
+ * l'écart), « Revoir ce geste » (animation) ; on peut aussi cliquer la ligne où son soroban a
+ * divergé, ce qui CONFIRME l'erreur sur ce geste. En bas : 5 colonnes tout de suite sur le geste
+ * le plus souvent en cause.
+ */
 export function listeErreurs(resultats) {
   const erreurs = resultats.filter((r) => !r.juste);
   if (!erreurs.length) return null;
-  return h('div', {}, h('h2', {}, 'À revoir'),
-    h('div', { class: 'liste-erreurs' }, erreurs.map((r) => h('div', { class: 'carte erreur-item' },
-      rendreEnonce(r.ex, { compact: true }),
-      r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse === null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
-      r.reponse === null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
-      explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null))));
+  const enCause = {};
+  const cartes = erreurs.map((r) => {
+    const colonne = r.ex.type === 'addsub' && !r.ex.ticket && !r.ex.flash && r.reponse !== null && r.reponse !== undefined;
+    if (!colonne) {
+      return h('div', { class: 'carte erreur-item' },
+        rendreEnonce(r.ex, { compact: true }),
+        r.ex.type === 'tenir' ? h('div', {}, 'Image à retravailler') : h('div', {}, r.reponse == null ? 'Auto-évalué · résultat : ' : `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
+        r.reponse == null ? null : h('ul', { class: 'detail' }, diagnostiquer(r.ex, r.reponse).map((c) => h('li', {}, c))),
+        explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null);
+    }
+    const loc = localiserErreur(r.ex, r.reponse);
+    for (const m of loc?.motifs ?? []) if (!m.endsWith(':direct')) enCause[m] = (enCause[m] ?? 0) + 1;
+    const message = h('div', { class: 'discret' }, loc
+      ? `Ligne ${loc.ligne + 1} probable (${loc.raison}). Si votre soroban a divergé ailleurs, cliquez la bonne ligne.`
+      : 'Refaites la colonne en suivant les sous-totaux, puis cliquez la ligne où votre soroban a divergé.');
+    let designee = false;
+    const zoneColonne = h('div', {});
+    const dessiner = (ligneVue) => remplir(zoneColonne, rendreEnonce(r.ex, {
+      compact: true, sousTotaux: true, surligne: ligneVue,
+      surLigne: designee ? null : async (i) => {
+        designee = true;
+        const motifs = motifsDeLigne(r.ex, i);
+        await noterGestes([], motifs, r.dureeMs ? tempsParUnite(r.ex, r.dureeMs) : 1, { confirme: true });
+        remplir(message, h('strong', {}, `Ligne ${i + 1} : `), motifs.length ? `${motifs.map(nomMotif).join(', ')} noté${motifs.length > 1 ? 's' : ''} à retravailler.` : 'geste direct, rien à noter.');
+        dessiner(i);
+      },
+    }));
+    dessiner(loc?.ligne ?? null);
+    return h('div', { class: 'carte erreur-item' },
+      h('div', {}, `Votre réponse : ${valeur(r.ex, r.reponse)} · résultat : `, h('strong', {}, valeur(r.ex, r.ex.resultat))),
+      zoneColonne, message,
+      h('div', { class: 'ligne', style: 'margin-top:6px' },
+        (loc?.motifs ?? []).filter((m) => !m.endsWith(':direct')).map((m) => h('button', { class: 'btn', onclick: () => ouvrirDemo({ titre: nomMotif(m), texte: gesteMotif(m), demo: exempleMotif(m) }) }, `Revoir : ${nomMotif(m)}`)),
+        explicable(r.ex) ? h('button', { class: 'btn', onclick: () => ouvrirExplication(r.ex) }, 'Expliquer') : null));
+  });
+  const principal = Object.entries(enCause).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return h('div', { class: 'revue-erreurs' }, h('h2', {}, 'Revue de vos erreurs'),
+    h('p', { class: 'discret' }, 'Prenez une minute : refaites chaque colonne sur votre soroban en suivant les sous-totaux, pour voir où il a divergé.'),
+    h('div', { class: 'liste-erreurs' }, cartes),
+    principal ? h('div', { class: 'carte suggestion ligne' },
+      h('span', { style: 'flex:1' }, `Le geste le plus souvent en cause : `, h('strong', {}, nomMotif(principal)), '. Le meilleur moment pour le corriger, c\'est maintenant.'),
+      h('button', { class: 'btn principal', onclick: () => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: principal, auto: true, colonnes: 5, chiffres: 1 }] })) }, `5 colonnes sur ce geste maintenant`)) : null);
 }
