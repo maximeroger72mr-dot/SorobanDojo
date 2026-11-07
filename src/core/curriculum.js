@@ -70,6 +70,15 @@ export const PALIERS = [
           ['Pourquoi mélanger ensuite', 'Répéter un geste en bloc l\'installe vite ; le mélanger ensuite avec les autres oblige à le CHOISIR, comme dans un vrai calcul. C\'est ce qui le rend durable : d\'où les séances de consolidation après chaque leçon.'],
           ['Et la tête dans tout ça ?', 'À force de manipuler, l\'image du soroban s\'installe dans la tête : c\'est l\'anzan. Le calcul mental des bons joueurs n\'est pas un don, c\'est ce soroban imaginaire, construit geste après geste.'],
         ],
+        // Vérification : on valide la leçon en répondant juste à toutes les questions.
+        quiz: [
+          { q: 'Quel doigt fait MONTER les boules terrestres ?', choix: ['Le pouce', 'L\'index', 'Le majeur'], bonne: 0, pourquoi: 'Le pouce monte les terrestres ; l\'index les descend et manœuvre la céleste (« La main droite et le crayon »).' },
+          { q: 'Et l\'index, que fait-il ?', choix: ['Il descend les terrestres et manœuvre la céleste', 'Il monte les terrestres', 'Il ne sert qu\'à tenir le crayon'], bonne: 0, pourquoi: 'L\'index DESCEND les terrestres et bouge la céleste dans les deux sens.' },
+          { q: 'Quelle tige prendre comme tige des unités ?', choix: ['Une tige marquée d\'un point, vers la droite', 'La tige la plus à gauche', 'N\'importe laquelle, elle change à chaque calcul'], bonne: 0, pourquoi: 'Une tige marquée d\'un point, vers la droite, toujours la même : tous les nombres s\'alignent dessus (« Le soroban »).' },
+          { q: 'Pour 300 + 156, comment pose-t-on 156 ?', choix: ['En entier, de gauche à droite : 1, puis 5, puis 6', 'Colonne par colonne, en partant des unités, comme sur papier', 'On calcule le total de tête, puis on le pose'], bonne: 0, pourquoi: 'Nombre par nombre, de gauche à droite : le total est sur le soroban, la tête n\'a rien à retenir (« Lire une colonne »).' },
+          { q: 'À quoi sert la main gauche ?', choix: ['Elle tient le bord du soroban et sert de repère', 'Elle bouge les boules célestes', 'Elle tient le crayon'], bonne: 0, pourquoi: 'Elle tient le soroban sans cacher les tiges, et son index marque la tige de travail en multiplication et en division.' },
+          { q: 'Comment remettre le soroban à zéro ?', choix: ['L\'incliner vers soi, le reposer, puis glisser l\'index le long de la barre', 'Le secouer', 'Repousser chaque boule une à une'], bonne: 0, pourquoi: 'Inclinez-le (les terrestres tombent), reposez-le, puis écartez les célestes d\'un glissé de l\'index : deux secondes.' },
+        ],
         demos: [] },
     ],
   },
@@ -295,6 +304,12 @@ export const PALIERS = [
           ['Une image plutôt que des mots', 'Garder « 47 » en mots occupe la mémoire de travail, déjà petite. Une image de soroban se garde mieux : c\'est une forme, pas une suite de sons. C\'est pourquoi on évite la voix intérieure.'],
           ['Les doigts aident la tête', 'D\'après l\'imagerie cérébrale, les zones qui commandent un geste s\'activent en partie quand on l\'imagine. Bouger les doigts dans l\'air relie l\'image au geste appris sur le vrai soroban.'],
           ['Pourquoi aller lentement', 'Si l\'image se brouille, on s\'entraîne à… deviner. Mieux vaut des chaînes courtes et nettes : la longueur vient ensuite, puis la vitesse.'],
+        ],
+        quiz: [
+          { q: 'Pendant un calcul de tête, que garde-t-on en tête ?', choix: ['L\'image du soroban, avec le total', 'La liste des nombres lus', 'La phrase « 4 plus 3 égale 7 »'], bonne: 0, pourquoi: 'Le nombre lu déclenche un geste, puis on l\'oublie : on garde l\'état du soroban, le total (« Garder l\'image du TOTAL »).' },
+          { q: 'L\'image se brouille : que faire ?', choix: ['Réduire le nombre de nombres', 'Aller plus vite pour finir avant d\'oublier', 'Deviner le résultat'], bonne: 0, pourquoi: 'On réduit le NOMBRE de nombres, pas la vitesse : 3 nombres nets valent mieux que 5 flous.' },
+          { q: 'Et les doigts ?', choix: ['On fait le geste dans l\'air, comme sur le vrai soroban', 'On les garde immobiles', 'On compte sur ses doigts'], bonne: 0, pourquoi: 'Au début, c\'est le mouvement des doigts qui porte l\'image (« Les doigts dans l\'air »).' },
+          { q: 'Quel soroban imaginer ?', choix: ['Toujours le même : le vôtre', 'Un nouveau à chaque séance', 'Peu importe'], bonne: 0, pourquoi: 'Toujours le même : l\'image se renforce à chaque séance.' },
         ],
         demos: [] },
       { id: 'pa-1', titre: 'Photo du soroban : 1 tige', type: 'photo', apres: 'p1-4', chiffres: 1, duree: 1.5, repetitions: 20,

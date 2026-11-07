@@ -237,7 +237,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
     // Un peu de hasard départage les candidats proches : sinon le « meilleur » chemin revient sans cesse.
-    const score = (cibles ? (viser ? 1 : 0.6) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) + Math.random() * 3;
+    const score = (cibles ? (viser ? 1 : 0.3) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');

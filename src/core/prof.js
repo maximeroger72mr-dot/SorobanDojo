@@ -7,7 +7,7 @@
  *  - jeuDuJour : le jeu « bonus » du jour, qui change chaque jour parmi ceux qui ont du sens
  *    au niveau atteint.
  *  - motDuProf : 3 ou 4 phrases : ce qui s'est passé, la décision du jour et pourquoi,
- *    l'examen de la semaine, l'objectif.
+ *    le passage de kyū de la semaine (sans pression), l'objectif.
  *
  * Fonctions pures : elles reçoivent les données de progression (et le prochain sous-palier).
  */
@@ -15,7 +15,7 @@
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
 import { evaluer } from './maitrise.js';
 import { famillesApprises, planObjectif } from './parcours.js';
-import { examenDeLaSemaine, resultatSemaine, joursRestants, meilleurPrekyu } from './examen.js';
+import { examenDeLaSemaine, resultatSemaine, meilleurPrekyu } from './examen.js';
 
 const jour = (x) => new Date(`${x}T12:00`).getTime();
 const ecartJours = (a, b) => Math.round((jour(b) - jour(a)) / 86400000);
@@ -104,10 +104,12 @@ export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes, 
   phrases.push(decision.raison);
   const g = examenDeLaSemaine(d);
   if (g) {
+    // Le rendez-vous de la semaine, sans échéance ni pression : un échec est normal.
     const r = resultatSemaine(d, date);
-    const reste = joursRestants(date);
-    if (r) phrases.push(r.reussi ? `${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.` : `Examen de la semaine : ${r.points} / ${r.total}, pas encore. On retravaille, et on retente la semaine prochaine.`);
-    else phrases.push(reste <= 3 ? `Le ${g.nom} est à passer avant dimanche : c'est dans l'essentiel aujourd'hui.` : `Le ${g.nom} vous attend cette semaine (encore ${reste} jours) : passez-le un jour où vous êtes en forme.`);
+    const obtenu = g.id !== 'hebdo' && d.records[`prekyu-${g.id}`]?.reussi;
+    if (r?.reussi) phrases.push(`${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.`);
+    else if (r) phrases.push(`Passage de kyū : ${r.points} / ${r.total} cette semaine, pas encore. C'est normal ; retentez quand vous voulez, après un peu d'entraînement.`);
+    else if (!obtenu) phrases.push(`Le ${g.nom} est ouvert : passez-le cette semaine, le jour où vous vous sentez en forme. Raté, il ne vous retire rien.`);
   } else if (!meilleurPrekyu(d)) {
     phrases.push('Premier examen (20e kyū prép.) dès que les gestes directs sont validés.');
   }

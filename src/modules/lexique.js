@@ -17,7 +17,7 @@ export const MOTS = [
   ['Fantôme', 'Votre propre record, rejoué en même temps que vous : une barre montre où vous en étiez à ce moment-là.'],
   ['Flash anzan', 'Des nombres affichés très brièvement, un par un, à additionner de tête.'],
   ['Kyū (級)', 'Grade de calcul au soroban, du 10e (débutant) au 1er. Les « kyū prép. » (20e au 11e) sont propres à cette application et n\'ont pas de valeur officielle.'],
-  ['Kyū de la semaine', 'Examen hebdomadaire chronométré sur tout ce que vous avez appris ; seule la première tentative de la semaine compte pour le kyū prép.'],
+
   ['Lièvre', 'Jeu de rythme : les nombres défilent à une cadence imposée qui accélère quand vous suivez.'],
   ['Marathon (ruban)', 'Une longue colonne sans remise à zéro : on donne le sous-total régulièrement, et on tient le plus longtemps possible.'],
   ['Mitori (見取り)', 'Les additions et soustractions écrites en colonne, qu\'on lit et qu\'on pose sur le soroban : l\'exercice de base des examens.'],
@@ -25,6 +25,7 @@ export const MOTS = [
   ['Mode pur', 'Planches où chaque ligne utilise le geste travaillé, sans geste direct pour souffler.'],
   ['Motif (geste)', 'Un geste précis sur une tige, par exemple « +3 petit ami » ou « −8 grand ami ». La carte de maîtrise les suit un par un.'],
   ['Niveau d\'un geste', 'À découvrir, En progrès, Acquis débutant, confirmé, expert : selon la justesse ET la vitesse sur ce geste.'],
+  ['Passage de kyū', 'L\'examen chronométré de votre niveau, sur tout ce que vous avez appris, ouvert en permanence. Réussi (70 %), il donne le kyū prép. ; raté, il ne retire rien et se retente quand on veut.'],
   ['Pincée', 'Geste où le pouce et l\'index bougent ensemble, par exemple pour poser 6 à 9 (céleste et terrestres en même temps).'],
   ['Planche', 'Une feuille de colonnes ciblées sur un geste, à faire d\'une traite, imprimable.'],
   ['Remise à zéro', 'Toutes les boules écartées de la barre : le soroban affiche 0.'],

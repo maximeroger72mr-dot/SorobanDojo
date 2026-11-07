@@ -348,3 +348,40 @@ html:root svg.soroban .tige.ok .boule:not(.active) { fill: #9fd3b0; }
 
 /* Bouton ± (résultats négatifs) à côté de la saisie. */
 .btn-signe { font-family: var(--police-chiffres); min-width: 3rem; }
+
+/* Quiz des leçons à lire. */
+.quiz-question { border: none; border-top: 1px solid var(--ligne); margin: 0; padding: 12px 0 8px; }
+.quiz-question legend { font-weight: 700; padding: 0; margin-bottom: 6px; float: left; width: 100%; }
+.quiz-choix { display: flex; gap: 8px; align-items: baseline; padding: 6px 2px; cursor: pointer; clear: left; }
+.quiz-choix input { flex: none; }
+.quiz-question.ko legend { color: var(--erreur); }
+.quiz-explication { margin-top: 4px; max-width: 70ch; }
+
+/* « À faire / recommandé » : un bleu, distinct du vermillon des erreurs et de l'action principale.
+ * Vermillon = agir ou attention ; bleu = conseil du prof ; noir = information. */
+:root { --conseil: #1c5fb8; --sur-conseil: #ffffff; }
+:root[data-mode="sombre"] { --conseil: #8ab4ff; --sur-conseil: #000000; }
+@media (prefers-color-scheme: dark) { :root[data-mode="auto"] { --conseil: #8ab4ff; --sur-conseil: #000000; } }
+html:root .carte-hub .carte-info.a-faire { color: var(--conseil); }
+html:root .carte-hub.recommande::after { color: var(--conseil); }
+html:root .ligne-palier.priorite { box-shadow: inset 4px 0 0 var(--conseil) !important; padding-left: 12px; }
+html:root .ligne-palier.priorite .titre strong { color: var(--conseil); }
+html:root .plan li.priorite { color: var(--conseil); }
+/* Pastille du menu (révisions à faire) : un conseil, pas une erreur. */
+html:root .pastille { background: var(--conseil); color: var(--sur-conseil); }
+/* Entrée active du menu : pas seulement une couleur, un trait sous le libellé. */
+html:root #navigation button.actif .nom-menu { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+
+/* Bilan imprimable. */
+.rapport { max-width: 760px; }
+.rapport h2 { margin-top: 20px; }
+.tableau-rapport { width: 100%; border-collapse: collapse; }
+.tableau-rapport th, .tableau-rapport td { text-align: left; vertical-align: top; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--ligne); }
+.tableau-rapport th { white-space: nowrap; width: 1%; }
+.liste-rapport { columns: 2; column-gap: 28px; padding-left: 1.2em; }
+@media print {
+  .ecran-seul { display: none !important; }
+  .rapport { max-width: none; font-size: 11pt; }
+  .rapport h3 { break-after: avoid; }
+  .tableau-rapport tr { break-inside: avoid; }
+}

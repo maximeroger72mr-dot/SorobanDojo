@@ -1,13 +1,15 @@
 /**
- * Kyū de la semaine : un petit examen chaque semaine, pour travailler SOUS PRESSION, sur ce que
- * l'on a appris (et rien d'autre).
+ * Passage de kyū : l'examen du niveau où l'on se trouve, accessible EN PERMANENCE, pour
+ * travailler sous la pression d'un vrai examen, sur ce que l'on a appris (et rien d'autre).
+ * Le prof le propose une fois par semaine, sans échéance ; un échec est normal et ne coûte rien :
+ * on retente quand on veut.
  *
  * Avant le 10e kyū officiel, des grades préparatoires (20e → 11e kyū), un par étape du parcours :
  * on peut ainsi passer un grade, même très modeste, dès les gestes directs. Chaque grade se
  * débloque quand ses leçons (et celles d'avant) sont validées.
  *
  * Format : 20 colonnes au moins, temps fixe (compte à rebours), seuil de 70 % comme aux examens
- * officiels. Une seule tentative compte par semaine : c'est un examen, pas un entraînement.
+ * officiels. Chaque tentative compte : la réussite donne le grade, l'échec ne retire rien.
  * Au-delà du 11e kyū, l'examen de la semaine garde ce format avec tous les gestes appris
  * (3 chiffres, 7 lignes) ; les vrais kyū se passent dans « Épreuves officielles ».
  *
@@ -35,7 +37,7 @@ export const PREKYU = [
   { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 6, theme: 'combinaisons' },
   { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 3, lignes: 6, theme: 'cascades et révision générale' },
 ];
-const APRES = { id: 'hebdo', nom: 'Examen de la semaine', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
+const APRES = { id: 'hebdo', nom: 'Examen de niveau', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
 
 /** Grade préparatoire accessible : ses leçons et celles des grades d'avant sont validées. */
 export function prekyuAccessible(d, g) {
@@ -75,7 +77,7 @@ export function sujetExamen(d, g) {
   }, memoire));
 }
 
-/** Clé et résultat de l'examen de cette semaine (une seule tentative compte). */
+/** Clé et meilleur résultat des passages de cette semaine (pour le rendez-vous hebdomadaire du prof). */
 export const cleSemaine = (date) => `kyu-semaine-${semaineISO(date).cle}`;
 export const resultatSemaine = (d, date) => d.records[cleSemaine(date)] ?? null;
 

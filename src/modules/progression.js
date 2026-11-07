@@ -40,7 +40,7 @@ function ouJenSuis(app, d) {
   const dues = revisionsDues().length;
   const indicateurs = [
     ['Leçons validées', 'LE fil du parcours : chaque leçon se valide par un mini-test (justesse et vitesse).'],
-    ['Grade', 'Kyū prép. (20e au 11e) : jalons propres à l\'application, par l\'examen de la semaine. Kyū officiels (10e au 1er) : épreuves au format japonais.'],
+    ['Grade', 'Kyū prép. (20e au 11e) : jalons propres à l\'application, par le passage de kyū. Kyū officiels (10e au 1er) : épreuves au format japonais.'],
     ['Niveau d\'un geste', 'À découvrir → Acquis expert : la justesse ET la vitesse sur un geste précis (carte de maîtrise). Sert à choisir quoi retravailler.'],
     ['Boîte de révision (1 à 5)', 'Combien de temps une leçon validée tient sans être revue. Sert à planifier les révisions.'],
     ['Médailles des drills, étoiles, records', 'Votre vitesse sur des exercices précis : pour le plaisir de progresser, sans effet sur le parcours.'],
@@ -168,7 +168,8 @@ export default {
     const { parModule, parJour } = statistiques();
     const g = grade(d);
     const serie = serieJours([...new Set(d.sessions.map((s) => s.date))], aujourdhui());
-    el.append(h('h1', {}, 'Progression'), h('h2', { style: 'margin-top:0' }, 'Où j\'en suis'), ouJenSuis(app, d));
+    el.append(h('h1', {}, 'Progression'), h('h2', { style: 'margin-top:0' }, 'Où j\'en suis'), ouJenSuis(app, d),
+      h('p', {}, h('button', { class: 'btn', onclick: () => app.aller('bilan') }, 'Bilan imprimable (pour un club ou un professeur)')));
 
     // Grade et régularité
     el.append(h('div', { class: 'tuiles' },

@@ -1,13 +1,12 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "test": "node --test \"tests/**/*.test.js\"",
     "dist:win": "electron-builder --win portable",
-    "dist:mac": "electron-builder --mac",
     "html": "node scripts/construire-html.mjs",
     "polices": "node scripts/polices.mjs"
   },
@@ -19,7 +18,8 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "electron": "^45.2.1",
     "electron-builder": "^26.18.0",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "subset-font": "^2.9.0"
   },
   "productName": "Soroban",
   "type": "module",
@@ -34,21 +34,13 @@
     "win": {
       "target": "portable"
     },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "universal"
-          ]
-        }
-      ],
-      "category": "public.app-category.education",
-      "artifactName": "Soroban-${version}-Mac.dmg",
-      "identity": "-"
-    },
     "portable": {
       "artifactName": "Soroban-${version}-Windows.exe"
-    }
+    },
+    "compression": "maximum",
+    "electronLanguages": [
+      "fr",
+      "en-US"
+    ]
   }
 }

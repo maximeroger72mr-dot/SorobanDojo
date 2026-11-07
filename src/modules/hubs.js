@@ -44,13 +44,13 @@ const CARTES = {
     { ecran: 'quotidien', titre: 'Au quotidien', description: 'Ticket de caisse, monnaie, pourcentages, factures.' },
   ],
   mesurer: [
-    { ecran: 'examen', titre: 'Kyū de la semaine', description: 'Un examen chronométré chaque semaine, sur tout ce que vous savez. 20 colonnes, 70 % pour réussir.',
+    { ecran: 'examen', titre: 'Passage de kyū', description: 'L\'examen de votre niveau, quand vous voulez : 20 colonnes chronométrées, 70 % pour réussir. Un échec ne coûte rien.',
       info: () => {
         const d = progression();
         const g = examenDeLaSemaine(d);
         if (!g) return null;
         const r = resultatSemaine(d, aujourdhui());
-        return r ? { texte: `${g.nom} : ${r.points} / ${r.total} cette semaine${r.reussi ? ' ✓' : ''}` } : { texte: `${g.nom} à passer cette semaine`, aFaire: true };
+        return r ? { texte: `${g.nom} : ${r.points} / ${r.total} cette semaine${r.reussi ? ' ✓' : ''}` } : { texte: `${g.nom} : quand vous voulez` };
       } },
     { ecran: 'defis', titre: 'Défis chrono', description: 'Défi de la semaine en 3 étoiles, défis libres contre votre fantôme, arcade, échelle des kyū.',
       info: () => { const d = progression(); const s = defiSemaine(d, aujourdhui()); return { texte: `Défi de la semaine : ${bits(d.records[`${s.cle}-etoiles`]?.points ?? 0)} étoile(s) sur 3` }; } },

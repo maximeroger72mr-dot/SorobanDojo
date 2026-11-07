@@ -5,7 +5,7 @@
  *
  * Usage : npm run html
  */
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -25,7 +25,9 @@ const resultat = await build({
 // Échappe toute séquence « </script » qui fermerait la balise prématurément.
 const js = resultat.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 // Styles : base, polices embarquées (base64) et thèmes, dans cet ordre.
-const css = ['styles.css', 'polices.css', 'themes.css'].map((f) => readFileSync(join(racine, 'src', f), 'utf8')).join('\n');
+const brut = ['styles.css', 'polices.css', 'themes.css'].map((f) => readFileSync(join(racine, 'src', f), 'utf8')).join('\n');
+// CSS minifié (commentaires, espaces) : le fichier reste lisible par le navigateur, en plus léger.
+const { code: css } = await transform(brut, { loader: 'css', minify: true, target: ['chrome100', 'firefox100', 'safari15'] });
 
 const html = `<!DOCTYPE html>
 <html lang="fr" data-theme="suisse" data-mode="auto">

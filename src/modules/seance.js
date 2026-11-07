@@ -22,7 +22,7 @@ import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, jeuDuJour, motDuProf } from '../core/prof.js';
-import { examenDeLaSemaine, resultatSemaine, minutesExamen, joursRestants, libelleGrade } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, minutesExamen, libelleGrade } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 import { rangee } from '../ui/perles.js';
 
@@ -55,13 +55,15 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Révisions', detail: `${dues} leçon${dues > 1 ? 's' : ''} à revoir (10 calculs chacune)`, minutes: 3 * dues,
       fait: fait((s) => s.module === 'revisions'), aller: ['revisions'] });
   }
-  // 3. Kyū de la semaine : dans l'essentiel à partir de 3 jours de la fin de semaine.
+  // 3. Passage de kyū : ouvert en permanence, proposé en bonus (en tête) ; aucune échéance, aucune
+  //    pression. Il ne passe dans l'essentiel que le jour où on l'a passé, pour le voir coché.
   const exam = examenDeLaSemaine(d);
   const examFait = resultatSemaine(d, date);
-  const itemExamen = exam ? { titre: `Kyū de la semaine · ${exam.nom}`, detail: examFait ? `${examFait.points} / ${examFait.total} cette semaine${examFait.reussi ? ', réussi' : ''}` : `20 colonnes en ${minutesExamen(exam)} min, sous pression`, minutes: minutesExamen(exam),
+  const examObtenu = exam && exam.id !== 'hebdo' && d.records[`prekyu-${exam.id}`]?.reussi;
+  const itemExamen = exam ? { titre: `Passage de kyū · ${exam.nom}`, detail: examFait ? `${examFait.points} / ${examFait.total} cette semaine${examFait.reussi ? ', réussi' : ', pas encore : retentez quand vous voulez'}` : `20 colonnes en ${minutesExamen(exam)} min, quand vous vous sentez prêt`, minutes: minutesExamen(exam),
     fait: !!examFait, aller: ['examen', {}], examen: true } : null;
-  // Dans l'essentiel en fin de semaine (ou s'il a été passé pendant cette séance, pour le voir coché).
-  const examEssentiel = itemExamen && (joursRestants(date) <= 3 || fait((s) => s.module === 'examen' && s.mode === 'semaine'));
+  const passeAujourdhui = fait((s) => s.module === 'examen');
+  const examEssentiel = itemExamen && passeAujourdhui;
   if (examEssentiel) essentiel.push(itemExamen);
   // 4. Priorité du jour : le geste à ancrer, à accélérer, ou le plateau à casser.
   const priorite = seance ? seance.priorite ?? null : prioriteDuJour(d, date, motifsEnDifficulte());
@@ -93,7 +95,7 @@ function plan(d, debut, seance = null) {
   }
 
   // ---- Bonus
-  if (itemExamen && !examEssentiel) bonus.push(examFait ? itemExamen : { ...itemExamen, detail: `${itemExamen.detail} : à passer avant dimanche, un jour de forme` });
+  if (itemExamen && !examEssentiel && !examObtenu) bonus.unshift(itemExamen);
   const lecAnzan = prochainAnzan();
   if (lecAnzan) {
     bonus.push({ titre: 'Anzan', detail: lecAnzan.titre, minutes: 5,

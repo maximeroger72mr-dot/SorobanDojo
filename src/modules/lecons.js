@@ -104,7 +104,7 @@ export default {
           const ouvert = estDebloque(sp);
           let statut;
           let icone;
-          if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = 'Lu'; }
+          if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = sp.quiz ? 'Compris' : 'Lu'; }
           else if (e.valide) { icone = '✓'; statut = e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = sp.mental && sp.apres && !etatPalier(sp.apres).valide ? `après « ${sousPalier(sp.apres).titre} »` : 'Verrouillé'; }
@@ -127,7 +127,7 @@ export default {
     }
 
     // ---------------------------------------------------------------- sous-palier
-    /** Leçon à lire (Leçon 0) : sections, conseils généraux de vitesse, puis « J'ai lu et compris ». */
+    /** Leçon à lire (Leçon 0) : sections, conseils généraux de vitesse, puis le quiz de vérification. */
     function vueTheorie(sp) {
       const suivant = suivante(sp);
       el.append(
@@ -140,12 +140,54 @@ export default {
         sp.mental
           ? h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour bien visualiser, en résumé'), h('ul', {}, ANZAN.map((c) => h('li', {}, c))))
           : h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
-        h('div', { class: 'ligne', style: 'margin-top:14px' },
-          h('button', { class: 'btn principal', onclick: async () => {
-            await validerPalier(sp.id, false);
-            changer(() => (suivant && estDebloque(suivant) ? vueSousPalier(suivant) : carte()));
-          } }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →')));
+        sp.quiz && !etatPalier(sp.id).valide ? quiz(sp, () => valider()) : null,
+        sp.quiz && !etatPalier(sp.id).valide ? null : h('div', { class: 'ligne', style: 'margin-top:14px' },
+          h('button', { class: 'btn principal', onclick: () => valider() }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →')));
+      async function valider() {
+        await validerPalier(sp.id, false);
+        changer(() => (suivant && estDebloque(suivant) ? vueSousPalier(suivant) : carte()));
+      }
       return null;
+    }
+
+    /**
+     * Vérification de lecture : quelques questions à choix. Les réponses sont mélangées ; une
+     * mauvaise réponse montre le passage à relire, et on peut corriger. Tout juste : leçon validée.
+     */
+    function quiz(sp, surReussite) {
+      const melange = (xs) => xs.map((x) => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => x);
+      const questions = sp.quiz.map((q, i) => ({ ...q, i, ordre: melange(q.choix.map((c, k) => k)) }));
+      const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
+      const blocs = questions.map((q) => {
+        const explication = h('div', { class: 'quiz-explication' });
+        const bloc = h('fieldset', { class: 'quiz-question' }, h('legend', {}, `${q.i + 1}. ${q.q}`),
+          q.ordre.map((k) => h('label', { class: 'quiz-choix' }, h('input', { type: 'radio', name: `quiz-${sp.id}-${q.i}`, value: k }), ` ${q.choix[k]}`)),
+          explication);
+        return { q, bloc, explication };
+      });
+      const verifier = () => {
+        let justes = 0;
+        for (const { q, bloc, explication } of blocs) {
+          const choisi = bloc.querySelector('input:checked');
+          const ok = choisi && Number(choisi.value) === q.bonne;
+          if (ok) justes += 1;
+          bloc.classList.toggle('ok', !!ok);
+          bloc.classList.toggle('ko', !!choisi && !ok);
+          remplir(explication, choisi && !ok ? h('span', {}, 'Pas tout à fait. ', q.pourquoi) : ok ? h('span', { class: 'discret' }, q.pourquoi) : null);
+        }
+        if (justes === blocs.length) {
+          retour.className = 'retour ok';
+          remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ' Tout est juste : leçon validée. ', h('button', { class: 'btn principal', onclick: () => surReussite() }, 'Continuer →'));
+        } else {
+          retour.className = 'retour';
+          remplir(retour, `${justes} / ${blocs.length} : relisez le passage indiqué, corrigez, puis vérifiez à nouveau. Aucune limite d'essais.`);
+        }
+      };
+      return h('div', { class: 'carte quiz' }, h('h2', { style: 'margin-top:0' }, 'Avez-vous bien tout compris ?'),
+        h('p', { class: 'discret' }, `${blocs.length} questions sur ce que vous venez de lire.`),
+        blocs.map((b) => b.bloc),
+        h('div', { class: 'ligne', style: 'margin-top:10px' }, h('button', { class: 'btn principal', onclick: verifier }, 'Vérifier mes réponses')),
+        retour);
     }
 
     function vueSousPalier(sp, ongletInitial) {
