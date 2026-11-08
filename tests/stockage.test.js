@@ -107,12 +107,3 @@ test('colonnes ratées : rejouées à la séance suivante, retirées une fois r�
   assert.equal(p.erreursARejouer(j).length, 0);
 });
 
-test('sondage du mode Espace : alerte bienveillante à 2 écarts sur 5', async () => {
-  globalThis.localStorage = fauxStockage();
-  const p = await charger();
-  await p.chargerProgression();
-  assert.equal(await p.noterSondage(true), false);
-  assert.equal(await p.noterSondage(false), false);
-  assert.equal(await p.noterSondage(false), true);
-  assert.equal(await p.noterSondage(false), false); // compteur remis à zéro après l'alerte
-});

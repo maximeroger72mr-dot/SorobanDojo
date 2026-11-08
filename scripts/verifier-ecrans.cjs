@@ -114,9 +114,10 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     ['rythme', { voir: 'marathon' }, 'Marathon'], ['rythme', { voir: 'lievre' }, 'Lièvre'],
     ['rythme', { jeu: 'marathon', cibles: ['+3:petit'], lignes: 40, auto: true }, 'Marathon'],
     ['rythme', { jeu: 'lievre', cibles: ['+3:petit'], chiffres: 1, auto: true }, 'Lièvre'],
-    ['examen', {}, 'Passage de kyū'], ['erreurs', {}, 'Mes erreurs d\'hier'], ['bilan', {}, 'Bilan imprimable'],
+    ['examen', {}, 'Passage de kyū'], ['erreurs', {}, 'À revoir'], ['bilan', {}, 'Bilan imprimable'],
     ['lecons', { piste: 'anzan' }, 'Leçons guidées'], ['planches', { cible: '+3:petit', auto: true, colonnes: 5, chiffres: 1 }, 'Planches'],
-    ['drills', { tables: 'lents', auto: true }, 'Drills'], ['defis', { semaine: true }, 'Défis chrono'], ['lexique', {}, 'Lexique'],
+    ['drills', { tables: 'lents', auto: true }, 'Drills'], ['drills', { tables: [7, 8, 9] }, 'Drills'],
+    ['verification', { famille: 'direct' }, 'Vérifier ma vitesse'], ['verification', { famille: 'petit' }, 'Vérifier ma vitesse'], ['verification', { geste: '+3:petit' }, 'Vérifier ma vitesse'], ['defis', { semaine: true }, 'Défis chrono'], ['lexique', {}, 'Lexique'],
   ];
   for (const [ecran, params, attendu] of internes) {
     await w.evaluate((x) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: x })), [ecran, params]);

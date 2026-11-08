@@ -427,3 +427,18 @@ html:root .barre-seance button.btn.principal { background: var(--conseil); color
 /* Pourquoi d'un point du plan, et étape de la séance. */
 .pourquoi-point { display: block; font-size: 0.85rem; color: var(--discret); margin-top: 2px; font-weight: 400; }
 .etape-seance { font-size: 0.85rem; color: var(--conseil); font-weight: 700; margin-bottom: 6px; }
+
+/* Fin de feuille : vitesse colorée selon le niveau (bronze, argent, or, platine). */
+.vitesse-feuille { padding: 10px 14px; margin: 10px 0; border-left: 8px solid var(--niveau-progres); background: var(--survol); color: var(--texte); }
+.vitesse-feuille.vf-debutant { border-left-color: var(--niveau-debutant); }
+.vitesse-feuille.vf-confirme { border-left-color: var(--niveau-confirme); }
+.vitesse-feuille.vf-expert { border-left-color: var(--niveau-expert); }
+.vitesse-feuille strong { font-family: var(--police-perf); font-size: 1.5rem; }
+.pastille-niveau { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; background: var(--niveau-progres); }
+.pastille-niveau.niveau-debutant { background: var(--niveau-debutant); }
+.pastille-niveau.niveau-confirme { background: var(--niveau-confirme); }
+.pastille-niveau.niveau-expert { background: var(--niveau-expert); }
+/* Choix de plusieurs tables. */
+.choix-tables .case-table { min-width: 3.2rem; }
+/* Carte de maîtrise : geste dont la vitesse est à vérifier. */
+html:root table.carte-maitrise td.a-verifier { outline: 2px dashed var(--conseil); outline-offset: -3px; }

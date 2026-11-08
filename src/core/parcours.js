@@ -11,7 +11,7 @@ import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL } from './drills.js';
-import { evaluer, plateau } from './maitrise.js';
+import { evaluer, plateau, mediane, MIN_ESSAIS, formaterTemps } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
@@ -254,6 +254,63 @@ export function prioriteDuJour(d, date, difficiles = []) {
       texte: `Faites 40 lignes de marathon sur ${nomMotif(lent.cle)} aujourd'hui.`,
       aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }],
     };
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ vitesses incohérentes
+
+/** Ordre attendu des vitesses : un geste direct va plus vite qu'un petit ami, etc. */
+export const ORDRE_FAMILLES = ['direct', 'petit', 'grand', 'mixte'];
+export const NOMS_FAMILLES = { direct: 'gestes directs', petit: 'petits amis', grand: 'grands amis', mixte: 'combinaisons' };
+/** Colonnes mesurées « isolées » à partir desquelles une vitesse est jugée fiable. */
+export const MESURES_FIABLES = 15;
+const familleDe = (c) => (c.startsWith('cascade') ? 'cascade' : c.split(':')[1]);
+
+/**
+ * Vitesse incohérente : une famille de gestes plus lente (en situation, temps moyen des colonnes)
+ * que la famille plus difficile qui la suit. Ce n'est pas forcément un problème : un geste direct
+ * hérite du rythme des colonnes difficiles où il apparaît. On VÉRIFIE donc :
+ *  1. pas assez de mesures « isolées » (< 15 colonnes) → test du groupe : 20 colonnes de la famille ;
+ *  2. mesures fiables : la famille isolée est rapide → elle va bien ; un geste de la famille reste
+ *     nettement plus lent que les autres (> 25 %) → c'est lui qu'il faut travailler ;
+ *  3. la famille isolée reste lente → c'est la famille entière qu'il faut accélérer.
+ * @returns {{ titre, detail, pourquoi, aller, cle }|null}
+ */
+export function verificationVitesse(d) {
+  const appris = motifsAppris(d);
+  const situation = {};
+  for (const c of TOUS_LES_MOTIFS) {
+    const f = d.motifs[c];
+    if (!f || !appris.has(c)) continue;
+    const ev = evaluer(f.hist ?? []);
+    if (ev.essais >= MIN_ESSAIS && ev.temps !== null) (situation[familleDe(c)] ??= []).push({ cle: c, t: ev.temps });
+  }
+  const medFam = (fam) => (situation[fam]?.length >= 2 ? mediane(situation[fam].map((x) => x.t)) : null);
+  for (let i = 0; i < ORDRE_FAMILLES.length - 1; i++) {
+    const fam = ORDRE_FAMILLES[i];
+    const suivante = ORDRE_FAMILLES.slice(i + 1).find((x) => medFam(x) !== null);
+    if (!suivante || medFam(fam) === null || medFam(fam) < medFam(suivante)) continue;
+    const nom = NOMS_FAMILLES[fam];
+    const constat = `Vos ${nom} (${formaterTemps(medFam(fam))} par chiffre) paraissent plus lents que vos ${NOMS_FAMILLES[suivante]} (${formaterTemps(medFam(suivante))}).`;
+    const isoles = d.vitesseFamilles?.[fam] ?? [];
+    if (isoles.length < MESURES_FIABLES) {
+      return { cle: `famille:${fam}`, titre: `Vérifier mes ${nom}`, detail: `20 colonnes rien qu'avec eux`,
+        pourquoi: `${constat} Ils sont peut-être ralentis par les colonnes difficiles où ils apparaissent : 20 colonnes rien qu'avec eux donnent leur vraie vitesse.`,
+        aller: ['verification', { famille: fam }] };
+    }
+    const iso = mediane(isoles.slice(-20));
+    if (iso < medFam(suivante)) {
+      const lent = (situation[fam] ?? []).map((x) => ({ ...x, iso: (d.motifs[x.cle].isole ?? []).length >= MESURES_FIABLES ? mediane(d.motifs[x.cle].isole.slice(-20)) : null }))
+        .filter((x) => x.iso !== null && x.iso > 1.25 * iso).sort((a, b) => b.iso - a.iso)[0];
+      if (!lent) continue; // famille vérifiée rapide : c'est l'enchaînement avec les autres gestes qui coûte
+      return { cle: lent.cle, titre: `Accélérer ${nomMotif(lent.cle)}`, detail: '40 lignes de marathon sur ce geste',
+        pourquoi: `Mesuré seul, ${nomMotif(lent.cle)} reste plus lent (${formaterTemps(lent.iso)}) que vos autres ${nom} (${formaterTemps(iso)}) : c'est lui qui freine.`,
+        aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }] };
+    }
+    return { cle: `famille:${fam}`, titre: `Accélérer mes ${nom}`, detail: '20 colonnes rien qu\'avec eux, en visant la régularité',
+      pourquoi: `Même seuls, vos ${nom} restent lents (${formaterTemps(iso)} par chiffre) : il faut les travailler pour eux-mêmes.`,
+      aller: ['verification', { famille: fam }] };
   }
   return null;
 }

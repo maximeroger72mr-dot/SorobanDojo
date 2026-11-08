@@ -61,7 +61,19 @@ export function tempsCible(ex, niveau) {
   return SURCOUT_S + niveau.temps[familleTemps(ex)] * unites(ex);
 }
 
-const mediane = (xs) => {
+/**
+ * Affichage d'un temps (secondes). Une décimale, sauf quand l'arrondi tomberait PILE sur un
+ * seuil de niveau sans l'atteindre (1,52 s affiché « 1,5 s » alors qu'il faut ≤ 1,5 s) : deux.
+ */
+export function formaterTemps(t) {
+  if (t == null) return '—';
+  const seuils = NIVEAUX.filter((n) => n.temps).flatMap((n) => Object.values(n.temps));
+  const un = Math.round(t * 10) / 10;
+  const deux = seuils.includes(un) && Math.abs(t - un) >= 0.005;
+  return `${t.toLocaleString('fr-FR', { minimumFractionDigits: deux ? 2 : 1, maximumFractionDigits: deux ? 2 : 1 })} s`;
+}
+
+export const mediane = (xs) => {
   if (!xs.length) return null;
   const t = [...xs].sort((a, b) => a - b);
   const m = Math.floor(t.length / 2);
@@ -76,7 +88,8 @@ export function evaluer(hist = [], famille = 'addsub') {
   const recents = hist.slice(-FENETRE);
   const essais = recents.length;
   const reussite = essais ? recents.filter((h) => h.ok).length / essais : 0;
-  const temps = mediane(recents.filter((h) => h.ok).map((h) => h.t));
+  // Essais sans temps (feuilles mélangées : seule la justesse compte) : hors de la vitesse.
+  const temps = mediane(recents.filter((h) => h.ok && h.t != null).map((h) => h.t));
   let index = essais < MIN_ESSAIS ? 0 : 1;
   if (essais >= MIN_ESSAIS) {
     for (let i = 2; i < NIVEAUX.length; i++) {
@@ -96,7 +109,7 @@ export function evaluer(hist = [], famille = 'addsub') {
 
 /** Ajoute un essai à un historique borné. */
 export function ajouterEssai(hist, ok, t) {
-  hist.push({ ok: ok ? 1 : 0, t: Math.round(t * 100) / 100 });
+  hist.push({ ok: ok ? 1 : 0, t: t == null ? null : Math.round(t * 100) / 100 });
   if (hist.length > FENETRE * 2) hist.splice(0, hist.length - FENETRE * 2);
 }
 
@@ -136,6 +149,7 @@ const TEMPS_PAR_SEMAINE = 60;
  * ce que l'historique des 30 derniers essais ne permet pas).
  */
 export function ajouterSemaine(fiche, t, date) {
+  if (t == null) return;
   fiche.sem ??= {};
   const s = (fiche.sem[lundi(date)] ??= []);
   s.push(Math.round(t * 100) / 100);

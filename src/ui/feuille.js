@@ -8,7 +8,8 @@
  */
 
 import { diagnostiquer } from '../core/diagnostic.js';
-import { noterErreurColonne } from '../core/progression.js';
+import { noterErreurColonne, noterFeuille } from '../core/progression.js';
+import { NIVEAUX, unites, familleTemps, formaterTemps, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
@@ -22,6 +23,7 @@ import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
  * @param {number|null} [o.minutes]  limite de temps (compte à rebours), ou null (chronomètre)
  * @param {(bilan) => any} [o.surFin]  { justes, total, points, pointsMax, parSection, dureeMs, resultats }
  * @param {boolean} [o.doigte]  rappel doigté à côté de chaque ligne des colonnes
+ * @param {{cle: string, libelle: string}} [o.historique]  type de feuille, pour suivre ses résultats
  */
 export function creerFeuille(conteneur, o) {
   const limiteMs = o.minutes ? o.minutes * 60000 : null;
@@ -116,7 +118,31 @@ export function creerFeuille(conteneur, o) {
     };
     const contenu = o.surFin?.(b);
     if (contenu) remplir(bilan, contenu);
+    // Vitesse de la feuille : la référence de toute l'application (secondes par chiffre, temps de
+    // lecture et d'écriture de chaque réponse déduit), colorée selon le niveau atteint.
+    if (!limiteMs) bilan.prepend(vitesseFeuille(b));
     bilan.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function vitesseFeuille(b) {
+    const familles = new Set(cases.map((c) => familleTemps(c.ex)));
+    const famille = familles.size === 1 ? [...familles][0] : 'addsub';
+    const total = cases.reduce((s, c) => s + unites(c.ex), 0);
+    const t = Math.max(0.1, (b.dureeMs / 1000 - cases.length * SURCOUT_FEUILLE_S) / Math.max(1, total));
+    const taux = b.total ? b.justes / b.total : 0;
+    const niveau = [...NIVEAUX].reverse().find((n) => n.temps && t <= n.temps[famille] && taux >= n.reussite) ?? NIVEAUX[1];
+    const metal = { progres: 'bronze', debutant: 'argent', confirme: 'or', expert: 'platine' }[niveau.id];
+    const ligne = h('div', { class: `vitesse-feuille vf-${niveau.id}` },
+      h('strong', {}, `${formaterTemps(t)} par ${famille === 'muldiv' ? 'produit' : 'chiffre'}`),
+      ` · ${niveau.id === 'progres' ? 'en progrès' : niveau.nom}${metal ? ` (${metal})` : ''}`);
+    if (o.historique) {
+      noterFeuille({ ...o.historique, t, justes: b.justes, total: b.total }).then(({ moyenne, nombre }) => {
+        if (moyenne === null) { ligne.append(h('span', { class: 'discret' }, ' · première feuille de ce type')); return; }
+        const ecart = (t - moyenne) / moyenne;
+        ligne.append(h('span', {}, ` · votre moyenne sur ce type : ${formaterTemps(moyenne)} (${nombre} feuille${nombre > 1 ? 's' : ''})${Math.abs(ecart) < 0.03 ? ', comme d\'habitude' : ecart < 0 ? `, ${Math.round(-ecart * 100)} % plus rapide` : `, ${Math.round(ecart * 100)} % plus lent`}`));
+      });
+    }
+    return ligne;
   }
 
   return {

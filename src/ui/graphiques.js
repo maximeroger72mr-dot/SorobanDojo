@@ -111,7 +111,7 @@ export function calendrier(minutes, aujourdhui, semaines = 18) {
  * des niveaux en pointillés.
  */
 export function courbeVitesse(hist, famille = 'addsub') {
-  const reussis = hist.filter((x) => x.ok).map((x) => x.t);
+  const reussis = hist.filter((x) => x.ok && x.t != null).map((x) => x.t);
   if (reussis.length < 5) return h('p', { class: 'discret' }, 'Pas encore assez d\'essais réussis pour tracer la courbe.');
   const glissante = reussis.map((_, i) => {
     const f = reussis.slice(Math.max(0, i - 4), i + 1).sort((a, b) => a - b);

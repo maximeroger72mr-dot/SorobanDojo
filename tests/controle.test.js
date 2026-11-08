@@ -116,3 +116,58 @@ test('prof : phrases variées d\'un jour à l\'autre, stables dans la journée',
   assert.ok(p.length >= 2 && p.every((x) => x.titre && x.detail && Array.isArray(x.aller)));
   assert.match(p[0].titre, /kyū/, 'kyū ouvert et pas tenté : proposé en premier');
 });
+
+test('vitesses incohérentes : test de groupe, puis verdict sur 15 colonnes au moins', async () => {
+  const { verificationVitesse } = await import('../src/core/parcours.js');
+  const hist = (t) => Array.from({ length: 20 }, () => ({ ok: 1, t }));
+  const d = { paliers: {}, motifs: {}, records: {} };
+  for (const id of ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2']) d.paliers[id] = { valide: '2026-11-01' };
+  for (const c of ['+1:direct', '+2:direct', '-3:direct']) d.motifs[c] = { essais: 20, erreurs: 0, dette: 0, hist: hist(1.9) };
+  for (const c of ['+4:petit', '+3:petit', '+2:petit']) d.motifs[c] = { essais: 20, erreurs: 0, dette: 0, hist: hist(1.5) };
+  // Directs plus lents que les petits amis, aucune mesure isolée : test du groupe.
+  let v = verificationVitesse(d);
+  assert.equal(v.cle, 'famille:direct');
+  assert.deepEqual(v.aller, ['verification', { famille: 'direct' }]);
+  // 14 colonnes isolées : pas encore fiable, on reste sur le test.
+  d.vitesseFamilles = { direct: Array(14).fill(0.9) };
+  assert.equal(verificationVitesse(d).cle, 'famille:direct');
+  // 15 colonnes, rapides : la famille va bien, rien à proposer.
+  d.vitesseFamilles.direct.push(0.9);
+  assert.equal(verificationVitesse(d), null);
+  // … sauf un geste qui, mesuré seul, reste nettement plus lent que les autres.
+  d.motifs['-3:direct'].isole = Array(15).fill(1.4);
+  assert.equal(verificationVitesse(d).cle, '-3:direct');
+  // Famille lente même seule : on la travaille.
+  d.motifs['-3:direct'].isole = [];
+  d.vitesseFamilles.direct = Array(15).fill(1.7);
+  assert.match(verificationVitesse(d).titre, /Accélérer mes gestes directs/);
+});
+
+test('mesures isolées : colonne de gestes directs seuls, ou d\'amis d\'une seule famille', async () => {
+  globalThis.localStorage = { m: new Map(), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, v); } };
+  const p = await import('../src/core/progression.js?isole');
+  await p.chargerProgression();
+  await p.noterGestes(['+1:direct', '+2:direct'], [], 0.8);
+  await p.noterGestes(['+1:direct', '+3:petit'], [], 1.2);
+  await p.noterGestes(['+1:direct', '+3:petit', '+9:grand'], [], 2.0); // deux familles : pas isolé
+  await p.noterGestes(['+3:petit'], [], null); // feuille mélangée : pas de temps
+  const d = p.progression();
+  assert.deepEqual(d.vitesseFamilles, { direct: [0.8], petit: [1.2] });
+  assert.deepEqual(d.motifs['+1:direct'].isole, [0.8]);
+  assert.deepEqual(d.motifs['+3:petit'].isole, [1.2]);
+  assert.equal(d.motifs['+3:petit'].hist.at(-1).t, null);
+});
+
+test('tables mélangées : chaque produit une seule fois', async () => {
+  const { serieTables } = await import('../src/core/tables.js');
+  const s = serieTables([7, 8]);
+  assert.equal(s.length, 17); // 7 × 8 et 8 × 7 ne comptent qu'une fois
+  assert.ok(s.every((x) => x.a === 7 || x.b === 7 || x.a === 8 || x.b === 8));
+});
+
+test('affichage des temps : valeur exacte juste au-dessus d\'un seuil', async () => {
+  const { formaterTemps } = await import('../src/core/maitrise.js');
+  assert.equal(formaterTemps(1.52), '1,52 s');
+  assert.equal(formaterTemps(1.5), '1,5 s');
+  assert.equal(formaterTemps(2.34), '2,3 s');
+});

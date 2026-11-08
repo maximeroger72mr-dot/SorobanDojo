@@ -21,7 +21,7 @@ export const MOTS = [
   ['Lièvre', 'Jeu de rythme : les nombres défilent à une cadence imposée qui accélère quand vous suivez.'],
   ['Marathon (ruban)', 'Une longue colonne sans remise à zéro : on donne le sous-total régulièrement, et on tient le plus longtemps possible.'],
   ['Mitori (見取り)', 'Les additions et soustractions écrites en colonne, qu\'on lit et qu\'on pose sur le soroban : l\'exercice de base des examens.'],
-  ['Mode Espace (mains sur le soroban)', 'Au lieu de taper le résultat, on appuie sur Espace : le résultat s\'affiche et on dit soi-même si son soroban le montre. Utile pour le volume, mais cela ne compte pas pour le niveau.'],
+  ['Mode Espace (mains sur le soroban)', 'On appuie sur Espace dès que son soroban est fini : le chrono s\'arrête à cet instant, puis on tape le résultat sans être pressé (la frappe ne compte pas dans le temps).'],
   ['Mode pur', 'Planches où chaque ligne utilise le geste travaillé, sans geste direct pour souffler.'],
   ['Motif (geste)', 'Un geste précis sur une tige, par exemple « +3 petit ami » ou « −8 grand ami ». La carte de maîtrise les suit un par un.'],
   ['Niveau d\'un geste', 'À découvrir, En progrès, Acquis débutant, confirmé, expert : selon la justesse ET la vitesse sur ce geste.'],

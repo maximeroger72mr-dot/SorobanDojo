@@ -15,7 +15,7 @@ import {
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
 import { GRADES } from '../core/epreuves.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
@@ -52,8 +52,8 @@ function plan(d, debut, seance = null) {
   // 1 bis. Les colonnes ratées lors de la dernière séance, rejouées à l'identique.
   const aRejouer = erreursARejouer(date).length;
   if (aRejouer || fait((s) => s.module === 'erreurs')) {
-    essentiel.push({ titre: 'Mes erreurs d\'hier', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} ratée${aRejouer > 1 ? 's' : ''}, à refaire telles quelles` : 'refaites', minutes: 2,
-      pourquoi: 'Refaire exactement ce qu\'on a raté, un jour plus tard, corrige le geste mieux qu\'un exercice neuf.',
+    essentiel.push({ titre: 'À revoir', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} de la dernière séance, à refaire` : 'fait', minutes: 2,
+      pourquoi: 'Refaire ce qui a posé problème, un jour plus tard, corrige le geste mieux qu\'un exercice neuf.',
       fait: fait((s) => s.module === 'erreurs'), aller: ['erreurs'] });
   }
   // 2. Révisions dues : la mémoire avant tout.
@@ -88,6 +88,14 @@ function plan(d, debut, seance = null) {
     const prescrit = prescritPar(priorite);
     essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true,
       pourquoi: 'Votre point faible du moment, recalculé d\'après vos derniers résultats : c\'est là que le temps rapporte le plus.' });
+  }
+  // 4 bis. Vitesse incohérente (ex. gestes directs plus lents que les petits amis) : on vérifie.
+  const verif = verificationVitesse(d);
+  // (sauf si la priorité du jour travaille déjà ce même geste)
+  if (verif && priorite?.aller?.[1]?.cibles?.[0] !== verif.cle) {
+    essentiel.push({ titre: verif.titre, detail: verif.detail, minutes: 6, pourquoi: verif.pourquoi, aller: verif.aller,
+      fait: fait((s) => (s.module === 'verification' && s.mode === (verif.aller[1].geste ?? `famille:${verif.aller[1].famille}`))
+        || (s.module === 'rythme' && (s.reglages?.cibles ?? []).includes(verif.cle))) });
   }
   // 5. Avancer ou ancrer : la décision du prof. Elle s'adapte aux résultats du jour (leçon validée,
   //    mini-test raté…) ; seule une décision déjà mise en œuvre reste affichée, cochée.

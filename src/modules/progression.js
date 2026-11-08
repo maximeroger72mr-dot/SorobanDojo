@@ -12,11 +12,11 @@ import {
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { VERSION_APPLI } from '../core/version.js';
-import { NIVEAUX } from '../core/maitrise.js';
+import { NIVEAUX, formaterTemps } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { minutesParJour, serieJours } from '../core/regularite.js';
-import { grade, compteurs } from '../core/parcours.js';
+import { grade, compteurs, MESURES_FIABLES } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
 import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
@@ -61,7 +61,19 @@ const NOMS_MODULES = {
   muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles', dictee: 'Dictée (yomiage)',
   rythme: 'Rythme et endurance', quotidien: 'Au quotidien',
 };
-const nf = (x) => (x === null ? '—' : `${x.toLocaleString('fr-FR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`);
+const nf = formaterTemps;
+
+/**
+ * Les deux vitesses d'un geste : « en situation » (moyenne des colonnes où il apparaît, celle qui
+ * fait le niveau) et « isolé » (colonnes où ses voisins sont de sa famille), fiable dès 15 colonnes.
+ */
+function vitesses(f, ev) {
+  const iso = f?.isole ?? [];
+  if (!iso.length || ev.temps === null) return null;
+  const t = iso.slice(-20).sort((a, b) => a - b)[Math.floor(Math.min(20, iso.length) / 2)];
+  return h('p', {}, `En situation : ${formaterTemps(ev.temps)} par chiffre · mesuré seul : ${formaterTemps(t)}`,
+    iso.length < MESURES_FIABLES ? h('span', { class: 'discret' }, ` (mesure en cours : ${iso.length} / ${MESURES_FIABLES} colonnes)`) : '');
+}
 
 /** Fenêtre de détail d'un geste : niveau, courbe de vitesse, démonstration, planche dédiée. */
 function detailGeste(app, cle) {
@@ -70,6 +82,7 @@ function detailGeste(app, cle) {
   ouvrirDialogue(nomMotif(cle), gesteMotif(cle), (corps) => {
     corps.append(
       h('p', {}, badgeNiveau(ev), ` ${f ? `${f.essais} essais · ${f.erreurs} erreur${f.erreurs > 1 ? 's' : ''} avérée${f.erreurs > 1 ? 's' : ''}` : 'pas encore pratiqué'}${ev.manque.length && ev.prochain ? ` · pour « ${ev.prochain.nom} » : ${ev.manque.join(', ')}` : ''}`),
+      vitesses(f, ev),
       courbeVitesse(f?.hist ?? []),
       h('div', { class: 'ligne', style: 'margin-top:10px' },
         h('button', { class: 'btn', onclick: () => ouvrirDemo({ titre: nomMotif(cle), texte: gesteMotif(cle), demo: exempleMotif(cle) }) }, 'Voir le geste'),
@@ -218,6 +231,8 @@ export default {
       h('table', {}, h('tr', {}, ['Leçon', 'Exercices', 'Réussite récente', 'Temps par unité', 'Évolution', 'Niveau', 'État'].map((x) => h('th', {}, x))),
         SOUS_PALIERS.filter((sp) => d.paliers[sp.id]).map((sp) => {
           const e = d.paliers[sp.id];
+          // Leçon à lire (leçon 0, cours d'anzan) : ni compteur ni niveau, seulement « Compris ».
+          if (sp.type === 'theorie') return h('tr', {}, h('td', {}, sp.titre), h('td', { colspan: 5, class: 'discret' }, sp.quiz ? 'leçon à lire, validée par son quiz' : 'leçon à lire'), h('td', {}, e.valide ? 'compris' : 'à lire'));
           const ev = evaluerPalier(sp.id, familleLecon(sp));
           return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${sp.repetitions}`),
             h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : formaterPourcent(e.justes, e.reps)),

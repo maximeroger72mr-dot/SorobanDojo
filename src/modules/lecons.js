@@ -363,6 +363,7 @@ export default {
             const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
             courant = creerFeuille(zoneTravail, {
               titre: `${sp.titre} · feuille d'entraînement`,
+              historique: { cle: `lecon-${sp.id}`, libelle: sp.titre },
               sections: [{ problemes }],
               surFin: (b) => {
                 (async () => {
@@ -372,7 +373,8 @@ export default {
                     const t = tempsParUnite(r.ex, dureeMoyenne, SURCOUT_FEUILLE_S);
                     await compter(r.juste, dureeMoyenne, t);
                     const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
-                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], t);
+                    // Vitesse des gestes : seulement si la leçon ne vise qu'un geste (moyenne de feuille).
+                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 ? t : null);
                   }
                   majBandeau();
                 })();

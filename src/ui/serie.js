@@ -23,7 +23,7 @@ import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
-import { motifsEnDifficulte, noterGestes, noterReponse, noterSondage, reglagesUtilisateur, modifierReglages, noterErreurColonne } from '../core/progression.js';
+import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages, noterErreurColonne, signalerLenteur } from '../core/progression.js';
 import { notifier } from './toast.js';
 import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
 import { creerCourse } from './course.js';
@@ -91,7 +91,7 @@ export function creerSerie(conteneur, o) {
   const pastilles = h('div', { class: 'pastilles' });
   const caseEspace = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().modeEspace });
   caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
-  const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono et montre le résultat ; vous répondez O ou N. Compte pour le volume, pas pour le niveau.' },
+  const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono dès que votre soroban est fini ; vous tapez ensuite le résultat (la frappe ne compte pas dans le temps).' },
     caseEspace, ' Mains sur le soroban (Espace)');
   // Rappel doigté : pouce / index / pincée à côté de chaque ligne. Masqué d'office quand le geste
   // de la leçon est acquis (opts.doigteMasque), pour ne pas devenir une béquille.
@@ -129,17 +129,25 @@ export function creerSerie(conteneur, o) {
   let aideUtilisee = false;
   let aide = null;          // { etapes, index } pour « Je suis bloqué »
   let flashEnCours = false;
-  let sondage = false;      // mode Espace : contrôle surprise en cours (on tape ce que montre le soroban)
+  /**
+   * Calculs anormalement longs (au moins 2,5 fois le temps médian de la série, et 5 s de plus) :
+   * reproposés tels quels 10 exercices plus tard, sans le signaler. S'il est encore lent, le geste
+   * le plus fragile de la colonne sera tiré un peu plus souvent ensuite. Pas en mini-test ni en
+   * examen (opts.defi) : ce sont des épreuves.
+   */
+  const aRevoir = [];
+  const durees = [];
+  let espaceArrete = false; // mode Espace : chrono arrêté par Espace, on tape maintenant la réponse
   // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
   const modeEspace = () => caseEspace.checked && !opts.defi && !ex?.flash;
   function majModeEspace() {
     choixEspace.style.display = ex?.flash ? 'none' : '';
     choixDoigte.style.display = ex?.type !== 'addsub' || ex?.flash || ex?.decimales || ex?.negatif || opts.doigteMasque?.() ? 'none' : '';
-    const sansSaisie = modeEspace() || ex?.type === 'tenir';
+    const sansSaisie = (modeEspace() && !espaceArrete) || ex?.type === 'tenir';
     saisie.style.display = sansSaisie ? 'none' : '';
     btnSigne.style.display = !sansSaisie && ex?.negatif ? '' : 'none';
     btnValider.style.display = sansSaisie ? 'none' : '';
-    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : modeEspace() ? 'Calculez sur votre soroban, puis Espace pour voir le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : modeEspace() ? 'Calculez sur votre soroban, appuyez sur Espace dès qu\'il est fini, puis tapez le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
   }
   let zoneLocalisationCourante = null;
   let timer = null;
@@ -186,7 +194,9 @@ export function creerSerie(conteneur, o) {
   function suivant() {
     clearTimeout(timer);
     if (i >= opts.nombre || opts.fin?.()) { terminer(); return; }
-    ex = opts.generer();
+    // Un calcul qui a posé problème revient, sans le dire, une dizaine d'exercices plus tard.
+    const rappel = aRevoir.findIndex((x) => x.a <= i);
+    if (rappel >= 0) { ex = { ...aRevoir[rappel].ex, revu: true }; aRevoir.splice(rappel, 1); } else ex = opts.generer();
     sousTotauxVisibles = false;
     phase = 'question';
     compteur.textContent = opts.compteur ? opts.compteur(i) : (Number.isFinite(opts.nombre) ? `${i + 1} / ${opts.nombre}` : '');
@@ -331,17 +341,20 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     majChronoExo(dureeMs);
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
-    if (sondage) {
-      sondage = false;
-      if (await noterSondage(juste)) {
-        notifier('Petit point sur le mode Espace', 'Deux fois sur vos derniers contrôles, votre soroban ne montrait pas le bon nombre. Rien de grave, cela arrive quand on va vite : ralentissez un peu, ou tapez vos résultats quelque temps pour vérifier.', 12000);
-      }
-    }
+    espaceArrete = false;
     racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
     if (!juste && !opts.sansMemoireErreurs) await noterErreurColonne(ex); // à rejouer demain
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);
+    if (!opts.defi && !opts.sansMemoireErreurs && ex.type === 'addsub' && !ex.flash) {
+      const med = durees.length >= 5 ? [...durees].sort((a, b) => a - b)[Math.floor(durees.length / 2)] : null;
+      if (med && dureeMs >= 2.5 * med && dureeMs - med >= 5000) {
+        if (ex.revu) await signalerLenteur(ex); // encore lent la 2e fois : le geste fragile reviendra plus souvent
+        else aRevoir.push({ ex: { ...ex }, a: i + 10 });
+      }
+      durees.push(dureeMs);
+    }
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
@@ -412,27 +425,22 @@ export function creerSerie(conteneur, o) {
   }
 
   /** Mode Espace : on arrête le chrono et on montre le résultat ; l'élève compare avec son soroban. */
+  /**
+   * Mode Espace : Espace arrête le chrono dès que le soroban est fini ; on tape ensuite ce qu'il
+   * montre, sans voir le résultat (la frappe ne compte pas dans le temps). La réponse est corrigée
+   * comme les autres : elle compte pour le niveau et le diagnostic des gestes.
+   */
   function reveler() {
-    if (phase !== 'question' || flashEnCours || sondage) return;
+    if (phase !== 'question' || flashEnCours || espaceArrete) return;
     dureeCalcul ??= performance.now() - debutExercice;
     majChronoExo(dureeCalcul);
-    // Contrôle surprise, une fois sur cinq environ : avant de voir le résultat, on tape ce que
-    // montre son soroban. Juste, il compte comme une vraie réponse (et donc pour le niveau).
-    if (ex.type === 'addsub' && Math.random() < 0.2) {
-      sondage = true;
-      saisie.style.display = '';
-      btnValider.style.display = '';
-      saisie.value = '';
-      retour.className = 'retour';
-      remplir(retour, h('strong', {}, 'Contrôle surprise : '), 'tapez le nombre que montre votre soroban, puis Entrée (la frappe ne compte pas dans le temps).');
-      saisie.focus();
-      return;
-    }
-    phase = 'auto';
+    espaceArrete = true;
+    saisie.style.display = '';
+    btnValider.style.display = '';
+    saisie.value = '';
     retour.className = 'retour';
-    remplir(retour, 'Résultat : ', h('strong', { class: 'resultat-drill' }, valeur(ex, ex.resultat)), '. Votre soroban affiche-t-il ce nombre ? ',
-      h('button', { class: 'btn ok-btn', onclick: () => autoEvaluer(true) }, 'Oui ', h('kbd', {}, 'O')), ' ',
-      h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Non ', h('kbd', {}, 'N')));
+    remplir(retour, h('strong', {}, 'Chrono arrêté. '), 'Tapez le nombre que montre votre soroban, puis Entrée.');
+    saisie.focus();
   }
 
   async function autoEvaluer(juste) {
@@ -481,6 +489,8 @@ export function creerSerie(conteneur, o) {
   }
 
   function terminer() {
+    // Calculs longs pas encore revus : ils ressortiront à la prochaine séance (« À revoir »).
+    for (const x of aRevoir.splice(0)) noterErreurColonne(x.ex);
     phase = 'fin';
     delete racine.dataset.enCours;
     clearInterval(minuterie);

@@ -12,7 +12,7 @@ import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motif
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
-import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
+import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterTemps } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
@@ -85,6 +85,36 @@ export function contraintes(valeur) {
   return { autorises: new Set([...DIRECT, ...cibles]), cibles, libelle };
 }
 
+/**
+ * Mes feuilles : par type (même nombre de chiffres, même cible), la dernière, la moyenne, la
+ * meilleure, et la tendance ; puis les 10 dernières feuilles, colorées selon le niveau atteint.
+ */
+function historiqueFeuilles() {
+  const feuilles = progression().feuilles ?? [];
+  if (!feuilles.length) return null;
+  const couleur = (t) => {
+    const n = [...NIVEAUX].reverse().find((x) => x.temps && t <= x.temps.addsub) ?? NIVEAUX[1];
+    return `niveau-${n.id}`;
+  };
+  const types = {};
+  for (const f of feuilles) (types[f.cle] ??= []).push(f);
+  const lignes = Object.values(types).sort((a, b) => (a.at(-1).date < b.at(-1).date ? 1 : -1)).slice(0, 8).map((liste) => {
+    const ts = liste.map((f) => f.t);
+    const moyenne = ts.slice(-10).reduce((s, x) => s + x, 0) / Math.min(10, ts.length);
+    const meilleure = Math.min(...ts);
+    const debut = ts.slice(0, 3);
+    const fin = ts.slice(-3);
+    const tendance = liste.length >= 6 ? (fin.reduce((s, x) => s + x, 0) / fin.length) / (debut.reduce((s, x) => s + x, 0) / debut.length) - 1 : null;
+    return h('tr', {}, h('td', {}, liste[0].libelle), h('td', {}, liste.length),
+      h('td', {}, h('span', { class: `pastille-niveau ${couleur(liste.at(-1).t)}` }), ` ${formaterTemps(liste.at(-1).t)}`),
+      h('td', {}, formaterTemps(moyenne)), h('td', {}, formaterTemps(meilleure)),
+      h('td', {}, tendance === null ? '—' : tendance <= -0.03 ? `${Math.round(-tendance * 100)} % plus rapide` : tendance >= 0.03 ? `${Math.round(tendance * 100)} % plus lent` : 'stable'));
+  });
+  return h('div', {}, h('h2', {}, 'Mes feuilles'),
+    h('p', { class: 'discret' }, 'Temps par chiffre (lecture et écriture des réponses déduites), par type de feuille : seules des feuilles du même type se comparent. La couleur suit les niveaux : bronze, argent, or, platine.'),
+    h('table', {}, h('tr', {}, ['Type de feuille', 'Feuilles', 'Dernière', 'Moyenne (10 dernières)', 'Meilleure', 'Tendance'].map((x) => h('th', {}, x))), lignes));
+}
+
 export default {
   id: 'planches',
   titre: 'Planches',
@@ -132,7 +162,7 @@ export default {
           ['Combinaisons', motifsPar('mixte')],
         ]),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Créer la planche')),
-      zone);
+      zone, historiqueFeuilles());
 
     function lancer() {
       feuille?.detruire();
@@ -164,6 +194,7 @@ export default {
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${r.pur ? '-pur' : ''}`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,
+        historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${r.pur ? '-pur' : ''}`, libelle: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes` },
         titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,
         sections: [{ problemes }],
         surFin: (b) => {
@@ -173,7 +204,10 @@ export default {
               // Réussite : tous les gestes de la colonne sont crédités. Erreur : seul un geste
               // prouvé par le résultat est mis en cause (jamais d'accusation au hasard).
               const loc = x.juste || x.reponse === null ? null : localiserErreur(x.ex, x.reponse);
-              await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], tempsParUnite(x.ex, dureeMoyenne, SURCOUT_FEUILLE_S));
+              // Le temps d'une feuille est une moyenne : il ne renseigne la vitesse d'un geste que si
+              // la planche ne vise QUE ce geste. Sinon, seule la justesse compte.
+              const t = c.cibles.length === 1 ? tempsParUnite(x.ex, dureeMoyenne, SURCOUT_FEUILLE_S) : null;
+              await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], t);
             }
             await enregistrerSession({ module: 'planches', mode: r.cible, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           })();

@@ -6,9 +6,9 @@
  */
 
 import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
-import { NIVEAUX } from '../core/maitrise.js';
+import { NIVEAUX, formaterTemps } from '../core/maitrise.js';
 import { progression, evaluerMotif } from '../core/progression.js';
-import { motifsAppris } from '../core/parcours.js';
+import { motifsAppris, verificationVitesse } from '../core/parcours.js';
 import { COULEUR_NIVEAU, ENCRE_NIVEAU, montrerBulle, cacherBulle } from './graphiques.js';
 
 const MEDAILLE = { progres: 'bronze', debutant: 'argent', confirme: 'or', expert: 'platine' };
@@ -18,7 +18,7 @@ const LIGNES = [
   ['+', 'direct', 'Ajouter, direct'], ['+', 'petit', 'Ajouter, petit ami'], ['+', 'grand', 'Ajouter, grand ami'], ['+', 'mixte', 'Ajouter, combiné'],
   ['-', 'direct', 'Retirer, direct'], ['-', 'petit', 'Retirer, petit ami'], ['-', 'grand', 'Retirer, grand ami'], ['-', 'mixte', 'Retirer, combiné'],
 ];
-const nf = (x) => (x === null ? '—' : `${x.toLocaleString('fr-FR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`);
+const nf = formaterTemps;
 
 /**
  * @param {{ surClic?: (cle) => void, selection?: Set<string>, surSelection?: (Set) => void, sansDirects?: boolean }} o
@@ -44,6 +44,9 @@ export function carteMaitrise(o = {}) {
     o.surSelection?.(o.selection);
   }
   const lignes = LIGNES.filter(([, regle]) => !(o.sansDirects && regle === 'direct'));
+  // Repère « à vérifier » : vitesse incohérente (famille plus lente que la suivante), voir parcours.
+  const verif = verificationVitesse(d);
+  const aVerifier = (cle) => !!verif && (verif.cle === cle || (verif.cle.startsWith('famille:') && cle.endsWith(`:${verif.cle.slice(8)}`)));
   const tableau = h('table', { class: `carte-maitrise${modeSelection ? ' selection' : ''}` },
     h('tr', {}, h('th', {}), [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('th', {}, n))),
     lignes.map(([op, regle, libelle]) => h('tr', {}, h('th', { class: 'libelle' }, libelle),
@@ -53,13 +56,13 @@ export function carteMaitrise(o = {}) {
         const ev = evaluerMotif(cle);
         const pratique = !!d.motifs[cle];
         const cellule = h('td', {
-          class: `geste${pratique ? '' : ' non-pratique'}${appris.has(cle) ? '' : ' pas-vu'}`,
+          class: `geste${pratique ? '' : ' non-pratique'}${appris.has(cle) ? '' : ' pas-vu'}${pratique && aVerifier(cle) ? ' a-verifier' : ''}`,
           tabindex: 0, role: modeSelection ? 'checkbox' : 'button',
         }, `${op === '+' ? '+' : '−'}${n}`);
         cellule.addEventListener('click', () => clic(cle, cellule));
         cellule.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clic(cle, cellule); } });
         cellule.addEventListener('pointermove', (e) => montrerBulle(e, [h('strong', {}, nomMotif(cle)), h('br'),
-          pratique ? `${ev.niveau.nom} · réussite ${Math.round(ev.reussite * 100)} % · ${nf(ev.temps)} par chiffre` : appris.has(cle) ? 'pas encore pratiqué' : 'leçon pas encore validée']));
+          pratique ? `${ev.niveau.nom} · réussite ${Math.round(ev.reussite * 100)} % · ${nf(ev.temps)} par chiffre${aVerifier(cle) ? ' · vitesse à vérifier' : ''}` : appris.has(cle) ? 'pas encore pratiqué' : 'leçon pas encore validée']));
         cellule.addEventListener('pointerleave', cacherBulle);
         style(cellule, cle);
         cellules.push(cellule);

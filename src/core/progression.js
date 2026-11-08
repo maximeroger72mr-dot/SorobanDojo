@@ -274,12 +274,27 @@ export const FENETRE_SOUPCON = 10;
  * @returns {Array<{cle, statut: 'soupcon'|'confirme'}>}
  */
 export async function noterGestes(reussis, rates, t, { confirme = false } = {}) {
+  // Vitesse « isolée » : mesurée dans une colonne où le geste n'a pour voisins que des gestes de
+  // sa famille (colonne de gestes directs seuls, ou colonne dont tous les amis sont de la même
+  // famille). Sert à vérifier une vitesse incohérente (voir parcours.verificationVitesse).
+  const familleDe = (c) => (c.startsWith('cascade') ? 'cascade' : c.split(':')[1]);
+  const amis = new Set(reussis.map(familleDe).filter((f) => f !== 'direct'));
+  const familleColonne = amis.size === 0 ? 'direct' : amis.size === 1 ? [...amis][0] : null;
+  if (t != null && reussis.length && familleColonne) {
+    const v = ((donnees.vitesseFamilles ??= {})[familleColonne] ??= []);
+    v.push(Math.round(t * 100) / 100);
+    if (v.length > 40) v.shift();
+  }
   for (const c of reussis) {
     const f = fiche(c);
     f.essais += 1;
     f.dette = Math.max(0, f.dette - 0.5);
     ajouterEssai(f.hist, true, t);
     ajouterSemaine(f, t, aujourdhui());
+    if (t != null && familleColonne === familleDe(c)) {
+      (f.isole ??= []).push(Math.round(t * 100) / 100);
+      if (f.isole.length > 40) f.isole.shift();
+    }
   }
   const bilan = [];
   const limite = ajouterJours(aujourdhui(), -FENETRE_SOUPCON);
@@ -445,6 +460,36 @@ export async function noterReponse(juste) {
   await sauver();
 }
 
+/**
+ * Calcul encore anormalement lent quand il revient : le geste le plus fragile de la colonne
+ * (le plus lent, ou le moins sûr) est tiré un peu plus souvent ensuite (sa « dette » augmente de
+ * 0,5 ; elle redescend à chaque réussite). Rien n'est affiché : c'est un réglage discret.
+ */
+export async function signalerLenteur(ex) {
+  const amis = [...new Set(ex.motifs ?? [])].filter((c) => !c.endsWith(':direct') && donnees.motifs[c]);
+  if (!amis.length) return;
+  const ev = (c) => evaluer(donnees.motifs[c].hist ?? [], 'addsub');
+  const fragile = amis.sort((a, b) => (ev(b).temps ?? 0) * (2 - ev(b).reussite) - (ev(a).temps ?? 0) * (2 - ev(a).reussite))[0];
+  donnees.motifs[fragile].dette += 0.5;
+  await sauver();
+}
+
+// ------------------------------------------------------------------ historique des feuilles
+
+/**
+ * Garde le résultat d'une feuille (temps par chiffre, réussite) dans son TYPE (même nombre de
+ * chiffres, même cible) : seules des feuilles du même type se comparent. 200 feuilles au plus.
+ * @returns {{ moyenne: number|null, nombre: number }}  la moyenne des 10 feuilles précédentes du type
+ */
+export async function noterFeuille({ cle, libelle, t, justes, total }) {
+  const liste = (donnees.feuilles ??= []);
+  const avant = liste.filter((f) => f.cle === cle).slice(-10);
+  liste.push({ date: aujourdhui(), cle, libelle, t: Math.round(t * 100) / 100, justes, total });
+  if (liste.length > 200) liste.splice(0, liste.length - 200);
+  await sauver();
+  return { moyenne: avant.length ? avant.reduce((s, f) => s + f.t, 0) / avant.length : null, nombre: avant.length };
+}
+
 // ------------------------------------------------------------------ erreurs à rejouer
 
 /** Signature d'une colonne (pour ne pas la garder deux fois). */
@@ -478,22 +523,6 @@ export async function retirerErreurColonne(ex) {
   const avant = donnees.erreursColonnes?.length ?? 0;
   donnees.erreursColonnes = (donnees.erreursColonnes ?? []).filter((e) => e.sig !== sig);
   if (donnees.erreursColonnes.length !== avant) await sauver();
-}
-
-/**
- * Mode Espace : résultat d'un contrôle surprise (l'élève a tapé ce que montrait son soroban).
- * Renvoie true quand il faut prévenir, avec bienveillance : 2 écarts sur les 5 derniers contrôles.
- * Le compteur repart alors de zéro (on ne répète pas le message à chaque contrôle).
- */
-export async function noterSondage(juste) {
-  donnees.stats ??= { suite: 0, meilleureSuite: 0 };
-  const s = (donnees.stats.sondages ??= []);
-  s.push(juste ? 1 : 0);
-  if (s.length > 5) s.shift();
-  const alerte = s.filter((x) => !x).length >= 2;
-  if (alerte) donnees.stats.sondages = [];
-  await sauver();
-  return alerte;
 }
 
 // ------------------------------------------------------------------ séance du jour

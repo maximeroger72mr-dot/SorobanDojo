@@ -29,6 +29,24 @@ export function serie81() {
   return melanger(t);
 }
 
+/**
+ * Plusieurs tables mélangées (ex. 7, 8 et 9) : chaque produit une fois, dans le désordre.
+ * Mélanger oblige à retrouver le produit sans savoir d'avance dans quelle table on est.
+ */
+export function serieTables(liste) {
+  const vus = new Set();
+  const t = [];
+  for (const n of liste) {
+    for (let i = 1; i <= 9; i++) {
+      const cle = cleProduit(n, i);
+      if (n < 10 && vus.has(cle)) continue; // 7 × 8 et 8 × 7 : une seule fois
+      vus.add(cle);
+      t.push(Math.random() < 0.5 ? exercice(n, i) : exercice(i, n));
+    }
+  }
+  return melanger(t);
+}
+
 /** Table d'un nombre (N × 1 à N × 9) dans le désordre. */
 export function serieTable(n) {
   return melanger(Array.from({ length: 9 }, (_, i) => (Math.random() < 0.5 ? exercice(n, i + 1) : exercice(i + 1, n))));

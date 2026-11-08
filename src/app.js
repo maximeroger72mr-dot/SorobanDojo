@@ -35,6 +35,7 @@ import examen from './modules/examen.js';
 import lexique from './modules/lexique.js';
 import bilan from './modules/bilan.js';
 import erreurs from './modules/erreurs.js';
+import verification from './modules/verification.js';
 import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
 /**
@@ -49,7 +50,7 @@ const MENU = [
   { ecran: progressionEcran, nom: 'Progression', court: 'Progrès', picto: 'progression' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
-  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs];
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs, verification];
 /** Entrée du menu à surligner pour un écran. */
 const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? (id === 'bilan' ? 'progression' : 'seance'));
 
