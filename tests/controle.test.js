@@ -171,3 +171,55 @@ test('affichage des temps : valeur exacte juste au-dessus d\'un seuil', async ()
   assert.equal(formaterTemps(1.5), '1,5 s');
   assert.equal(formaterTemps(2.34), '2,3 s');
 });
+
+test('estimation du quotient : le vrai chiffre, des restes, un raisonnement qui aboutit', async () => {
+  const { sprintQuotient, raisonnement, classementQuotient } = await import('../src/core/quotient.js');
+  let avecReste = 0;
+  for (let k = 0; k < 50; k++) {
+    const s = sprintQuotient();
+    assert.equal(s.length, 20);
+    for (let i = 0; i < s.length; i++) {
+      const { a, b, q } = s[i];
+      assert.ok(b >= 10 && b <= 99 && q >= 1 && q <= 9);
+      assert.equal(Math.floor(a / b), q, `${a} ÷ ${b}`);
+      if (a % b) avecReste += 1;
+      if (i >= 2) assert.ok(!(s[i - 1].q === q && s[i - 2].q === q), 'trois fois le même chiffre de suite');
+      assert.match(raisonnement(a, b), new RegExp(`(→ ${q}|c'est ${q})$`));
+    }
+  }
+  assert.ok(avecReste / 1000 > 0.7, 'surtout des dividendes avec reste');
+  assert.equal(raisonnement(150, 18), '18 ≈ 20 : 150 ÷ 20 ≈ 7 ; 7 × 18 = 126, il reste 24, encore ≥ 18 : trop petit → 8');
+  assert.equal(classementQuotient(19000).id, 'platine');
+  assert.equal(classementQuotient(90000), null);
+});
+
+test('régularité : signalée seulement quand elle se répète, et pas tous les jours', async () => {
+  const { scoreRythme } = await import('../src/core/regularite.js');
+  const regulier = scoreRythme([1, 1.1, 0.9, 1, 1.05, 0.95, 1, 1, 1.1, 0.9]);
+  const hachure = scoreRythme([1, 1, 2.5, 1, 1, 2.4, 1, 1, 1, 1]);
+  assert.ok(regulier.score >= 85 && !regulier.irregulier);
+  assert.ok(hachure.irregulier && hachure.hesitations === 2);
+  globalThis.localStorage = { m: new Map(), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, v); } };
+  const p = await import('../src/core/progression.js?rythme');
+  await p.chargerProgression();
+  assert.equal(await p.noterRythme(hachure), false, 'une fois : rien (un appel, une distraction)');
+  assert.equal(await p.noterRythme(regulier), false);
+  assert.equal(await p.noterRythme(hachure), true, 'deuxième fois : on prévient');
+  assert.equal(await p.noterRythme(hachure), false, 'pas deux fois en 3 jours');
+});
+
+test('volume : chiffres comptés par jour', async () => {
+  globalThis.localStorage = { m: new Map(), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, v); } };
+  const p = await import('../src/core/progression.js?volume');
+  await p.chargerProgression();
+  p.noterVolume(12);
+  p.noterVolume(8);
+  assert.equal(p.progression().volume[p.aujourdhui()], 20);
+});
+
+test('CPM : seuils 20 / 40 / 75 et affichage', async () => {
+  const { cpm, formaterCadence, formaterVitesse, NIVEAUX } = await import('../src/core/maitrise.js');
+  assert.deepEqual(NIVEAUX.filter((n) => n.temps).map((n) => cpm(n.temps.addsub)), [20, 40, 75]);
+  assert.equal(formaterCadence(1.5), '40 CPM');
+  assert.equal(formaterVitesse(1.5), '40 CPM (1,5 s par chiffre)');
+});

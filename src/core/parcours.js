@@ -11,7 +11,7 @@ import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL } from './drills.js';
-import { evaluer, plateau, mediane, MIN_ESSAIS, formaterTemps } from './maitrise.js';
+import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
@@ -230,7 +230,7 @@ export function prioriteDuJour(d, date, difficiles = []) {
   const p = plateaux(d, date)[0];
   if (p) {
     const cibles = p.type === 'geste' ? [p.cle] : p.cibles;
-    const constat = `${p.nom[0].toUpperCase()}${p.nom.slice(1)} stagne : ${nf(p.maintenant)} s par chiffre, contre ${nf(p.avant)} s il y a ${p.semaines} semaines.`;
+    const constat = `${p.nom[0].toUpperCase()}${p.nom.slice(1)} stagne : ${formaterCadence(p.maintenant)}, contre ${formaterCadence(p.avant)} il y a ${p.semaines} semaines.`;
     const remedes = [
       { titre: 'Casser le plateau : surentraînement', texte: 'Moins de chiffres, plus vite : 6 colonnes à 1 chiffre au rythme du lièvre, qui accélère. Le geste doit partir sans réfléchir.', aller: ['rythme', { jeu: 'lievre', cibles, chiffres: 1, accelere: true, auto: true }] },
       { titre: 'Casser le plateau : marathon', texte: '40 lignes d\'affilée sur ce geste, sans remettre à zéro. Le volume ancre le mouvement.', aller: ['rythme', { jeu: 'marathon', cibles, lignes: 40, auto: true }] },
@@ -250,7 +250,7 @@ export function prioriteDuJour(d, date, difficiles = []) {
   const lent = gestesLents(d, 1)[0];
   if (lent && lent.ev.niveau.id !== 'expert') {
     return {
-      titre: 'Accélérer un geste', raison: `${nomMotif(lent.cle)} est votre geste le plus lent : ${nf(lent.ev.temps)} s par chiffre.`,
+      titre: 'Accélérer un geste', raison: `${nomMotif(lent.cle)} est votre geste le plus lent : ${formaterVitesse(lent.ev.temps)}.`,
       texte: `Faites 40 lignes de marathon sur ${nomMotif(lent.cle)} aujourd'hui.`,
       aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }],
     };
@@ -292,7 +292,7 @@ export function verificationVitesse(d) {
     const suivante = ORDRE_FAMILLES.slice(i + 1).find((x) => medFam(x) !== null);
     if (!suivante || medFam(fam) === null || medFam(fam) < medFam(suivante)) continue;
     const nom = NOMS_FAMILLES[fam];
-    const constat = `Vos ${nom} (${formaterTemps(medFam(fam))} par chiffre) paraissent plus lents que vos ${NOMS_FAMILLES[suivante]} (${formaterTemps(medFam(suivante))}).`;
+    const constat = `Vos ${nom} (${formaterVitesse(medFam(fam))}) paraissent plus lents que vos ${NOMS_FAMILLES[suivante]} (${formaterVitesse(medFam(suivante))}).`;
     const isoles = d.vitesseFamilles?.[fam] ?? [];
     if (isoles.length < MESURES_FIABLES) {
       return { cle: `famille:${fam}`, titre: `Vérifier mes ${nom}`, detail: `20 colonnes rien qu'avec eux`,
@@ -305,11 +305,11 @@ export function verificationVitesse(d) {
         .filter((x) => x.iso !== null && x.iso > 1.25 * iso).sort((a, b) => b.iso - a.iso)[0];
       if (!lent) continue; // famille vérifiée rapide : c'est l'enchaînement avec les autres gestes qui coûte
       return { cle: lent.cle, titre: `Accélérer ${nomMotif(lent.cle)}`, detail: '40 lignes de marathon sur ce geste',
-        pourquoi: `Mesuré seul, ${nomMotif(lent.cle)} reste plus lent (${formaterTemps(lent.iso)}) que vos autres ${nom} (${formaterTemps(iso)}) : c'est lui qui freine.`,
+        pourquoi: `Mesuré seul, ${nomMotif(lent.cle)} reste plus lent (${formaterCadence(lent.iso)}) que vos autres ${nom} (${formaterCadence(iso)}) : c'est lui qui freine.`,
         aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }] };
     }
     return { cle: `famille:${fam}`, titre: `Accélérer mes ${nom}`, detail: '20 colonnes rien qu\'avec eux, en visant la régularité',
-      pourquoi: `Même seuls, vos ${nom} restent lents (${formaterTemps(iso)} par chiffre) : il faut les travailler pour eux-mêmes.`,
+      pourquoi: `Même seuls, vos ${nom} restent lents (${formaterVitesse(iso)}) : il faut les travailler pour eux-mêmes.`,
       aller: ['verification', { famille: fam }] };
   }
   return null;

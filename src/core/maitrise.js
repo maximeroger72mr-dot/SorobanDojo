@@ -73,6 +73,22 @@ export function formaterTemps(t) {
   return `${t.toLocaleString('fr-FR', { minimumFractionDigits: deux ? 2 : 1, maximumFractionDigits: deux ? 2 : 1 })} s`;
 }
 
+/**
+ * Cadence en CHIFFRES PAR MINUTE (CPM) : 60 / temps par chiffre. Plus c'est haut, mieux c'est ;
+ * c'est l'unité principale des performances. Seuils : débutant 20, confirmé 40, expert 75 CPM.
+ * Hors addition/soustraction (produits, placements…) : « par minute » sur l'unité de la famille.
+ */
+export const cpm = (t) => (t == null ? null : Math.round(60 / t));
+export function formaterCadence(t, famille = 'addsub') {
+  if (t == null) return '—';
+  return famille === 'addsub' ? `${cpm(t)} CPM` : `${cpm(t)} ${UNITES_TEMPS[famille] ?? 'unité'}s/min`;
+}
+/** « 40 CPM (1,5 s par chiffre) » : la cadence en grand, le temps en petit. */
+export function formaterVitesse(t, famille = 'addsub') {
+  if (t == null) return '—';
+  return `${formaterCadence(t, famille)} (${formaterTemps(t)} par ${UNITES_TEMPS[famille] ?? 'unité'})`;
+}
+
 export const mediane = (xs) => {
   if (!xs.length) return null;
   const t = [...xs].sort((a, b) => a - b);
@@ -102,7 +118,7 @@ export function evaluer(hist = [], famille = 'addsub') {
   if (prochain?.reussite) {
     if (essais < MIN_ESSAIS) manque.push(`${MIN_ESSAIS - essais} essai${MIN_ESSAIS - essais > 1 ? 's' : ''} de plus`);
     if (reussite < prochain.reussite) manque.push(`réussite ≥ ${Math.round(prochain.reussite * 100)} %`);
-    if (temps === null || temps > prochain.temps[famille]) manque.push(`≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
+    if (temps === null || temps > prochain.temps[famille]) manque.push(famille === 'addsub' ? `≥ ${cpm(prochain.temps.addsub)} CPM` : `≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
   }
   return { niveau: NIVEAUX[index], index, essais, reussite, temps, prochain, manque };
 }

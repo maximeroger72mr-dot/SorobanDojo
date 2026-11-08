@@ -9,7 +9,7 @@ import { progression, enregistrerSession, poidsAdaptatifs } from '../core/progre
 import { motifsAppris, NOMS_FAMILLES, MESURES_FIABLES } from '../core/parcours.js';
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { famille as familleMotifs, nomMotif } from '../core/motifs.js';
-import { mediane, formaterTemps } from '../core/maitrise.js';
+import { mediane, formaterVitesse } from '../core/maitrise.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { h } from '../ui/dom.js';
 
@@ -46,7 +46,7 @@ export default {
         const t = isoles.length ? mediane(isoles.slice(-20)) : null;
         el.append(h('div', { class: 'carte bilan' },
           h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
-          t !== null ? h('p', {}, `Vitesse mesurée seule : `, h('strong', {}, `${formaterTemps(t)} par chiffre`), isoles.length < MESURES_FIABLES ? ` (encore ${MESURES_FIABLES - isoles.length} colonnes justes pour une mesure fiable)` : '.') : null,
+          t !== null ? h('p', {}, `Vitesse mesurée seule : `, h('strong', {}, formaterVitesse(t)), isoles.length < MESURES_FIABLES ? ` (encore ${MESURES_FIABLES - isoles.length} colonnes justes pour une mesure fiable)` : '.') : null,
           h('p', { class: 'discret' }, 'Le prof en tient compte dès la prochaine séance : si la vitesse est bonne, rien à faire ; sinon, il proposera de quoi la travailler.'),
           h('button', { class: 'btn principal', onclick: () => app.aller('seance') }, 'Retour à la séance')),
           listeErreurs(b.resultats) ?? '');

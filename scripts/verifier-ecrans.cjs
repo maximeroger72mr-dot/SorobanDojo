@@ -29,7 +29,7 @@ function profil({ seanceFinie = false } = {}) {
   const paliers = {};
   // Tout le parcours jusqu'aux grands amis + multiplication 2×1 et division ÷1 validés ; la suite ouverte.
   for (const id of SOUS_PALIERS) {
-    if (/^p(0|1|2|3|4|5)-|^pa-[0-3]$|^p1-a$|^p6-[a01]$|^p7-[01]$/.test(id)) {
+    if (/^p(0|1|2|3|4|5)-|^pa-[0-3]$|^p1-a$|^p6-[a01]$|^p7-[01e]$/.test(id)) {
       paliers[id] = { reps: 40, justes: 39, valide: jour(12), carte: { boite: 2, echeance: jour(0) }, hist: Array.from({ length: 30 }, (_, i) => ({ ok: i % 9 ? 1 : 0, t: 1.2 + (i % 5) / 10 })) };
     }
   }
@@ -116,12 +116,18 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     ['rythme', { jeu: 'lievre', cibles: ['+3:petit'], chiffres: 1, auto: true }, 'Lièvre'],
     ['examen', {}, 'Passage de kyū'], ['erreurs', {}, 'À revoir'], ['bilan', {}, 'Bilan imprimable'],
     ['lecons', { piste: 'anzan' }, 'Leçons guidées'], ['planches', { cible: '+3:petit', auto: true, colonnes: 5, chiffres: 1 }, 'Planches'],
-    ['drills', { tables: 'lents', auto: true }, 'Drills'], ['drills', { tables: [7, 8, 9] }, 'Drills'],
+    ['drills', { tables: 'lents', auto: true }, 'Drills'], ['drills', { tables: [7, 8, 9] }, 'Drills'], ['drills', { quotient: true }, 'Drills'],
     ['verification', { famille: 'direct' }, 'Vérifier ma vitesse'], ['verification', { famille: 'petit' }, 'Vérifier ma vitesse'], ['verification', { geste: '+3:petit' }, 'Vérifier ma vitesse'], ['defis', { semaine: true }, 'Défis chrono'], ['lexique', {}, 'Lexique'],
   ];
   for (const [ecran, params, attendu] of internes) {
     await w.evaluate((x) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: x })), [ecran, params]);
     await controler(w, `${ecran} ${JSON.stringify(params)}`, attendu);
+  }
+  // Progression : les trois vues de régularité et de volume.
+  await aller(w, 'progression');
+  for (let k = 0; k < 3; k++) {
+    await w.click(`#ecran .segments button >> nth=${k}`);
+    await controler(w, `progression, vue ${k + 1}`);
   }
   // Jeux : chaque jeu de la page.
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['jeux', {}] })));

@@ -15,7 +15,9 @@
 import { genererColonneVariee, genererTerme, creerMemoire, ErreurGeneration, redondante } from '../core/generateur.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { tempsParUnite } from '../core/maitrise.js';
-import { noterGestes, noterReponse, poidsAdaptatifs } from '../core/progression.js';
+import { noterGestes, noterReponse, poidsAdaptatifs, noterVolume, noterRythme, MESSAGE_RYTHME } from '../core/progression.js';
+import { scoreRythme } from '../core/regularite.js';
+import { notifier } from './toast.js';
 import { lireReponse } from '../core/nombres.js';
 import { creerCourse } from './course.js';
 import { doigte } from './drill.js';
@@ -218,7 +220,8 @@ export function creerMarathon(conteneur, o) {
     const ex = { type: 'addsub', lignes: tranche.depart === 0 && lignesTenues === 0 ? tranche.lignes : [{ op: '+', n: tranche.depart }, ...tranche.lignes], resultat: tranche.resultat };
     const juste = rep === tranche.resultat;
     const t = tempsParUnite({ type: 'addsub', lignes: tranche.lignes }, ms);
-    resultats.push({ ex, reponse: rep, juste, dureeMs: ms });
+    resultats.push({ ex, reponse: rep, juste, dureeMs: ms, t });
+    noterVolume(tranche.lignes.reduce((s, l) => s + String(l.n).length, 0));
     await noterReponse(juste);
     if (juste) {
       await noterGestes(tranche.motifs, [], t);
@@ -249,6 +252,9 @@ export function creerMarathon(conteneur, o) {
   }
 
   function terminer(complet) {
+    // Régularité des tranches (temps par chiffre de chaque tranche réussie), si confirmée.
+    const temps = resultats.filter((r) => r.juste && r.t).map((r) => r.t);
+    if (temps.length >= 6) noterRythme(scoreRythme(temps)).then((oui) => { if (oui) notifier('Le rythme', MESSAGE_RYTHME, 15000); });
     phase = 'fin';
     delete racine.dataset.enCours;
     clearInterval(minuterie);

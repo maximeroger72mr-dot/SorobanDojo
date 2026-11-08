@@ -442,3 +442,9 @@ html:root .barre-seance button.btn.principal { background: var(--conseil); color
 .choix-tables .case-table { min-width: 3.2rem; }
 /* Carte de maîtrise : geste dont la vitesse est à vérifier. */
 html:root table.carte-maitrise td.a-verifier { outline: 2px dashed var(--conseil); outline-offset: -3px; }
+
+/* Sprint d'estimation du quotient. */
+.operation.estimation { font-size: 3rem; margin: 18px 0; min-height: 4rem; }
+.touches-quotient button.btn { min-width: 3rem; font-family: var(--police-chiffres); font-size: 1.2rem; }
+/* Volume par semaine. */
+.barre-volume { fill: var(--texte); }

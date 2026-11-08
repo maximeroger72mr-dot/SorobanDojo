@@ -104,32 +104,70 @@ export function calendrier(minutes, aujourdhui, semaines = 18) {
   return h('div', { class: 'graphique' }, svg, legende);
 }
 
+// ------------------------------------------------------------------ volume par semaine
+
+/**
+ * Volume par semaine (barres) : exercices ou chiffres calculés, sur les 12 dernières semaines
+ * (lundi → dimanche). Une seule teinte ; la valeur au survol et au-dessus de la barre la plus haute.
+ * @param {Object<string, number>} parJour  { 'AAAA-MM-JJ': valeur }
+ */
+export function barresSemaines(parJour, aujourdhui, unite, semaines = 12) {
+  const [a, mo, j] = aujourdhui.split('-').map(Number);
+  const jourSemaine = (new Date(a, mo - 1, j).getDay() + 6) % 7;
+  const lundi = ajouterJours(aujourdhui, -jourSemaine);
+  const valeurs = Array.from({ length: semaines }, (_, k) => {
+    const debut = ajouterJours(lundi, -(semaines - 1 - k) * 7);
+    let v = 0;
+    for (let d = 0; d < 7; d++) v += parJour[ajouterJours(debut, d)] ?? 0;
+    return { debut, v: Math.round(v) };
+  });
+  const L = 560;
+  const H = 180;
+  const m = { g: 10, d: 10, h: 22, b: 22 };
+  const max = Math.max(1, ...valeurs.map((x) => x.v));
+  const larg = (L - m.g - m.d) / semaines;
+  const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'courbe', role: 'img', 'aria-label': `Volume par semaine (${unite})` });
+  valeurs.forEach((x, k) => {
+    const hb = ((H - m.h - m.b) * x.v) / max;
+    const rect = s('rect', { x: m.g + k * larg + 3, y: H - m.b - hb, width: larg - 6, height: Math.max(hb, x.v ? 1 : 0), class: 'barre-volume' });
+    const texte = `Semaine du ${new Date(`${x.debut}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} : ${x.v.toLocaleString('fr-FR')} ${unite}`;
+    rect.addEventListener('pointermove', (e) => montrerBulle(e, texte));
+    rect.addEventListener('pointerleave', cacherBulle);
+    svg.append(rect);
+    if (k % 2 === (semaines - 1) % 2) svg.append(s('text', { x: m.g + k * larg + larg / 2, y: H - 6, class: 'axe-texte', 'text-anchor': 'middle' }, new Date(`${x.debut}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })));
+    if (x.v === max && x.v && valeurs.findIndex((y) => y.v === max) === k) svg.append(s('text', { x: m.g + k * larg + larg / 2, y: H - m.b - hb - 6, class: 'axe-texte', 'text-anchor': 'middle' }, x.v.toLocaleString('fr-FR')));
+  });
+  const total = valeurs.reduce((t, x) => t + x.v, 0);
+  return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, `${total.toLocaleString('fr-FR')} ${unite} sur 12 semaines · cette semaine : ${valeurs.at(-1).v.toLocaleString('fr-FR')}`), svg);
+}
+
 // ------------------------------------------------------------------ courbe de vitesse d'un geste
 
 /**
- * Temps par chiffre des essais réussis récents (médiane glissante sur 5), avec les seuils
- * des niveaux en pointillés.
+ * Cadence (chiffres par minute, CPM) des essais réussis récents (médiane glissante sur 5) : la
+ * courbe MONTE quand on progresse. Seuils des niveaux en pointillés (20, 40, 75 CPM).
  */
 export function courbeVitesse(hist, famille = 'addsub') {
   const reussis = hist.filter((x) => x.ok && x.t != null).map((x) => x.t);
   if (reussis.length < 5) return h('p', { class: 'discret' }, 'Pas encore assez d\'essais réussis pour tracer la courbe.');
   const glissante = reussis.map((_, i) => {
     const f = reussis.slice(Math.max(0, i - 4), i + 1).sort((a, b) => a - b);
-    return f[Math.floor(f.length / 2)];
+    return 60 / f[Math.floor(f.length / 2)];
   });
+  const unite = famille === 'addsub' ? 'CPM' : 'par min';
   const L = 560;
   const H = 220;
   const m = { g: 40, d: 110, h: 12, b: 28 };
-  const seuils = NIVEAUX.filter((n) => n.temps).map((n) => ({ nom: n.nom, v: n.temps[famille] }));
-  const ymax = Math.max(...glissante, seuils[0].v) * 1.1;
+  const seuils = NIVEAUX.filter((n) => n.temps).map((n) => ({ nom: n.nom, v: 60 / n.temps[famille] }));
+  const ymax = Math.max(...glissante, seuils[1].v) * 1.15;
   const x = (i) => m.g + (i / Math.max(1, glissante.length - 1)) * (L - m.g - m.d);
   const y = (v) => m.h + (1 - v / ymax) * (H - m.h - m.b);
-  const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'courbe', role: 'img', 'aria-label': 'Évolution du temps par chiffre' });
+  const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'courbe', role: 'img', 'aria-label': 'Évolution de la cadence en chiffres par minute' });
   // grille et axe (discrets)
-  const pasY = ymax > 6 ? 2 : ymax > 3 ? 1 : 0.5;
+  const pasY = ymax > 120 ? 40 : ymax > 60 ? 20 : 10;
   for (let v = 0; v <= ymax; v += pasY) {
     svg.append(s('line', { x1: m.g, x2: L - m.d, y1: y(v), y2: y(v), class: 'grille' }),
-      s('text', { x: m.g - 6, y: y(v) + 4, class: 'axe-texte', 'text-anchor': 'end' }, `${v.toLocaleString('fr-FR')} s`));
+      s('text', { x: m.g - 6, y: y(v) + 4, class: 'axe-texte', 'text-anchor': 'end' }, `${v}`));
   }
   svg.append(s('text', { x: m.g, y: H - 6, class: 'axe-texte' }, `essais réussis (${reussis.length} derniers gardés)`));
   // seuils des niveaux, étiquetés directement
@@ -150,10 +188,10 @@ export function courbeVitesse(hist, famille = 'addsub') {
     const i = Math.max(0, Math.min(glissante.length - 1, Math.round(((px - m.g) / (L - m.g - m.d)) * (glissante.length - 1))));
     reticule.setAttribute('x1', x(i)); reticule.setAttribute('x2', x(i)); reticule.style.display = '';
     point.setAttribute('cx', x(i)); point.setAttribute('cy', y(glissante[i])); point.style.display = '';
-    montrerBulle(e, `Essai ${i + 1} : ${glissante[i].toLocaleString('fr-FR', { maximumFractionDigits: 2 })} s par ${famille === 'addsub' ? 'chiffre' : 'produit'} (médiane des 5 derniers)`);
+    montrerBulle(e, `Essai ${i + 1} : ${Math.round(glissante[i])} ${unite} (${(60 / glissante[i]).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} s par ${famille === 'addsub' ? 'chiffre' : 'produit'}, médiane des 5 derniers)`);
   });
   zone.addEventListener('pointerleave', () => { reticule.style.display = 'none'; point.style.display = 'none'; cacherBulle(); });
   svg.append(reticule, point, zone);
-  return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, 'Temps par chiffre (essais réussis)'), svg);
+  return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, famille === 'addsub' ? 'Cadence en chiffres par minute (CPM, essais réussis) : plus haut = plus rapide' : 'Cadence (par minute, essais réussis)'), svg);
 }
 

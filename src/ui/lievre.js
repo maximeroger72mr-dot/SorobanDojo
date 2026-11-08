@@ -13,7 +13,7 @@
  */
 
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
-import { noterReponse, noterGestes, poidsAdaptatifs } from '../core/progression.js';
+import { noterReponse, noterGestes, poidsAdaptatifs, noterVolume } from '../core/progression.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { lireReponse } from '../core/nombres.js';
 import { Metronome } from './metronome.js';
@@ -109,6 +109,7 @@ export function creerLievre(conteneur, o) {
     const rep = lireReponse(saisie.value);
     if (rep === null) return;
     const juste = rep === col.resultat;
+    noterVolume(col.lignes.reduce((s, l) => s + String(l.n).length, 0));
     await noterReponse(juste);
     // Carte de maîtrise : une colonne juste crédite ses gestes, au temps de la cadence imposée
     // (on l'a tenue, donc au moins aussi vite) ; une erreur n'accuse qu'un geste prouvé.

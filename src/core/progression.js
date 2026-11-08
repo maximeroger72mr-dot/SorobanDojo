@@ -474,6 +474,40 @@ export async function signalerLenteur(ex) {
   await sauver();
 }
 
+/**
+ * Volume réel : chiffres calculés par jour (compté depuis la version 0.20 ; avant, seul le nombre
+ * d'exercices est connu). Enregistré avec la prochaine sauvegarde.
+ */
+export function noterVolume(chiffres) {
+  if (!chiffres) return;
+  const v = (donnees.volume ??= {});
+  v[aujourdhui()] = (v[aujourdhui()] ?? 0) + chiffres;
+}
+
+/**
+ * Régularité du rythme : un bloc irrégulier isolé (un appel, une distraction) ne dit rien. On ne
+ * prévient que si c'est CONFIRMÉ : un autre bloc irrégulier parmi les 5 précédents des 7 derniers
+ * jours ; et au plus une fois tous les 3 jours, pour ne pas harceler.
+ * @param {{score, hesitations, irregulier}} r  voir regularite.scoreRythme
+ * @returns {boolean}  true s'il faut prévenir l'élève
+ */
+export async function noterRythme(r) {
+  if (!r) return false;
+  const liste = (donnees.rythmes ??= []);
+  const limite = ajouterJours(aujourdhui(), -7);
+  const precedents = liste.filter((x) => x.date > limite).slice(-5);
+  liste.push({ date: aujourdhui(), score: r.score, hesitations: r.hesitations, irregulier: r.irregulier });
+  if (liste.length > 60) liste.splice(0, liste.length - 60);
+  const confirme = r.irregulier && precedents.some((x) => x.irregulier);
+  const recente = donnees.alerteRythme && donnees.alerteRythme > ajouterJours(aujourdhui(), -3);
+  const prevenir = confirme && !recente;
+  if (prevenir) donnees.alerteRythme = aujourdhui();
+  await sauver();
+  return prevenir;
+}
+
+export const MESSAGE_RYTHME = 'Votre rythme est irrégulier, et ce n\'est pas la première fois : certaines colonnes vous prennent deux fois plus de temps que les autres. C\'est souvent une hésitation sur un même geste. Pour lisser le rythme : le marathon au métronome, ou le lièvre.';
+
 // ------------------------------------------------------------------ historique des feuilles
 
 /**

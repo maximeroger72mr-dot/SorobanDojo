@@ -8,8 +8,8 @@
  */
 
 import { diagnostiquer } from '../core/diagnostic.js';
-import { noterErreurColonne, noterFeuille } from '../core/progression.js';
-import { NIVEAUX, unites, familleTemps, formaterTemps, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
+import { noterErreurColonne, noterFeuille, noterVolume } from '../core/progression.js';
+import { NIVEAUX, unites, familleTemps, formaterTemps, formaterCadence, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
@@ -100,6 +100,7 @@ export function creerFeuille(conteneur, o) {
           h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex) }, 'Expliquer')));
       }
       if (!juste && reponse !== null) noterErreurColonne(c.ex); // à rejouer demain
+      if (reponse !== null) noterVolume(unites(c.ex));
       return { ex: c.ex, reponse, juste, section: c.section };
     });
     const parSection = o.sections.map((sec, si) => {
@@ -133,13 +134,13 @@ export function creerFeuille(conteneur, o) {
     const niveau = [...NIVEAUX].reverse().find((n) => n.temps && t <= n.temps[famille] && taux >= n.reussite) ?? NIVEAUX[1];
     const metal = { progres: 'bronze', debutant: 'argent', confirme: 'or', expert: 'platine' }[niveau.id];
     const ligne = h('div', { class: `vitesse-feuille vf-${niveau.id}` },
-      h('strong', {}, `${formaterTemps(t)} par ${famille === 'muldiv' ? 'produit' : 'chiffre'}`),
+      h('strong', {}, formaterCadence(t, famille)), h('span', { class: 'discret' }, ` (${formaterTemps(t)} par ${famille === 'muldiv' ? 'produit' : 'chiffre'})`),
       ` · ${niveau.id === 'progres' ? 'en progrès' : niveau.nom}${metal ? ` (${metal})` : ''}`);
     if (o.historique) {
       noterFeuille({ ...o.historique, t, justes: b.justes, total: b.total }).then(({ moyenne, nombre }) => {
         if (moyenne === null) { ligne.append(h('span', { class: 'discret' }, ' · première feuille de ce type')); return; }
         const ecart = (t - moyenne) / moyenne;
-        ligne.append(h('span', {}, ` · votre moyenne sur ce type : ${formaterTemps(moyenne)} (${nombre} feuille${nombre > 1 ? 's' : ''})${Math.abs(ecart) < 0.03 ? ', comme d\'habitude' : ecart < 0 ? `, ${Math.round(-ecart * 100)} % plus rapide` : `, ${Math.round(ecart * 100)} % plus lent`}`));
+        ligne.append(h('span', {}, ` · votre moyenne sur ce type : ${formaterCadence(moyenne, famille)} (${nombre} feuille${nombre > 1 ? 's' : ''})${Math.abs(ecart) < 0.03 ? ', comme d\'habitude' : ecart < 0 ? `, ${Math.round(-ecart * 100)} % plus rapide` : `, ${Math.round(ecart * 100)} % plus lent`}`));
       });
     }
     return ligne;

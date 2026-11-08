@@ -43,3 +43,24 @@ export function serieJours(datesPratiquees, aujourdhui) {
   }
   return { jours, aujourdhuiFait, reposUtilise };
 }
+
+/**
+ * Régularité du rythme sur un bloc de colonnes (ou de tranches de marathon) : l'écart entre les
+ * temps par chiffre, sans rien demander de plus à l'élève (on ne chronomètre pas chaque ligne,
+ * ce qui casserait le geste).
+ *  - score 0 à 100 : 100 − 150 × coefficient de variation (100 = parfaitement régulier) ;
+ *  - hésitations : colonnes au moins 2 fois plus lentes que la médiane du bloc ;
+ *  - irrégulier : score < 65 ou au moins 2 hésitations.
+ * @param {number[]} temps  secondes par chiffre de chaque colonne du bloc
+ */
+export function scoreRythme(temps) {
+  const n = temps.length;
+  if (n < 5) return null;
+  const moyenne = temps.reduce((s, x) => s + x, 0) / n;
+  const ecart = Math.sqrt(temps.reduce((s, x) => s + (x - moyenne) ** 2, 0) / n);
+  const tri = [...temps].sort((a, b) => a - b);
+  const med = tri[Math.floor(n / 2)];
+  const score = Math.max(0, Math.min(100, Math.round(100 - 150 * (ecart / moyenne))));
+  const hesitations = temps.filter((x) => x >= 2 * med).length;
+  return { score, hesitations, irregulier: score < 65 || hesitations >= 2 };
+}

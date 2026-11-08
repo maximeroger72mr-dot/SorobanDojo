@@ -6,7 +6,7 @@
  */
 
 import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
-import { NIVEAUX, formaterTemps } from '../core/maitrise.js';
+import { NIVEAUX, formaterVitesse } from '../core/maitrise.js';
 import { progression, evaluerMotif } from '../core/progression.js';
 import { motifsAppris, verificationVitesse } from '../core/parcours.js';
 import { COULEUR_NIVEAU, ENCRE_NIVEAU, montrerBulle, cacherBulle } from './graphiques.js';
@@ -18,7 +18,6 @@ const LIGNES = [
   ['+', 'direct', 'Ajouter, direct'], ['+', 'petit', 'Ajouter, petit ami'], ['+', 'grand', 'Ajouter, grand ami'], ['+', 'mixte', 'Ajouter, combiné'],
   ['-', 'direct', 'Retirer, direct'], ['-', 'petit', 'Retirer, petit ami'], ['-', 'grand', 'Retirer, grand ami'], ['-', 'mixte', 'Retirer, combiné'],
 ];
-const nf = formaterTemps;
 
 /**
  * @param {{ surClic?: (cle) => void, selection?: Set<string>, surSelection?: (Set) => void, sansDirects?: boolean }} o
@@ -62,7 +61,7 @@ export function carteMaitrise(o = {}) {
         cellule.addEventListener('click', () => clic(cle, cellule));
         cellule.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clic(cle, cellule); } });
         cellule.addEventListener('pointermove', (e) => montrerBulle(e, [h('strong', {}, nomMotif(cle)), h('br'),
-          pratique ? `${ev.niveau.nom} · réussite ${Math.round(ev.reussite * 100)} % · ${nf(ev.temps)} par chiffre${aVerifier(cle) ? ' · vitesse à vérifier' : ''}` : appris.has(cle) ? 'pas encore pratiqué' : 'leçon pas encore validée']));
+          pratique ? `${ev.niveau.nom} · réussite ${Math.round(ev.reussite * 100)} % · ${formaterVitesse(ev.temps)}${aVerifier(cle) ? ' · vitesse à vérifier' : ''}` : appris.has(cle) ? 'pas encore pratiqué' : 'leçon pas encore validée']));
         cellule.addEventListener('pointerleave', cacherBulle);
         style(cellule, cle);
         cellules.push(cellule);

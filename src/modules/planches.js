@@ -12,7 +12,7 @@ import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motif
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
-import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterTemps } from '../core/maitrise.js';
+import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
@@ -106,12 +106,12 @@ function historiqueFeuilles() {
     const fin = ts.slice(-3);
     const tendance = liste.length >= 6 ? (fin.reduce((s, x) => s + x, 0) / fin.length) / (debut.reduce((s, x) => s + x, 0) / debut.length) - 1 : null;
     return h('tr', {}, h('td', {}, liste[0].libelle), h('td', {}, liste.length),
-      h('td', {}, h('span', { class: `pastille-niveau ${couleur(liste.at(-1).t)}` }), ` ${formaterTemps(liste.at(-1).t)}`),
-      h('td', {}, formaterTemps(moyenne)), h('td', {}, formaterTemps(meilleure)),
+      h('td', {}, h('span', { class: `pastille-niveau ${couleur(liste.at(-1).t)}` }), ` ${formaterCadence(liste.at(-1).t)}`),
+      h('td', {}, formaterCadence(moyenne)), h('td', {}, formaterCadence(meilleure)),
       h('td', {}, tendance === null ? '—' : tendance <= -0.03 ? `${Math.round(-tendance * 100)} % plus rapide` : tendance >= 0.03 ? `${Math.round(tendance * 100)} % plus lent` : 'stable'));
   });
   return h('div', {}, h('h2', {}, 'Mes feuilles'),
-    h('p', { class: 'discret' }, 'Temps par chiffre (lecture et écriture des réponses déduites), par type de feuille : seules des feuilles du même type se comparent. La couleur suit les niveaux : bronze, argent, or, platine.'),
+    h('p', { class: 'discret' }, 'Cadence en chiffres par minute (CPM : plus c\'est haut, mieux c\'est ; lecture et écriture des réponses déduites), par type de feuille : seules des feuilles du même type se comparent. La couleur suit les niveaux : bronze, argent, or, platine.'),
     h('table', {}, h('tr', {}, ['Type de feuille', 'Feuilles', 'Dernière', 'Moyenne (10 dernières)', 'Meilleure', 'Tendance'].map((x) => h('th', {}, x))), lignes));
 }
 

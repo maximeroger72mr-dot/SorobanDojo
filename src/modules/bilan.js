@@ -12,6 +12,7 @@ import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
 import { catalogueDrills, classement } from '../core/drills.js';
 import { ajouterJours } from '../core/revision.js';
 import { VERSION_APPLI } from '../core/version.js';
+import { formaterCadence } from '../core/maitrise.js';
 import { h, formaterDuree } from '../ui/dom.js';
 
 const dateFr = (x) => new Date(`${x}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -64,13 +65,13 @@ export default {
           ligne('Leçons validées', `${b.lecons.validees.length} sur ${b.lecons.total} (chacune par un test de 15 calculs : 13 justes au moins, à une vitesse minimale)`),
           ligne('Régularité', `${b.joursPratique} jours de pratique au total ; ${b.jours30} jours et ${b.minutes30} minutes sur les 30 derniers jours`),
           ligne('Volume', `${b.exercices.toLocaleString('fr-FR')} exercices${b.reussite !== null ? `, ${Math.round(b.reussite * 100)} % de justes` : ''}`),
-          ligne('Gestes acquis', `${b.gestesAcquis} sur ${b.gestesTotal} (au moins 90 % de justes, à 3 s par chiffre au plus)`)),
+          ligne('Gestes acquis', `${b.gestesAcquis} sur ${b.gestesTotal} (au moins 90 % de justes, à 20 chiffres par minute au moins)`)),
         b.kyu.length ? [h('h3', {}, 'Passages d\'examen'),
           h('table', { class: 'tableau-rapport' }, h('tr', {}, h('th', {}, 'Date'), h('th', {}, 'Examen'), h('th', {}, 'Résultat')),
             b.kyu.slice(-12).map((k) => h('tr', {}, h('td', {}, dateFr(k.date)), h('td', {}, k.nom), h('td', {}, `${k.justes} / ${k.total}${k.reussi ? ' · réussi' : ''}`))))] : null,
         b.rapides.length ? [h('h3', {}, 'Gestes'),
-          h('p', {}, h('strong', {}, 'Les plus sûrs : '), b.rapides.map((g) => `${nomMotif(g.cle)} (${nf(g.ev.temps)} s par chiffre)`).join(', '), '.'),
-          h('p', {}, h('strong', {}, 'À travailler : '), b.lents.map((g) => `${nomMotif(g.cle)} (${nf(g.ev.temps)} s, ${Math.round(g.ev.reussite * 100)} % de justes)`).join(', '), '.')] : null,
+          h('p', {}, h('strong', {}, 'Les plus sûrs : '), b.rapides.map((g) => `${nomMotif(g.cle)} (${formaterCadence(g.ev.temps)})`).join(', '), '.'),
+          h('p', {}, h('strong', {}, 'À travailler : '), b.lents.map((g) => `${nomMotif(g.cle)} (${formaterCadence(g.ev.temps)}, ${Math.round(g.ev.reussite * 100)} % de justes)`).join(', '), '.')] : null,
         b.drills.length ? [h('h3', {}, 'Suites chronométrées (drills)'),
           h('table', { class: 'tableau-rapport' }, b.drills.map((x) => h('tr', {}, h('td', {}, x.titre), h('td', {}, `${formaterDuree(x.dureeMs)}${x.medaille ? ` · ${x.medaille.nom.toLowerCase()}` : ''}`))))] : null,
         b.lecons.validees.length ? [h('h3', {}, 'Parcours : leçons validées'),

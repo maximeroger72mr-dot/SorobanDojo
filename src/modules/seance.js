@@ -112,7 +112,12 @@ function plan(d, debut, seance = null) {
       fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
   // 7. Multiplication / division : tables et placement deviennent des réflexes quotidiens.
-  if (coursMultiplicationAtteint(d, sp)) {
+  if (coursMultiplicationAtteint(d, sp) && d.paliers['p7-e']?.valide && new Date(`${date}T12:00`).getDay() % 2 === 1) {
+    // Un jour sur deux, une fois la division par 2 chiffres abordée : l'estimation du quotient.
+    essentiel.push({ titre: 'Estimation du quotient (réflexe)', detail: '20 divisions, une touche par réponse', minutes: 3,
+      pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fait la vitesse des divisions par 2 chiffres.',
+      fait: fait((s) => s.module === 'drills' && s.mode === 'quotient'), aller: ['drills', { quotient: true }] });
+  } else if (coursMultiplicationAtteint(d, sp)) {
     essentiel.push({ titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
       fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
   }

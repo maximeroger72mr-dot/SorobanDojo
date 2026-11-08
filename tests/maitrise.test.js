@@ -12,7 +12,7 @@ test('niveaux : juste ET rapide', () => {
   assert.equal(evaluer(hist(30, 28, 2.5)).niveau.id, 'debutant');
   assert.equal(evaluer(hist(30, 29, 1.2)).niveau.id, 'confirme');
   assert.equal(evaluer(hist(30, 30, 0.6)).niveau.id, 'expert');
-  assert.deepEqual(evaluer(hist(30, 28, 2.5)).manque, ['réussite ≥ 95 %', '≤ 1,5 s par chiffre']);
+  assert.deepEqual(evaluer(hist(30, 28, 2.5)).manque, ['réussite ≥ 95 %', '≥ 40 CPM']);
 });
 
 test('temps par unité', () => {

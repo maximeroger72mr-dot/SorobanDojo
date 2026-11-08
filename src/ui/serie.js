@@ -23,7 +23,8 @@ import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
-import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages, noterErreurColonne, signalerLenteur } from '../core/progression.js';
+import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages, noterErreurColonne, signalerLenteur, noterVolume, noterRythme, MESSAGE_RYTHME } from '../core/progression.js';
+import { scoreRythme } from '../core/regularite.js';
 import { notifier } from './toast.js';
 import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
 import { creerCourse } from './course.js';
@@ -136,6 +137,7 @@ export function creerSerie(conteneur, o) {
    * examen (opts.defi) : ce sont des épreuves.
    */
   const aRevoir = [];
+  const blocRythme = [];
   const durees = [];
   let espaceArrete = false; // mode Espace : chrono arrêté par Espace, on tape maintenant la réponse
   // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
@@ -343,6 +345,7 @@ export function creerSerie(conteneur, o) {
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
     espaceArrete = false;
     racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
+    noterVolume(unites(ex));
     if (!juste && !opts.sansMemoireErreurs) await noterErreurColonne(ex); // à rejouer demain
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
@@ -354,6 +357,13 @@ export function creerSerie(conteneur, o) {
         else aRevoir.push({ ex: { ...ex }, a: i + 10 });
       }
       durees.push(dureeMs);
+    }
+    // Régularité, par blocs de 10 colonnes justes : signalée seulement si elle se confirme.
+    if (juste && ex.type === 'addsub' && !ex.flash && !aideUtilisee) {
+      blocRythme.push(t);
+      if (blocRythme.length >= 10) {
+        if (await noterRythme(scoreRythme(blocRythme.splice(0)))) notifier('Le rythme', MESSAGE_RYTHME, 15000);
+      }
     }
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).

@@ -5,21 +5,21 @@
 
 import { libelleGrade } from '../core/examen.js';
 import { selecteursTheme } from '../ui/theme.js';
-import { h, formaterDuree, formaterPourcent } from '../ui/dom.js';
+import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 import {
   statistiques, progression, aujourdhui, SEUIL_DIFFICULTE, evaluerMotif, evaluerPalier, reinitialiserGestes,
   exporterDonnees, importerDonnees, versionNavigateur, noterExport, toutEffacer,
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { VERSION_APPLI } from '../core/version.js';
-import { NIVEAUX, formaterTemps } from '../core/maitrise.js';
+import { NIVEAUX, formaterTemps, formaterVitesse, formaterCadence, cpm } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { minutesParJour, serieJours } from '../core/regularite.js';
 import { grade, compteurs, MESURES_FIABLES } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
-import { calendrier, courbeVitesse, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
+import { calendrier, courbeVitesse, barresSemaines, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 import { prochainSousPalier } from './lecons.js';
@@ -61,7 +61,6 @@ const NOMS_MODULES = {
   muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles', dictee: 'Dictée (yomiage)',
   rythme: 'Rythme et endurance', quotidien: 'Au quotidien',
 };
-const nf = formaterTemps;
 
 /**
  * Les deux vitesses d'un geste : « en situation » (moyenne des colonnes où il apparaît, celle qui
@@ -71,7 +70,7 @@ function vitesses(f, ev) {
   const iso = f?.isole ?? [];
   if (!iso.length || ev.temps === null) return null;
   const t = iso.slice(-20).sort((a, b) => a - b)[Math.floor(Math.min(20, iso.length) / 2)];
-  return h('p', {}, `En situation : ${formaterTemps(ev.temps)} par chiffre · mesuré seul : ${formaterTemps(t)}`,
+  return h('p', {}, `En situation : ${formaterVitesse(ev.temps)} · mesuré seul : ${formaterVitesse(t)}`,
     iso.length < MESURES_FIABLES ? h('span', { class: 'discret' }, ` (mesure en cours : ${iso.length} / ${MESURES_FIABLES} colonnes)`) : '');
 }
 
@@ -195,7 +194,20 @@ export default {
       h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
         h('div', { class: 'tuile-valeur' }, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`),
         h('div', { class: 'discret' }, 'Un jour de repos par semaine ne casse pas la série.'))));
-    el.append(h('h2', {}, 'Régularité'), calendrier(minutesParJour(d.sessions), aujourdhui()));
+    // Régularité : calendrier des minutes, ou volume brut par semaine (exercices, chiffres calculés).
+    const zoneRegularite = h('div', {});
+    const exercicesParJour = {};
+    for (const s of d.sessions) exercicesParJour[s.date] = (exercicesParJour[s.date] ?? 0) + (s.total ?? 0);
+    const vues = {
+      minutes: () => calendrier(minutesParJour(d.sessions), aujourdhui()),
+      exercices: () => barresSemaines(exercicesParJour, aujourdhui(), 'exercices'),
+      chiffres: () => [barresSemaines(d.volume ?? {}, aujourdhui(), 'chiffres calculés'),
+        h('p', { class: 'discret' }, 'Les chiffres calculés sont comptés depuis la version 0.20 (avant, seul le nombre d\'exercices est connu).')],
+    };
+    const bascule = h('div', { class: 'segments' }, [['minutes', 'Minutes par jour'], ['exercices', 'Exercices par semaine'], ['chiffres', 'Chiffres par semaine']].map(([v, t]) =>
+      h('button', { class: v === 'minutes' ? 'actif' : '', onclick: (e) => { [...bascule.children].forEach((b) => b.classList.toggle('actif', b === e.currentTarget)); remplir(zoneRegularite, vues[v]()); } }, t)));
+    remplir(zoneRegularite, vues.minutes());
+    el.append(h('h2', {}, 'Régularité et volume'), bascule, zoneRegularite);
 
     // Carte de maîtrise
     el.append(h('h2', {}, 'Carte de maîtrise des gestes'), carte(app));
@@ -228,7 +240,7 @@ export default {
     const anzanValides = anzan.filter((sp) => d.paliers[sp.id]?.valide).length;
     el.append(h('h2', {}, 'Leçons'),
       h('p', {}, `Parcours : ${nb.leconsValidees} leçon${nb.leconsValidees > 1 ? 's' : ''} validée${nb.leconsValidees > 1 ? 's' : ''} sur ${nb.leconsTotal} ; piste anzan : ${anzanValides} sur ${anzan.length}.`),
-      h('table', {}, h('tr', {}, ['Leçon', 'Exercices', 'Réussite récente', 'Temps par unité', 'Évolution', 'Niveau', 'État'].map((x) => h('th', {}, x))),
+      h('table', {}, h('tr', {}, ['Leçon', 'Exercices', 'Réussite récente', 'Cadence', 'Évolution', 'Niveau', 'État'].map((x) => h('th', {}, x))),
         SOUS_PALIERS.filter((sp) => d.paliers[sp.id]).map((sp) => {
           const e = d.paliers[sp.id];
           // Leçon à lire (leçon 0, cours d'anzan) : ni compteur ni niveau, seulement « Compris ».
@@ -236,7 +248,7 @@ export default {
           const ev = evaluerPalier(sp.id, familleLecon(sp));
           return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${sp.repetitions}`),
             h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : formaterPourcent(e.justes, e.reps)),
-            h('td', {}, nf(ev.temps)), h('td', {}, evolution(e.hist)), h('td', {}, badgeNiveau(ev)),
+            h('td', {}, formaterVitesse(ev.temps, familleLecon(sp))), h('td', {}, evolution(e.hist)), h('td', {}, badgeNiveau(ev)),
             h('td', {}, !e.valide ? 'en cours' : e.carte ? `validée (boîte ${e.carte.boite})` : sp.type === 'theorie' ? 'lue' : 'validée'));
         })));
 
@@ -245,10 +257,10 @@ export default {
       .sort((a, b) => a.ev.index - b.ev.index || b.f.dette - a.f.dette || b.f.essais - a.f.essais);
     if (motifs.length) {
       el.append(h('h2', {}, 'Gestes en détail'),
-        h('p', { class: 'discret' }, `Seuils : ${NIVEAUX.filter((n) => n.reussite).map((n) => `${n.nom} ≥ ${Math.round(n.reussite * 100)} % et ≤ ${n.temps.addsub.toLocaleString('fr-FR')} s par chiffre`).join(' ; ')}.`),
-        h('table', {}, h('tr', {}, ['Geste', 'Essais', 'Erreurs avérées', 'Réussite récente', 'Temps par chiffre', 'Niveau', ''].map((x) => h('th', {}, x))),
+        h('p', { class: 'discret' }, `Seuils : ${NIVEAUX.filter((n) => n.reussite).map((n) => `${n.nom} ≥ ${Math.round(n.reussite * 100)} % de justes et ≥ ${cpm(n.temps.addsub)} CPM (≤ ${n.temps.addsub.toLocaleString('fr-FR')} s par chiffre)`).join(' ; ')}.`),
+        h('table', {}, h('tr', {}, ['Geste', 'Essais', 'Erreurs avérées', 'Réussite récente', 'Cadence', 'Niveau', ''].map((x) => h('th', {}, x))),
           motifs.map(({ cle, f, ev }) => h('tr', { class: 'cliquable', onclick: () => detailGeste(app, cle) }, h('td', {}, nomMotif(cle)), h('td', {}, f.essais), h('td', {}, f.erreurs),
-            h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : '—'), h('td', {}, nf(ev.temps)), h('td', {}, badgeNiveau(ev)),
+            h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : '—'), h('td', {}, formaterVitesse(ev.temps)), h('td', {}, badgeNiveau(ev)),
             h('td', { class: f.dette > SEUIL_DIFFICULTE ? 'a-retravailler' : 'discret' }, f.dette > SEUIL_DIFFICULTE ? 'à retravailler' : ev.manque.length && ev.prochain ? `→ ${ev.manque.join(', ')}` : '')))),
         h('button', {
           class: 'btn', style: 'margin-top:12px',
