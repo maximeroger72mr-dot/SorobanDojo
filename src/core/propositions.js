@@ -16,6 +16,7 @@
 
 import { NIVEAUX, cpm, mediane } from './maitrise.js';
 import { nomMotif } from './motifs.js';
+import { libellesModes } from './colonneGeste.js';
 import { gestesLents, chiffresAppris, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
 import { catalogueDrills, tempsClassement, CLASSEMENT } from './drills.js';
 import { examenDeLaSemaine, minutesExamen } from './examen.js';
@@ -45,15 +46,21 @@ export function planchesPossibles(d, difficiles = []) {
   const liste = [];
   const faible = difficiles.find((m) => !m.cle.endsWith(':direct'));
   if (faible) {
-    liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, pur: true, chiffres: 1, lignes: 5, colonnes: 10,
+    liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
       objectif: `Renforcer un geste qui se trompe : 10 colonnes justes sur 10, sans chercher la vitesse.` });
   }
   const lents = gestesLents(d, 2);
   for (const [k, lent] of lents.entries()) {
     const suivant = NIVEAUX[lent.ev.index + 1]?.temps?.addsub;
     const quel = k === 0 ? 'votre geste le plus lent' : 'un de vos gestes les plus lents';
-    liste.push({ id: `automatiser:${lent.cle}`, but: 'Automatiser', titre: `Planche « ${nomMotif(lent.cle)} »`, cible: lent.cle, pur: true, chiffres: 1, lignes: 6, colonnes: 10,
+    liste.push({ id: `automatiser:${lent.cle}`, but: 'Automatiser', titre: `Planche « ${nomMotif(lent.cle)} »`, cible: lent.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
       objectif: suivant ? `Automatiser ${quel} : viser ${cpm(suivant)} CPM (vous êtes à ${cpm(lent.ev.temps)}).` : `Automatiser ${quel} (${cpm(lent.ev.temps)} CPM) : un rythme égal, sans réfléchir.` });
+  }
+  // Le geste le plus lent au milieu des autres amis de sa famille : le reconnaître parmi ses voisins.
+  if (lents[0]) {
+    const noms = libellesModes(lents[0].cle);
+    liste.push({ id: `famille:${lents[0].cle}`, but: 'Reconnaître', titre: `Planche « ${noms.famille} »`, cible: lents[0].cle, mode: 'famille', chiffres: ch, lignes: 6, colonnes: 10,
+      objectif: `Reconnaître le geste parmi ses voisins : ${noms.famille}, avec des pièges. Regardez la tige avant chaque geste.` });
   }
   liste.push({ id: 'consolider', but: 'Consolider', titre: 'Planche mélangée', cible: 'appris', chiffres: ch, lignes: 5, colonnes: 10,
     objectif: 'Consolider : tous vos gestes mélangés, il faut CHOISIR le bon à chaque ligne, comme en examen.' });
@@ -73,7 +80,7 @@ const planchesFaites = (d, date) => new Set(sessionsDu(d, date).filter((s) => s.
 /** Une proposition de planche, prête à lancer (aller). */
 const versPlanche = (p) => ({
   type: 'planche', id: p.id, titre: p.titre, but: p.but, detail: p.objectif, minutes: p.minutes,
-  aller: ['planches', { cible: p.cible, pur: !!p.pur, chiffres: p.chiffres, lignes: p.lignes, colonnes: p.colonnes, proposition: p.id, objectif: p.objectif, auto: true }],
+  aller: ['planches', { cible: p.cible, mode: p.mode, chiffres: p.chiffres, lignes: p.lignes, colonnes: p.colonnes, proposition: p.id, objectif: p.objectif, auto: true }],
 });
 
 /** Les n prochaines planches non faites aujourd'hui (la liste tourne : la suivante prend la place). */

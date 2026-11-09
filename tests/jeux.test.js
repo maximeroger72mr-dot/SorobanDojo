@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ciblesPures, genererColonne, analyserOperation } from '../src/core/generateur.js';
+import { analyserOperation } from '../src/core/generateur.js';
 import { famille } from '../src/core/motifs.js';
 import { plateau, ajouterSemaine, lundi } from '../src/core/maitrise.js';
 import { lireReponse } from '../src/core/nombres.js';
@@ -14,30 +14,32 @@ function motifsLignes(col) {
   return col.lignes.slice(1).map((l) => { const a = analyserOperation(v, l.op, l.n, 12); v = a.resultat; return a.motifs; });
 }
 
-test('mode pur : le geste une ligne sur deux, des lignes de replacement, jamais d\'aller-retour', async () => {
+test('« −2 petit ami » / « parmi les petits amis » : rôles, pièges, variété de la planche', async () => {
+  const { genererColonneGeste, creerMemoirePlanche, libellesModes } = await import('../src/core/colonneGeste.js');
   const { colonneValide } = await import('../src/core/generateur.js');
-  for (const [cle, ch] of [['-2:petit', 1], ['+4:petit', 1], ['-1:petit', 1], ['+9:grand', 1], ['-6:grand', 2], ['+7:mixte', 1]]) {
-    const p = ciblesPures([cle], ch);
-    let vises = 0;
-    let lignes = 0;
-    for (let i = 0; i < 15; i++) {
-      const col = genererColonne({ chiffres: ch, lignes: 6, autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas });
-      assert.ok(colonneValide(col, [cle], true) || col.assoupli, `${cle} : ${col.lignes.map((l) => l.op + l.n).join(' ')}`);
-      const ms = motifsLignes(col).slice(1);
-      for (const m of ms.flat()) assert.ok(p.autorises.has(m), `${cle} : ${m} non permis`);
-      for (let k = 1; k < ms.length; k++) assert.ok(!(ms[k].includes(cle) && ms[k - 1].includes(cle)), `${cle} : deux fois de suite`);
-      vises += ms.filter((m) => m.includes(cle)).length;
-      lignes += ms.length;
+  const appris = new Set([...famille('direct'), ...famille('petit'), ...famille('grand'), ...famille('mixte')]);
+  assert.deepEqual(libellesModes('-2:petit'), { seul: '−2 petit ami', famille: '−2 parmi les petits amis' });
+  for (const [cible, mode, ch] of [['-2:petit', 'seul', 1], ['-2:petit', 'famille', 1], ['-2:petit', 'seul', 2], ['+9:grand', 'seul', 1], ['+7:mixte', 'famille', 2]]) {
+    const m = creerMemoirePlanche();
+    const formes = new Set();
+    let pieges = 0;
+    for (let k = 0; k < 10; k++) {
+      const col = genererColonneGeste({ cible, mode, chiffres: ch, lignes: 6, appris }, m);
+      const ms = col.motifsLignes.slice(1);
+      // Le geste 2 fois (ou 3), jamais deux lignes de suite ; règles de qualité respectées.
+      const g = ms.filter((x) => x.includes(cible)).length;
+      assert.ok(g >= 2 && g <= 3, `${cible} : geste ${g} fois`);
+      for (let i = 1; i < ms.length; i++) assert.ok(!(ms[i].includes(cible) && ms[i - 1].includes(cible)), `${cible} : deux fois de suite`);
+      assert.ok(colonneValide(col, [cible], true), `${cible} : ${col.lignes.map((l) => l.op + l.n).join(' ')}`);
+      // Lignes « directes » : que des gestes directs. Famille : d'autres amis de la famille.
+      col.roles.forEach((r, i) => { if (r === 'D') assert.ok(ms[i].every((x) => x.endsWith(':direct')), `${cible} : ${ms[i]}`); });
+      if (mode === 'famille') assert.ok(col.roles.includes('F'), `${cible} : pas d'autre ami de la famille`);
+      pieges += col.roles.filter((r) => r === 'P').length;
+      formes.add(col.lignes.slice(1).map((l) => l.op + l.n).join());
     }
-    // Une ligne sur deux ; une sur trois quand deux replacements sont nécessaires (−1 petit ami à 1 chiffre).
-    assert.ok(vises / lignes >= (cle === '-1:petit' ? 0.2 : 0.3), `${cle} : ${vises}/${lignes} lignes sur le geste`);
+    assert.ok(pieges >= 3, `${cible} ${mode} ${ch} : ${pieges} pièges sur 10 colonnes`);
+    assert.ok(formes.size >= 9, `${cible} ${mode} ${ch} : ${formes.size} formes différentes sur 10`);
   }
-  // Petit ami seul : gestes directs et petits amis du sens opposé pour replacer la tige.
-  const p = ciblesPures(['-2:petit'], 1);
-  assert.ok(p.autorises.has('+3:direct') && p.autorises.has('+2:petit') && !p.autorises.has('-3:petit'));
-  // Grand ami seul : grands amis du sens opposé, et ±1 direct (la retenue).
-  const g = ciblesPures(['+9:grand'], 1);
-  for (const m of g.autorises) assert.ok(m === '+9:grand' || (m.startsWith('-') && m.endsWith(':grand')) || m === '+1:direct' || m === '-1:direct', m);
 });
 
 test('plateau : détecté quand le temps ne baisse plus depuis 2 semaines', () => {

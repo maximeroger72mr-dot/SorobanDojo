@@ -7,7 +7,9 @@
  * se limite aux gestes des leçons validées.
  */
 
-import { genererColonneVariee, creerMemoire, ciblesPures, ErreurGeneration } from '../core/generateur.js';
+import { genererColonneVariee, creerMemoire, ErreurGeneration } from '../core/generateur.js';
+import { genererColonneGeste, creerMemoirePlanche, libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
+import { entier } from '../core/aleatoire.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris } from '../core/parcours.js';
@@ -18,7 +20,7 @@ import { creerFeuille } from '../ui/feuille.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, selection: new Set() };
+const reglages = { chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
@@ -123,7 +125,8 @@ export default {
     if (params.cible) reglages.cible = params.cible;
     if (params.colonnes) reglages.colonnes = params.colonnes;
     if (params.lignes) reglages.lignes = params.lignes;
-    if (params.pur !== undefined) reglages.pur = !!params.pur;
+    // Un geste travaillé seul (« −2 petit ami ») ou parmi sa famille (« −2 parmi les petits amis »).
+    if (params.mode) reglages.mode = params.mode;
     // Planche proposée par la séance : son identifiant (pour la cocher) et son objectif.
     reglages.proposition = params.proposition ?? null;
     if (params.chiffres) reglages.chiffres = params.chiffres;
@@ -131,7 +134,7 @@ export default {
     else if (!progression().reglages?.decouverte) reglages.chiffres = Math.min(reglages.chiffres, chiffresAppris(progression()));
     if (params.consolidation) {
       const sp = sousPalier(params.consolidation);
-      Object.assign(reglages, { cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10, pur: false });
+      Object.assign(reglages, { cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10 });
     }
     const select = (cle, options, conv = (x) => x) => {
       const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); } },
@@ -144,6 +147,18 @@ export default {
     const motifsPar = (regle) => TOUS_LES_MOTIFS.filter((c) => analyserMotif(c).regle === regle).map((c) => [c, nomMotif(c)]);
 
     const zone = h('div', {});
+    // Pour un geste : « −2 petit ami » (seul, avec des gestes directs et un piège) ou
+    // « −2 parmi les petits amis » (au milieu des autres amis de sa famille).
+    const choixMode = h('select', { onchange: (e) => { reglages.mode = e.target.value; } });
+    const majMode = () => {
+      const ok = gesteTravaillable(reglages.cible);
+      choixMode.style.display = ok ? '' : 'none';
+      if (!ok) return;
+      const l = libellesModes(reglages.cible);
+      remplir(choixMode, h('option', { value: 'seul' }, l.seul), h('option', { value: 'famille' }, l.famille));
+      choixMode.value = reglages.mode === 'famille' ? 'famille' : 'seul';
+    };
+    majMode();
     el.append(
       h('h1', {}, 'Planches'),
       h('p', { class: 'discret' }, 'Des colonnes à calculer sur votre soroban, puis à corriger. Choisissez un ami pour en répéter le geste : la planche ne contiendra que lui et des gestes directs. Les feuilles s\'impriment.'),
@@ -151,8 +166,6 @@ export default {
         select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres'], [5, '5 chiffres'], [6, '6 chiffres']], Number),
         select('lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes'], [15, '15 lignes']], Number),
         h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { reglages.zeros = e.target.checked; } }), ' zéros internes'),
-        h('label', { title: 'Uniquement les gestes choisis, aucun geste direct (sauf la 1re ligne, posée, et la retenue d\'un grand ami).' },
-          h('input', { type: 'checkbox', checked: !!reglages.pur, onchange: (e) => { reglages.pur = e.target.checked; } }), ' pur (aucun geste direct)'),
         h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes']], Number),
@@ -167,6 +180,7 @@ export default {
           ['Grands amis', motifsPar('grand')],
           ['Combinaisons', motifsPar('mixte')],
         ]),
+        choixMode,
         h('button', { class: 'btn principal', onclick: () => { reglages.proposition = null; lancer(); } }, 'Créer la planche')),
       zone, historiqueFeuilles());
 
@@ -174,37 +188,50 @@ export default {
       feuille?.detruire();
       remplir(zone);
       const r = { ...reglages };
-      const c = contraintes(r.cible);
-      // Mode pur : seulement les gestes choisis, sans geste direct.
-      let notePur = null;
-      if (r.pur) {
-        try {
-          const p = ciblesPures(c.cibles.filter((x) => !x.endsWith(':direct')), r.chiffres);
-          Object.assign(c, { autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas });
-          c.libelle += ' · pur';
-          notePur = 'Mode pur : le geste revient une ligne sur deux ; les lignes entre deux ne servent qu\'à replacer la tige (gestes directs ou autres amis de la même famille).';
-        } catch (e) {
-          if (!(e instanceof ErreurGeneration)) throw e;
-          notePur = 'Ce geste ne peut pas former une colonne pure avec ces réglages : planche normale.';
+      let c = contraintes(r.cible);
+      if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
+      // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
+      let problemes = null;
+      const geste = gesteTravaillable(r.cible);
+      if (geste) {
+        const mode = r.mode === 'famille' ? 'famille' : 'seul';
+        const libelle = libellesModes(r.cible)[mode];
+        const memoireP = creerMemoirePlanche();
+        const appris = motifsAppris();
+        problemes = [];
+        for (let k = 0; k < r.colonnes; k++) {
+          const lignes = Math.max(4, r.lignes + entier(-1, 1)); // longueurs mélangées autour du réglage
+          let col = null;
+          for (let e = 0; e < 5 && !col; e++) {
+            try { col = genererColonneGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes, appris }, memoireP); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; }
+          }
+          if (!col) { problemes = null; break; }
+          problemes.push(col);
+        }
+        if (problemes) {
+          c = { cibles: [r.cible], libelle };
+          zone.append(h('p', { class: 'discret' }, mode === 'famille'
+            ? 'Le geste 2 fois par colonne, au milieu d\'autres amis de sa famille, avec un piège (le même chiffre fait par un autre geste) et des gestes directs : choisissez le bon geste à chaque ligne.'
+            : 'Le geste 2 fois par colonne, des gestes directs, et un piège : le même chiffre, mais en geste direct. Regardez la tige avant d\'agir.'));
+          if (problemes.some((x) => x.sansFamille)) zone.append(h('p', { class: 'retour' }, 'Aucun autre ami de cette famille n\'est encore appris : la planche travaille le geste seul.'));
+        } else {
+          zone.append(h('p', { class: 'retour' }, 'Ce geste ne permet pas de former ces colonnes avec ces réglages : planche classique.'));
         }
       }
-      if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
-      if (notePur) zone.append(h('p', { class: 'discret' }, notePur));
       // Mémoire de la taille de la feuille : toutes les colonnes ont des résultats différents.
       const memoire = creerMemoire(r.colonnes);
+      if (!problemes) {
       const poids = poidsAdaptatifs(c.cibles);
       for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
       // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
       // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
       // mode normal, puis tous les gestes appris.
-      const config = { chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros, pur: !!c.pur, pas: c.pas };
+      const config = { chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros };
       const replis = [
         [config, null],
         [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
-        [{ ...config, chiffres: Math.max(2, r.chiffres), pur: false, autorises: contraintes(r.cible).autorises, cibles: contraintes(r.cible).cibles }, 'Impossible de former ces colonnes en mode pur : planche normale, à 2 chiffres au moins.'],
-        [{ ...config, pur: false, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
+        [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
       ];
-      let problemes = null;
       for (const [p, message] of replis) {
         try {
           const sigs = new Set();
@@ -224,12 +251,14 @@ export default {
           problemes = null;
         }
       }
+      }
       if (!problemes) { zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez d\'autres réglages.')); return; }
       if (problemes.some((x) => x.assoupli)) zone.append(h('p', { class: 'discret' }, 'Pour ce geste, les combinaisons possibles sont peu nombreuses : quelques colonnes répètent une valeur plus souvent que d\'habitude.'));
-      const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${r.pur ? '-pur' : ''}`;
+      const suffixe = geste ? `-${r.mode === 'famille' ? 'famille' : 'seul'}` : '';
+      const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${suffixe}`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,
-        historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${r.pur ? '-pur' : ''}`, libelle: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes` },
+        historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${suffixe}`, libelle: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes` },
         titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,
         sections: [{ problemes }],
         surFin: (b) => {
@@ -266,6 +295,7 @@ export default {
     zone.before(zoneChoix);
     const majChoix = () => { zoneChoix.style.display = reglages.cible === 'choix' ? '' : 'none'; };
     selCible.addEventListener('change', majChoix);
+    selCible.addEventListener('change', majMode);
     majChoix();
     if (params.auto) lancer();
     return () => feuille?.detruire();

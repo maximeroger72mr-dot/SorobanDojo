@@ -12,8 +12,10 @@
  * Les gestes sont notés sur la carte de maîtrise, au temps de la cadence imposée.
  */
 
-import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
-import { noterReponse, noterGestes, poidsAdaptatifs, noterVolume } from '../core/progression.js';
+import { genererColonneVariee, creerMemoire, ErreurGeneration } from '../core/generateur.js';
+import { genererColonneGeste, creerMemoirePlanche } from '../core/colonneGeste.js';
+import { motifsAppris } from '../core/parcours.js';
+import { noterReponse, noterGestes, poidsAdaptatifs, noterVolume, progression } from '../core/progression.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { lireReponse } from '../core/nombres.js';
 import { Metronome } from './metronome.js';
@@ -38,6 +40,7 @@ const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maxi
  */
 export function creerLievre(conteneur, o) {
   const memoire = creerMemoire(6);
+  const memoireGeste = creerMemoirePlanche();
   const metronome = o.metronome ? new Metronome() : null;
   let cadence = borne(o.cadence);
   let meilleure = null; // cadence la plus rapide d'une colonne réussie
@@ -66,7 +69,11 @@ export function creerLievre(conteneur, o) {
   };
 
   function colonne() {
-    col = genererColonneVariee({ chiffres: o.chiffres, lignes: o.lignes, autorises: o.contraintes.autorises, cibles: o.contraintes.cibles, poids: poidsAdaptatifs(o.contraintes.cibles), pur: !!o.contraintes.pur, pas: o.contraintes.pas }, memoire);
+    const g = o.contraintes.geste;
+    col = null;
+    // Un geste : colonnes par rôles (le geste 2 fois, un piège, des directs…), variées sur la série.
+    if (g) for (let e = 0; e < 5 && !col; e++) { try { col = genererColonneGeste({ ...g, chiffres: o.chiffres, lignes: o.lignes, appris: motifsAppris(progression()) }, memoireGeste); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; } }
+    col ??= genererColonneVariee({ chiffres: o.chiffres, lignes: o.lignes, autorises: o.contraintes.autorises, cibles: o.contraintes.cibles, poids: poidsAdaptatifs(o.contraintes.cibles) }, memoire);
     const lignes = col.lignes.map((l, i) => h('tr', { class: 'avenir' },
       h('td', { class: 'signe' }, i === 0 ? '' : l.op === '+' ? '+' : '−'),
       h('td', { class: 'nombre' }, formaterNombre(l.n))));

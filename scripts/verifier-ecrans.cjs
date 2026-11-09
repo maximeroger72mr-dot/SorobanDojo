@@ -137,19 +137,23 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: 'appris', auto: true, colonnes: 5, chiffres: 2, lignes: 5, proposition: 'consolider', objectif: 'Consolider : test' }] })));
   await controler(w, 'planche proposée', 'Planches');
   if (!(await w.$('#ecran .objectif-planche'))) problemes.push("planche proposée : l'objectif n'est pas affiché");
-  // Planche pure « −2 petit ami » : pas d'aller-retour, pas de colonne en double.
-  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: '-2:petit', pur: true, auto: true, colonnes: 10, chiffres: 1, lignes: 6 }] })));
-  await w.waitForTimeout(400);
-  const cols = await w.$$eval('#ecran table.colonne', (ts) => ts.map((t) => [...t.querySelectorAll('tr')].slice(1).map((tr) => `${tr.querySelector('.signe').textContent.trim() === '−' ? '-' : '+'}${tr.querySelector('.nombre').textContent.trim()}`)));
-  if (cols.length !== 10) problemes.push(`planche pure : ${cols.length} colonnes au lieu de 10`);
-  const premiers = await w.$$eval('#ecran table.colonne', (ts) => ts.map((t) => t.querySelector('tr .nombre').textContent.trim()));
-  if (new Set(cols.map((c, i) => `${premiers[i]} ${c.join()}`)).size !== cols.length) problemes.push('planche pure : deux colonnes identiques');
-  for (const c of cols) {
-    for (let i = 1; i < c.length; i++) if (c[i].slice(1) === c[i - 1].slice(1)) problemes.push(`planche pure : aller-retour ou répétition (${c.join(' ')})`);
-    for (let i = 3; i < c.length; i++) if (c[i] === c[i - 2] && c[i - 1] === c[i - 3]) problemes.push(`planche pure : alternance A B A B (${c.join(' ')})`);
+  // Planches « −2 petit ami » et « −2 parmi les petits amis » : pas d'aller-retour, formes variées.
+  for (const mode of ['seul', 'famille']) {
+    await w.evaluate((m) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: '-2:petit', mode: m, auto: true, colonnes: 10, chiffres: 1, lignes: 6 }] })), mode);
+    await w.waitForTimeout(500);
+    await controler(w, `planche −2 petit ami (${mode})`, 'Planches');
+    const cols = await w.$$eval('#ecran table.colonne', (ts) => ts.map((t) => [...t.querySelectorAll('tr')].slice(1).map((tr) => `${tr.querySelector('.signe').textContent.trim() === '−' ? '-' : '+'}${tr.querySelector('.nombre').textContent.trim()}`)));
+    if (cols.length !== 10) problemes.push(`planche ${mode} : ${cols.length} colonnes au lieu de 10`);
+    if (new Set(cols.map((c) => c.join())).size < 9) problemes.push(`planche ${mode} : moins de 9 formes de colonnes différentes sur 10`);
+    for (const c of cols) {
+      for (let i = 1; i < c.length; i++) if (c[i].slice(1) === c[i - 1].slice(1)) problemes.push(`planche ${mode} : aller-retour ou répétition (${c.join(' ')})`);
+      for (let i = 3; i < c.length; i++) if (c[i] === c[i - 2] && c[i - 1] === c[i - 3]) problemes.push(`planche ${mode} : alternance A B A B (${c.join(' ')})`);
+    }
+    const titre = await w.$eval('#ecran .barre-feuille strong', (x) => x.textContent);
+    if (!titre.startsWith(mode === 'seul' ? '−2 petit ami' : '−2 parmi les petits amis')) problemes.push(`planche ${mode} : titre « ${titre} »`);
   }
   // Cascades à 1 chiffre : impossible, donc repli expliqué, jamais de planche vide.
-  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: 'cascade+', pur: true, auto: true, colonnes: 5, chiffres: 1 }] })));
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: 'cascade+', auto: true, colonnes: 5, chiffres: 1 }] })));
   await w.waitForTimeout(400);
   await controler(w, 'planche cascades à 1 chiffre', 'Planches');
   if ((await w.$$('#ecran table.colonne')).length === 0) problemes.push('planche cascades : planche vide');

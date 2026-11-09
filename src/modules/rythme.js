@@ -10,7 +10,7 @@
  */
 
 import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, evaluerMotif } from '../core/progression.js';
-import { ciblesPures, ErreurGeneration } from '../core/generateur.js';
+import { gesteTravaillable, libellesModes } from '../core/colonneGeste.js';
 import { contraintes, contraintesCibles, optionsCibles } from './planches.js';
 import { creerMarathon } from '../ui/marathon.js';
 import { creerLievre, cadenceDepart } from '../ui/lievre.js';
@@ -18,26 +18,23 @@ import { listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 const reglages = {
-  marathon: { cible: 'lents', chiffres: 1, objectif: 30, pur: false, doigte: false },
-  lievre: { cible: 'appris', chiffres: 1, lignes: 5, colonnes: 6, cadence: 'auto', metronome: true, pur: false },
+  marathon: { cible: 'lents', chiffres: 1, objectif: 30, doigte: false },
+  lievre: { cible: 'appris', chiffres: 1, lignes: 5, colonnes: 6, cadence: 'auto', metronome: true, mode: 'seul' },
 };
 const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} s`;
 
-/** Contraintes d'après les réglages (ou les gestes imposés par la séance), mode pur compris. */
+/**
+ * Contraintes d'après les réglages (ou les gestes imposés par la séance). Lièvre sur UN geste :
+ * « −2 petit ami » ou « −2 parmi les petits amis » (colonnes construites par rôles).
+ */
 function contraintesDe(r, cibles) {
   const c = cibles ? contraintesCibles(cibles) : contraintes(r.cible);
-  let note = null;
-  if (r.pur) {
-    try {
-      const p = ciblesPures(c.cibles.filter((x) => !x.endsWith(':direct')), r.chiffres);
-      Object.assign(c, { autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas, libelle: `${c.libelle} · pur` });
-      note = 'Mode pur : le geste revient une ligne sur deux, les autres lignes replacent la tige.';
-    } catch (e) {
-      if (!(e instanceof ErreurGeneration)) throw e;
-      note = 'Ces gestes ne peuvent pas former une colonne pure : mode normal.';
-    }
+  const cle = cibles?.length === 1 ? cibles[0] : r.cible;
+  if (gesteTravaillable(cle)) {
+    const mode = r.mode === 'famille' ? 'famille' : 'seul';
+    Object.assign(c, { geste: { cible: cle, mode }, libelle: libellesModes(cle)[mode] });
   }
-  return { c, note };
+  return { c, note: null };
 }
 
 /** Temps médian par chiffre des gestes visés (pour régler le lièvre), ou null. */
@@ -63,6 +60,21 @@ export default {
       s.value = String(obj[cle]);
       return s;
     };
+    // Lièvre sur un geste : « −2 petit ami » ou « −2 parmi les petits amis » (selon le geste choisi).
+    const choixModeLievre = (l) => {
+      const s = h('select', { onchange: (e) => { l.mode = e.target.value; } });
+      const maj = () => {
+        const ok = gesteTravaillable(l.cible);
+        s.style.display = ok ? '' : 'none';
+        if (!ok) return;
+        const t = libellesModes(l.cible);
+        remplir(s, h('option', { value: 'seul' }, t.seul), h('option', { value: 'famille' }, t.famille));
+        s.value = l.mode === 'famille' ? 'famille' : 'seul';
+      };
+      maj();
+      queueMicrotask(() => s.parentElement?.querySelector('select')?.addEventListener('change', maj));
+      return s;
+    };
     const caseA = (obj, cle, texte, titre) => h('label', { title: titre ?? '' }, h('input', { type: 'checkbox', checked: !!obj[cle], onchange: (e) => { obj[cle] = e.target.checked; } }), ` ${texte}`);
 
     function accueil() {
@@ -82,7 +94,6 @@ export default {
             select(m, 'cible', optionsCibles()),
             select(m, 'chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres']], Number),
             select(m, 'objectif', [[20, '20 lignes'], [30, '30 lignes'], [40, '40 lignes'], [50, '50 lignes'], ['Infinity', 'sans fin (record de lignes)']], Number),
-            caseA(m, 'pur', 'pur (aucun geste direct)'),
             caseA(m, 'doigte', 'rappel doigté'),
             h('button', { class: 'btn principal', onclick: () => lancerMarathon() }, 'Partir'))),
         voir === 'marathon' ? null : h('div', { class: 'carte' },
@@ -95,7 +106,7 @@ export default {
             select(l, 'colonnes', [[6, '6 colonnes'], [10, '10 colonnes'], [15, '15 colonnes']], Number),
             select(l, 'cadence', [['auto', 'cadence : selon mes temps'], ...[3, 2.5, 2, 1.6, 1.3, 1, 0.8].map((x) => [x, `départ : ${sec(x)} par ligne`])], (v) => (v === 'auto' ? v : Number(v))),
             caseA(l, 'metronome', 'clic à chaque ligne'),
-            caseA(l, 'pur', 'pur'),
+            choixModeLievre(l),
             h('button', { class: 'btn principal', onclick: () => lancerLievre() }, 'Partir')))].filter(Boolean));
       const recL = records()[`lievre-${l.chiffres}-${l.lignes}`];
       if (recL && voir !== 'marathon') el.lastChild.append(h('p', { class: 'discret' }, `Votre meilleure cadence (${l.chiffres} chiffre${l.chiffres > 1 ? 's' : ''}, ${l.lignes} lignes) : ${sec(recL.dureeMs / 1000)} par ligne.`));
@@ -109,7 +120,7 @@ export default {
       const note = [notePur, c.cibles.length <= 2 && r.chiffres === 1
         ? 'Avec un seul geste à 1 chiffre, les lignes se ressemblent forcément : une ligne « relance » (geste direct) déplace parfois le soroban pour que les sous-totaux changent. Pour plus de variété, passez à 2 chiffres.'
         : null].filter(Boolean).join(' ') || null;
-      const cle = `marathon-${cibles ? cibles.join('+') : r.cible}${r.pur ? '-pur' : ''}-${r.chiffres}-${r.objectif}`;
+      const cle = `marathon-${cibles ? cibles.join('+') : r.cible}-${r.chiffres}-${r.objectif}`;
       const rec = records()[cle];
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
         h('h1', {}, `Marathon : ${c.libelle}`),
