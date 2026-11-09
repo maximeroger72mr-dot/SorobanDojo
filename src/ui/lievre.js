@@ -66,7 +66,7 @@ export function creerLievre(conteneur, o) {
   };
 
   function colonne() {
-    col = genererColonneVariee({ chiffres: o.chiffres, lignes: o.lignes, autorises: o.contraintes.autorises, cibles: o.contraintes.cibles, poids: poidsAdaptatifs(o.contraintes.cibles) }, memoire);
+    col = genererColonneVariee({ chiffres: o.chiffres, lignes: o.lignes, autorises: o.contraintes.autorises, cibles: o.contraintes.cibles, poids: poidsAdaptatifs(o.contraintes.cibles), pur: !!o.contraintes.pur, pas: o.contraintes.pas }, memoire);
     const lignes = col.lignes.map((l, i) => h('tr', { class: 'avenir' },
       h('td', { class: 'signe' }, i === 0 ? '' : l.op === '+' ? '+' : '−'),
       h('td', { class: 'nombre' }, formaterNombre(l.n))));

@@ -18,7 +18,10 @@
 
 import { Soroban, etatDepuisChiffre } from './soroban.js';
 import { calculerGestes, regleAjout, regleRetrait, ErreurCalcul } from './gestes.js';
-import { analyserMotif } from './motifs.js';
+import { analyserMotif, famille, TOUS_LES_MOTIFS } from './motifs.js';
+
+const TOUS_DIRECTS = () => famille('direct');
+const familleDe = (regle) => (regle === 'cascade' ? ['cascade+', 'cascade-'] : famille(regle));
 import { entier } from './aleatoire.js';
 
 const hasard = (liste) => liste[Math.floor(Math.random() * liste.length)];
@@ -193,7 +196,7 @@ export function scoreVariete(op, n, precedents, libre = true) {
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
  */
-export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [], viser = true }) {
+export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [], viser = true, eviter = null, preparerVers = null }) {
   const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
   let meilleur = null;
   let valides = 0;
@@ -233,6 +236,10 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     if (!a || !respecte(a.motifs, autorises)) continue;
     if (cible && !a.motifs.includes(cible)) continue;
     if (preparer && !permet(a.resultat, preparer, chiffres)) continue;
+    // Mode pur : ligne de replacement, sans le geste visé, qui rend ce geste possible ensuite.
+    if (eviter && a.motifs.some((m) => eviter.includes(m))) continue;
+    if (preparerVers && ouvertures(a.resultat, preparerVers, chiffres) === 0) continue;
+    if (eviter && redondante(precedents, { op, n })) continue;
     valides += 1;
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
@@ -251,74 +258,162 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
  *   premierCourt : (anzan, 1 chiffre) la 1re ligne est un seul chiffre, sans dizaine en tête
  * @returns {{type:'addsub', lignes:Array<{op,n}>, resultat:number, motifs:string[]}}
  */
-export function genererColonne({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false }) {
-  for (let tentative = 0; tentative < 40; tentative++) {
-    try {
-      let liste;
-      let motifs;
-      let valeur;
-      let premiere = { motifs: [] };
-      if (premierCourt && chiffres === 1) {
-        // Anzan à 1 chiffre : la colonne commence par UN chiffre (pas de dizaine en tête, qui
-        // oblige à visualiser deux tiges dès le départ). De préférence un chiffre qui permet une cible.
-        const ouverts = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), 1) > 0);
-        valeur = hasard(ouverts.length ? ouverts : [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        liste = [{ op: '+', n: valeur }];
-        motifs = [];
-      } else {
-        premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids, zeros });
-        liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
-        motifs = [...premiere.motifs];
-        valeur = premiere.resultat;
-      }
-      // Équilibrage : plus une cible est déjà apparue dans la colonne, moins elle est tirée.
-      const vus = {};
-      const compterVus = (ms) => ms.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
-      compterVus(premiere.motifs);
-      while (liste.length < lignes) {
-        const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
-        // Colonne mélangée (au moins 3 gestes visés) : une ligne sur quatre environ est « libre »
-        // (toujours dans les gestes permis, mais sans viser un ami) ; elle apporte d'autres chiffres et
-        // casse la monotonie. Une planche ciblée sur 1 ou 2 gestes garde, elle, la répétition maximale.
-        // Pas de ligne libre quand un ami est en retard sur les autres (poids d'équilibrage) : la
-        // priorité reste alors de le faire apparaître.
-        const pb = cibles.map((c) => poids[c] ?? 1);
-        const equilibre = Math.max(...pb) <= 1.3 * Math.min(...pb);
-        const libre = cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25;
-        let t;
-        try {
-          // Ligne libre : aucun ami visé, mais l'équilibre entre les amis compte toujours dans le score
-          // (sinon les amis « naturellement » fréquents, comme +4, passeraient devant les autres).
-          t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops, zeros, precedents: liste });
-        } catch (e) {
-          if (!(e instanceof ErreurGeneration) || !libre) throw e;
-          t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste });
+export function genererColonne(params) {
+  // Règles de qualité strictes d'abord ; si ce geste ne le permet pas, règles assouplies
+  // (seulement pas de ligne répétée ni de ping-pong), et la colonne le signale (assoupli).
+  for (const niveau of ['strict', 'assoupli', 'libre']) {
+    for (let tentative = 0; tentative < (niveau === 'strict' ? 40 : 20); tentative++) {
+      let col;
+      try {
+        // Mode pur : une ligne de replacement entre deux gestes ; deux si une seule ne suffit pas.
+        // Deux replacements seulement en dernier recours (après 30 essais à un seul).
+        col = params.pur ? colonnePure({ ...params, pas: params.pas ?? (niveau === 'strict' && tentative < 30 ? 1 : 2) }) : colonneSimple(params);
+        // Mode pur : le geste au moins une ligne sur deux (une sur trois avec deux replacements).
+        if (params.pur && niveau !== 'libre') {
+          const ops = col.lignes.length - 1;
+          const vises = col.motifsLignes.slice(1).filter((ms) => ms.some((m) => params.cibles.includes(m))).length;
+          if (vises < Math.floor(ops / ((col.pas ?? 1) + 1))) continue;
         }
-        // Jamais de redondance qu'on devine sans calculer : le même nombre deux fois de suite
-        // (+9 +9), ou un ping-pong (+4 −1 +4 −1). On remplace alors la ligne par une ligne libre
-        // (gestes permis, sans viser l'ami) quand c'est possible.
-        if (redondante(liste, t)) {
-          for (let k = 0; k < 4; k++) {
-            try {
-              const autre = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops, zeros, precedents: liste });
-              if (!redondante(liste, autre)) { t = autre; break; }
-            } catch (e) {
-              if (!(e instanceof ErreurGeneration)) throw e;
-              break;
-            }
-          }
-        }
-        compterVus(t.motifs);
-        liste.push({ op: t.op, n: t.n });
-        motifs.push(...t.motifs);
-        valeur = t.resultat;
+      } catch (e) {
+        if (!(e instanceof ErreurGeneration)) throw e;
+        continue;
       }
-      return { type: 'addsub', lignes: liste.slice(0, Math.max(lignes, 2)), resultat: valeur, motifs };
-    } catch (e) {
-      if (!(e instanceof ErreurGeneration)) throw e;
+      if (niveau === 'libre' || colonneValide(col, params.cibles, niveau === 'strict')) return niveau === 'strict' ? col : { ...col, assoupli: true };
     }
   }
   throw new ErreurGeneration('Impossible de générer une colonne');
+}
+
+/**
+ * Règles de qualité d'une colonne (les lignes après la première, qui est posée) :
+ *  1. jamais deux lignes identiques de suite, ni une ligne qui annule la précédente (+2 −2) ;
+ *  2. pas d'alternance A, B, A, B ;
+ *  3. au moins 3 valeurs différentes dans une colonne de 5 lignes ou plus ;
+ *  4. aucune valeur sur plus de la moitié des lignes (3 « −2 » au plus sur 6 lignes) ;
+ *  5. un geste choisi seul (une seule cible) jamais deux lignes de suite.
+ * strict = false : seulement les règles 1 et 2.
+ */
+export function colonneValide(col, cibles = [], strict = true) {
+  const L = col.lignes.slice(1).map((l) => `${l.op}${l.n}`);
+  const N = col.lignes.slice(1).map((l) => l.n);
+  for (let i = 1; i < L.length; i++) if (N[i] === N[i - 1]) return false;
+  for (let i = 3; i < L.length; i++) if (L[i] === L[i - 2] && L[i - 1] === L[i - 3]) return false;
+  if (!strict) return true;
+  const total = col.lignes.length;
+  if (total >= 5 && new Set(L).size < 3) return false;
+  const compte = {};
+  for (const v of L) if ((compte[v] = (compte[v] ?? 0) + 1) > Math.floor(total / 2)) return false;
+  if (cibles?.length === 1 && col.motifsLignes) {
+    const vise = col.motifsLignes.slice(1).map((ms) => ms.includes(cibles[0]));
+    for (let i = 1; i < vise.length; i++) if (vise[i] && vise[i - 1]) return false;
+  }
+  return true;
+}
+
+/**
+ * Colonne « pure » : le geste choisi une ligne sur deux (à une position qui varie), et entre
+ * deux, une ligne de replacement (gestes directs ou autres amis de la même famille, voir
+ * ciblesPures) qui remet la tige en position pour le prochain coup. Jamais d'aller-retour.
+ */
+function colonnePure({ chiffres, lignes, autorises, cibles, poids = {}, zeros = false, pas = 1 }) {
+  const premiere = genererOperation({ chiffres, autorises, cibles, poids, zeros });
+  const liste = [{ op: '+', n: premiere.depart }];
+  const motifsLignes = [[]];
+  let valeur = premiere.depart;
+  // Position variable : une fois sur deux, la colonne commence par une ligne de replacement.
+  if (Math.random() < 0.5) {
+    liste.push({ op: premiere.op, n: premiere.n });
+    motifsLignes.push(premiere.motifs);
+    valeur = premiere.resultat;
+  }
+  let repos = 0; // lignes de replacement d'affilée (au plus `pas`)
+  while (liste.length < lignes) {
+    const possible = ouvertures(valeur, cibles, chiffres) > 0;
+    const viser = possible && (repos > 0 || motifsLignes.at(-1).length === 0 || !motifsLignes.at(-1).some((m) => cibles.includes(m)));
+    let t;
+    if (viser && liste.length > 1 && !motifsLignes.at(-1).some((m) => cibles.includes(m))) {
+      t = genererTerme(valeur, { chiffres, autorises, cibles, poids, zeros, precedents: liste });
+      if (!t.motifs.some((m) => cibles.includes(m))) throw new ErreurGeneration('cible manquée');
+      repos = 0;
+    } else {
+      // Replacement : sans le geste visé ; la dernière ligne permise doit rendre le geste possible.
+      const derniere = repos + 1 >= pas;
+      t = genererTerme(valeur, { chiffres, autorises, cibles, poids, zeros, precedents: liste, viser: false, eviter: cibles, preparerVers: derniere && liste.length < lignes - 1 ? cibles : null });
+      repos += 1;
+      if (repos > pas) throw new ErreurGeneration('trop de replacements');
+    }
+    liste.push({ op: t.op, n: t.n });
+    motifsLignes.push(t.motifs);
+    valeur = t.resultat;
+  }
+  return { type: 'addsub', lignes: liste, resultat: valeur, motifs: motifsLignes.flat(), motifsLignes, pas };
+}
+
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false }) {
+  let liste;
+  let motifs;
+  let valeur;
+  let premiere = { motifs: [] };
+  let motifsLignes;
+  if (premierCourt && chiffres === 1) {
+    // Anzan à 1 chiffre : la colonne commence par UN chiffre (pas de dizaine en tête, qui
+    // oblige à visualiser deux tiges dès le départ). De préférence un chiffre qui permet une cible.
+    const ouverts = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), 1) > 0);
+    valeur = hasard(ouverts.length ? ouverts : [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    liste = [{ op: '+', n: valeur }];
+    motifs = [];
+    motifsLignes = [[]];
+  } else {
+    premiere = genererOperation({ chiffres, autorises, cibles: cibles.filter((c) => ops.includes(analyserMotif(c).op)), poids, zeros });
+    liste = [{ op: '+', n: premiere.depart }, { op: premiere.op, n: premiere.n }];
+    motifs = [...premiere.motifs];
+    motifsLignes = [[], premiere.motifs];
+    valeur = premiere.resultat;
+  }
+  // Équilibrage : plus une cible est déjà apparue dans la colonne, moins elle est tirée.
+  const vus = {};
+  const compterVus = (ms) => ms.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
+  compterVus(premiere.motifs);
+  while (liste.length < lignes) {
+    const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
+    // Colonne mélangée (au moins 3 gestes visés) : une ligne sur quatre environ est « libre »
+    // (toujours dans les gestes permis, mais sans viser un ami) ; elle apporte d'autres chiffres et
+    // casse la monotonie. Une planche ciblée sur 1 ou 2 gestes garde, elle, la répétition maximale.
+    // Pas de ligne libre quand un ami est en retard sur les autres (poids d'équilibrage) : la
+    // priorité reste alors de le faire apparaître.
+    const pb = cibles.map((c) => poids[c] ?? 1);
+    const equilibre = Math.max(...pb) <= 1.3 * Math.min(...pb);
+    const libre = cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25;
+    let t;
+    try {
+      // Ligne libre : aucun ami visé, mais l'équilibre entre les amis compte toujours dans le score
+      // (sinon les amis « naturellement » fréquents, comme +4, passeraient devant les autres).
+      t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops, zeros, precedents: liste });
+    } catch (e) {
+      if (!(e instanceof ErreurGeneration) || !libre) throw e;
+      t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste });
+    }
+    // Jamais de redondance qu'on devine sans calculer : le même nombre deux fois de suite
+    // (+9 +9), ou un ping-pong (+4 −1 +4 −1). On remplace alors la ligne par une ligne libre
+    // (gestes permis, sans viser l'ami) quand c'est possible.
+    if (redondante(liste, t)) {
+      for (let k = 0; k < 4; k++) {
+        try {
+          const autre = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops, zeros, precedents: liste });
+          if (!redondante(liste, autre)) { t = autre; break; }
+        } catch (e) {
+          if (!(e instanceof ErreurGeneration)) throw e;
+          break;
+        }
+      }
+    }
+    compterVus(t.motifs);
+    liste.push({ op: t.op, n: t.n });
+    motifs.push(...t.motifs);
+    motifsLignes.push(t.motifs);
+    valeur = t.resultat;
+  }
+  return { type: 'addsub', lignes: liste.slice(0, Math.max(lignes, 2)), resultat: valeur, motifs, motifsLignes };
 }
 
 /** Ligne redondante : même nombre que la précédente, ou ping-pong (+a −b +a −b). */
@@ -355,8 +450,9 @@ export function genererColonneVariee(params, memoire) {
     col = genererColonne(params);
     if (!recent(col)) break;
   }
-  if (recent(col)) {
-    // Une ligne de plus, choisie pour donner un résultat nouveau.
+  if (recent(col) && !params.pur) {
+    // Une ligne de plus, choisie pour donner un résultat nouveau (pas en mode pur : elle casserait
+    // l'alternance geste / replacement).
     for (let essai = 0; essai < 20; essai++) {
       try {
         const t = genererTerme(col.resultat, { ...params, poids: params.poids ?? {}, precedents: col.lignes });
@@ -401,30 +497,42 @@ export function occurrencesColonne(lignes) {
 }
 
 /**
- * Mode « pur » : uniquement les gestes choisis, AUCUN geste direct (sauf la 1re ligne, posée,
- * et la retenue / l'emprunt d'un grand ami, qui fait partie du geste : ±1 sur la tige de gauche).
- * Certains choix ne peuvent pas s'enchaîner seuls (après +4 petit ami sur 3, la tige vaut 7 et
- * plus aucun +petit ami n'est possible) : on ajoute alors le geste miroir (−4 petit ami…),
- * ce qui donne des colonnes en alternance + / −.
- * @returns {{ cibles: string[], autorises: Set<string>, ajoutes: string[] }}  ajoutes : miroirs ajoutés
+ * Mode « pur » : le geste choisi revient le plus souvent possible (une ligne sur deux), et les
+ * autres lignes ne servent qu'à replacer la tige pour le coup suivant :
+ *  - petit ami : tous les gestes directs, plus les autres petits amis du sens opposé ;
+ *  - grand ami : les autres grands amis du sens opposé (et ±1 direct, la retenue du geste) ;
+ *  - combinaisons, cascades : idem dans leur famille.
+ * Jamais d'aller-retour (+2 −2 +2 −2) : voir colonneValide.
+ * @returns {{ cibles: string[], autorises: Set<string>, ajoutes: string[], pur: true }}
+ *   ajoutes : gestes de replacement ajoutés (pour l'expliquer)
  */
 export function ciblesPures(cibles, chiffres) {
-  const autorisesDe = (cs) => {
-    const avecRetenue = cs.some((c) => /grand|mixte|cascade/.test(c));
-    return new Set([...cs, ...(avecRetenue ? ['+1:direct', '-1:direct'] : [])]);
-  };
-  const essai = (cs) => {
-    for (let k = 0; k < 3; k++) {
-      try { genererColonne({ chiffres, lignes: 6, autorises: autorisesDe(cs), cibles: cs }); return true; } catch (e) {
-        if (!(e instanceof ErreurGeneration)) throw e;
-      }
+  const directs = TOUS_DIRECTS();
+  const regles = new Set(cibles.map((c) => (c.startsWith('cascade') ? 'cascade' : analyserMotif(c).regle)));
+  const signes = new Set(cibles.map((c) => (c.startsWith('cascade') ? c.at(-1) : c[0])));
+  const opposes = (regle) => familleDe(regle).filter((c) => !signes.has(c.startsWith('cascade') ? c.at(-1) : c[0]) && !cibles.includes(c));
+  const ajoutes = new Set();
+  if (regles.has('petit')) { directs.forEach((c) => ajoutes.add(c)); opposes('petit').forEach((c) => ajoutes.add(c)); }
+  for (const r of ['grand', 'mixte', 'cascade']) {
+    if (!regles.has(r)) continue;
+    ['+1:direct', '-1:direct'].forEach((c) => ajoutes.add(c));
+    opposes(r).forEach((c) => ajoutes.add(c));
+  }
+  const autorises = new Set([...cibles, ...ajoutes]);
+  for (let k = 0; k < 4; k++) {
+    try {
+      genererColonne({ chiffres, lignes: 6, autorises, cibles, pur: true, pas: 1 });
+      return { cibles, autorises, ajoutes: [...ajoutes].filter((c) => !c.endsWith(':direct')), pur: true, pas: 1 };
+    } catch (e) {
+      if (!(e instanceof ErreurGeneration)) throw e;
     }
-    return false;
-  };
-  if (essai(cibles)) return { cibles, autorises: autorisesDe(cibles), ajoutes: [] };
-  const miroir = (c) => (c.startsWith('cascade') ? `cascade${c.endsWith('+') ? '-' : '+'}` : `${c[0] === '+' ? '-' : '+'}${c.slice(1)}`);
-  const ajoutes = [...new Set(cibles.map(miroir))].filter((c) => !cibles.includes(c));
-  const toutes = [...cibles, ...ajoutes];
-  if (essai(toutes)) return { cibles: toutes, autorises: autorisesDe(toutes), ajoutes };
+    // Une seule ligne de replacement ne suffit pas toujours (−1 petit ami à 1 chiffre) : deux.
+    try {
+      genererColonne({ chiffres, lignes: 6, autorises, cibles, pur: true, pas: 2 });
+      return { cibles, autorises, ajoutes: [...ajoutes].filter((c) => !c.endsWith(':direct')), pur: true, pas: 2 };
+    } catch (e) {
+      if (!(e instanceof ErreurGeneration)) throw e;
+    }
+  }
   throw new ErreurGeneration('Ces gestes ne peuvent pas former une colonne pure.');
 }

@@ -31,8 +31,9 @@ test('planche « +3 petit ami » : uniquement gestes directs et +3 petit ami, su
         if (m.includes('+3:petit')) lignesAvecCible += 1;
       }
     }
-    // À 1 chiffre, le retour sur 2-4 en gestes directs prend 1 à 2 lignes : ~40 % est le maximum (seuil de test 30 %).
-    assert.ok(lignesAvecCible / total > (chiffres === 1 ? 0.3 : 0.48), `${chiffres} ch : ${lignesAvecCible}/${total} lignes avec la cible`);
+    // Le geste choisi n'est jamais sur deux lignes de suite (règle 5) : 50 % au plus.
+    // À 1 chiffre, le retour sur 2-4 en gestes directs prend 1 à 2 lignes : ~40 % (seuil de test 30 %).
+    assert.ok(lignesAvecCible / total > (chiffres === 1 ? 0.3 : 0.4), `${chiffres} ch : ${lignesAvecCible}/${total} lignes avec la cible`);
   }
 });
 

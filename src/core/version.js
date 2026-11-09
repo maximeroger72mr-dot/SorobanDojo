@@ -1,5 +1,5 @@
 /** Version de l'application (tenue égale à package.json : un test le vérifie). */
-export const VERSION_APPLI = '0.21.1';
+export const VERSION_APPLI = '0.21.2';
 
 /** Compare deux versions « a.b.c » : négatif si a < b, 0 si égales, positif si a > b. */
 export function comparerVersions(a, b) {

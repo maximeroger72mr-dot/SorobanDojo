@@ -180,13 +180,12 @@ export default {
       if (r.pur) {
         try {
           const p = ciblesPures(c.cibles.filter((x) => !x.endsWith(':direct')), r.chiffres);
-          c.autorises = p.autorises;
-          c.cibles = p.cibles;
+          Object.assign(c, { autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas });
           c.libelle += ' · pur';
-          if (p.ajoutes.length) notePur = `Mode pur : ${p.ajoutes.map(nomMotif).join(', ')} ajouté${p.ajoutes.length > 1 ? 's' : ''}, car ces gestes ne peuvent pas s'enchaîner seuls (la colonne alterne + et −).`;
+          notePur = 'Mode pur : le geste revient une ligne sur deux ; les lignes entre deux ne servent qu\'à replacer la tige (gestes directs ou autres amis de la même famille).';
         } catch (e) {
           if (!(e instanceof ErreurGeneration)) throw e;
-          notePur = 'Ces gestes ne peuvent pas former une colonne pure (sans aucun geste direct) : planche normale.';
+          notePur = 'Ce geste ne peut pas former une colonne pure avec ces réglages : planche normale.';
         }
       }
       if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
@@ -195,9 +194,38 @@ export default {
       const memoire = creerMemoire(r.colonnes);
       const poids = poidsAdaptatifs(c.cibles);
       for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
-      const problemes = Array.from({ length: r.colonnes }, () => genererColonneVariee({
-        chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros,
-      }, memoire));
+      // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
+      // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
+      // mode normal, puis tous les gestes appris.
+      const config = { chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros, pur: !!c.pur, pas: c.pas };
+      const replis = [
+        [config, null],
+        [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
+        [{ ...config, chiffres: Math.max(2, r.chiffres), pur: false, autorises: contraintes(r.cible).autorises, cibles: contraintes(r.cible).cibles }, 'Impossible de former ces colonnes en mode pur : planche normale, à 2 chiffres au moins.'],
+        [{ ...config, pur: false, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
+      ];
+      let problemes = null;
+      for (const [p, message] of replis) {
+        try {
+          const sigs = new Set();
+          problemes = [];
+          for (let k = 0; problemes.length < r.colonnes && k < r.colonnes * 4; k++) {
+            const col = genererColonneVariee(p, memoire);
+            const sig = col.lignes.map((l) => `${l.op}${l.n}`).join();
+            if (sigs.has(sig)) continue;
+            sigs.add(sig);
+            problemes.push(col);
+          }
+          if (problemes.length < r.colonnes) throw new ErreurGeneration('pas assez de colonnes différentes');
+          if (message) zone.append(h('p', { class: 'retour' }, message));
+          break;
+        } catch (e) {
+          if (!(e instanceof ErreurGeneration)) throw e;
+          problemes = null;
+        }
+      }
+      if (!problemes) { zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez d\'autres réglages.')); return; }
+      if (problemes.some((x) => x.assoupli)) zone.append(h('p', { class: 'discret' }, 'Pour ce geste, les combinaisons possibles sont peu nombreuses : quelques colonnes répètent une valeur plus souvent que d\'habitude.'));
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${r.pur ? '-pur' : ''}`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,

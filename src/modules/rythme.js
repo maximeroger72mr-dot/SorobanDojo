@@ -11,7 +11,6 @@
 
 import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, evaluerMotif } from '../core/progression.js';
 import { ciblesPures, ErreurGeneration } from '../core/generateur.js';
-import { nomMotif } from '../core/motifs.js';
 import { contraintes, contraintesCibles, optionsCibles } from './planches.js';
 import { creerMarathon } from '../ui/marathon.js';
 import { creerLievre, cadenceDepart } from '../ui/lievre.js';
@@ -31,8 +30,8 @@ function contraintesDe(r, cibles) {
   if (r.pur) {
     try {
       const p = ciblesPures(c.cibles.filter((x) => !x.endsWith(':direct')), r.chiffres);
-      Object.assign(c, { autorises: p.autorises, cibles: p.cibles, libelle: `${c.libelle} · pur` });
-      if (p.ajoutes.length) note = `Mode pur : ${p.ajoutes.map(nomMotif).join(', ')} ajouté (les gestes alternent + et −).`;
+      Object.assign(c, { autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas, libelle: `${c.libelle} · pur` });
+      note = 'Mode pur : le geste revient une ligne sur deux, les autres lignes replacent la tige.';
     } catch (e) {
       if (!(e instanceof ErreurGeneration)) throw e;
       note = 'Ces gestes ne peuvent pas former une colonne pure : mode normal.';

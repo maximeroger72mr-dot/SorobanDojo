@@ -14,19 +14,30 @@ function motifsLignes(col) {
   return col.lignes.slice(1).map((l) => { const a = analyserOperation(v, l.op, l.n, 12); v = a.resultat; return a.motifs; });
 }
 
-test('mode pur : aucun geste direct, miroir ajouté si besoin', () => {
-  const p = ciblesPures(['+4:petit'], 1);
-  assert.deepEqual(p.ajoutes, ['-4:petit']);
-  for (let i = 0; i < 20; i++) {
-    const col = genererColonne({ chiffres: 1, lignes: 8, autorises: p.autorises, cibles: p.cibles });
-    for (const m of motifsLignes(col).flat()) assert.ok(['+4:petit', '-4:petit'].includes(m), m);
+test('mode pur : le geste une ligne sur deux, des lignes de replacement, jamais d\'aller-retour', async () => {
+  const { colonneValide } = await import('../src/core/generateur.js');
+  for (const [cle, ch] of [['-2:petit', 1], ['+4:petit', 1], ['-1:petit', 1], ['+9:grand', 1], ['-6:grand', 2], ['+7:mixte', 1]]) {
+    const p = ciblesPures([cle], ch);
+    let vises = 0;
+    let lignes = 0;
+    for (let i = 0; i < 15; i++) {
+      const col = genererColonne({ chiffres: ch, lignes: 6, autorises: p.autorises, cibles: p.cibles, pur: true, pas: p.pas });
+      assert.ok(colonneValide(col, [cle], true) || col.assoupli, `${cle} : ${col.lignes.map((l) => l.op + l.n).join(' ')}`);
+      const ms = motifsLignes(col).slice(1);
+      for (const m of ms.flat()) assert.ok(p.autorises.has(m), `${cle} : ${m} non permis`);
+      for (let k = 1; k < ms.length; k++) assert.ok(!(ms[k].includes(cle) && ms[k - 1].includes(cle)), `${cle} : deux fois de suite`);
+      vises += ms.filter((m) => m.includes(cle)).length;
+      lignes += ms.length;
+    }
+    // Une ligne sur deux ; une sur trois quand deux replacements sont nécessaires (−1 petit ami à 1 chiffre).
+    assert.ok(vises / lignes >= (cle === '-1:petit' ? 0.2 : 0.3), `${cle} : ${vises}/${lignes} lignes sur le geste`);
   }
-  // Grands amis : seule la retenue (±1 direct) est tolérée en plus.
-  const g = ciblesPures(famille('grand'), 2);
-  for (let i = 0; i < 10; i++) {
-    const col = genererColonne({ chiffres: 2, lignes: 6, autorises: g.autorises, cibles: g.cibles });
-    for (const m of motifsLignes(col).flat()) assert.ok(m.endsWith(':grand') || m === '+1:direct' || m === '-1:direct', m);
-  }
+  // Petit ami seul : gestes directs et petits amis du sens opposé pour replacer la tige.
+  const p = ciblesPures(['-2:petit'], 1);
+  assert.ok(p.autorises.has('+3:direct') && p.autorises.has('+2:petit') && !p.autorises.has('-3:petit'));
+  // Grand ami seul : grands amis du sens opposé, et ±1 direct (la retenue).
+  const g = ciblesPures(['+9:grand'], 1);
+  for (const m of g.autorises) assert.ok(m === '+9:grand' || (m.startsWith('-') && m.endsWith(':grand')) || m === '+1:direct' || m === '-1:direct', m);
 });
 
 test('plateau : détecté quand le temps ne baisse plus depuis 2 semaines', () => {
