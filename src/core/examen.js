@@ -1,7 +1,7 @@
 /**
  * Passage de kyū : l'examen du niveau où l'on se trouve, accessible EN PERMANENCE, pour
  * travailler sous la pression d'un vrai examen, sur ce que l'on a appris (et rien d'autre).
- * Le prof le propose une fois par semaine, sans échéance ; un échec est normal et ne coûte rien :
+ * La séance du jour le rappelle une fois par semaine, sans échéance ; un échec est normal et ne coûte rien :
  * on retente quand on veut.
  *
  * Avant le 10e kyū officiel, des grades préparatoires (20e → 11e kyū), un par étape du parcours :
@@ -11,7 +11,7 @@
  * Format : 20 colonnes au moins, temps fixe (compte à rebours), seuil de 70 % comme aux examens
  * officiels. Chaque tentative compte : la réussite donne le grade, l'échec ne retire rien.
  * Au-delà du 11e kyū, l'examen de la semaine garde ce format avec tous les gestes appris
- * (3 chiffres, 7 lignes) ; les vrais kyū se passent dans « Épreuves officielles ».
+ * (3 chiffres, 7 lignes) ; les vrais kyū se passent en épreuve officielle (page Grades).
  *
  * Fonctions pures : elles reçoivent les données de progression (voir progression.js).
  */

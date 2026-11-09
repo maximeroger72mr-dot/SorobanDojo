@@ -84,7 +84,7 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
 
   let [app, w] = await lancer(profil());
   // 1. Les 5 entrées du menu, et chaque carte des pages de section.
-  for (const id of ['seance', 'apprendre', 'entrainer', 'mesurer', 'progression']) {
+  for (const id of ['seance', 'apprendre', 'entrainer', 'mesurer', 'progression', 'reglages']) {
     await aller(w, id);
     await controler(w, `menu ${id}`);
     const nb = await w.$$eval('#ecran .carte-hub', (x) => x.length);
@@ -94,7 +94,7 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
       const titre = await w.$eval(`#ecran .carte-hub >> nth=${i}`, (x) => x.querySelector('strong').textContent);
       await w.click(`#ecran .carte-hub >> nth=${i}`);
       // La carte « Anzan et visualisation » ouvre la piste anzan des leçons ; « Drills et tables », l'écran Drills.
-      const attendu = { 'Anzan et visualisation': 'Leçons guidées', 'Drills et tables': 'Drills' }[titre] ?? titre;
+      const attendu = { 'Anzan et visualisation': 'Leçons guidées' }[titre] ?? titre;
       await controler(w, `${id} › ${titre}`, attendu);
     }
   }
@@ -104,7 +104,7 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     await w.waitForTimeout(200);
     await controler(w, `leçon ${id}`, 'Leçons guidées');
     const onglets = await w.$$('#ecran .segments button');
-    for (let k = 0; k < onglets.length && k < 3; k++) {
+    for (let k = 0; k < onglets.length && k < 4; k++) {
       await (await w.$$('#ecran .segments button'))[k]?.click().catch(() => {});
       await controler(w, `leçon ${id}, onglet ${k + 1}`, 'Leçons guidées');
     }
@@ -116,7 +116,10 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     ['rythme', { jeu: 'lievre', cibles: ['+3:petit'], chiffres: 1, auto: true }, 'Lièvre'],
     ['examen', {}, 'Passage de kyū'], ['erreurs', {}, 'À revoir'], ['bilan', {}, 'Bilan imprimable'],
     ['lecons', { piste: 'anzan' }, 'Leçons guidées'], ['planches', { cible: '+3:petit', auto: true, colonnes: 5, chiffres: 1 }, 'Planches'],
-    ['drills', { tables: 'lents', auto: true }, 'Drills'], ['drills', { tables: [7, 8, 9] }, 'Drills'], ['drills', { quotient: true }, 'Drills'],
+    ['drills', { tables: 'lents', auto: true }, 'Tables (九九)'], ['drills', { tables: [7, 8, 9] }, 'Tables (九九)'], ['drills', { quotient: true }, 'Tables (九九)'],
+    ['drills', { section: 'tables' }, 'Tables (九九)'], ['drills', { section: 'gestes' }, 'Drills de gestes'], ['drills', { tables: '81' }, 'Tables (九九)'],
+    ['grades', {}, 'Grades'], ['epreuves', {}, 'Épreuves officielles'], ['positionnement', {}, 'Tester mon niveau'],
+    ['jeux', { jeu: 'complement', cible: 5 }, 'Jeux'], ['jeux', { jeu: 'survie' }, 'Survie anzan'], ['seance', { accueil: true }, null],
     ['verification', { famille: 'direct' }, 'Vérifier ma vitesse'], ['verification', { famille: 'petit' }, 'Vérifier ma vitesse'], ['verification', { geste: '+3:petit' }, 'Vérifier ma vitesse'], ['defis', { semaine: true }, 'Défis chrono'], ['lexique', {}, 'Lexique'],
   ];
   for (const [ecran, params, attendu] of internes) {
@@ -156,7 +159,14 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await controler(w, 'séance en cours');
   // 5. Largeur téléphone.
   await w.setViewportSize({ width: 390, height: 820 });
-  for (const id of ['seance', 'apprendre', 'entrainer', 'mesurer', 'progression']) { await aller(w, id); await controler(w, `mobile ${id}`); }
+  for (const id of ['seance', 'apprendre', 'entrainer', 'mesurer', 'progression', 'reglages']) { await aller(w, id); await controler(w, `mobile ${id}`); }
+  // Le test de positionnement : un palier se lance.
+  await w.setViewportSize({ width: 1280, height: 900 });
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['positionnement', {}] })));
+  await w.waitForTimeout(200);
+  await w.click('#ecran .btn.principal');
+  await controler(w, 'positionnement, palier 1', 'Tester mon niveau');
+  if (!(await w.$('#ecran .serie'))) problemes.push('positionnement : la série du palier 1 n\'apparaît pas');
   await app.close();
 
   // 6. Séance terminée aujourd'hui : bilan, proposition, recommencer à la demande.
@@ -175,8 +185,31 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   const vierge = fs.mkdtempSync(path.join(os.tmpdir(), 'verif-'));
   [app, w] = await lancer(vierge);
   await controler(w, 'premier lancement');
+  if (!/J'ai déjà pratiqué/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('premier lancement : pas de bouton « J\'ai déjà pratiqué »');
+  // Jour 0 : pas d'échauffement à 9 tiges dans la séance.
   await w.click('.grand-bouton');
   await controler(w, 'leçon 0 (quiz)', 'Leçons guidées');
+  // Avant toute leçon : une activité avancée avertit (sans bloquer).
+  await aller(w, 'entrainer');
+  await w.waitForTimeout(150);
+  if (!(await w.$('#ecran .carte-hub.attenue'))) problemes.push('jour 0 : aucune carte atténuée « conseillé après »');
+  await cliquerTexte(w, '#ecran .carte-hub', 'Planches');
+  await w.waitForTimeout(200);
+  if (!(await w.$('dialog[open]'))) problemes.push('jour 0 : pas d\'avertissement en ouvrant Planches');
+  await cliquerTexte(w, 'dialog[open] button', 'Y aller quand même');
+  await controler(w, 'jour 0 : Planches quand même', 'Planches');
+  await aller(w, 'seance');
+  await w.waitForTimeout(200);
+  const plan0 = await w.$eval('main', (x) => x.innerText);
+  if (/111 111 111/.test(plan0)) problemes.push('jour 0 : la séance propose un drill à 9 tiges');
+  // Mode découverte coché dans Réglages, puis la leçon « Lire et poser un nombre » : la saisie apparaît.
+  await aller(w, 'reglages');
+  await w.waitForTimeout(150);
+  await w.check('#ecran input[type=checkbox]');
+  await w.waitForTimeout(150);
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['lecons', { sousPalier: 'p0-2', onglet: 'entrainement' }] })));
+  await controler(w, 'leçon lecture', 'Leçons guidées');
+  if (!(await w.$('#ecran .saisie-nombre'))) problemes.push('leçon lecture : pas de saisie');
   await app.close();
 
   fs.rmSync(path.join(__dirname, 'sous-paliers.json'));

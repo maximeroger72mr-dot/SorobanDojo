@@ -56,6 +56,13 @@ export function pictogramme(nom) {
   else if (nom === 'apprendre') { tige(12); barre(); b(12, 4.5, false); b(12, 17); } // une boule en creux : ce qu'on découvre
   else if (nom === 'entrainer') { tige(12); barre(); b(12, 13); b(12, 19); b(12, 4.5); } // la tige chargée : le volume
   else if (nom === 'mesurer') { tige(6); tige(18); barre(); b(6, 13); b(18, 4.5); b(18, 13); b(18, 19); } // deux tiges comparées
+  else if (nom === 'reglages') { // un engrenage
+    svg.append(el('circle', { cx: 12, cy: 12, r: 3.6, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8' }));
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      svg.append(el('line', { x1: 12 + 6 * Math.cos(a), y1: 12 + 6 * Math.sin(a), x2: 12 + 9.5 * Math.cos(a), y2: 12 + 9.5 * Math.sin(a), stroke: 'currentColor', 'stroke-width': '2.4', 'stroke-linecap': 'round' }));
+    }
+  }
   else if (nom === 'progression') { [5, 12, 19].forEach((x, i) => { tige(x); for (let k = 0; k <= i; k++) b(x, 20 - k * 6.5, true, 8); }); } // des tiges qui montent
   return svg;
 }

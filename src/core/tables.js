@@ -52,14 +52,47 @@ export function serieTable(n) {
   return melanger(Array.from({ length: 9 }, (_, i) => (Math.random() < 0.5 ? exercice(n, i + 1) : exercice(i + 1, n))));
 }
 
+/** Seuil du diagnostic : un produit plus lent que 2,5 s (ou raté récemment) est à retravailler. */
+export const SEUIL_PRODUIT_S = 2.5;
+const etatProduit = (stats, a, b) => {
+  const recents = (stats[cleProduit(a, b)]?.hist ?? []).slice(-6);
+  const temps = recents.filter((x) => x.ok).map((x) => x.t).sort((x, y) => x - y);
+  return { vu: recents.length > 0, mediane: temps.length ? temps[Math.floor(temps.length / 2)] : null, erreurs: recents.slice(-3).filter((x) => !x.ok).length };
+};
+
+/**
+ * Produits à retravailler (diagnostic des 81) : faux récemment ou plus lents que 2,5 s. Ils
+ * restent dans « Mes produits les plus lents » jusqu'à repasser sous 2,5 s, sans erreur.
+ */
+export function produitsARetravailler(stats) {
+  const r = [];
+  for (let a = 1; a <= 9; a++) {
+    for (let b = a; b <= 9; b++) {
+      const e = etatProduit(stats, a, b);
+      if (e.vu && (e.erreurs > 0 || e.mediane === null || e.mediane > SEUIL_PRODUIT_S)) r.push(cleProduit(a, b));
+    }
+  }
+  return r;
+}
+
+/** Le diagnostic des 81 produits est-il fait (tous les produits vus au moins une fois) ? */
+export function diagnosticTablesFait(stats) {
+  for (let a = 1; a <= 9; a++) for (let b = a; b <= 9; b++) if (!etatProduit(stats, a, b).vu) return false;
+  return true;
+}
+
 /**
  * Produits les plus lents ou les plus ratés : poids = temps médian récent (2 s par défaut) ×
  * (1 + erreurs récentes). Évite de reposer le même produit deux fois de suite.
  */
 export function produitLent(stats, precedent) {
   const candidats = [];
-  for (let a = 2; a <= 9; a++) {
+  // Après le diagnostic : seulement les produits à retravailler, tant qu'il y en a au moins 3.
+  const cibles = new Set(produitsARetravailler(stats));
+  const filtrer = cibles.size >= 3;
+  for (let a = filtrer ? 1 : 2; a <= 9; a++) {
     for (let b = a; b <= 9; b++) {
+      if (filtrer && !cibles.has(cleProduit(a, b))) continue;
       const h = stats[cleProduit(a, b)]?.hist ?? [];
       const recents = h.slice(-6);
       const temps = recents.filter((x) => x.ok).map((x) => x.t).sort((x, y) => x - y);
@@ -72,7 +105,7 @@ export function produitLent(stats, precedent) {
     const total = candidats.reduce((s, c) => s + c.poids, 0);
     let x = Math.random() * total;
     const c = candidats.find((k) => (x -= k.poids) < 0) ?? candidats.at(-1);
-    if (cleProduit(c.a, c.b) === precedent) continue;
+    if (cleProduit(c.a, c.b) === precedent && candidats.length > 1) continue;
     return Math.random() < 0.5 ? exercice(c.a, c.b) : exercice(c.b, c.a);
   }
 }

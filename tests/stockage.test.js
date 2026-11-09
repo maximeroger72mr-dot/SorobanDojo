@@ -107,3 +107,16 @@ test('colonnes ratées : rejouées à la séance suivante, retirées une fois r�
   assert.equal(p.erreursARejouer(j).length, 0);
 });
 
+
+test('0.21 : les leçons ajoutées sont validées pour qui a déjà validé la suivante', async () => {
+  globalThis.localStorage = { m: new Map(), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, v); } };
+  globalThis.localStorage.setItem('soroban-progression', JSON.stringify({ version: 2, sessions: [], records: {}, motifs: {},
+    paliers: { 'p1-1': { valide: '2026-10-01' }, 'p2-1': { valide: '2026-10-10' } } }));
+  const { chargerProgression, progression } = await import('../src/core/progression.js?rattrapage');
+  await chargerProgression();
+  const p = progression().paliers;
+  assert.equal(p['p0-2'].valide, '2026-10-01');
+  assert.equal(p['p2-0'].valide, '2026-10-10');
+  assert.equal(p['p3-0'], undefined);
+  assert.equal(p['p0-2'].carte, null);
+});

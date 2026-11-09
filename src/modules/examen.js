@@ -13,6 +13,7 @@ import { h, formaterDuree, remplir } from '../ui/dom.js';
 export default {
   id: 'examen',
   titre: 'Passage de kyū',
+  parent: 'grades',
   monter(el, app, params = {}) {
     let feuille = null;
 
@@ -24,7 +25,7 @@ export default {
       const g = examenDeLaSemaine(d);
       const r = resultatSemaine(d, aujourdhui());
       el.append(h('h1', {}, 'Passage de kyū'),
-        h('p', { class: 'discret' }, `L'examen de votre niveau, sur tout ce que vous avez appris : ${COLONNES} colonnes, un temps fixe, ${Math.round(SEUIL * 100)} % de justes pour réussir. Il est ouvert en permanence : passez-le quand vous vous sentez prêt, autant de fois que vous voulez. Le prof vous le propose une fois par semaine.`));
+        h('p', { class: 'discret' }, `L'examen de votre niveau, sur tout ce que vous avez appris : ${COLONNES} colonnes, un temps fixe, ${Math.round(SEUIL * 100)} % de justes pour réussir. Il est ouvert en permanence : passez-le quand vous vous sentez prêt, autant de fois que vous voulez. La séance du jour vous le rappelle chaque semaine.`));
       if (!g) {
         el.append(h('div', { class: 'carte' }, h('p', {}, 'Le premier examen (20e kyū prép.) s\'ouvre dès que les leçons « Ajouter 1 à 4 », « Retirer 1 à 4 » et « Le 5 et la pincée » sont validées.'),
           h('button', { class: 'btn principal', onclick: () => app.aller('lecons') }, 'Aller aux leçons')));
@@ -40,7 +41,7 @@ export default {
           h('button', { class: 'btn principal', onclick: () => lancer(g) }, r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen')));
       }
       el.append(h('h2', {}, 'Les grades préparatoires'),
-        h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle. Les vrais kyū (10e au 1er), au format des examens japonais, se passent dans « Épreuves officielles ».'),
+        h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
         h('div', { class: 'liste-paliers' }, PREKYU.map((x) => {
           const obtenu = prekyuObtenu(d, x);
           const ouvert = prekyuAccessible(d, x);

@@ -12,8 +12,10 @@ import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES } from '../core/revision.js';
 import {
   revisionsDues, etatPalier, enregistrerRevision, enregistrerSession, poidsAdaptatifs,
-  motifsEnDifficulte, aujourdhui,
+  motifsEnDifficulte, aujourdhui, statsTables, rouvrirPalier,
 } from '../core/progression.js';
+import { produitsARetravailler } from '../core/tables.js';
+import { questionDoigte } from '../ui/doigte.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerPlacement } from '../ui/placement.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
@@ -58,6 +60,15 @@ export default {
           h('button', { class: 'btn principal', onclick: () => cible(faibles.map((f) => f.cle)) }, `Révision ciblée (${FLASH.exercices} calculs)`));
       }
 
+      // Diagnostic des tables : les produits faux ou plus lents que 2,5 s, jusqu'à ce qu'ils passent.
+      const produits = produitsARetravailler(statsTables());
+      if (produits.length) {
+        el.append(h('h2', {}, 'Produits à retravailler'),
+          h('p', {}, produits.slice(0, 20).map((c) => c.replace('x', ' × ')).join(' · '), produits.length > 20 ? ' …' : ''),
+          h('p', { class: 'discret' }, 'Faux récemment ou plus lents que 2,5 s : ils sortent de la liste dès qu\'ils passent sous 2,5 s sans erreur.'),
+          h('button', { class: 'btn principal', onclick: () => app.aller('drills', { tables: 'lents', auto: true }) }, 'Mes produits à retravailler'));
+      }
+
       const avenir = SOUS_PALIERS.map((sp) => ({ sp, c: etatPalier(sp.id).carte }))
         .filter(({ c }) => c && c.echeance > aujourdhui())
         .sort((a, b) => a.c.echeance.localeCompare(b.c.echeance));
@@ -72,7 +83,7 @@ export default {
       }
     }
 
-    function lancerSerie({ titre, sousTitre, generer, apresBilan, placement = false }) {
+    function lancerSerie({ titre, sousTitre, generer, apresBilan, placement = false, sp = null }) {
       remplir(el, 
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
@@ -82,12 +93,13 @@ export default {
           serie.detruire();
           serie = null;
           const message = await apresBilan(bilan);
+          const doigte = sp && Math.random() < 0.3 ? questionDoigte(app, sp) : null;
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${bilan.justes} / ${bilan.total}`),
             h('p', {}, `Temps : ${formaterDuree(bilan.dureeMs)} · ${formaterDuree(bilan.dureeMs / bilan.total)} par calcul`),
             h('p', {}, message),
             h('button', { class: 'btn principal', onclick: () => liste() }, 'Retour aux révisions')),
-          listeErreurs(bilan.resultats) ?? '');
+          doigte ?? '', listeErreurs(bilan.resultats) ?? '');
         },
       });
     }
@@ -98,8 +110,18 @@ export default {
         sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
         generer: () => genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])),
         placement: sp.type === 'placement',
+        sp,
         apresBilan: async (b) => {
           const reussi = b.justes >= FLASH.reussitesMin;
+          // Leçon validée par le test de positionnement : la première révision confirme ou rouvre.
+          if (etatPalier(sp.id).parTest && !etatPalier(sp.id).confirme) {
+            if (!reussi) {
+              await rouvrirPalier(sp.id);
+              await enregistrerSession({ module: 'revisions', mode: 'flash', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+              return `Cette leçon avait été validée par le test de positionnement ; elle est rouverte pour la reprendre tranquillement (le mini-test suffit à la revalider).`;
+            }
+            etatPalier(sp.id).confirme = aujourdhui();
+          }
           await enregistrerRevision(sp.id, reussi);
           await enregistrerSession({ module: 'revisions', mode: 'flash', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const c = etatPalier(sp.id).carte;

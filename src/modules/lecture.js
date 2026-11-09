@@ -41,7 +41,7 @@ function expliquerNombre(n) {
 
 export default {
   id: 'lecture',
-  titre: 'Lecture des nombres',
+  titre: 'Lecture libre',
   monter(el) {
     let soroban = null;
     let vue = null;
@@ -76,7 +76,7 @@ export default {
     const zoneBilan = h('div', { class: 'carte bilan', style: 'display:none' });
 
     el.append(
-      h('h1', {}, 'Lecture des nombres'),
+      h('h1', {}, 'Lecture libre'),
       h('p', { class: 'discret' }, 'Avant de calculer, il faut lire le soroban d\'un coup d\'œil et poser un nombre sans hésiter.'),
       h('details', { class: 'carte', style: 'margin-top:12px', open: !statistiques().parModule.lecture },
         h('summary', {}, 'Comment lire un soroban'),

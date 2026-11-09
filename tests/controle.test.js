@@ -223,3 +223,80 @@ test('CPM : seuils 20 / 40 / 75 et affichage', async () => {
   assert.equal(formaterCadence(1.5), '40 CPM');
   assert.equal(formaterVitesse(1.5), '40 CPM (1,5 s par chiffre)');
 });
+
+test('0.21 : nouvelles leçons (lecture, paires de 5 et de 10) à leur place', () => {
+  const ordre = SOUS_PALIERS.filter((s) => !s.mental).map((s) => s.id);
+  assert.ok(ordre.indexOf('p0-2') === ordre.indexOf('p0-1') + 1 && ordre.indexOf('p0-2') < ordre.indexOf('p1-1'));
+  assert.ok(ordre.indexOf('p2-0') === ordre.indexOf('p2-1') - 1);
+  assert.ok(ordre.indexOf('p3-0') === ordre.indexOf('p3-1') - 1);
+  // 20 lectures, puis 10 poses, puis mélangé.
+  const lire = sousPalier('p0-2');
+  assert.ok([0, 5, 19].every((r) => genererExercice(lire, {}, { rang: r }).type === 'lire'));
+  assert.ok([20, 29].every((r) => genererExercice(lire, {}, { rang: r }).type === 'poser'));
+  // Paires : jamais deux fois de suite le même nombre.
+  const paires = sousPalier('p3-0');
+  let avant = null;
+  for (let i = 0; i < 200; i++) { const ex = genererExercice(paires); assert.notEqual(ex.a, avant); avant = ex.a; assert.equal(ex.a + ex.resultat, 10); }
+});
+
+test('0.21 : étape Reconnaître (choix appris + nouveau, 10 questions justes)', async () => {
+  const { aReconnaitre, questionsReconnaitre } = await import('../src/core/reconnaitre.js');
+  const { analyserOperation } = await import('../src/core/generateur.js');
+  assert.ok(!aReconnaitre(sousPalier('p1-3')) && !aReconnaitre(sousPalier('p2-0')) && !aReconnaitre(sousPalier('p5-5')));
+  assert.ok(aReconnaitre(sousPalier('p2-1')) && aReconnaitre(sousPalier('p3-1')) && aReconnaitre(sousPalier('p5-3')));
+  const appris = new Set(famille('direct'));
+  const { choix, questions } = questionsReconnaitre(sousPalier('p2-1'), appris);
+  assert.deepEqual(choix, ['direct', 'petit']);
+  assert.equal(questions.length, 10);
+  for (const q of questions) assert.equal(analyserOperation(q.v, q.op, q.n, 3).motifs[0], q.cle);
+  assert.ok(questions.filter((q) => q.regle === 'petit').length >= 5);
+});
+
+test('0.21 : prérequis des activités, drills d\'entrée et échauffement', async () => {
+  const { manquantesActivite, manquantesEpreuve } = await import('../src/core/prerequis.js');
+  const { prerequisDrill } = await import('../src/core/parcours.js');
+  const { catalogueDrills } = await import('../src/core/drills.js');
+  const d = { paliers: {}, reglages: {}, motifs: {}, drills: {} };
+  assert.deepEqual(manquantesActivite(d, 'colonnes').map((s) => s.id), ['p1-3']);
+  assert.deepEqual(manquantesActivite(d, 'quotidien').map((s) => s.id), ['p5-5', 'pd-1']);
+  assert.ok(manquantesEpreuve(d, '10').length > 20);
+  assert.deepEqual(manquantesActivite({ ...d, reglages: { decouverte: true } }, 'colonnes'), []);
+  const drills = catalogueDrills();
+  assert.deepEqual(drills.slice(0, 4).map((x) => x.id), ['tige-4', 'tige-9', 'pendule-11', 'directs']);
+  assert.deepEqual(prerequisDrill(d, drills[3]).lecons.sort(), ['p1-1', 'p1-2', 'p1-3', 'p1-4']);
+  assert.deepEqual(prerequisDrill(d, drills[0]).lecons.sort(), ['p1-1', 'p1-2']);
+});
+
+test('0.21 : tables, produits à retravailler jusqu\'à 2,5 s', async () => {
+  const { produitsARetravailler, diagnosticTablesFait, produitLent } = await import('../src/core/tables.js');
+  const stats = {};
+  for (let a = 1; a <= 9; a++) for (let b = a; b <= 9; b++) stats[`${a}x${b}`] = { hist: [{ ok: 1, t: 1.2 }] };
+  assert.ok(diagnosticTablesFait(stats));
+  assert.deepEqual(produitsARetravailler(stats), []);
+  stats['7x8'].hist = [{ ok: 1, t: 3.4 }];
+  stats['6x9'].hist = [{ ok: 0, t: 2 }];
+  stats['4x7'].hist = [{ ok: 1, t: 2.7 }];
+  assert.deepEqual(produitsARetravailler(stats).sort(), ['4x7', '6x9', '7x8']);
+  // Le tirage ne propose plus que ces produits.
+  for (let i = 0; i < 50; i++) { const ex = produitLent(stats, null); assert.ok(['4x7', '6x9', '7x8'].includes(`${Math.min(ex.a, ex.b)}x${Math.max(ex.a, ex.b)}`)); }
+  stats['7x8'].hist.push({ ok: 1, t: 1.8 }, { ok: 1, t: 1.9 });
+  assert.ok(!produitsARetravailler(stats).includes('7x8'));
+});
+
+test('0.21 : positionnement, doigté et grades', async () => {
+  const { PALIERS_TEST, leconsReussies, colonneTest } = await import('../src/core/positionnement.js');
+  const { questionDe } = await import('../src/core/doigte.js');
+  assert.equal(PALIERS_TEST.length, 4);
+  assert.ok(leconsReussies(1).includes('p1-4') && leconsReussies(1).includes('p0-2') && !leconsReussies(1).includes('p2-1'));
+  assert.ok(leconsReussies(3).includes('p4-5') && leconsReussies(3).includes('p3-0'));
+  for (const p of PALIERS_TEST) assert.ok(colonneTest(p).lignes.length >= 4);
+  assert.match(questionDe(sousPalier('p1-1')).texte, /POUCE/);
+  assert.match(questionDe(sousPalier('p2-3')).texte, /Petit ami/);
+  assert.match(questionDe(sousPalier('p6-1')).texte, /index gauche/);
+  assert.equal(questionDe(sousPalier('p2-0')), null);
+  const { frise } = await import('../src/modules/grades.js');
+  const f = frise({ records: { 'prekyu-20': { reussi: true }, 'prekyu-19': { reussi: true } }, paliers: {} });
+  assert.equal(f.length, 20);
+  assert.equal(f.filter((m) => m.officiel).length, 10);
+  assert.equal(f.find((m) => m.actuel).nom, '19e kyū prép.');
+});

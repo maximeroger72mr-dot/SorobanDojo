@@ -13,6 +13,7 @@ import { catalogueDrills, classement } from '../core/drills.js';
 import { ajouterJours } from '../core/revision.js';
 import { VERSION_APPLI } from '../core/version.js';
 import { formaterCadence } from '../core/maitrise.js';
+import { GRILLE_DOIGTE } from '../core/doigte.js';
 import { h, formaterDuree } from '../ui/dom.js';
 
 const dateFr = (x) => new Date(`${x}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -76,7 +77,15 @@ export default {
           h('table', { class: 'tableau-rapport' }, b.drills.map((x) => h('tr', {}, h('td', {}, x.titre), h('td', {}, `${formaterDuree(x.dureeMs)}${x.medaille ? ` · ${x.medaille.nom.toLowerCase()}` : ''}`))))] : null,
         b.lecons.validees.length ? [h('h3', {}, 'Parcours : leçons validées'),
           h('ol', { class: 'liste-rapport' }, b.lecons.validees.map((l) => h('li', {}, `${l.titre} · ${dateFr(l.date)}`)))] : null,
-        h('p', { class: 'discret' }, 'Limite : l\'application vérifie les résultats, pas le doigté. Un regard extérieur sur la tenue et les gestes reste précieux.')));
+        h('p', { class: 'discret' }, 'Limite : l\'application vérifie les résultats, pas le doigté. Un regard extérieur sur la tenue et les gestes reste précieux : voir la grille ci-dessous.'),
+        // Grille d'observation du doigté : à remplir en se filmant au téléphone, ou par un tiers.
+        h('div', { class: 'saut-page' },
+          h('h3', {}, 'Grille d\'observation du doigté'),
+          h('p', {}, 'À remplir en vous filmant au téléphone (vue de dessus, 2 minutes de colonnes), ou par un professeur. Cochez ce qui est observé.'),
+          h('table', { class: 'tableau-rapport grille-doigte' },
+            h('tr', {}, h('th', {}, 'Critère'), h('th', {}, 'Oui'), h('th', {}, 'À travailler')),
+            GRILLE_DOIGTE.map((c, i) => h('tr', {}, h('td', {}, `${i + 1}. ${c}`), h('td', { class: 'case' }, '☐'), h('td', { class: 'case' }, '☐')))),
+          h('p', {}, 'Observé le : ____________________   par : ____________________'))));
     return null;
   },
 };

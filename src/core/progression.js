@@ -29,6 +29,7 @@ import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
 import { VERSION_APPLI, comparerVersions } from './version.js';
+import { SOUS_PALIERS } from './curriculum.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -105,8 +106,21 @@ function migrer(lu) {
   return lu;
 }
 
+/**
+ * Leçons ajoutées après coup (0.21) : déjà validées pour qui a validé la leçon qui les suit
+ * (on ne referme pas un parcours déjà fait). Sans révision : ce sont des prérequis.
+ */
+const LECONS_AJOUTEES = [['p0-2', 'p1-1'], ['p2-0', 'p2-1'], ['p3-0', 'p3-1']];
+function rattraperLecons(d) {
+  for (const [nouvelle, suivante] of LECONS_AJOUTEES) {
+    const v = d.paliers?.[suivante]?.valide;
+    if (v && !d.paliers[nouvelle]?.valide) d.paliers[nouvelle] = { reps: 0, justes: 0, hist: [], carte: null, ...d.paliers[nouvelle], valide: v, rattrape: true };
+  }
+  return d;
+}
+
 /** Complète des données lues avec les champs par défaut. */
-const completer = (lu) => ({ ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } });
+const completer = (lu) => rattraperLecons({ ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } });
 
 /**
  * À appeler une fois au démarrage. Ne lève jamais : en cas de problème, l'état du stockage
@@ -338,6 +352,51 @@ const palier = (id) => (donnees.paliers[id] ??= { reps: 0, justes: 0, valide: nu
 
 export function etatPalier(id) {
   return donnees.paliers[id] ?? { reps: 0, justes: 0, valide: null, carte: null, hist: [] };
+}
+
+/** Réponse à la question de doigté (mémorisée pour ne la poser qu'au premier mini-test). */
+export async function noterDoigte(id, cle, oui) {
+  palier(id).doigte = { date: aujourdhui(), cle, oui };
+  await sauver();
+}
+
+/** Leçon rouverte (validée par le test de positionnement, première révision ratée). */
+export async function rouvrirPalier(id) {
+  const e = palier(id);
+  Object.assign(e, { valide: null, carte: null, parTest: false, rouverte: aujourdhui() });
+  // L'entraînement est déjà « fait » : le mini-test suffit pour la revalider.
+  const sp = SOUS_PALIERS.find((x) => x.id === id);
+  if (sp) e.reps = Math.max(e.reps ?? 0, sp.repetitions);
+  await sauver();
+}
+
+/**
+ * Test de positionnement réussi sur un palier : les leçons sont validées « par le test »,
+ * avec une première révision à J+3 qui confirme ou rouvre la leçon.
+ */
+export async function validerParTest(ids) {
+  const j = aujourdhui();
+  let nouvelles = 0;
+  for (const id of ids) {
+    const e = palier(id);
+    if (e.valide) continue;
+    nouvelles += 1;
+    const sp = SOUS_PALIERS.find((x) => x.id === id);
+    e.valide = j;
+    // Leçons à lire et prérequis (lecture, paires) : validées sans révision.
+    if (sp?.type === 'theorie' || sp?.sansRevision) continue;
+    e.parTest = true;
+    e.carte = { boite: 2, echeance: ajouterJours(j, 3) };
+  }
+  const avant = donnees.positionnement?.date === j ? donnees.positionnement.lecons : 0;
+  donnees.positionnement = { date: j, lecons: avant + nouvelles };
+  await sauver();
+}
+
+/** Étape « Reconnaître » d'une leçon réussie (9 sur 10). */
+export async function noterReconnu(id) {
+  palier(id).reconnu = aujourdhui();
+  await sauver();
 }
 
 export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille);
@@ -611,7 +670,7 @@ export async function importerDonnees(texte, mode) {
   let d = lireExport(texte);
   if (d.version < VERSION) d = migrer(d);
   if (d.version > VERSION) throw new Error('Cette sauvegarde vient d\'une version plus récente de l\'application : mettez-la à jour d\'abord.');
-  const complet = { ...vide(), ...d, reglages: { ...vide().reglages, ...d.reglages } };
+  const complet = rattraperLecons({ ...vide(), ...d, reglages: { ...vide().reglages, ...d.reglages } });
   donnees = mode === 'fusionner' ? fusionner(donnees, complet) : complet;
   donnees.reglages = mode === 'fusionner' ? donnees.reglages : complet.reglages;
   await sauver();

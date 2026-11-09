@@ -5,11 +5,12 @@
 
 import { catalogueDrills, drillRepetition, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill } from '../core/drills.js';
 import { enregistrerSession, proposerRecord, progression, etatDrill, noterDrill } from '../core/progression.js';
-import { drillOuvert, manqueDrill, drillValide, estValide } from '../core/parcours.js';
+import { drillOuvert, prerequisDrill, drillValide, estValide } from '../core/parcours.js';
+import { SOUS_PALIERS } from '../core/curriculum.js';
 import { creerDrill } from '../ui/drill.js';
 import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
-import { serie81, serieTable, serieTables, produitLent, cleProduit } from '../core/tables.js';
+import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler } from '../core/tables.js';
 import { noterProduit, statsTables, reglagesUtilisateur, noterVolume } from '../core/progression.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
 import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
@@ -19,35 +20,18 @@ const NOMS_FAMILLES = { petit: 'petits amis', grand: 'grands amis', mixte: 'comb
 export default {
   id: 'drills',
   titre: 'Drills',
+  paramsRetour: (p = {}) => ({ section: p.section === 'tables' || p.tables || p.quotient ? 'tables' : 'gestes' }),
+  titreDe: (p = {}) => (p.section === 'tables' || p.tables || p.quotient ? 'Tables (九九)' : 'Drills de gestes'),
   monter(el, app, params = {}) {
     let nettoyer = null;
     const changer = (f) => { nettoyer?.(); remplir(el); nettoyer = f() ?? null; };
     const record = (id) => progression().records[`drill-${id}`] ?? null;
 
-    function catalogue() {
-      const drills = catalogueDrills();
-      const groupes = [...new Set(drills.map((d) => d.groupe))];
-      el.append(h('h1', {}, 'Drills'),
-        h('p', { class: 'discret' }, `Des suites classiques à faire sur votre soroban, chronométrées. Elles se suivent du plus simple au plus long : un drill est validé après ${VALIDATIONS_DRILL} passages justes sous le temps bronze, et ouvre le suivant. Revenez-y ensuite pour décrocher l'argent, l'or et le platine.`));
-      const prog = progression();
-      for (const g of groupes.filter((x) => x !== 'Même nombre répété')) {
-        el.append(h('h2', {}, g), h('div', { class: 'liste-paliers' }, drills.filter((d) => d.groupe === g).map((d) => {
-          const ouvert = drillOuvert(prog, d);
-          const valide = drillValide(prog, d.id);
-          const rec = record(d.id);
-          const cl = rec ? classement(d, rec.dureeMs) : null;
-          const manque = manqueDrill(prog, d);
-          const precedent = drills[drills.indexOf(d) - 1];
-          let statut;
-          if (!ouvert) statut = manque.length ? `demande : ${manque.map((f) => NOMS_FAMILLES[f]).join(', ')}` : `après « ${precedent.titre} »`;
-          else if (valide) statut = `validé${rec ? ` · record ${formaterDuree(rec.dureeMs)}` : ''}`;
-          else statut = `à valider : ${etatDrill(d.id).validations} / ${VALIDATIONS_DRILL} sous ${formaterDuree(tempsClassement(d, 'bronze'))}`;
-          return h('button', { class: `ligne-palier${valide ? ' valide' : ''}`, disabled: !ouvert, onclick: () => changer(() => ecran(d)) },
-            h('span', { class: `icone etat-${valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, valide ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, d.titre),
-            cl ? badgeClassement(cl.id, cl.nom) : null,
-            h('span', { class: 'statut' }, statut));
-        })));
-      }
+    // Deux pages : les drills de gestes (additions et soustractions) et les tables (× et ÷).
+    let section = params.section ?? (params.tables || params.quotient ? 'tables' : 'gestes');
+
+    function catalogueTables() {
+      section = 'tables';
       // Tables de multiplication (九九)
       // Plusieurs tables au choix, mélangées (cases à cocher), avec deux raccourcis.
       const TABLES = [2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19];
@@ -62,11 +46,11 @@ export default {
           h('button', { class: 'lien', onclick: () => cocher([]) }, 'aucune')));
       const tablesChoisies = () => cases.filter((c) => c.checked).map((c) => Number(c.value));
       const rec81 = progression().records['tables-81'];
-      el.append(h('h2', {}, 'Tables de multiplication (九九)'),
+      el.append(h('h1', {}, 'Tables (九九)'),
         h('p', { class: 'discret' }, 'Réponse à taper le plus vite possible. La vitesse des produits fait celle des multiplications et des divisions. Chaque erreur coûte 3 secondes dans le défi des 81.'),
         h('div', { class: 'ligne' },
           h('button', { class: 'btn principal', onclick: () => changer(() => ecranTables('81')) }, `Les 81 produits${rec81 ? ` (record ${formaterDuree(rec81.dureeMs)})` : ''}`),
-          h('button', { class: 'btn', onclick: () => changer(() => ecranTables('lents')) }, 'Mes 20 produits les plus lents'),
+          h('button', { class: 'btn', onclick: () => changer(() => ecranTables('lents')) }, produitsARetravailler(statsTables()).length ? `Mes produits à retravailler (${produitsARetravailler(statsTables()).length})` : 'Mes 20 produits les plus lents'),
         ),
         h('h3', {}, 'Mes tables, mélangées'),
         choixTable,
@@ -80,6 +64,37 @@ export default {
           h('p', { class: 'classement-objectifs' }, CLASSEMENT_QUOTIENT.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(c.s * COUPLES_SPRINT * 1000)}`))),
           h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranQuotient) }, 'Sprint : 20 estimations'),
             recQ ? h('span', { class: 'discret' }, `Record : ${formaterDuree(recQ.dureeMs)}`, clQ ? [' · ', badgeClassement(clQ.id, clQ.nom)] : '') : null));
+      }
+    }
+
+    function catalogue() {
+      if (section === 'tables') { catalogueTables(); return; }
+      const drills = catalogueDrills();
+      const groupes = [...new Set(drills.map((d) => d.groupe))];
+      el.append(h('h1', {}, 'Drills de gestes'),
+        h('p', { class: 'discret' }, `Des suites classiques à faire sur votre soroban, chronométrées. Elles se suivent du plus simple au plus long : un drill est validé après ${VALIDATIONS_DRILL} passages justes sous le temps bronze, et ouvre le suivant. Revenez-y ensuite pour décrocher l'argent, l'or et le platine.`));
+      const prog = progression();
+      for (const g of groupes.filter((x) => x !== 'Même nombre répété')) {
+        el.append(h('h2', {}, g), h('div', { class: 'liste-paliers' }, drills.filter((d) => d.groupe === g).map((d) => {
+          const ouvert = drillOuvert(prog, d);
+          const valide = drillValide(prog, d.id);
+          const rec = record(d.id);
+          const cl = rec ? classement(d, rec.dureeMs) : null;
+          const pre = prerequisDrill(prog, d);
+          const chaine = drills.filter((x) => !x.entree);
+          const precedent = chaine[chaine.indexOf(d) - 1];
+          let statut;
+          if (!ouvert) {
+            statut = pre.lecons.length ? `après « ${SOUS_PALIERS.find((s) => s.id === pre.lecons[0]).titre} »`
+              : pre.familles.length ? `demande : ${pre.familles.map((f) => NOMS_FAMILLES[f]).join(', ')}` : `après « ${precedent?.titre} »`;
+          }
+          else if (valide) statut = `validé${rec ? ` · record ${formaterDuree(rec.dureeMs)}` : ''}`;
+          else statut = `à valider : ${etatDrill(d.id).validations} / ${VALIDATIONS_DRILL} sous ${formaterDuree(tempsClassement(d, 'bronze'))}`;
+          return h('button', { class: `ligne-palier${valide ? ' valide' : ''}`, disabled: !ouvert, onclick: () => changer(() => ecran(d)) },
+            h('span', { class: `icone etat-${valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, valide ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, d.titre),
+            cl ? badgeClassement(cl.id, cl.nom) : null,
+            h('span', { class: 'statut' }, statut));
+        })));
       }
       const choixN = h('select', {}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 333, 777, 999].map((n) => h('option', { value: n }, n)));
       choixN.value = '7';
@@ -128,7 +143,7 @@ export default {
     function ecranTables(mode) {
       const titre = mode === '81' ? 'Les 81 produits' : mode === 'lents' ? 'Mes produits les plus lents'
         : Array.isArray(mode) ? (mode.length === 1 ? `Table de ${mode[0]}` : `Tables de ${mode.slice(0, -1).join(', ')} et ${mode.at(-1)}`) : `Table de ${mode}`;
-      el.append(h('button', { class: 'lien', onclick: () => changer(catalogue) }, '← Tous les drills'), h('h1', {}, titre));
+      el.append(h('button', { class: 'lien', onclick: () => changer(catalogueTables) }, '← Tables'), h('h1', {}, titre));
       const liste = mode === '81' ? serie81() : Array.isArray(mode) ? serieTables(mode) : typeof mode === 'number' ? serieTable(mode) : null;
       let precedent = null;
       const serie = creerSerie(el, {
@@ -149,7 +164,14 @@ export default {
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
             h('p', {}, `Temps ${formaterDuree(b.dureeMs)}${mode === '81' ? ` · score ${formaterDuree(score)}${nouveau ? ' · nouveau record !' : ''}` : ` · ${formaterDuree(b.dureeMs / b.total)} par produit`}`),
-            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(() => ecranTables(mode)) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'))),
+            // Diagnostic : les produits faux ou plus lents que 2,5 s, travaillés ensuite chaque jour.
+            (() => {
+              const r = produitsARetravailler(statsTables());
+              return r.length
+                ? h('p', {}, h('strong', {}, `À retravailler (${r.length}) : `), r.slice(0, 20).map((c) => c.replace('x', ' × ')).join(' · '), '. Ils reviendront dans « Mes produits à retravailler » et dans la séance du jour, jusqu\'à passer sous 2,5 s.')
+                : h('p', { class: 'retour ok' }, 'Aucun produit à retravailler : tous sont justes et sous 2,5 s.');
+            })(),
+            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(() => ecranTables(mode)) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))),
           listeErreurs(b.resultats) ?? '');
         },
       });
@@ -171,7 +193,7 @@ export default {
       const chrono = h('span', { class: 'compteur chrono' }, '0,0 s');
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
       const touches = h('div', { class: 'ligne touches-quotient' }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('button', { class: 'btn', onclick: () => repondre(n) }, String(n))));
-      el.append(h('button', { class: 'lien', onclick: () => changer(catalogue) }, '← Tous les drills'), h('h1', {}, 'Estimation du quotient'),
+      el.append(h('button', { class: 'lien', onclick: () => changer(catalogueTables) }, '← Tables'), h('h1', {}, 'Estimation du quotient'),
         h('p', { class: 'discret' }, 'Tapez le chiffre du quotient (une touche). Le chrono part au premier couple.'),
         h('div', { class: 'ligne' }, h('span', { style: 'flex:1' }), chrono, compteur), enonce, touches, retour);
       const montrer = () => {
@@ -214,7 +236,7 @@ export default {
           h('p', {}, `Temps ${formaterDuree(dureeMs)} · score ${formaterDuree(score)} (3 s par erreur)${nouveau ? ' · nouveau record !' : ''}`),
           cl ? h('p', {}, badgeClassement(cl.id, cl.nom)) : h('p', { class: 'discret' }, `Bronze à ${formaterDuree(CLASSEMENT_QUOTIENT[0].s * COUPLES_SPRINT * 1000)}.`),
           erreurs.length ? h('div', {}, h('h3', {}, 'À revoir'), h('ul', {}, erreurs.map((e) => h('li', {}, `${e.a} ÷ ${e.b} → ${e.q} : ${raisonnement(e.a, e.b)}`)))) : null,
-          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranQuotient) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'))));
+          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranQuotient) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))));
       }
       const table = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [String(n), () => repondre(n)]));
       const sans = raccourcis({ ...table, Enter: () => (attente && retour.classList.contains('erreur') ? suivant() : false) });

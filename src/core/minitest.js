@@ -27,6 +27,11 @@ const mediane = (xs) => {
  */
 export function verdictMiniTest(sp, bilan) {
   const justesOk = bilan.justes >= testMin(sp);
+  // Leçons en temps limité (paires qui font 5 ou 10 : 20 réponses en 60 s).
+  if (sp.testSecondes && justesOk && bilan.dureeMs > sp.testSecondes * 1000) {
+    const s = Math.round(bilan.dureeMs / 1000);
+    return { reussi: false, justesOk, vitesseOk: false, temps: null, seuil: null, unite: null, raison: `Assez de justes, mais en ${s} s : il faut les ${sp.testNombre} réponses en ${sp.testSecondes} s.` };
+  }
   const famille = familleLecon(sp);
   const seuil = NIVEAUX[2].temps[famille];
   const unite = UNITES_TEMPS[famille] ?? 'unité';

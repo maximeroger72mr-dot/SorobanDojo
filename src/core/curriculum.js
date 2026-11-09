@@ -80,6 +80,16 @@ export const PALIERS = [
           { q: 'Comment remettre le soroban à zéro ?', choix: ['L\'incliner vers soi, le reposer, puis glisser l\'index le long de la barre', 'Le secouer', 'Repousser chaque boule une à une'], bonne: 0, pourquoi: 'Inclinez-le (les terrestres tombent), reposez-le, puis écartez les célestes d\'un glissé de l\'index : deux secondes.' },
         ],
         demos: [] },
+      { id: 'p0-2', titre: 'Lire et poser un nombre', type: 'lire', repetitions: 30, sansRevision: true,
+        pourquoi: 'C\'est la base de tout : une erreur de lecture (céleste prise pour une terrestre, mauvaise tige des unités) ressemble à une erreur de geste, et l\'on retravaille alors ce qui n\'est pas en cause.',
+        regles: [
+          'Chaque tige porte un chiffre. De droite à gauche : unités, dizaines, centaines…',
+          'Seules les boules qui touchent la barre du milieu comptent.',
+          'La boule du haut (céleste) vaut 5 ; chacune des 4 boules du bas (terrestres) vaut 1.',
+          'Une tige sans boule contre la barre vaut 0.',
+          'Les nombres s\'alignent sur la tige des unités (marquée d\'un point) : on les pose de gauche à droite.',
+        ],
+        demos: [] },
     ],
   },
   {
@@ -87,10 +97,10 @@ export const PALIERS = [
     sousPaliers: [
       { id: 'p1-1', titre: 'Ajouter 1 à 4', cibles: D('+', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 3, ops: ['+'], repetitions: 20, cumul: true,
         pourquoi: 'Ajouter, c\'est faire monter des boules terrestres contre la barre, avec le POUCE, placé sous les boules : un seul mouvement vers le haut. Condition : les boules nécessaires doivent être libres (en bas).',
-        demos: [{ depart: 0, op: '+', n: 3 }, { depart: 6, op: '+', n: 3 }] },
+        demos: [{ depart: 0, op: '+', n: 3 }, { depart: 1, op: '+', n: 3 }] },
       { id: 'p1-2', titre: 'Retirer 1 à 4', cibles: D('-', [1, 2, 3, 4], 'direct'), chiffres: 1, lignes: 4, repetitions: 20, cumul: true,
         pourquoi: 'Retirer, c\'est éloigner des boules terrestres de la barre avec l\'INDEX, qui les pousse vers le bas. Pouce pour monter, index pour descendre : les deux doigts ne se gênent jamais.',
-        demos: [{ depart: 4, op: '-', n: 3 }, { depart: 8, op: '-', n: 2 }] },
+        demos: [{ depart: 4, op: '-', n: 3 }, { depart: 3, op: '-', n: 2 }] },
       { id: 'p1-3', titre: 'Le 5 et la pincée (6 à 9)', cibles: [...D('+', [5, 6, 7, 8, 9], 'direct'), ...D('-', [5, 6, 7, 8, 9], 'direct')], chiffres: 1, lignes: 4, repetitions: 20, cumul: true,
         pourquoi: 'La boule céleste vaut 5 et c\'est toujours l\'INDEX qui la manœuvre. Pour 6 à 9 (5 + 1 … 5 + 4), on fait UN seul geste : l\'index abaisse la céleste pendant que le pouce monte les terrestres, comme une pince. Pour retirer 6 à 9, c\'est l\'index seul, en UN SEUL mouvement : il relève la céleste et descend les terrestres dans la même trajectoire, sans s\'arrêter entre les deux.',
         demos: [{ depart: 2, op: '+', n: 5 }, { depart: 0, op: '+', n: 7 }, { depart: 9, op: '-', n: 6 }] },
@@ -102,6 +112,9 @@ export const PALIERS = [
   {
     id: 'p2', titre: 'Petits amis (compléments à 5)',
     sousPaliers: [
+      { id: 'p2-0', titre: 'Les paires qui font 5', type: 'complement', cible: 5, repetitions: 20, testNombre: 20, testMin: 19, testSecondes: 60, sansRevision: true,
+        pourquoi: 'Les petits amis reposent sur les paires qui font 5 : 1 et 4, 2 et 3. Au moment du geste, le complément doit venir tout seul, sinon la main s\'arrête et l\'on finit par calculer de tête.',
+        demos: [] },
       { id: 'p2-1', titre: '+4 et +3', cibles: D('+', [4, 3], 'petit'), chiffres: 1, lignes: 5, repetitions: 50,
         pourquoi: 'Sur 3, ajouter 4 : il ne reste qu\'une terrestre libre. Astuce : 4 = 5 − 1. L\'index abaisse la céleste (+5), puis descend 1 terrestre (−1). 1 et 4 sont « petits amis » (leur somme fait 5), de même 2 et 3.',
         demos: [{ depart: 3, op: '+', n: 4 }, { depart: 2, op: '+', n: 3 }] },
@@ -128,6 +141,9 @@ export const PALIERS = [
   {
     id: 'p3', titre: 'Grands amis en addition (compléments à 10)',
     sousPaliers: [
+      { id: 'p3-0', titre: 'Les paires qui font 10', type: 'complement', cible: 10, repetitions: 20, testNombre: 20, testMin: 19, testSecondes: 60, sansRevision: true,
+        pourquoi: 'Les grands amis reposent sur les paires qui font 10 : 1 et 9, 2 et 8, 3 et 7, 4 et 6, 5 et 5. Si l\'on hésite (« 10 − 7, ça fait… 3 »), la main s\'arrête : automatisez-les avant le geste.',
+        demos: [] },
       { id: 'p3-1', titre: '+9 et +8', cibles: D('+', [9, 8], 'grand'), chiffres: 1, lignes: 5, repetitions: 50,
         pourquoi: 'Sur 3, ajouter 9 donnerait 12 : impossible sur une tige. 9 = 10 − 1 : on retire 1 sur les unités, puis on ajoute 1 sur les dizaines (la retenue). 9 et 1 sont « grands amis » (leur somme fait 10). Ordre standard : d\'abord le complément, ensuite la retenue.',
         demos: [{ depart: 3, op: '+', n: 9 }, { depart: 4, op: '+', n: 8 }] },
@@ -356,7 +372,7 @@ export const SOUS_PALIERS = (() => {
     for (const sp of palier.sousPaliers) {
       const type = sp.type ?? 'addsub';
       const mental = !!palier.mental;
-      if (type === 'theorie' || type === 'placement' || type === 'photo' || type === 'tenir') {
+      if (['theorie', 'placement', 'photo', 'tenir', 'lire', 'complement'].includes(type)) {
         liste.push({ type, ...sp, autorises: null, palier, mental, ordre: liste.length });
         continue;
       }
@@ -379,7 +395,8 @@ export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 /** Famille de seuils de vitesse d'une leçon (voir maitrise.js). */
 export function familleLecon(sp) {
   if (sp.type === 'placement' || sp.type === 'table') return sp.type;
-  if (sp.type === 'photo' || sp.type === 'tenir') return 'photo';
+  if (sp.type === 'photo' || sp.type === 'tenir' || sp.type === 'lire') return 'photo';
+  if (sp.type === 'complement') return 'table';
   if (['addsub', 'anzan', 'addsubdec', 'negatif'].includes(sp.type)) return 'addsub';
   return 'muldiv';
 }
@@ -440,6 +457,40 @@ export function genererPhoto(chiffres, duree, memoire) {
   }
 }
 
+const NOMS_TIGES = ['unités', 'dizaines', 'centaines'];
+/**
+ * « Lire et poser un nombre » : lire un soroban (on tape le nombre), ou poser un nombre sur son
+ * soroban puis donner le chiffre d'une tige tirée au hasard (la pose devient vérifiable).
+ * rang : exercices déjà faits dans la leçon (20 lectures, puis 10 poses, puis mélangé) ; sans
+ * rang (mini-test), moitié-moitié.
+ */
+export function genererLecture(rang, memoire) {
+  const pose = rang === undefined ? Math.random() < 0.5 : rang < 20 ? false : rang < 30 ? true : Math.random() < 1 / 3;
+  for (let essai = 0; ; essai++) {
+    const chiffres = 1 + Math.floor(Math.random() * 3);
+    const min = chiffres === 1 ? 0 : 10 ** (chiffres - 1);
+    const n = min + Math.floor(Math.random() * (10 ** chiffres - min));
+    if (pose && n < 10) continue; // poser 1 chiffre : la question serait évidente
+    if (essai < 50 && memoire?.resultats.includes(n)) continue;
+    if (memoire) { memoire.resultats.push(n); if (memoire.resultats.length > memoire.taille) memoire.resultats.shift(); }
+    if (!pose) return { type: 'lire', n, resultat: n };
+    const t = Math.floor(Math.random() * String(n).length);
+    const chiffre = Number(String(n).at(-1 - t));
+    return { type: 'poser', n, tige: t, nomTige: NOMS_TIGES[t], resultat: chiffre };
+  }
+}
+
+/** Paire qui fait 5 ou 10 : « 3 et ? font 5 ». Jamais deux fois de suite le même nombre. */
+export function genererComplement(cible, memoire) {
+  for (;;) {
+    const a = 1 + Math.floor(Math.random() * (cible - 1));
+    if (memoire && memoire.resultats.at(-1) === a) continue;
+    memoire?.resultats.push(a);
+    if (memoire && memoire.resultats.length > memoire.taille) memoire.resultats.shift();
+    return { type: 'complement', a, cible, resultat: cible - a };
+  }
+}
+
 /**
  * Exercice d'un sous-palier (colonne, multiplication ou division).
  * @param {object} [ctx]  anzan seulement : { lignes, image } (voir plus bas)
@@ -467,6 +518,8 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
     return genererDivision(sp.nd, sp.nq);
   }
   if (sp.type === 'photo') return genererPhoto(sp.chiffres, ctx.duree ?? sp.duree, memoireDe(sp.id));
+  if (sp.type === 'lire') return genererLecture(ctx.rang, memoireDe(sp.id));
+  if (sp.type === 'complement') return genererComplement(sp.cible, memoireDe(sp.id));
   if (sp.type === 'negatif') return genererNegatif(sp.chiffres, sp.lignes);
   if (sp.type === 'tenir') {
     const ex = genererPhoto(entre(1, sp.chiffres), sp.duree, memoireDe(sp.id));

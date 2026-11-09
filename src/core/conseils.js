@@ -17,11 +17,13 @@ export const GENERAUX = [
   'Remise à zéro rapide : soroban incliné vers soi, puis l\'index glisse de gauche à droite le long de la barre pour écarter les boules célestes.',
 ];
 
+// Gestes directs : les conseils de la pincée n'apparaissent qu'à partir de « Le 5 et la pincée ».
+const PINCEE = [
+  'Pincée (+6 à +9) : l\'index abaisse la céleste PENDANT que le pouce monte les terrestres. Un seul mouvement, les deux doigts se referment ensemble.',
+  'Retrait de 6 à 9 : l\'index fait tout en UN SEUL mouvement : il relève la céleste et descend les terrestres dans la même trajectoire. Pas deux gestes séparés.',
+];
+
 const PAR_PALIER = {
-  p1: [
-    'Pincée (+6 à +9) : l\'index abaisse la céleste PENDANT que le pouce monte les terrestres. Un seul mouvement, les deux doigts se referment ensemble.',
-    'Retrait de 6 à 9 : l\'index fait tout en UN SEUL mouvement : il relève la céleste et descend les terrestres dans la même trajectoire. Pas deux gestes séparés.',
-  ],
   p2: [
     'Petit ami : les deux temps s\'enchaînent sans pause : céleste puis terrestres, dans la foulée, comme un seul geste.',
     'Ne récitez pas la formule (« 4 = 5 − 1 ») : regardez la tige, le geste doit partir seul. La formule ne sert qu\'au début.',
@@ -76,6 +78,8 @@ const PAR_LECON = {
   'p5-a': ['Deux tiges : le geste des dizaines, puis celui des unités, sans les mélanger. Si c\'est trop, revenez à 1 chiffre quelques jours.'],
   'p1-1': ['Pouce sous les boules, légèrement incliné : il les pousse vers la barre d\'un coup sec.'],
   'p1-2': ['Index au-dessus des boules : il les tire vers le bas d\'un coup sec.'],
+  'p1-3': PINCEE,
+  'p1-4': PINCEE,
 };
 
 /** Conseils de vitesse d'un sous-palier (spécifiques d'abord, puis ceux de son palier). */

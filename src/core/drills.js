@@ -87,6 +87,16 @@ export function famillesDrill(d) {
   return [...new Set(occurrencesColonne(d.operations).flat().map((o) => fam(o.cle)))].filter((f) => f !== 'direct');
 }
 
+/** Tiges utilisées par un drill (nombres et sous-totaux). */
+export function tigesDrill(d) {
+  let v = 0;
+  let m = 1;
+  for (const o of d.operations) { v = o.op === '+' ? v + o.n : v - o.n; m = Math.max(m, String(o.n).length, String(Math.abs(v)).length); }
+  return m;
+}
+/** Gestes (clés de motifs) qu'un drill demande, gestes directs compris. */
+export const clesDrill = (d) => [...new Set(occurrencesColonne(d.operations).flat().map((o) => o.cle))];
+
 /** Nombre de chiffres traités (base du temps de validation). */
 export const chiffresDrill = (d) => d.operations.reduce((t, o) => t + String(o.n).length, 0);
 
@@ -140,6 +150,17 @@ export function classement(d, dureeMs) {
 /** Liste des drills proposés, DANS L'ORDRE DU PARCOURS : du plus simple au plus long. */
 export function catalogueDrills() {
   const liste = [];
+  // Premiers pas : une ou deux tiges, gestes directs seulement (échauffement des débutants).
+  const premiers = 'Premiers pas';
+  liste.push({ ...drill('tige-4', 'Monter et descendre une tige (1 à 4)', premiers,
+    'Une seule tige : monter les terrestres une à une jusqu\'à 4, puis les redescendre, deux fois. Pouce pour monter, index pour descendre.',
+    [...repeter(1, 4), ...repeter(1, 4, '-'), ...repeter(1, 4), ...repeter(1, 4, '-')]), entree: true });
+  liste.push({ ...drill('tige-9', 'Monter et descendre une tige (0 à 9)', premiers,
+    'Une seule tige : de 0 à 4, retour, la céleste, de 5 à 9, retour à 5, puis à 0. Tous les gestes directs sur une tige.',
+    [...repeter(1, 4), ...repeter(1, 4, '-'), { op: '+', n: 5 }, ...repeter(1, 4), ...repeter(1, 4, '-'), { op: '-', n: 5 }]), entree: true });
+  liste.push({ ...drill('pendule-11', 'Pendule sur 2 tiges (+11 × 4, puis −11 × 4)', premiers,
+    'Deux tiges : ajouter 11 quatre fois, puis le retirer quatre fois. Les dizaines d\'abord, puis les unités, de gauche à droite.',
+    allerRetour(11, 4)), entree: true });
   // Avant les grands amis : uniquement des gestes directs et des petits amis.
   const avant = 'Avant les grands amis';
   liste.push(drill('directs', 'Gestes directs : 111 111 111 × 4, + 555 555 555, puis retour', avant,
@@ -186,7 +207,7 @@ export function catalogueDrills() {
 
 /** Ordre du parcours des drills : du plus simple au plus long, par groupe de gestes. */
 const ORDRE = [
-  'directs', '123-1', 'r-4', 'r-1234321', 'r-3', 'r-2', 'pendule-4-2', 'r-1', 'pendule-4-3', 'pendule-3-2', 'pendule-2-1', 'tour-petits',
+  'tige-4', 'tige-9', 'pendule-11', 'directs', '123-1', 'r-4', 'r-1234321', 'r-3', 'r-2', 'pendule-4-2', 'r-1', 'pendule-4-3', 'pendule-3-2', 'pendule-2-1', 'tour-petits',
   '123-2', 'suite-10-a', '123-3', 'suite-20-a', '123-4', '123-5', '123-6', 'suite-36-a', '123-7', '123-8', '123-9',
   '123-9-ar', '12345679-9', '987-9', 'suite-36-ar', 'suite-100-a',
 ];

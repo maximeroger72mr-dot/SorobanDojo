@@ -17,6 +17,7 @@ test('bilan imprimable : les chiffres clés', async () => {
   assert.equal(b.joursPratique, 2);
   assert.equal(b.minutes30, 15);
   assert.equal(b.exercices, 40);
-  assert.equal(b.lecons.validees.length, 1);
+  // « Lire et poser un nombre » (ajoutée en 0.21) est comptée validée puisque la leçon suivante l'est.
+  assert.equal(b.lecons.validees.length, 2);
   assert.deepEqual(b.kyu.map((k) => [k.nom, k.reussi]), [['20e kyū prép.', true]]);
 });

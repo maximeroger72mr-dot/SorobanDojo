@@ -10,7 +10,7 @@
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 import { GRADES } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
-import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL } from './drills.js';
+import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
 import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
@@ -73,6 +73,9 @@ export function grade(d) {
   return { obtenu, prochain, manquantes, pret: !!prochain && manquantes.length === 0 };
 }
 
+/** Nombre de chiffres le plus grand vu dans les leçons d'addition validées (au moins 1). */
+export const chiffresAppris = (d) => Math.max(1, ...ADDSUB.filter((sp) => estValide(d, sp.id)).map((sp) => sp.chiffres));
+
 /** Niveau global de 0 à 1 : part des leçons d'addition/soustraction validées. */
 export const niveauAddsub = (d) => ADDSUB.filter((sp) => estValide(d, sp.id)).length / ADDSUB.length;
 
@@ -88,24 +91,46 @@ export const manqueDrill = (d, drill) => famillesDrill(drill).filter((f) => !fam
 export const drillValide = (d, id) => (d.drills?.[id]?.validations ?? 0) >= VALIDATIONS_DRILL;
 
 /**
- * Un drill est ouvert si le précédent du parcours est validé ET si ses gestes sont appris
- * (le mode découverte ouvre tout).
+ * Leçon qui enseigne un geste direct : +1 à +4 → « Ajouter 1 à 4 », −1 à −4 → « Retirer 1 à 4 »,
+ * ±5 à ±9 → « Le 5 et la pincée ». Plusieurs tiges demandent « Gestes directs à 2 et 3 chiffres ».
+ */
+const leconDirecte = (cle) => (Number(cle.slice(1).split(':')[0]) >= 5 ? 'p1-3' : cle.startsWith('+') ? 'p1-1' : 'p1-2');
+/**
+ * Ce qu'un drill demande et qui n'est pas encore appris : familles d'amis (['grand', …]) et
+ * leçons de gestes directs (['p1-3', 'p1-4']) ; vide si le drill est faisable.
+ */
+export function prerequisDrill(d, drill) {
+  const lecons = new Set(clesDrill(drill).filter((c) => c.endsWith(':direct')).map(leconDirecte));
+  if (tigesDrill(drill) > 1) lecons.add('p1-4');
+  return { familles: manqueDrill(d, drill), lecons: [...lecons].filter((id) => !estValide(d, id)) };
+}
+const faisable = (d, drill) => { const p = prerequisDrill(d, drill); return !p.familles.length && !p.lecons.length; };
+
+/**
+ * Un drill est ouvert si ses gestes sont appris (gestes directs compris, et nombre de tiges) ET
+ * si le drill précédent du parcours est validé (les drills « premiers pas » n'entrent pas dans
+ * cette chaîne). Un drill déjà validé reste ouvert. Le mode découverte ouvre tout.
  */
 export function drillOuvert(d, drill) {
-  if (d.reglages?.decouverte) return true;
-  const liste = catalogueDrills();
-  const i = liste.findIndex((x) => x.id === drill.id);
-  return manqueDrill(d, drill).length === 0 && (i <= 0 || drillValide(d, liste[i - 1].id));
+  if (d.reglages?.decouverte || drillValide(d, drill.id)) return true;
+  if (!faisable(d, drill)) return false;
+  if (drill.entree) return true;
+  const chaine = catalogueDrills().filter((x) => !x.entree);
+  const i = chaine.findIndex((x) => x.id === drill.id);
+  return i <= 0 || drillValide(d, chaine[i - 1].id);
 }
 
 /**
- * Drill d'échauffement : le prochain drill à valider (ouvert, pas encore validé) ; une fois le
- * parcours accessible validé, le plus long drill validé, pour améliorer son classement.
+ * Drill d'échauffement : le prochain drill à valider parmi ceux qui sont faisables avec les
+ * gestes appris et le nombre de tiges vu ; une fois tout validé, le plus long drill validé.
+ * null si aucun drill n'est encore faisable (avant « Le 5 et la pincée » et « Retirer 1 à 4 »).
  */
 export function drillEchauffement(d) {
-  const liste = catalogueDrills();
-  const ouverts = liste.filter((x) => drillOuvert({ ...d, reglages: { ...d.reglages, decouverte: false } }, x));
-  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? liste[0];
+  const d0 = { ...d, reglages: { ...d.reglages, decouverte: false } };
+  // Les « premiers pas » ne servent plus d'échauffement une fois un drill du parcours validé.
+  const avance = catalogueDrills().some((x) => !x.entree && drillValide(d, x.id));
+  const ouverts = catalogueDrills().filter((x) => faisable(d0, x) && drillOuvert(d0, x) && !(avance && x.entree && !drillValide(d, x.id)));
+  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? null;
 }
 
 /** Gestes appris (au moins 8 essais réussis) les plus lents : à accélérer. */
@@ -234,7 +259,7 @@ export function prioriteDuJour(d, date, difficiles = []) {
     const remedes = [
       { titre: 'Casser le plateau : surentraînement', texte: 'Moins de chiffres, plus vite : 6 colonnes à 1 chiffre au rythme du lièvre, qui accélère. Le geste doit partir sans réfléchir.', aller: ['rythme', { jeu: 'lievre', cibles, chiffres: 1, accelere: true, auto: true }] },
       { titre: 'Casser le plateau : marathon', texte: '40 lignes d\'affilée sur ce geste, sans remettre à zéro. Le volume ancre le mouvement.', aller: ['rythme', { jeu: 'marathon', cibles, lignes: 40, auto: true }] },
-      { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d).id, priorite: true }] },
+      { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d)?.id, priorite: true }] },
     ];
     const r = remedes[jourDe(date) % remedes.length];
     return { ...r, raison: constat };

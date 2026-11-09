@@ -10,7 +10,7 @@
 import { genererColonneVariee, creerMemoire, ciblesPures, ErreurGeneration } from '../core/generateur.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
-import { motifsAppris as motifsApprisDe, gestesLents } from '../core/parcours.js';
+import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
@@ -123,6 +123,8 @@ export default {
     if (params.cible) reglages.cible = params.cible;
     if (params.colonnes) reglages.colonnes = params.colonnes;
     if (params.chiffres) reglages.chiffres = params.chiffres;
+    // Par défaut, pas plus de chiffres que dans les leçons validées (on peut toujours en choisir plus).
+    else if (!progression().reglages?.decouverte) reglages.chiffres = Math.min(reglages.chiffres, chiffresAppris(progression()));
     if (params.consolidation) {
       const sp = sousPalier(params.consolidation);
       Object.assign(reglages, { cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10, pur: false });

@@ -31,7 +31,7 @@ export function joursAbsence(d, date) {
 
 /** Dernière leçon du parcours soroban validée (la plus récente). */
 export function derniereLecon(d) {
-  return SOUS_PALIERS.filter((sp) => !sp.mental && sp.type !== 'theorie' && sp.type !== 'placement' && d.paliers[sp.id]?.valide)
+  return SOUS_PALIERS.filter((sp) => !sp.mental && !['theorie', 'placement', 'lire', 'complement'].includes(sp.type) && d.paliers[sp.id]?.valide)
     .sort((a, b) => (d.paliers[a.id].valide < d.paliers[b.id].valide ? -1 : d.paliers[a.id].valide > d.paliers[b.id].valide ? 1 : a.ordre - b.ordre))
     .at(-1) ?? null;
 }
@@ -80,7 +80,7 @@ export function jeuDuJour(d, date) {
     d.paliers['p1-4']?.valide && { titre: 'Chasse à l\'erreur', detail: '10 colonnes : trouvez le sous-total faux', aller: ['jeux', { jeu: 'chasse' }], mode: 'chasse' },
     d.paliers['p1-a']?.valide && { titre: 'Survie anzan', detail: 'la chaîne de tête la plus longue possible', aller: ['jeux', { jeu: 'survie' }], mode: 'survie' },
     f.has('petit') && { titre: 'Contre-la-montre arcade', detail: 'tenir le plus longtemps possible', aller: ['defis', {}], mode: 'arcade' },
-    f.has('grand') && { titre: 'Échelle des kyū', detail: '10 marches, du facile au boss', aller: ['defis', {}], mode: 'echelle' },
+    f.has('grand') && { titre: 'L\'escalier', detail: '10 marches, du facile au boss', aller: ['defis', {}], mode: 'echelle' },
   ].filter(Boolean);
   return jeux[Math.floor(jour(date) / 86400000) % jeux.length];
 }

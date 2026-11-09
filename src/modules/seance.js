@@ -17,6 +17,7 @@ import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
 import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
 import { GRADES } from '../core/epreuves.js';
+import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
@@ -45,10 +46,18 @@ function plan(d, debut, seance = null) {
   const bonus = [];
   const sp = prochainSousPalier();
 
-  // 1. Échauffement : le prochain drill à valider (3 min).
-  const drill = drillEchauffement(d);
-  essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3, pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
-    fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
+  // 1. Échauffement (3 min). Pendant les étapes petits amis et grands amis : Complément éclair,
+  //    pour que les paires qui font 5 ou 10 viennent sans réfléchir ; sinon le prochain drill à valider.
+  const cibleComplement = sp?.palier?.id === 'p2' ? 5 : sp?.palier?.id === 'p3' || sp?.palier?.id === 'p4' ? 10 : null;
+  const drill = cibleComplement ? null : drillEchauffement(d);
+  if (cibleComplement) {
+    essentiel.push({ titre: 'Échauffement', detail: `Complément éclair à ${cibleComplement} (60 s)`, minutes: 2,
+      pourquoi: `Les ${cibleComplement === 5 ? 'petits' : 'grands'} amis reposent sur les paires qui font ${cibleComplement} : elles doivent venir sans réfléchir, sinon la main s'arrête.`,
+      fait: fait((s) => s.module === 'jeux' && s.mode === `complement-${cibleComplement}`), aller: ['jeux', { jeu: 'complement', cible: cibleComplement }] });
+  } else if (drill) {
+    essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3, pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
+      fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
+  }
   // 1 bis. Les colonnes ratées lors de la dernière séance, rejouées à l'identique.
   const aRejouer = erreursARejouer(date).length;
   if (aRejouer || fait((s) => s.module === 'erreurs')) {
@@ -112,13 +121,20 @@ function plan(d, debut, seance = null) {
       fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
   // 7. Multiplication / division : tables et placement deviennent des réflexes quotidiens.
-  if (coursMultiplicationAtteint(d, sp) && d.paliers['p7-e']?.valide && new Date(`${date}T12:00`).getDay() % 2 === 1) {
+  //    En ouvrant l'étape : le diagnostic des 81 produits (les trous dans les tables, repérés AVANT
+  //    qu'on les attribue au placement).
+  if (coursMultiplicationAtteint(d, sp) && !diagnosticTablesFait(d.tables ?? {})) {
+    essentiel.push({ titre: 'Diagnostic des tables', detail: 'les 81 produits, une fois chacun', minutes: 4,
+      pourquoi: 'Un produit hésitant bloque toute la multiplication. Les produits faux ou plus lents que 2,5 s seront ensuite travaillés chaque jour, jusqu\'à ce qu\'ils passent.',
+      fait: fait((s) => s.module === 'drills' && s.mode === 'tables-81'), aller: ['drills', { tables: '81' }] });
+  } else if (coursMultiplicationAtteint(d, sp) && d.paliers['p7-e']?.valide && new Date(`${date}T12:00`).getDay() % 2 === 1) {
     // Un jour sur deux, une fois la division par 2 chiffres abordée : l'estimation du quotient.
     essentiel.push({ titre: 'Estimation du quotient (réflexe)', detail: '20 divisions, une touche par réponse', minutes: 3,
       pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fait la vitesse des divisions par 2 chiffres.',
       fait: fait((s) => s.module === 'drills' && s.mode === 'quotient'), aller: ['drills', { quotient: true }] });
   } else if (coursMultiplicationAtteint(d, sp)) {
-    essentiel.push({ titre: 'Tables (réflexe)', detail: '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
+    const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
+    essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
       fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
   }
   const placement = placementDuJour(d, date, sp);
@@ -245,7 +261,7 @@ function carteBilan(bilan, d) {
 export default {
   id: 'seance',
   titre: 'Séance du jour',
-  monter(el, app) {
+  monter(el, app, params = {}) {
     function afficher(bilan = null) {
       remplir(el);
       const d = progression();
@@ -261,14 +277,19 @@ export default {
         [5, 10, 15, 20, 30, 45, 60].map((m) => h('option', { value: m }, `${m} min`)));
       choixObjectif.value = String(objectif);
       const premiereFois = !d.sessions.length && !Object.values(d.paliers).some((x) => x.valide);
-      if (premiereFois) {
-        // Premier lancement : une seule action, pas de compteurs à zéro.
+      if (premiereFois || (params.accueil && !bilan)) {
+        // Premier lancement (ou « Revoir l'accueil ») : une action, pas de compteurs à zéro.
         const sp = prochainSousPalier();
         el.append(h('h1', {}, 'Bienvenue'),
           h('div', { class: 'carte accueil' },
             h('p', {}, 'Ici, on apprend le soroban sur un VRAI soroban : l\'application propose les calculs, vous les faites avec vos doigts, puis vous tapez le résultat. Elle corrige, explique, et décide chaque jour de la suite.'),
             h('p', {}, 'Installez votre soroban devant vous, un crayon à portée de main, et commencez par la première leçon : elle montre comment le tenir et lire un nombre.'),
-            h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)));
+            h('div', { class: 'ligne' },
+              premiereFois
+                ? h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)
+                : h('button', { class: 'btn principal grand-bouton', onclick: () => app.aller('seance') }, 'Aller à la séance du jour →'),
+              // Les « revenants » : un test place directement au bon endroit du parcours.
+              h('button', { class: 'btn grand-bouton', onclick: () => app.aller('positionnement') }, 'J\'ai déjà pratiqué : tester mon niveau'))));
         return;
       }
       // --- plan du jour (calculé tôt : la fin de séance automatique en dépend)

@@ -39,7 +39,8 @@ const nbChiffres = (n) => String(n).replace(/\D/g, '').replace(/^0+(?=\d)/, '').
 
 /** Nombre d'unités de travail d'un exercice. */
 export function unites(ex) {
-  if (ex.type === 'placement' || ex.type === 'table' || ex.type === 'tenir') return 1;
+  if (ex.type === 'placement' || ex.type === 'table' || ex.type === 'tenir' || ex.type === 'complement' || ex.type === 'poser') return 1;
+  if (ex.type === 'lire') return nbChiffres(ex.n);
   if (ex.type === 'photo') return nbChiffres(ex.n);
   if (ex.type === 'quotidien') return ex.unites ?? 1;
   if (ex.type === 'mul') return nbChiffres(ex.a) * nbChiffres(ex.b);
@@ -48,7 +49,8 @@ export function unites(ex) {
 }
 
 export const familleTemps = (ex) => (ex.type === 'placement' || ex.type === 'table' ? ex.type
-  : ex.type === 'photo' || ex.type === 'tenir' ? 'photo'
+  : ex.type === 'complement' ? 'table'
+  : ex.type === 'photo' || ex.type === 'tenir' || ex.type === 'lire' || ex.type === 'poser' ? 'photo'
     : ex.type === 'mul' || ex.type === 'div' ? 'muldiv' : 'addsub');
 
 /** Secondes par unité pour un exercice fait en dureeMs (surcout : temps fixe à retirer). */
@@ -81,7 +83,9 @@ export function formaterTemps(t) {
 export const cpm = (t) => (t == null ? null : Math.round(60 / t));
 export function formaterCadence(t, famille = 'addsub') {
   if (t == null) return '—';
-  return famille === 'addsub' ? `${cpm(t)} CPM` : `${cpm(t)} ${UNITES_TEMPS[famille] ?? 'unité'}s/min`;
+  // Pluriel mot à mot : « chiffres lus/min », « produits/min ».
+  const pluriel = (UNITES_TEMPS[famille] ?? 'unité').split(' ').map((m) => `${m}s`).join(' ');
+  return famille === 'addsub' ? `${cpm(t)} CPM` : `${cpm(t)} ${pluriel}/min`;
 }
 /** « 40 CPM (1,5 s par chiffre) » : la cadence en grand, le temps en petit. */
 export function formaterVitesse(t, famille = 'addsub') {

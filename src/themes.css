@@ -448,3 +448,8 @@ html:root table.carte-maitrise td.a-verifier { outline: 2px dashed var(--conseil
 .touches-quotient button.btn { min-width: 3rem; font-family: var(--police-chiffres); font-size: 1.2rem; }
 /* Volume par semaine. */
 .barre-volume { fill: var(--texte); }
+
+/* Réglages : en bas de la barre latérale (sixième onglet « Plus » sur téléphone). */
+#navigation button.entree-menu[data-id="reglages"] { margin-top: auto; }
+@media (max-width: 700px) { #navigation button.entree-menu[data-id="reglages"] { margin-top: 0; } }
+.comment-ca-marche li { margin-bottom: 8px; }

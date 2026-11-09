@@ -8,7 +8,7 @@
  *    « le maître » tant qu'il n'y a pas de record. Médaille d'après les seuils de niveau.
  *  - Contre-la-montre arcade : 60 s au départ ; chaque calcul juste rajoute du temps (plus avec
  *    une série de 5), chaque erreur en retire 5. Tenir le plus longtemps possible.
- *  - Échelle des kyū : 10 marches de plus en plus dures (colonnes, ×, ÷), une erreur fait rester
+ *  - L'escalier : 10 marches de plus en plus dures (colonnes, ×, ÷), une erreur fait rester
  *    sur la marche. Le temps total est le score.
  */
 
@@ -133,7 +133,7 @@ export default {
         h('div', { class: 'reglages' }, select('arcade', typesOptions.filter(([k]) => k !== 'mix')),
           h('button', { class: 'btn principal', onclick: () => lancerArcade() }, 'Jouer')),
         h('p', { class: 'discret' }, recArcade ? `Record : ${recArcade.points} calculs justes (${formaterDuree(recArcade.dureeMs)} tenues).` : 'Pas encore de record.'),
-        h('h2', {}, 'Échelle des kyū'),
+        h('h2', {}, 'L\'escalier'),
         h('p', { class: 'discret' }, '10 marches, de très facile au boss : colonnes de plus en plus longues, et multiplication ou division dès que ces leçons sont validées. Une erreur : on reste sur la marche. Le temps total est votre score.'),
         h('div', { class: 'reglages' }, h('button', { class: 'btn principal', onclick: () => lancerEchelle() }, 'Grimper')),
         h('p', { class: 'discret' }, recEchelle ? `Record : ${formaterDuree(recEchelle.dureeMs)}.` : 'Pas encore de record.'));
@@ -237,7 +237,7 @@ export default {
       const liste = marches(progression());
       let marche = 0;
       const rec = records().echelle;
-      remplir(el, retourBtn(), h('h1', {}, 'Échelle des kyū'),
+      remplir(el, retourBtn(), h('h1', {}, 'L\'escalier'),
         h('p', { class: 'discret' }, rec ? `Record à battre : ${formaterDuree(rec.dureeMs)}.` : 'Premier essai : grimpez les 10 marches.'));
       courant = creerSerie(el, {
         generer: () => liste[Math.min(marche, liste.length - 1)].generer(),

@@ -13,7 +13,7 @@ import { chargerProgression, surSucces, surChangement, stockage, surStockage, ve
 import { VERSION_APPLI } from './core/version.js';
 import { telechargerExport, telechargerTexte } from './ui/exporter.js';
 import { pictogramme } from './ui/perles.js';
-import { appliquerTheme, selecteursTheme } from './ui/theme.js';
+import { appliquerTheme } from './ui/theme.js';
 import { notifier } from './ui/toast.js';
 import seance, { etatSeance } from './modules/seance.js';
 import revisions from './modules/revisions.js';
@@ -36,6 +36,9 @@ import lexique from './modules/lexique.js';
 import bilan from './modules/bilan.js';
 import erreurs from './modules/erreurs.js';
 import verification from './modules/verification.js';
+import grades from './modules/grades.js';
+import reglagesEcran from './modules/reglages.js';
+import positionnement from './modules/positionnement.js';
 import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
 /**
@@ -48,9 +51,11 @@ const MENU = [
   { ecran: entrainer, nom: 'S\'entraîner', court: 'Entraîner', picto: 'entrainer' },
   { ecran: mesurer, nom: 'Se mesurer', court: 'Mesurer', picto: 'mesurer' },
   { ecran: progressionEcran, nom: 'Progression', court: 'Progrès', picto: 'progression' },
+  // En bas de la barre latérale ; sixième onglet « Plus » sur téléphone.
+  { ecran: reglagesEcran, nom: 'Réglages', court: 'Plus', picto: 'reglages' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
-  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs, verification];
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs, verification, grades, reglagesEcran, positionnement];
 /** Entrée du menu à surligner pour un écran. */
 const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? (id === 'bilan' ? 'progression' : 'seance'));
 
@@ -95,9 +100,8 @@ function construireNavigation() {
     nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', 'aria-label': m.nom, onclick: () => app.aller(m.ecran.id) },
       h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, h('span', { class: 'nom-long' }, m.nom), h('span', { class: 'nom-court', 'aria-hidden': 'true' }, m.court)), h('span', { class: 'pastille', style: 'display:none' })));
   }
-  // Choix du mode (clair / sombre) et numéro de version, en bas du menu.
-  nav.append(h('div', { class: 'choix-theme' }, ...selecteursTheme()),
-    h('div', { class: 'version-appli' }, `Version ${VERSION_APPLI}${versionNavigateur ? ' · navigateur' : ''}`));
+  // Le numéro de version, sous Réglages (le thème se règle dans Réglages).
+  nav.append(h('div', { class: 'version-appli' }, `Version ${VERSION_APPLI}${versionNavigateur ? ' · navigateur' : ''}`));
 }
 
 /**
@@ -110,10 +114,12 @@ function majFil(ecran, params) {
   const section = MENU.find((m) => m.ecran.id === entreeDe(ecran.id));
   if (!section || section.ecran === ecran) { fil.hidden = true; return; }
   fil.hidden = false;
+  const parent = ecran.parent ? ECRANS.find((e) => e.id === ecran.parent) : null;
   remplir(fil,
     h('button', { class: 'lien', onclick: () => app.aller(section.ecran.id) }, section.nom),
     h('span', { class: 'separateur', 'aria-hidden': 'true' }, '›'),
-    h('button', { class: 'lien', onclick: () => app.aller(ecran.id, params.voir || params.jeu ? { voir: params.voir ?? params.jeu } : {}) }, ecran.titreDe?.(params) ?? ecran.titre));
+    ...(parent ? [h('button', { class: 'lien', onclick: () => app.aller(parent.id) }, parent.titre), h('span', { class: 'separateur', 'aria-hidden': 'true' }, '›')] : []),
+    h('button', { class: 'lien', onclick: () => app.aller(ecran.id, ecran.paramsRetour?.(params) ?? (params.voir || params.jeu ? { voir: params.voir ?? params.jeu } : {})) }, ecran.titreDe?.(params) ?? ecran.titre));
 }
 
 /**

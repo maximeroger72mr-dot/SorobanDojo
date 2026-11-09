@@ -22,7 +22,22 @@ test('grade : prochain conseillé et leçons manquantes', () => {
 
 test('échauffement : le prochain drill à valider, jamais un geste pas encore appris', () => {
   const d = vide();
+  // Jour 0 : aucun drill faisable (aucun geste appris), pas d'échauffement à 9 tiges.
+  assert.equal(drillEchauffement(d), null);
+  d.paliers['p1-1'] = { valide: '2026-11-01' };
+  d.paliers['p1-2'] = { valide: '2026-11-01' };
+  assert.equal(drillEchauffement(d).id, 'tige-4');
+  d.paliers['p1-3'] = { valide: '2026-11-01' };
+  d.drills = { 'tige-4': { validations: 2 } };
+  assert.equal(drillEchauffement(d).id, 'tige-9');
+  d.drills['tige-9'] = { validations: 2 };
+  // Deux tiges : seulement après « Gestes directs à 2 et 3 chiffres » ; 9 tiges ensuite.
+  assert.equal(drillEchauffement(d).id, 'tige-9');
+  d.paliers['p1-4'] = { valide: '2026-11-01' };
+  assert.equal(drillEchauffement(d).id, 'pendule-11');
+  d.drills['pendule-11'] = { validations: 2 };
   assert.equal(drillEchauffement(d).id, 'directs');
+  d.drills = {};
   // Petits amis appris, deux premiers drills validés : on passe au suivant, pas à 12 × 9.
   for (const id of ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5', 'p2-6', 'p2-7']) d.paliers[id] = { valide: '2026-11-01' };
   d.drills = { directs: { validations: 2 }, '123-1': { validations: 2 } };

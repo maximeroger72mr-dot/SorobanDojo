@@ -4,14 +4,10 @@
  */
 
 import { libelleGrade } from '../core/examen.js';
-import { selecteursTheme } from '../ui/theme.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 import {
   statistiques, progression, aujourdhui, SEUIL_DIFFICULTE, evaluerMotif, evaluerPalier, reinitialiserGestes,
-  exporterDonnees, importerDonnees, versionNavigateur, noterExport, toutEffacer,
 } from '../core/progression.js';
-import { telechargerExport } from '../ui/exporter.js';
-import { VERSION_APPLI } from '../core/version.js';
 import { NIVEAUX, formaterTemps, formaterVitesse, formaterCadence, cpm } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
@@ -59,7 +55,8 @@ function ouJenSuis(app, d) {
 const NOMS_MODULES = {
   lecture: 'Lecture des nombres', lecons: 'Leçons guidées', revisions: 'Révisions', planches: 'Planches', drills: 'Drills',
   muldiv: 'Multiplication et division', anzan: 'Flash anzan', defis: 'Défis chrono', epreuves: 'Épreuves officielles', dictee: 'Dictée (yomiage)',
-  rythme: 'Rythme et endurance', quotidien: 'Au quotidien',
+  rythme: 'Rythme et endurance', quotidien: 'Au quotidien', jeux: 'Jeux', examen: 'Passage de kyū',
+  erreurs: 'À revoir', verification: 'Vérification de vitesse', positionnement: 'Test de niveau',
 };
 
 /**
@@ -107,72 +104,10 @@ function carte(app) {
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
 }
 
-/** Apparence : thème graphique et mode clair / sombre (aussi en bas du menu). */
-function sectionApparence() {
-  return h('div', {}, h('h2', {}, 'Apparence'), h('div', { class: 'reglages' }, ...selecteursTheme()), h('p', { class: 'discret' }, `Soroban, version ${VERSION_APPLI}.`));
-}
-
-/** Sauvegarde : export (fichier, presse-papiers) et import (remplacer ou fusionner). */
-function sectionSauvegarde(app) {
-  const d0 = progression();
-  const message = h('p', { class: 'discret' });
-  const telecharger = async () => {
-    await telechargerExport();
-    message.textContent = 'Fichier de sauvegarde créé (dossier Téléchargements).';
-  };
-  const copier = async () => {
-    const texte = exporterDonnees();
-    try {
-      await navigator.clipboard.writeText(texte);
-    } catch {
-      const zone = h('textarea', {}, texte);
-      document.body.append(zone);
-      zone.select();
-      document.execCommand('copy');
-      zone.remove();
-    }
-    await noterExport();
-    message.textContent = 'Sauvegarde copiée dans le presse-papiers.';
-  };
-  // Tout effacer : double confirmation, et proposition d'export juste avant.
-  const effacer = async () => {
-    if (!window.confirm('Effacer TOUTE votre progression (leçons, révisions, records, réglages) ? Cette action est définitive.')) return;
-    if (window.confirm('Exporter d\'abord une sauvegarde, au cas où ? (OK : exporter puis effacer ; Annuler : effacer sans exporter)')) await telechargerExport();
-    if (!window.confirm('Dernière confirmation : tout effacer maintenant ?')) return;
-    await toutEffacer();
-    app.aller('seance');
-  };
-  const importer = () => ouvrirDialogue('Importer une sauvegarde', 'Choisissez un fichier .json exporté, ou collez le texte copié.', (corps) => {
-    const fichier = h('input', { type: 'file', accept: '.json,application/json' });
-    const zone = h('textarea', { class: 'zone-import', placeholder: 'ou collez ici le texte de la sauvegarde' });
-    const mode = h('select', {}, h('option', { value: 'fusionner' }, 'Fusionner avec mes données (garder le meilleur des deux)'), h('option', { value: 'remplacer' }, 'Remplacer mes données'));
-    const erreur = h('p', { class: 'retour erreur' });
-    fichier.addEventListener('change', async () => { zone.value = await fichier.files[0]?.text() ?? ''; });
-    corps.append(fichier, zone, h('div', { class: 'ligne' }, mode,
-      h('button', { class: 'btn principal', onclick: async (e) => {
-        try {
-          if (mode.value === 'remplacer' && !window.confirm('Remplacer toutes vos données actuelles par cette sauvegarde ?')) return;
-          await importerDonnees(zone.value, mode.value);
-          e.target.closest('dialog').close();
-          app.aller('progression');
-        } catch (err) {
-          erreur.textContent = err.message;
-        }
-      } }, 'Importer')), erreur);
-    return null;
-  });
-  return h('div', {}, h('h2', {}, 'Sauvegarde'),
-    versionNavigateur
-      ? h('p', {}, h('strong', {}, 'Version navigateur : '), 'votre progression est enregistrée dans CE navigateur, sur CET appareil, pas dans le fichier Soroban.html. Effacer les données de navigation, changer de navigateur ou d\'appareil la fait disparaître. Exportez-la régulièrement (un rappel s\'affiche si le dernier export date de plus de 14 jours).')
-      : h('p', { class: 'discret' }, 'L\'application garde votre progression sur cet ordinateur, avec une copie automatique par jour (les 5 dernières, dans le dossier « sauvegardes » à côté du fichier de progression). Exportez pour la garder ailleurs ou la passer à la version navigateur.'),
-    h('p', { class: 'discret' }, `Ce qui est enregistré : vos résultats (séances, leçons, gestes, records), vos réglages et votre texte « Mon pourquoi ». Rien n'est envoyé sur Internet.${d0.dernierExport ? ` Dernier export : ${new Date(`${d0.dernierExport}T12:00`).toLocaleDateString('fr-FR')}.` : ''}`),
-    h('div', { class: 'ligne' },
-      h('button', { class: 'btn', onclick: telecharger }, 'Exporter (fichier .json)'),
-      h('button', { class: 'btn', onclick: copier }, 'Copier dans le presse-papiers'),
-      h('button', { class: 'btn', onclick: importer }, 'Importer une sauvegarde')),
-    message,
-    h('div', { class: 'ligne', style: 'margin-top:18px' }, h('button', { class: 'btn danger', onclick: effacer }, 'Tout effacer…')));
-}
+/** La sauvegarde et l'apparence sont dans Réglages : un rappel en bas de page. */
+const lienReglages = (app) => h('p', { class: 'discret', style: 'margin-top:28px' }, 'Sauvegarde, apparence et aide : ',
+  h('button', { class: 'lien', onclick: () => app.aller('reglages') }, 'Réglages'), '. Déjà pratiqué ailleurs ? ',
+  h('button', { class: 'lien', onclick: () => app.aller('positionnement') }, 'Tester mon niveau'), '.');
 
 export default {
   id: 'progression',
@@ -223,7 +158,7 @@ export default {
       h('div', { class: 'grille-succes' }, prochains.map((s) => h('div', { class: 'succes' }, h('strong', {}, s.nom), h('div', { class: 'discret' }, `${s.theme} · ${s.description}`)))));
 
     if (Object.keys(parModule).length === 0) {
-      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'), sectionApparence(), sectionSauvegarde(app));
+      el.append(h('p', { class: 'discret' }, 'Vos résultats détaillés apparaîtront ici après vos premières séries.'), lienReglages(app));
       return;
     }
 
@@ -277,6 +212,6 @@ export default {
       h('h2', {}, 'Par jour'),
       h('table', {}, entete('Date'), Object.entries(parJour).sort(([a], [b]) => b.localeCompare(a)).slice(0, 30)
         .map(([date, t]) => ligne(new Date(`${date}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), t))));
-    el.append(sectionApparence(), sectionSauvegarde(app));
+    el.append(lienReglages(app));
   },
 };

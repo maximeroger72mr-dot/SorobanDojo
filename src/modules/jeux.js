@@ -44,17 +44,23 @@ export function recordJeu(id) {
 export default {
   id: 'jeux',
   titre: 'Jeux',
+  // Survie anzan est rangée dans « Calcul de tête » : son fil d'Ariane la nomme.
+  titreDe: (p = {}) => (p.jeu === 'survie' ? 'Survie anzan' : 'Jeux'),
+  paramsRetour: (p = {}) => (p.jeu === 'survie' ? { jeu: 'survie' } : {}),
   monter(el, app, params = {}) {
     let nettoyer = null;
     const changer = (f) => { nettoyer?.(); nettoyer = null; remplir(el); nettoyer = f() ?? null; };
-    const retour = () => h('button', { class: 'lien', onclick: () => changer(accueil) }, '← Jeux');
+    // Survie anzan est ouverte depuis « Calcul de tête » : le retour y ramène.
+    const versListe = () => (params.jeu === 'survie' ? app.aller('entrainer') : changer(accueil));
+    const retour = () => h('button', { class: 'lien', onclick: versListe }, params.jeu === 'survie' ? '← S\'entraîner' : '← Jeux');
     const bilan = (titre, lignes, rejouer) => h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, titre), lignes.map((l) => h('p', {}, l)),
-      h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(rejouer) }, 'Rejouer'), h('button', { class: 'btn', onclick: () => changer(accueil) }, 'Tous les jeux')));
+      h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(rejouer) }, 'Rejouer'), h('button', { class: 'btn', onclick: versListe }, params.jeu === 'survie' ? 'S\'entraîner' : 'Tous les jeux')));
 
     function accueil() {
       el.append(h('h1', {}, 'Jeux'),
         h('p', { class: 'discret' }, 'Des jeux courts, qui entraînent chacun une compétence précise du soroban. Uniquement avec les gestes que vous avez appris.'),
-        h('div', { class: 'cartes' }, JEUX.map((j) => h('button', { class: 'carte-hub', onclick: () => changer({ geste, complement, survie, chasse }[j.id]) },
+        // « Le bon geste » n'a de sens qu'avec au moins deux gestes à choisir (petits amis appris).
+        h('div', { class: 'cartes' }, JEUX.filter((j) => j.id !== 'survie' && (j.id !== 'geste' || famillesApprises(progression()).has('petit') || progression().reglages?.decouverte)).map((j) => h('button', { class: 'carte-hub', onclick: () => changer({ geste, complement, survie, chasse }[j.id]) },
           h('strong', {}, j.titre), h('span', {}, j.description), recordJeu(j.id) ? h('span', { class: 'carte-info' }, recordJeu(j.id)) : null))));
       return null;
     }
@@ -275,7 +281,8 @@ export default {
       return null;
     }
 
-    const direct = { geste, complement, survie, chasse }[params.jeu];
+    // Complément éclair lancé directement à 5 ou à 10 (échauffement de la séance).
+    const direct = params.jeu === 'complement' && params.cible ? () => partie(params.cible) : { geste, complement, survie, chasse }[params.jeu];
     changer(direct ?? accueil);
     return () => nettoyer?.();
   },

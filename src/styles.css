@@ -514,3 +514,20 @@ div.ligne-palier { cursor: default; }
 .tuile-valeur, .bilan .grand, .chrono-feuille, .chrono-exercice .temps, .chrono-discret, .compteur.chrono, .ecart,
 .course-nom, .chrono-exercice .objectif { font-family: var(--police-perf); font-variant-numeric: tabular-nums; }
 h1, h2, h3 { font-family: var(--police-titres); }
+
+/* Grades : frise unique du 20e au 1er kyū (préparatoires / officiels). */
+.frise-grades { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; list-style: none; padding: 0; margin: 10px 0 6px; }
+.frise-grades .marche { text-align: center; font-size: 0.72rem; padding: 6px 0; border-radius: 4px; border: 1px solid var(--ligne); color: var(--discret); background: var(--surface); font-variant-numeric: tabular-nums; }
+.frise-grades .marche.prep.obtenu { background: var(--niveau-debutant); color: var(--encre-debutant); border-color: transparent; }
+.frise-grades .marche.officiel { border-color: var(--niveau-confirme); }
+.frise-grades .marche.officiel.obtenu { background: var(--niveau-confirme); color: var(--encre-confirme); }
+.frise-grades .marche.actuel { outline: 2px solid var(--accent); outline-offset: 1px; font-weight: 700; color: var(--texte); }
+.legende-frise .puce { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-left: 6px; }
+.legende-frise .puce.prep { background: var(--niveau-debutant); }
+.legende-frise .puce.officiel { background: var(--niveau-confirme); }
+@media (max-width: 640px) { .frise-grades { grid-template-columns: repeat(10, minmax(0, 1fr)); } }
+.carte-hub.attenue { opacity: 0.62; }
+.carte-hub.attenue:hover { opacity: 0.9; }
+button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+.grille-doigte td.case { text-align: center; width: 90px; font-size: 1.2rem; }
+@media print { .saut-page { break-before: page; } }

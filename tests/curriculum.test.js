@@ -27,6 +27,9 @@ test('chaque sous-palier génère des exercices stricts ; ses démos sont valide
         assert.equal(ex.lignes.reduce((v, l) => (l.op === '+' ? v + l.n : v - l.n), 0), ex.resultat);
         continue;
       }
+      if (ex.type === 'lire') { assert.equal(ex.resultat, ex.n); assert.ok(ex.n >= 0 && ex.n < 1000); continue; }
+      if (ex.type === 'poser') { assert.equal(ex.resultat, Number(String(ex.n).at(-1 - ex.tige))); assert.ok(ex.n >= 10 && ex.n < 1000); continue; }
+      if (ex.type === 'complement') { assert.equal(ex.a + ex.resultat, sp.cible); assert.ok(ex.a >= 1 && ex.resultat >= 1); continue; }
       if (ex.type === 'photo' || ex.type === 'tenir') {
         assert.equal(ex.resultat, ex.n);
         assert.ok(String(ex.n).length <= sp.chiffres && ex.n >= 1, `${sp.id} ${ex.n}`);

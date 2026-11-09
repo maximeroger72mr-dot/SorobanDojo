@@ -4,6 +4,8 @@
  * seuil de réussite, impression possible. Voir core/epreuves.js pour les formats et leurs sources.
  */
 
+import { manquantesEpreuve } from '../core/prerequis.js';
+import { avertirPrerequis } from '../ui/avertissement.js';
 import { GRADES, genererSujet, totalPoints } from '../core/epreuves.js';
 import { enregistrerSession, progression, proposerMeilleurScore } from '../core/progression.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -55,6 +57,7 @@ function resume(g) {
 export default {
   id: 'epreuves',
   titre: 'Épreuves officielles',
+  parent: 'grades',
   monter(el, app) {
     let feuille = null;
     const meilleur = (g) => progression().records[`epreuve-${g.id}`];
@@ -72,6 +75,7 @@ export default {
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
           h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g)),
+          (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn principal', onclick: () => lancer(g) }, `Épreuve complète · ${g.minutes} min`),
             ['mitori', 'mul', 'div'].filter((k) => g[k]).map((k) => {
@@ -80,8 +84,15 @@ export default {
             }))))));
     }
 
-    /** Lance l'épreuve complète, ou une seule épreuve (section) en 10 minutes. */
+    /** Avant les leçons conseillées : on prévient, sans bloquer. */
     function lancer(g, section = null) {
+      const manque = manquantesEpreuve(progression(), g.id);
+      if (manque.length) avertirPrerequis(app, manque, `des gestes et des opérations du ${g.nom}`, () => demarrer(g, section));
+      else demarrer(g, section);
+    }
+
+    /** Lance l'épreuve complète, ou une seule épreuve (section) en 10 minutes. */
+    function demarrer(g, section = null) {
       el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'));
       const sujet = genererSujet(g);
       const sections = section ? sujet.sections.filter((x) => x.cle === section) : sujet.sections;
@@ -104,7 +115,7 @@ export default {
               b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
             rapport(app, b.resultats),
-            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
         },
       });
     }
