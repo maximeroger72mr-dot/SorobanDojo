@@ -54,11 +54,14 @@ export function creerFeuille(conteneur, o) {
   conteneur.append(racine);
   racine.dataset.enCours = '1'; // feuille en cours : on prévient avant de quitter la page
 
-  // Entrée passe à la case suivante (comme sur une feuille, on enchaîne).
+  // Entrée passe à la case suivante (comme sur une feuille, on enchaîne) ; sur la DERNIÈRE case,
+  // Entrée corrige la feuille et arrête le chrono tout de suite.
   cases.forEach((c, i) => c.input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    (cases[i + 1]?.input ?? btnCorriger).focus();
+    e.stopPropagation();
+    if (cases[i + 1]) cases[i + 1].input.focus();
+    else corriger();
   }));
   cases[0]?.input.focus();
 

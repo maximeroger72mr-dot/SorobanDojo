@@ -46,6 +46,31 @@ export function rangee(n, total, titre = '') {
   return svg;
 }
 
+/**
+ * Un petit soroban qui affiche un nombre (la série de jours) : boules actives pleines contre la
+ * barre, les autres en creux. Couleur : currentColor (rouge d'accent par défaut, voir CSS).
+ */
+export function sorobanNombre(n, titre = '') {
+  const chiffres = String(Math.max(0, Math.floor(n))).padStart(2, '0').split('').map(Number);
+  const pas = 16;
+  const L = chiffres.length * pas + 6;
+  const svg = el('svg', { class: 'soroban-nombre', viewBox: `0 0 ${L} 50`, role: 'img', 'aria-label': titre || String(n) },
+    el('rect', { x: 1, y: 1, width: L - 2, height: 48, rx: 3, fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }),
+    el('line', { x1: 1, y1: 15, x2: L - 1, y2: 15, stroke: 'currentColor', 'stroke-width': '2' }));
+  chiffres.forEach((c, k) => {
+    const x = 3 + pas / 2 + k * pas;
+    svg.append(el('line', { x1: x, y1: 2, x2: x, y2: 48, stroke: 'currentColor', 'stroke-width': '1', opacity: '0.5' }));
+    const plein = (actif, y) => svg.append(el('polygon', { points: boule(x, y, 13, 6), fill: actif ? 'currentColor' : 'var(--fond)', stroke: 'currentColor', 'stroke-width': '1.2' }));
+    plein(c >= 5, c >= 5 ? 11 : 5); // céleste : contre la barre si elle compte
+    for (let i = 0; i < 4; i++) {
+      const actif = i < c % 5;
+      plein(actif, actif ? 19 + i * 6.2 : 23.5 + i * 6.2);
+    }
+  });
+  if (titre) svg.append(el('title', {}, titre));
+  return svg;
+}
+
 /** Pictogrammes du menu : boules et tiges uniquement. */
 export function pictogramme(nom) {
   const svg = el('svg', { class: 'picto', viewBox: '0 0 24 24', 'aria-hidden': 'true' });

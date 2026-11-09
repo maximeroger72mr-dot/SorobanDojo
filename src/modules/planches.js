@@ -122,6 +122,10 @@ export default {
     let feuille = null;
     if (params.cible) reglages.cible = params.cible;
     if (params.colonnes) reglages.colonnes = params.colonnes;
+    if (params.lignes) reglages.lignes = params.lignes;
+    if (params.pur !== undefined) reglages.pur = !!params.pur;
+    // Planche proposée par la séance : son identifiant (pour la cocher) et son objectif.
+    reglages.proposition = params.proposition ?? null;
     if (params.chiffres) reglages.chiffres = params.chiffres;
     // Par défaut, pas plus de chiffres que dans les leçons validées (on peut toujours en choisir plus).
     else if (!progression().reglages?.decouverte) reglages.chiffres = Math.min(reglages.chiffres, chiffresAppris(progression()));
@@ -163,7 +167,7 @@ export default {
           ['Grands amis', motifsPar('grand')],
           ['Combinaisons', motifsPar('mixte')],
         ]),
-        h('button', { class: 'btn principal', onclick: () => lancer() }, 'Créer la planche')),
+        h('button', { class: 'btn principal', onclick: () => { reglages.proposition = null; lancer(); } }, 'Créer la planche')),
       zone, historiqueFeuilles());
 
     function lancer() {
@@ -185,6 +189,7 @@ export default {
           notePur = 'Ces gestes ne peuvent pas former une colonne pure (sans aucun geste direct) : planche normale.';
         }
       }
+      if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
       if (notePur) zone.append(h('p', { class: 'discret' }, notePur));
       // Mémoire de la taille de la feuille : toutes les colonnes ont des résultats différents.
       const memoire = creerMemoire(r.colonnes);

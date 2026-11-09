@@ -36,7 +36,8 @@ export default {
       serie = null;
       remplir(el);
       app.majBadges();
-      const dues = revisionsDues().map(sousPalier).filter(Boolean);
+      // Les plus en retard d'abord (la séance du jour en demande un nombre limité).
+      const dues = revisionsDues().map(sousPalier).filter(Boolean).sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance));
       const faibles = motifsEnDifficulte();
       el.append(h('h1', {}, 'Révisions du jour'),
         h('p', { class: 'discret' }, `Chaque leçon validée revient à intervalles croissants (${INTERVALLES.map((j) => `J+${j}`).join(', ')}). Un test flash de ${FLASH.exercices} calculs sur votre soroban entretient l'automatisme.`));

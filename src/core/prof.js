@@ -76,7 +76,7 @@ export function jeuDuJour(d, date) {
   const f = famillesApprises(d);
   const jeux = [
     f.has('petit') && { titre: 'Le bon geste', detail: '30 s pour reconnaître le bon ami', aller: ['jeux', { jeu: 'geste' }], mode: 'geste' },
-    { titre: 'Complément éclair', detail: f.has('grand') ? 'compléments à 10 en 60 s' : 'compléments à 5 en 60 s', aller: ['jeux', { jeu: 'complement' }], mode: 'complement' },
+    { titre: 'Complément éclair', detail: f.has('grand') ? 'compléments à 10 en 60 s' : 'compléments à 5 en 60 s', aller: ['jeux', { jeu: 'complement', cible: f.has('grand') ? 10 : 5 }], mode: 'complement' },
     d.paliers['p1-4']?.valide && { titre: 'Chasse à l\'erreur', detail: '10 colonnes : trouvez le sous-total faux', aller: ['jeux', { jeu: 'chasse' }], mode: 'chasse' },
     d.paliers['p1-a']?.valide && { titre: 'Survie anzan', detail: 'la chaîne de tête la plus longue possible', aller: ['jeux', { jeu: 'survie' }], mode: 'survie' },
     f.has('petit') && { titre: 'Contre-la-montre arcade', detail: 'tenir le plus longtemps possible', aller: ['defis', {}], mode: 'arcade' },
@@ -90,37 +90,6 @@ export function jeuDuJour(d, date) {
  * @param {object} decision  resultat de decisionDuJour
  * @param {number} minutesEssentiel  durée estimée de l'essentiel
  */
-/**
- * Après la séance : UNE activité proposée (et deux autres idées), choisie selon l'état du jour :
- * kyū pas encore tenté cette semaine, geste le plus lent, défi de la semaine pas fini, jeu du jour.
- * @returns {Array<{ titre, detail, aller }>}  la proposition principale d'abord
- */
-export function propositionsApresSeance(d, date) {
-  const idees = [];
-  const g = examenDeLaSemaine(d);
-  if (g && !resultatSemaine(d, date) && !(g.id !== 'hebdo' && d.records[`prekyu-${g.id}`]?.reussi)) {
-    idees.push({ titre: `Passer le ${g.nom}`, detail: 'Vous êtes échauffé : c\'est un bon moment pour tenter le kyū de votre niveau, sans pression.', aller: ['examen', {}] });
-  }
-  const lent = gestesLents(d, 1)[0];
-  if (lent) {
-    idees.push(variante(date, 'apres-lent', [
-      { titre: `Lièvre sur ${nomMotif(lent.cle)}`, detail: 'Votre geste le plus lent, au rythme d\'un lièvre qui accélère quand vous suivez.', aller: ['rythme', { jeu: 'lievre', cibles: [lent.cle], chiffres: 1, auto: true }] },
-      { titre: `Marathon sur ${nomMotif(lent.cle)}`, detail: 'Votre geste le plus lent, 30 lignes d\'affilée pour l\'ancrer.', aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 30, auto: true }] },
-    ]));
-  }
-  const defi = defiSemaine(d, date);
-  const etoiles = [1, 2, 4].filter((b) => (d.records[`${defi.cle}-etoiles`]?.points ?? 0) & b).length;
-  if (etoiles < 3) idees.push({ titre: 'Défi de la semaine', detail: `${etoiles} étoile${etoiles > 1 ? 's' : ''} sur 3 : la même feuille toute la semaine, pour mesurer vos progrès.`, aller: ['defis', { semaine: true }] });
-  const jeu = jeuDuJour(d, date);
-  idees.push({ titre: `Jeu : ${jeu.titre}`, detail: `Pour le plaisir : ${jeu.detail}.`, aller: jeu.aller });
-  // La principale tourne d'un jour à l'autre parmi les idées utiles (le kyū reste en tête s'il est ouvert).
-  if (!idees[0].aller[0].startsWith('examen')) {
-    const i = Math.floor(new Date(`${date}T12:00`).getTime() / 86400000) % idees.length;
-    idees.unshift(...idees.splice(i, 1));
-  }
-  return idees.slice(0, 3);
-}
-
 /**
  * Choix d'une formulation parmi plusieurs, stable sur la journée (pas de changement à chaque
  * affichage) mais différente d'un jour à l'autre : le prof ne répète pas toujours la même phrase.

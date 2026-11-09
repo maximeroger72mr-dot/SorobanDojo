@@ -126,6 +126,17 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     await w.evaluate((x) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: x })), [ecran, params]);
     await controler(w, `${ecran} ${JSON.stringify(params)}`, attendu);
   }
+  // Feuille : Entrée sur la dernière case corrige et arrête le chrono.
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: '+3:petit', auto: true, colonnes: 3, chiffres: 1 }] })));
+  await w.waitForTimeout(300);
+  const champs = await w.$$('#ecran .probleme input');
+  for (const c of champs) { await c.fill('1'); await c.press('Enter'); }
+  await w.waitForTimeout(400);
+  if (!(await w.$('#ecran .vitesse-feuille, #ecran .carte.bilan'))) problemes.push('feuille : Entrée sur la dernière case ne corrige pas');
+  // Planche proposée par la séance : son objectif est affiché.
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: 'appris', auto: true, colonnes: 5, chiffres: 2, lignes: 5, proposition: 'consolider', objectif: 'Consolider : test' }] })));
+  await controler(w, 'planche proposée', 'Planches');
+  if (!(await w.$('#ecran .objectif-planche'))) problemes.push("planche proposée : l'objectif n'est pas affiché");
   // Progression : les trois vues de régularité et de volume.
   await aller(w, 'progression');
   for (let k = 0; k < 3; k++) {
@@ -176,9 +187,23 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   if (!/Séance du jour terminée/.test(texte)) problemes.push('séance terminée : le bilan n\'apparaît pas');
   if (!/Et maintenant/.test(texte)) problemes.push('séance terminée : pas de proposition d\'activité');
   if (/Continuer :|Commencer :/.test(texte)) problemes.push('séance terminée : une nouvelle séance est relancée sans qu\'on la demande');
-  await cliquerTexte(w, 'button', 'Faire une nouvelle séance');
-  await controler(w, 'nouvelle séance demandée');
-  if (!/Commencer :/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('nouvelle séance : le plan n\'apparaît pas');
+  if (/nouvelle séance/i.test(texte)) problemes.push('séance terminée : le bouton « nouvelle séance » existe encore');
+  if (!(await w.$('#ecran details.plan-enroule'))) problemes.push('séance terminée : le plan enroulé n\'apparaît pas');
+  if (!(await w.$('#ecran .serie-soroban svg'))) problemes.push('séance : la série n\'est pas écrite sur un soroban');
+  // Les propositions se lancent en un clic, chacune vers une activité précise.
+  const nbProp = await w.$$eval('#ecran .carte.suggestion button', (x) => x.length);
+  if (nbProp < 3) problemes.push(`séance terminée : ${nbProp} proposition(s) seulement`);
+  for (let i = 0; i < nbProp; i++) {
+    await aller(w, 'seance');
+    await w.waitForTimeout(200);
+    const t = await w.$eval(`#ecran .carte.suggestion button >> nth=${i}`, (x) => x.textContent);
+    await w.click(`#ecran .carte.suggestion button >> nth=${i}`);
+    await controler(w, `après séance › ${t}`);
+  }
+  await aller(w, 'seance');
+  await w.waitForTimeout(200);
+  await w.click('#ecran details.plan-enroule summary');
+  await controler(w, 'séance terminée, plan déroulé');
   await app.close();
 
   // 7. Premier lancement : leçon 0 et son quiz.

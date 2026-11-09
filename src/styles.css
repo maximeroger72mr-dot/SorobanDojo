@@ -531,3 +531,9 @@ h1, h2, h3 { font-family: var(--police-titres); }
 button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
 .grille-doigte td.case { text-align: center; width: 90px; font-size: 1.2rem; }
 @media print { .saut-page { break-before: page; } }
+/* Série de jours écrite sur un petit soroban, couleur d'accent. */
+.serie-soroban { display: inline-flex; align-items: center; gap: 6px; }
+.serie-soroban .soroban-nombre { height: 46px; width: auto; color: var(--accent); }
+.objectif-planche { border-left: 3px solid var(--accent); }
+.but-proposition { color: var(--accent); font-weight: 600; }
+.plan-enroule summary { cursor: pointer; }

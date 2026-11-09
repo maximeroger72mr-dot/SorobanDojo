@@ -22,10 +22,34 @@ import { SUCCES } from '../core/succes.js';
 import { nomMotif } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
-import { decisionDuJour, jeuDuJour, motDuProf, propositionsApresSeance } from '../core/prof.js';
+import { decisionDuJour, motDuProf } from '../core/prof.js';
+import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
+import { tempsClassement } from '../core/drills.js';
+import { sorobanNombre } from '../ui/perles.js';
 import { examenDeLaSemaine, resultatSemaine, minutesExamen, libelleGrade } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
-import { rangee } from '../ui/perles.js';
+
+/** Secondes par exercice de leçon, d'après les dernières séries (25 s par défaut). */
+function secondesParExercice(d) {
+  const t = d.sessions.filter((x) => x.module === 'lecons' && x.mode === 'entrainement' && x.total > 0 && x.dureeMs > 0).slice(-10).map((x) => x.dureeMs / 1000 / x.total).sort((a, b) => a - b);
+  return t.length ? Math.min(90, Math.max(6, t[Math.floor(t.length / 2)])) : 25;
+}
+
+/** Durée estimée d'une activité de rythme ou de drill, sur la vitesse de l'apprenant. */
+function dureeActivite(d, [module, p = {}]) {
+  if (module === 'rythme' && p.jeu === 'marathon') return Math.max(3, Math.ceil(((p.lignes ?? 30) * (p.chiffres ?? 1) * secondesParChiffre(d) * 1.3) / 60) + 1);
+  if (module === 'rythme') return 4;
+  return 3;
+}
+
+/** Durée estimée de la leçon du jour : exercices restants + mini-test (+ « Comprendre » au début). */
+function dureeDecision(d, decision, parExo) {
+  if (decision.type !== 'lecon' || !decision.sp) return dureeActivite(d, decision.aller);
+  const sp = decision.sp;
+  const e = d.paliers[sp.id] ?? {};
+  const reste = Math.max(0, (sp.repetitions ?? 20) - (e.reps ?? 0));
+  return Math.max(5, Math.ceil(((reste + (sp.testNombre ?? 15)) * parExo) / 60) + (e.reps ? 0 : 3));
+}
 
 /** Jours pratiqués parmi les 7 derniers (aujourd'hui compris). */
 const septJours = (dates) => { const j = aujourdhui(); return dates.filter((x) => x <= j && x > ajouterJours(j, -7)).length; };
@@ -43,8 +67,9 @@ function plan(d, debut, seance = null) {
   const depuis = d.sessions.filter((s) => (s.horodatage ?? 0) >= debut);
   const fait = (f) => depuis.some(f);
   const essentiel = [];
-  const bonus = [];
   const sp = prochainSousPalier();
+  // Durées calibrées sur la vitesse réelle : secondes par exercice de leçon (médiane récente).
+  const parExo = secondesParExercice(d);
 
   // 1. Échauffement (3 min). Pendant les étapes petits amis et grands amis : Complément éclair,
   //    pour que les paires qui font 5 ou 10 viennent sans réfléchir ; sinon le prochain drill à valider.
@@ -55,20 +80,23 @@ function plan(d, debut, seance = null) {
       pourquoi: `Les ${cibleComplement === 5 ? 'petits' : 'grands'} amis reposent sur les paires qui font ${cibleComplement} : elles doivent venir sans réfléchir, sinon la main s'arrête.`,
       fait: fait((s) => s.module === 'jeux' && s.mode === `complement-${cibleComplement}`), aller: ['jeux', { jeu: 'complement', cible: cibleComplement }] });
   } else if (drill) {
-    essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: 3, pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
+    essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.ceil((tempsClassement(drill, 'bronze') * 1.3) / 60000)), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
       fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
   }
   // 1 bis. Les colonnes ratées lors de la dernière séance, rejouées à l'identique.
   const aRejouer = erreursARejouer(date).length;
   if (aRejouer || fait((s) => s.module === 'erreurs')) {
-    essentiel.push({ titre: 'À revoir', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} de la dernière séance, à refaire` : 'fait', minutes: 2,
+    essentiel.push({ titre: 'À revoir', detail: aRejouer ? `${aRejouer} colonne${aRejouer > 1 ? 's' : ''} de la dernière séance, à refaire` : 'fait', minutes: Math.max(1, Math.ceil((aRejouer * parExo) / 60)),
       pourquoi: 'Refaire ce qui a posé problème, un jour plus tard, corrige le geste mieux qu\'un exercice neuf.',
       fait: fait((s) => s.module === 'erreurs'), aller: ['erreurs'] });
   }
   // 2. Révisions dues : la mémoire avant tout.
   const dues = revisionsDues().length;
   if (dues) {
-    essentiel.push({ titre: 'Révisions', detail: `${dues} leçon${dues > 1 ? 's' : ''} à revoir (10 calculs chacune)`, minutes: 3 * dues,
+    // Au plus un tiers de l'objectif du jour : les plus en retard d'abord, les autres restent dues.
+    const parRevision = (10 * parExo) / 60;
+    const n = Math.min(dues, Math.max(1, Math.floor((reglagesUtilisateur().objectifMinutes / 3) / parRevision)));
+    essentiel.push({ titre: 'Révisions', detail: n < dues ? `${n} leçon${n > 1 ? 's' : ''} sur ${dues} à revoir aujourd'hui, les plus en retard d'abord (10 calculs chacune)` : `${dues} leçon${dues > 1 ? 's' : ''} à revoir (10 calculs chacune)`, minutes: Math.max(2, Math.ceil(n * parRevision)),
       pourquoi: 'Revoir une leçon juste avant de l\'oublier la fixe pour longtemps.',
       fait: fait((s) => s.module === 'revisions'), aller: ['revisions'] });
   }
@@ -95,7 +123,7 @@ function plan(d, debut, seance = null) {
   const priorite = fixee && fait(prescritPar(fixee)) ? fixee : prioriteDuJour(d, date, motifsEnDifficulte());
   if (priorite) {
     const prescrit = prescritPar(priorite);
-    essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: 8, fait: fait(prescrit), aller: priorite.aller, priorite: true,
+    essentiel.push({ titre: priorite.titre, detail: `${priorite.raison} ${priorite.texte}`, minutes: dureeActivite(d, priorite.aller), fait: fait(prescrit), aller: priorite.aller, priorite: true,
       pourquoi: 'Votre point faible du moment, recalculé d\'après vos derniers résultats : c\'est là que le temps rapporte le plus.' });
   }
   // 4 bis. Vitesse incohérente (ex. gestes directs plus lents que les petits amis) : on vérifie.
@@ -111,12 +139,12 @@ function plan(d, debut, seance = null) {
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
-  essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: decision.minutes, aller: decision.aller, decision: true,
+  essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: dureeDecision(d, decision, parExo), aller: decision.aller, decision: true,
     pourquoi: decision.raison, fait: decisionFaite(decision) });
   // 6. Consolidation (2 à 7 jours après une leçon) : mélanger pour retenir.
   const conso = consolidationDuJour(d, date);
   if (conso) {
-    essentiel.push({ titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`, minutes: 5,
+    essentiel.push({ titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`, minutes: minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres: Math.max(1, conso.chiffres ?? 1) }),
       pourquoi: 'Mélangé aux autres, le nouveau geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
@@ -143,29 +171,30 @@ function plan(d, debut, seance = null) {
       fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === placement.id), aller: ['lecons', { sousPalier: placement.id, onglet: 'entrainement' }] });
   }
 
-  // ---- Bonus
-  if (itemExamen && !examEssentiel && !examObtenu) bonus.unshift(itemExamen);
-  const lecAnzan = prochainAnzan();
-  if (lecAnzan) {
-    bonus.push({ titre: 'Anzan', detail: lecAnzan.titre, minutes: 5,
-      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === lecAnzan.id), aller: ['lecons', { sousPalier: lecAnzan.id }] });
-  } else if (d.paliers['p1-a']?.valide) {
-    const a = anzanAdapte(d);
-    bonus.push({ titre: 'Anzan', detail: `${a.questions} calculs de tête, ${a.termes} nombres, ${a.duree.toLocaleString('fr-FR')} s par nombre`, minutes: 5,
-      fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }] });
+  // ---- Calibrage : l'essentiel tient dans l'objectif de temps du jour (durées estimées sur la
+  //      vitesse réelle de l'apprenant). Ce qui dépasse passe dans « Pour compléter ».
+  const objectif = reglagesUtilisateur().objectifMinutes;
+  const reportes = [];
+  let cumul = 0;
+  const garde = [];
+  for (const [i, it] of essentiel.entries()) {
+    const reste = objectif - cumul;
+    if (it.fait || i === 0 || it.minutes <= reste) { garde.push(it); cumul += it.fait ? 0 : it.minutes; continue; }
+    if (it.decision && reste >= 5) {
+      // La leçon (ou l'ancrage) : on y travaille jusqu'à l'objectif ; la suite, demain.
+      garde.push({ ...it, minutes: reste, detail: `${it.detail} (${reste} min aujourd'hui, la suite demain si besoin)` });
+      cumul += reste;
+      continue;
+    }
+    reportes.push(it);
   }
-  const jeu = jeuDuJour(d, date);
-  bonus.push({ titre: `Jeu du jour · ${jeu.titre}`, detail: jeu.detail, minutes: 5,
-    fait: fait((s) => (s.module === 'jeux' && String(s.mode).startsWith(jeu.mode)) || (s.module === 'defis' && s.mode === jeu.mode)), aller: jeu.aller });
-  bonus.push({ titre: 'Défi de la semaine', detail: 'la même feuille toute la semaine : gagnez les 3 étoiles', minutes: 5,
-    fait: fait((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode)), aller: ['defis', { semaine: true }] });
-  if (d.reglages?.objectifGrade?.pourquoi || new Date(`${date}T12:00`).getDay() === 3) {
-    bonus.push({ titre: 'Au quotidien', detail: 'ticket de caisse, monnaie, pourcentages', minutes: 5, fait: fait((s) => s.module === 'quotidien'), aller: ['quotidien'] });
-  }
-
-  const minutes = essentiel.reduce((t, it) => t + it.minutes, 0);
-  const mot = motDuProf(d, date, decision, minutes, reglagesUtilisateur().objectifMinutes, essentiel.length);
-  return { essentiel, bonus, mot, minutes, decision };
+  const minutes = garde.reduce((t, it) => t + (it.fait ? 0 : it.minutes), 0) + garde.filter((it) => it.fait).reduce((t, it) => t + it.minutes, 0);
+  const mot = motDuProf(d, date, decision, minutes, objectif, garde.length);
+  // Pour compléter : ce qui n'a pas tenu dans l'objectif, puis une planche, un flash anzan, un jeu
+  // (et, si le temps restant est long, d'autres planches, un drill, un examen blanc…).
+  const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
+  const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, motifsEnDifficulte(), restant, priorite?.aller?.[1]?.cibles ?? [])];
+  return { essentiel: garde, bonus: complements, mot, minutes, decision };
 }
 
 /** Suggestion pour la prochaine séance. */
@@ -294,17 +323,21 @@ export default {
       }
       // --- plan du jour (calculé tôt : la fin de séance automatique en dépend)
       const p = plan(d, seance ? seance.debut : Date.now(), seance);
-      // Fin de séance automatique : tout l'essentiel est fait → le bilan s'affiche de lui-même.
-      if (seance && !bilan && p.essentiel.length && p.essentiel.every((it) => it.fait)) {
-        finirSeance().then((b) => { nouvelleDemandee = false; afficher(b ?? null); });
+      // Fin de séance : tout l'essentiel est fait ET l'objectif de temps est atteint. Le bilan
+      // s'affiche alors de lui-même ; le plan reste disponible, enroulé, pour refaire un point.
+      const essentielFait = p.essentiel.length > 0 && p.essentiel.every((it) => it.fait);
+      const tempsFait = minutes >= objectif;
+      if (seance && !bilan && essentielFait && tempsFait) {
+        finirSeance().then((b) => afficher(b ?? null));
         return;
       }
 
       // --- une ligne de statut compacte : série, minutes du jour (objectif réglable), grade
       el.append(h('h1', {}, 'Séance du jour'),
         h('div', { class: 'statut-jour' },
-          h('span', {}, h('strong', {}, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`), ' de série ',
-            h('span', { class: 'serie-perles' }, rangee(septJours(dates), 7, `${septJours(dates)} jours de pratique sur les 7 derniers`))),
+          // La série de jours, écrite sur un petit soroban.
+          h('span', { class: 'serie-soroban', title: `${septJours(dates)} jours de pratique sur les 7 derniers` },
+            sorobanNombre(serie.jours, `${serie.jours} jour${serie.jours > 1 ? 's' : ''} de série`), h('strong', {}, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`), ' de série'),
           h('span', {}, h('strong', {}, `${Math.floor(minutes)} / `), choixObjectif, ' aujourd\'hui',
             h('span', { class: 'jauge mini', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
               h('span', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
@@ -319,37 +352,47 @@ export default {
       }
       el.append(carteObjectif(d, () => afficher(bilan)));
 
-      // --- séance terminée aujourd'hui : bilan, proposition d'activité, et une nouvelle séance
-      //     seulement si on la demande (jamais relancée d'elle-même).
+      // --- séance terminée aujourd'hui : bilan, puis « Et maintenant ? » (une planche, un flash
+      //     anzan, un jeu), et le plan enroulé pour refaire un point si on veut.
       const terminee = !seance && (bilan ?? (d.seanceTerminee?.date === aujourdhui() ? d.seanceTerminee.bilan : null));
-      if (terminee && !nouvelleDemandee) {
+      const ligne = (it, i) => h('button', {
+        class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
+        onclick: async () => { if (!seanceEnCours() && !terminee) await demarrer(); app.aller(...it.aller); },
+      }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
+      h('span', { class: 'titre' }, h('strong', {}, it.titre), it.but ? h('span', { class: 'but-proposition' }, ` · ${it.but}`) : null, ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
+      h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
+      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
+      if (terminee) {
         el.append(carteBilan(terminee, d));
-        const idees = propositionsApresSeance(d, aujourdhui());
+        const idees = propositions(d, aujourdhui(), motifsEnDifficulte(), 0);
         const [principale, ...autres] = idees;
         el.append(h('div', { class: 'carte suggestion' },
           h('h2', { style: 'margin-top:0' }, 'Et maintenant ?'),
-          h('p', {}, h('strong', {}, principale.titre), ' : ', principale.detail),
-          h('div', { class: 'ligne' },
-            h('button', { class: 'btn principal', onclick: () => app.aller(...principale.aller) }, `${principale.titre} →`),
-            autres.map((x) => h('button', { class: 'btn', title: x.detail, onclick: () => app.aller(...x.aller) }, x.titre))),
+          principale ? [h('p', {}, h('strong', {}, principale.titre), ' : ', principale.detail),
+            h('div', { class: 'ligne' },
+              h('button', { class: 'btn principal', onclick: () => app.aller(...principale.aller) }, `${principale.titre} →`),
+              autres.map((x) => h('button', { class: 'btn', title: x.detail, onclick: () => app.aller(...x.aller) }, x.titre)))] : null,
           h('p', { class: 'discret' }, 'Ou arrêtez-vous là : la régularité compte plus que la durée. À demain !')),
-          h('div', { class: 'ligne', style: 'margin-top:12px' },
-            h('button', { class: 'btn', onclick: async () => { nouvelleDemandee = true; afficher(); } }, 'Faire une nouvelle séance')));
+          // Le plan du jour, enroulé : on peut refaire un point.
+          h('details', { class: 'carte plan-enroule' },
+            h('summary', {}, h('strong', {}, `Séance du jour ✓`), h('span', { class: 'discret' }, ' : cliquez pour refaire un point')),
+            h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i)))));
         return;
       }
 
-      // --- le prof et le plan
-      // Chaque ligne s'ouvre d'un clic ; si la séance n'est pas commencée, le clic la commence.
-      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
-      const ligne = (it, i) => h('button', {
-        class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
-        onclick: async () => { if (!seanceEnCours()) await demarrer(); app.aller(...it.aller); },
-      }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
-      h('span', { class: 'titre' }, h('strong', {}, it.titre), ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
-      h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
+      // --- le prof et le plan (chaque ligne s'ouvre d'un clic ; le premier clic commence la séance)
       // Une seule grande action : la prochaine étape non faite (la séance démarre au premier clic).
       const faits = p.essentiel.filter((it) => it.fait).length;
       const prochaine = p.essentiel.find((it) => !it.fait) ?? p.bonus.find((it) => !it.fait);
+      // Où en est-on par rapport aux deux conditions de fin (tout l'essentiel, et l'objectif de temps) ?
+      const resteMin = Math.max(0, Math.ceil(objectif - minutes));
+      if (seance && essentielFait && !tempsFait) {
+        el.append(h('div', { class: 'carte avis' }, h('strong', {}, 'L\'essentiel est fait. '), `Encore ${resteMin} min pour atteindre votre objectif du jour : choisissez dans « Pour compléter ».`));
+      } else if (seance && tempsFait && !essentielFait) {
+        el.append(h('div', { class: 'carte avis ligne' },
+          h('span', { style: 'flex:1' }, h('strong', {}, 'Objectif de temps atteint. '), `Il reste ${p.essentiel.filter((it) => !it.fait).length} point${p.essentiel.filter((it) => !it.fait).length > 1 ? 's' : ''} : continuez si vous le souhaitez, ou arrêtez-vous là (ils passeront à demain).`),
+          h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Terminer la séance')));
+      }
       if (prochaine) {
         el.append(h('div', { class: 'continuer' },
           seance ? h('div', { class: 'etape-seance' }, `Étape ${Math.min(faits + 1, p.essentiel.length)} sur ${p.essentiel.length}`) : null,
@@ -360,15 +403,14 @@ export default {
       el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
       const entete = h('div', { class: 'ligne' },
         h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · ${faits} / ${p.essentiel.length}` : 'Votre séance'),
-        seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); nouvelleDemandee = false; afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
+        seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
       el.append(h('div', { class: 'carte' }, entete,
         h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : dans cet ordre, chaque point prépare le suivant')),
         h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i))),
-        h('h3', { class: 'titre-plan' }, 'Bonus', h('span', { class: 'discret' }, ' : pour le plaisir, et ça entraîne aussi')),
+        h('h3', { class: 'titre-plan' }, 'Pour compléter', h('span', { class: 'discret' }, resteMin > p.minutes ? ` : il vous reste du temps, piochez ici (une nouvelle planche remplace celle qui est faite)` : ' : si vous avez encore du temps')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
-        h('p', { class: 'discret' }, 'Chaque point se coche quand il est fait ; quand tout l\'essentiel est coché, le bilan de la séance s\'affiche tout seul.')));
+        h('p', { class: 'discret' }, `La séance se termine quand les ${p.essentiel.length} points de l'essentiel sont faits ET que votre objectif de ${objectif} min est atteint (${Math.floor(minutes)} min aujourd'hui). Le bilan s'affiche alors tout seul.`)));
     }
-    let nouvelleDemandee = false;
     afficher();
   },
 };
