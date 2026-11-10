@@ -9,11 +9,11 @@
  * pour ancrer un geste difficile ou casser un plateau.
  */
 
-import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, evaluerMotif } from '../core/progression.js';
+import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, evaluerMotif, memoriserLievre, cadenceLievre } from '../core/progression.js';
 import { gesteTravaillable, libellesModes } from '../core/colonneGeste.js';
 import { contraintes, contraintesCibles, optionsCibles } from './planches.js';
 import { creerMarathon } from '../ui/marathon.js';
-import { creerLievre, cadenceDepart } from '../ui/lievre.js';
+import { creerLievre, cadenceDepart, cadenceReprise, cleLievre } from '../ui/lievre.js';
 import { listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
@@ -98,13 +98,12 @@ export default {
             h('button', { class: 'btn principal', onclick: () => lancerMarathon() }, 'Partir'))),
         voir === 'marathon' ? null : h('div', { class: 'carte' },
           h('h2', { style: 'margin-top:0' }, 'Le lièvre (rythme imposé)'),
-          h('p', {}, 'La ligne en cours est surlignée, la suivante est déjà visible : lisez-la pendant que vos doigts posent la ligne en cours. Le surligneur descend tout seul et la ligne passée disparaît. 3 colonnes justes d\'affilée : le lièvre accélère de 10 %.'),
+          h('p', {}, 'La ligne en cours est surlignée, la suivante est déjà visible : lisez-la pendant que vos doigts posent la ligne en cours. Le surligneur descend tout seul et la ligne passée disparaît. 3 colonnes justes d\'affilée : le lièvre accélère de 10 %. La course continue tant que vous tenez : elle s\'arrête à la 2e erreur, ou quand vous le décidez. Votre cadence est gardée pour chaque réglage : la fois suivante, vous repartez de là.'),
           h('div', { class: 'reglages' },
             select(l, 'cible', optionsCibles()),
             select(l, 'chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres']], Number),
             select(l, 'lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes']], Number),
-            select(l, 'colonnes', [[6, '6 colonnes'], [10, '10 colonnes'], [15, '15 colonnes']], Number),
-            select(l, 'cadence', [['auto', 'cadence : selon mes temps'], ...[3, 2.5, 2, 1.6, 1.3, 1, 0.8].map((x) => [x, `départ : ${sec(x)} par ligne`])], (v) => (v === 'auto' ? v : Number(v))),
+            select(l, 'cadence', [['auto', 'cadence : là où je m\'étais arrêté'], ...[3, 2.5, 2, 1.6, 1.3, 1, 0.8].map((x) => [x, `départ : ${sec(x)} par ligne`])], (v) => (v === 'auto' ? v : Number(v))),
             caseA(l, 'metronome', 'clic à chaque ligne'),
             choixModeLievre(l),
             h('button', { class: 'btn principal', onclick: () => lancerLievre() }, 'Partir')))].filter(Boolean));
@@ -156,27 +155,33 @@ export default {
     function lancerLievre(cibles = null, accelere = false) {
       const r = { ...reglages.lievre };
       const { c, note } = contraintesDe(r, cibles);
-      const cadence = r.cadence === 'auto' ? cadenceDepart(tempsGestes(c.cibles), r.chiffres, accelere) : r.cadence;
+      // Mémoire par réglage : mêmes gestes, même façon, mêmes chiffres et lignes → on repart de
+      // la cadence atteinte la dernière fois (un peu ralentie), pas de zéro.
+      const cleMemoire = cleLievre({ cibles: c.cibles, mode: c.geste?.mode ?? '', chiffres: r.chiffres, lignes: r.lignes });
+      const gardee = cadenceLievre(cleMemoire);
+      const cadence = r.cadence !== 'auto' ? r.cadence : gardee ? cadenceReprise(gardee, accelere) : cadenceDepart(tempsGestes(c.cibles), r.chiffres, accelere);
       const cle = `lievre-${r.chiffres}-${r.lignes}`;
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
         h('h1', {}, `Le lièvre : ${c.libelle}`),
-        note ? h('p', { class: 'discret' }, note) : null);
+        note ? h('p', { class: 'discret' }, note) : null,
+        r.cadence === 'auto' && gardee ? h('p', { class: 'discret' }, `Reprise à ${sec(cadence)} par ligne : vous vous étiez arrêté à ${sec(gardee)} sur ce réglage.`) : null);
       courant = creerLievre(el, {
         contraintes: c,
         chiffres: r.chiffres,
         lignes: r.lignes,
-        colonnes: r.colonnes,
         cadence,
         metronome: r.metronome,
+        surCadence: (x) => memoriserLievre(cleMemoire, x),
         surFin: async (b) => {
           await enregistrerSession({ module: 'rythme', mode: 'lievre', reglages: { ...r, cibles: c.cibles }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
           const nouveau = b.meilleureCadence !== null && await proposerRecord(cle, b.meilleureCadence * 1000);
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
+            h('p', { class: 'discret' }, b.arret === 'choix' ? 'Course arrêtée à votre demande.' : `Course arrêtée à la ${b.erreurs}e erreur.`),
             h('p', {}, `Départ : ${sec(b.cadenceDepart)} par ligne`, b.meilleureCadence !== null ? ` · meilleure colonne réussie : ${sec(b.meilleureCadence)} par ligne` : '', ` · la prochaine fois : ${sec(b.cadenceFin)}`),
             nouveau ? h('p', { class: 'retour ok' }, 'Nouvelle meilleure cadence !') : null,
             h('div', { class: 'ligne' },
-              h('button', { class: 'btn principal', onclick: () => { reglages.lievre.cadence = b.cadenceFin; lancerLievre(cibles); } }, 'Continuer à cette cadence'),
+              h('button', { class: 'btn principal', onclick: () => { reglages.lievre.cadence = b.cadenceFin; lancerLievre(cibles); } }, 'Repartir à cette cadence'),
               h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'))));
         },
       });

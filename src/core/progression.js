@@ -583,6 +583,21 @@ export async function noterFeuille({ cle, libelle, t, justes, total }) {
   return { moyenne: avant.length ? avant.reduce((s, f) => s + f.t, 0) / avant.length : null, nombre: avant.length };
 }
 
+// ------------------------------------------------------------------ mémoire du lièvre
+
+/**
+ * Cadence atteinte au lièvre, par réglage (gestes visés, façon, chiffres, lignes) : la course
+ * suivante sur le même réglage repart de là. 60 réglages au plus (les plus anciens sortent).
+ */
+export async function memoriserLievre(cle, cadence) {
+  const m = (donnees.lievre ??= {});
+  m[cle] = { cadence: Math.round(cadence * 100) / 100, date: aujourdhui() };
+  const cles = Object.keys(m);
+  if (cles.length > 60) for (const c of cles.sort((a, b) => (m[a].date < m[b].date ? -1 : 1)).slice(0, cles.length - 60)) delete m[c];
+  await sauver();
+}
+export const cadenceLievre = (cle) => donnees.lievre?.[cle]?.cadence ?? null;
+
 // ------------------------------------------------------------------ planches récentes
 
 /**

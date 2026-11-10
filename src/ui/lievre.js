@@ -8,6 +8,9 @@
  * du retard sur les yeux, la ligne est perdue. À la fin, on tape le résultat.
  *
  * 3 colonnes justes d'affilée : le lièvre accélère de 10 %. Une erreur : il ralentit de 10 %.
+ * La course ne s'arrête qu'à la DEUXIÈME erreur, ou quand l'élève le décide (« Arrêter ») : tant
+ * qu'on tient, on continue. La cadence atteinte est rendue à chaque colonne (surCadence), pour
+ * que la course suivante sur le même réglage reparte de là au lieu de repartir de zéro.
  * Option métronome : un clic à chaque ligne, pour garder un écart régulier entre les nombres.
  * Les gestes sont notés sur la carte de maîtrise, au temps de la cadence imposée.
  */
@@ -34,9 +37,11 @@ const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maxi
  * @param {number} o.chiffres
  * @param {number} o.lignes          lignes par colonne
  * @param {number} o.cadence         secondes par ligne au départ
- * @param {number} o.colonnes        nombre de colonnes de la série
+ * @param {number} [o.erreursMax=2] la course s'arrête à cette erreur
+ * @param {number} [o.colonnes]      nombre de colonnes au plus (par défaut : sans limite)
  * @param {boolean} [o.metronome]
- * @param {(bilan) => any} o.surFin  { justes, total, cadenceDepart, meilleureCadence, cadenceFin }
+ * @param {(cadence:number) => any} [o.surCadence]  après chaque colonne : la cadence à retenir
+ * @param {(bilan) => any} o.surFin  { justes, total, erreurs, arret, cadenceDepart, meilleureCadence, cadenceFin }
  */
 export function creerLievre(conteneur, o) {
   const memoire = creerMemoire(6);
@@ -47,6 +52,9 @@ export function creerLievre(conteneur, o) {
   let serie = 0;
   let k = 0;
   let justes = 0;
+  let erreurs = 0;
+  const erreursMax = o.erreursMax ?? 2;
+  const colonnesMax = o.colonnes ?? Infinity;
   let col = null;
   let phase = 'pret';
   let minuterie = null;
@@ -56,16 +64,18 @@ export function creerLievre(conteneur, o) {
   const zone = h('div', {});
   const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'Résultat', 'aria-label': 'Résultat', disabled: true });
   const btn = h('button', { class: 'btn principal', onclick: () => action() });
+  const btnArret = h('button', { class: 'btn', style: 'display:none', title: 'Finir la course maintenant : la cadence atteinte est gardée pour la prochaine fois.', onclick: () => finir('choix') }, 'Arrêter');
   const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const racine = h('div', { class: 'lievre-jeu' },
     h('div', { class: 'ruban-entete' }, infoCadence, compteur),
     h('p', { class: 'ruban-consigne' }, 'Posez la ligne surlignée en lisant déjà la suivante. Le surligneur n\'attend pas : la ligne passée disparaît.'),
-    zone, h('div', { class: 'ligne' }, saisie, btn), retour);
+    zone, h('div', { class: 'ligne' }, saisie, btn, btnArret), retour);
   conteneur.append(racine);
   const majBouton = (t) => { remplir(btn, t, ' ', h('kbd', {}, 'Entrée')); btn.style.display = t ? '' : 'none'; };
   const majEntete = () => {
     infoCadence.textContent = `Lièvre : ${sec(cadence)} par ligne`;
-    compteur.textContent = `colonne ${Math.min(k + 1, o.colonnes)} / ${o.colonnes} · ${justes} juste${justes > 1 ? 's' : ''}`;
+    const reste = erreursMax - erreurs;
+    compteur.textContent = `colonne ${k + 1} · ${justes} juste${justes > 1 ? 's' : ''} · ${reste > 1 ? `${reste} erreurs permises` : 'plus qu\'une erreur permise'}`;
   };
 
   function colonne() {
@@ -87,6 +97,7 @@ export function creerLievre(conteneur, o) {
     racine.dataset.enCours = '1';
     majEntete();
     majBouton('');
+    btnArret.style.display = 'none';
     remplir(retour);
     saisie.value = '';
     saisie.disabled = true;
@@ -136,20 +147,30 @@ export function creerLievre(conteneur, o) {
       remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(col.resultat)}.`, accelere ? ` Le lièvre accélère : ${sec(cadence)} par ligne.` : '');
     } else {
       serie = 0;
+      erreurs += 1;
       cadence = borne(cadence / ACCELERATION);
       retour.className = 'retour erreur';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Le résultat était ${formaterNombre(col.resultat)}. Le lièvre ralentit : ${sec(cadence)} par ligne.`);
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Le résultat était ${formaterNombre(col.resultat)}. Le lièvre ralentit : ${sec(cadence)} par ligne.`,
+        erreurs < erreursMax ? ` Encore ${erreursMax - erreurs} erreur${erreursMax - erreurs > 1 ? 's' : ''} permise${erreursMax - erreurs > 1 ? 's' : ''} : on continue.` : '');
     }
-    if (k >= o.colonnes) {
-      phase = 'fin';
-      delete racine.dataset.enCours;
-      majBouton('');
-      o.surFin?.({ justes, total: k, cadenceDepart: borne(o.cadence), meilleureCadence: meilleure, cadenceFin: cadence });
-      return;
-    }
+    o.surCadence?.(cadence);
+    if (erreurs >= erreursMax) { finir('erreurs'); return; }
+    if (k >= colonnesMax) { finir('fin'); return; }
     phase = 'suite';
     majEntete();
     majBouton('Colonne suivante');
+    btnArret.style.display = '';
+  }
+
+  /** Fin de la course : à la dernière erreur permise, ou parce que l'élève l'a décidé. */
+  function finir(arret) {
+    if (phase === 'fin' || phase === 'defile') return;
+    phase = 'fin';
+    delete racine.dataset.enCours;
+    majBouton('');
+    btnArret.style.display = 'none';
+    saisie.disabled = true;
+    o.surFin?.({ justes, total: k, erreurs, arret, cadenceDepart: borne(o.cadence), meilleureCadence: meilleure, cadenceFin: cadence });
   }
 
   majEntete();
@@ -176,4 +197,18 @@ export function creerLievre(conteneur, o) {
 export function cadenceDepart(tParChiffre, chiffres, accelere = false) {
   const base = tParChiffre ? tParChiffre * chiffres * 1.3 : 1.6 + chiffres;
   return borne(base * (accelere ? 0.85 : 1));
+}
+
+/**
+ * Cadence de reprise : la dernière cadence atteinte sur ce réglage, un peu ralentie (5 %) pour
+ * se remettre en main. `accelere` (surentraînement) repart à la cadence atteinte, sans marge.
+ * @param {number} memorisee  dernière cadence gardée (secondes par ligne)
+ */
+export function cadenceReprise(memorisee, accelere = false) {
+  return borne(memorisee * (accelere ? 1 : 1.05));
+}
+
+/** Clé de la mémoire du lièvre : un réglage = les gestes visés, la façon, les chiffres, les lignes. */
+export function cleLievre({ cibles, mode = '', chiffres, lignes }) {
+  return `${[...cibles].sort().join(' ')}|${mode}|${chiffres}|${lignes}`;
 }
