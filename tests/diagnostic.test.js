@@ -75,3 +75,32 @@ test('erreur identifiée : ligne décalée d\'une tige', () => {
   const r = erreurIdentifiee(ex, 7119 + 333);
   assert.deepEqual([r.ligne, r.type], [2, 'decalee']);
 });
+
+import { amisInverses } from '../src/core/diagnostic.js';
+
+test('ami fait à l\'envers : +4 sur 3 fait « +5 +1 » au lieu de « +5 −1 »', () => {
+  // 3 + 4 = 7 ; à l'envers : 3 + 5 + 1 = 9, soit 2 de trop
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 3 }, { op: '+', n: 4 }], resultat: 7 };
+  assert.deepEqual(amisInverses(ex, 9).map((a) => [a.ligne, a.cle, a.complement]), [[1, '+4:petit', 1]]);
+  assert.match(diagnostiquerColonne(ex, 9)[0], /petit ami \(\+5 −1\).*\+5 \+1.*ajouté au lieu d'être retiré/);
+  assert.deepEqual(localiserErreur(ex, 9), { ligne: 1, motifs: ['+4:petit'], raison: 'petit ami fait à l\'envers' });
+  // Autre écart : rien
+  assert.deepEqual(amisInverses(ex, 10), []);
+});
+
+test('ami fait à l\'envers : grand ami en addition et petit ami en soustraction', () => {
+  // 7 + 8 = 15 (−2 +10) ; à l'envers +2 +10 = 19 : 4 de trop
+  const g = { type: 'addsub', lignes: [{ op: '+', n: 7 }, { op: '+', n: 8 }], resultat: 15 };
+  assert.deepEqual(amisInverses(g, 19).map((a) => [a.cle, a.complement, a.famille]), [['+8:grand', 2, 'grand']]);
+  // 6 − 3 = 3 (+2 −5) ; à l'envers −2 −5 : 4 de moins → −1, impossible sur le soroban, mais 16 − 3 = 13 → 9
+  const p = { type: 'addsub', lignes: [{ op: '+', n: 16 }, { op: '-', n: 3 }], resultat: 13 };
+  assert.deepEqual(amisInverses(p, 9).map((a) => a.cle), ['-3:petit']);
+  assert.match(diagnostiquerColonne(p, 9)[0], /retiré au lieu d'être ajouté/);
+});
+
+test('ami fait à l\'envers : deux lignes possibles, aucun geste accusé', () => {
+  // +4 petit ami deux fois sur la même tige : l'écart de 2 ne dit pas lequel
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 3 }, { op: '+', n: 4 }, { op: '-', n: 4 }, { op: '+', n: 4 }], resultat: 7 };
+  assert.equal(amisInverses(ex, 9).length, 2);
+  assert.equal(localiserErreur(ex, 9), null);
+});

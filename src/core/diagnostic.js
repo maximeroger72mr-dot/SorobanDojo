@@ -49,6 +49,37 @@ function causesEcartTige(ecart) {
 }
 
 /**
+ * Ami fait À L'ENVERS : le complément ajouté au lieu d'être retiré, ou l'inverse.
+ *  - petit ami +4 = +5 −1, fait +5 +1 : le résultat a 2 de trop (deux fois le complément) ;
+ *  - grand ami +8 = −2 +10, fait +2 +10 : 4 de trop ; en soustraction, autant de moins.
+ * L'écart vaut donc ± 2 × complément sur la tige du geste. Renvoie les gestes de la colonne
+ * qui expliquent exactement l'écart (souvent aucun, parfois plusieurs : à l'appelant de trancher).
+ * @returns {Array<{ ligne:number, cle:string, rang:number, complement:number, famille:'petit'|'grand' }>}
+ */
+export function amisInverses(ex, reponse) {
+  if (ex.type !== 'addsub' || ex.negatif || ex.decimales || reponse === null) return [];
+  const ecart = reponse - ex.resultat;
+  if (ecart === 0) return [];
+  const trouves = [];
+  occurrencesColonne(ex.lignes).forEach((ms, ligne) => ms.forEach(({ cle, rang }) => {
+    const { op, d, regle } = analyserMotif(cle);
+    if (regle !== 'petit' && regle !== 'grand') return;
+    const complement = (regle === 'petit' ? 5 : 10) - d;
+    if (ecart === (op === '+' ? 2 : -2) * complement * 10 ** rang) trouves.push({ ligne, cle, rang, complement, famille: regle });
+  }));
+  return trouves;
+}
+
+/** Phrase d'explication d'un ami fait à l'envers. */
+function phraseAmiInverse({ ligne, cle, rang, complement, famille }) {
+  const { op, d } = analyserMotif(cle);
+  const base = famille === 'petit' ? 5 : 10;
+  const juste = op === '+' ? (famille === 'petit' ? `+5 −${complement}` : `−${complement} +10`) : (famille === 'petit' ? `+${complement} −5` : `−10 +${complement}`);
+  const fait = op === '+' ? (famille === 'petit' ? `+5 +${complement}` : `+${complement} +10`) : (famille === 'petit' ? `−${complement} −5` : `−10 −${complement}`);
+  return `Ligne ${ligne + 1}, sur les ${nomRang(rang)} : ${signe(op)}${d} est un ${famille === 'petit' ? 'petit' : 'grand'} ami (${juste}). Le résultat correspond à ${fait} : le complément à ${base} (${complement}) a été ${op === '+' ? 'ajouté au lieu d\'être retiré' : 'retiré au lieu d\'être ajouté'}.`;
+}
+
+/**
  * Diagnostic d'une colonne d'addition/soustraction.
  * @param {{lignes:Array<{op,n}>, resultat:number}} ex
  */
@@ -63,6 +94,9 @@ export function diagnostiquerColonne(ex, reponse) {
     if (ecart === v) causes.push(`Le résultat correspond à ${nom} comptée deux fois.`);
     if (i > 0 && ecart === -2 * v) causes.push(`Le résultat correspond à ${nom} faite avec le mauvais signe.`);
   });
+  // Ami fait à l'envers : plus précis que « écart de 2 sur une tige », donc dit en premier.
+  const inverses = ex.lignes ? amisInverses({ type: 'addsub', ...ex }, reponse) : [];
+  causes.push(...inverses.slice(0, 2).map(phraseAmiInverse));
   causes.push(...causesEcartTige(ecart));
   if (chiffresEchanges(reponse, ex.resultat)) causes.push('Deux chiffres voisins sont inversés : erreur de lecture ou de recopie du soroban ?');
   return causes;
@@ -159,28 +193,33 @@ export function diagnostiquer(ex, reponse) {
 /**
  * Localise l'erreur d'une colonne fausse, SEULEMENT quand le résultat le prouve sans ambiguïté :
  *  - écart de 5 sur une tige : un seul geste de boule céleste (petit ami / combiné) sur cette tige ;
- *  - écart de 1 sur une tige : une seule retenue ou un seul emprunt venant de la tige de droite.
+ *  - écart de 1 sur une tige : une seule retenue ou un seul emprunt venant de la tige de droite ;
+ *  - écart de deux fois un complément : un seul ami de la colonne fait à l'envers (amisInverses).
  * Sinon renvoie null : on n'accuse aucun geste au hasard (l'élève peut indiquer la ligne lui-même).
  * @returns {{ ligne:number, motifs:string[], raison:string } | null}
  */
 export function localiserErreur(ex, reponse) {
   if (ex.type !== 'addsub' || ex.negatif) return null;
   const u = unSeulChiffre(reponse - ex.resultat);
-  if (!u) return null;
   const occ = occurrencesColonne(ex.lignes);
   const candidats = [];
-  occ.forEach((ms, ligne) => ms.forEach(({ cle, rang }) => {
-    const regle = analyserMotif(cle).regle;
-    if (Math.abs(u.d) === 5 && rang === u.k && (regle === 'petit' || regle === 'mixte')) candidats.push({ ligne, cle });
-    if (Math.abs(u.d) === 1 && u.k >= 1 && rang === u.k - 1 && (regle === 'grand' || regle === 'mixte' || regle === 'cascade')) candidats.push({ ligne, cle });
-  }));
+  if (u) {
+    occ.forEach((ms, ligne) => ms.forEach(({ cle, rang }) => {
+      const regle = analyserMotif(cle).regle;
+      if (Math.abs(u.d) === 5 && rang === u.k && (regle === 'petit' || regle === 'mixte')) candidats.push({ ligne, cle, raison: 'boule céleste' });
+      if (Math.abs(u.d) === 1 && u.k >= 1 && rang === u.k - 1 && (regle === 'grand' || regle === 'mixte' || regle === 'cascade')) candidats.push({ ligne, cle, raison: 'retenue ou emprunt' });
+    }));
+  }
+  // Ami à l'envers : seulement si aucune ligne oubliée, doublée ou de signe inversé n'explique
+  // aussi l'écart (3 + 4 + 2 répondu 11 : le +4 à l'envers, ou le +2 fait deux fois ? on ne sait pas).
+  const ecart = reponse - ex.resultat;
+  const parLigne = ex.lignes.some((l, i) => { const v = valeurSignee(l); return ecart === v || ecart === -v || (i > 0 && ecart === -2 * v); });
+  if (!parLigne) for (const a of amisInverses(ex, reponse)) candidats.push({ ligne: a.ligne, cle: a.cle, raison: `${a.famille} ami fait à l'envers` });
+  // Une seule ligne ET une seule explication : sinon on n'accuse aucun geste.
   const lignes = [...new Set(candidats.map((c) => c.ligne))];
-  if (lignes.length !== 1) return null;
-  return {
-    ligne: lignes[0],
-    motifs: [...new Set(candidats.map((c) => c.cle))],
-    raison: Math.abs(u.d) === 5 ? 'boule céleste' : 'retenue ou emprunt',
-  };
+  const raisons = [...new Set(candidats.map((c) => c.raison))];
+  if (lignes.length !== 1 || raisons.length !== 1) return null;
+  return { ligne: lignes[0], motifs: [...new Set(candidats.map((c) => c.cle))], raison: raisons[0] };
 }
 
 /** Motifs d'une ligne donnée (quand l'élève indique lui-même où il s'est trompé). */

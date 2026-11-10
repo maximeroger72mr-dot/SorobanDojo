@@ -398,8 +398,11 @@ export const PALIERS = [
       { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
         pourquoi: 'Avant de passer à deux chiffres, on consolide à un chiffre : tous les gestes mélangés, des chaînes de 5 ou 6 nombres, un peu plus vite. C\'est ici que l\'image devient vraiment stable.',
         demos: [] },
+      { id: 'pa-6', titre: 'Anzan : 2 chiffres, sans retenue', type: 'anzan', apres: 'p1-4', image: true, cibles: DIRECT, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 12,
+        pourquoi: 'Deux tiges dans la tête, mais rien que des gestes directs : aucune retenue, aucun ami. Les dizaines et les unités bougent chacune de leur côté. C\'est la marche entre un chiffre et le vrai calcul à deux chiffres : on y apprend seulement à tenir deux tiges nettes, de gauche à droite.',
+        demos: [] },
       { id: 'p5-a', titre: 'Anzan : 2 chiffres', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 12,
-        pourquoi: 'Deux tiges dans la tête, de gauche à droite comme au soroban : les dizaines, puis les unités. On revient à des chaînes courtes et à un affichage lent, avec l\'image d\'aide : la difficulté a changé, on repart doucement.',
+        pourquoi: 'Deux tiges, et maintenant tous les gestes : la retenue passe d\'une tige à l\'autre dans l\'image. On revient à des chaînes courtes et à un affichage lent, avec l\'image d\'aide : la difficulté a changé, on repart doucement.',
         demos: [] },
       { id: 'pa-m1', titre: 'Anzan : multiplier 2 chiffres par 1', type: 'mul', m: 2, n: 1, apres: 'p6-1', repetitions: 30, testMin: 12,
         pourquoi: 'Soroban rangé. La multiplication se fait dans la tête exactement comme sur les boules : on voit le premier produit se poser sur ses deux tiges, puis le second une tige plus à droite, et on LIT le total. Pour 37 × 8 : 24 d\'abord (2 et 4), puis 56 une tige à droite : le 5 s\'ajoute au 4 (grand ami), il reste 6. Faites les gestes dans l\'air. Si l\'image se brouille, ne devinez pas : reprenez depuis le premier produit.',
@@ -561,6 +564,10 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   if (sp.type === 'divarrondi') return genererDivisionDecimale(entre(1, 2), 2, 3);
   // Arrondi à l'unité (montants) : une multiplication sur deux, une division sur deux.
   if (sp.type === 'arrondiunite') return Math.random() < 0.5 ? genererMultiplicationDecimale(3, 2, 0) : genererDivisionDecimale(2, 3, 0);
+  // Piste anzan : × et ÷ de tête (ex.mental : soroban rangé, pas de mode « mains sur le soroban »).
+  if (sp.mental && (sp.type === 'mul' || sp.type === 'div')) {
+    return { ...(sp.type === 'mul' ? genererMultiplication(sp.m, sp.n) : genererDivision(sp.nd, alterner(sp.nq))), mental: true };
+  }
   if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
     if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);

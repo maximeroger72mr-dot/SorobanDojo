@@ -26,6 +26,7 @@ import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
+import { cadencer } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
 const reglages = { mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
@@ -97,7 +98,7 @@ export default {
       if (['mitori', 'mul', 'photo', 'tenir'].includes(r.mode)) {
         // Colonne fixe, multiplication ou visualisation : une série classique, de tête.
         const generer = {
-          mul: () => genererMultiplication(r.mulChiffres, 1),
+          mul: () => ({ ...genererMultiplication(r.mulChiffres, 1), mental: true }),
           mitori: () => ({ ...colonne(r.chiffres, r.termes, r.soustractions), motifs: undefined }),
           photo: () => genererPhoto(r.chiffres, r.duree, memoirePhoto),
           tenir: () => ({ ...genererPhoto(r.chiffres, 1.5, memoirePhoto), type: 'tenir', flash: { duree: 1.5, tenir: 3 } }),
@@ -155,15 +156,19 @@ export default {
         ecran.classList.remove('decompte');
         sorobanImage?.effacer();
         const totaux = sousTotaux(question.lignes);
-        for (let k = 0; k < question.lignes.length; k++) {
-          const l = question.lignes[k];
-          ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
-          sorobanImage?.definirValeur(Math.max(0, totaux[k]));
-          await attendre(r.duree * 850);
-          ecran.textContent = '';
-          await attendre(r.duree * 150);
-          if (!actif) return;
-        }
+        // Cadence calée sur l'horloge : pas de dérive, même à 0,3 s par nombre.
+        const { fini } = await cadencer({
+          periodeMs: r.duree * 1000,
+          nombre: question.lignes.length,
+          interrompu: () => !actif,
+          surAfficher: (k) => {
+            const l = question.lignes[k];
+            ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+            sorobanImage?.definirValeur(Math.max(0, totaux[k]));
+          },
+          surMasquer: () => { ecran.textContent = ''; },
+        });
+        if (!fini) return;
         ecran.textContent = '?';
         etat = 'reponse';
         saisie.style.display = '';

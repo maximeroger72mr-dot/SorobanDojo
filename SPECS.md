@@ -671,3 +671,13 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Allure par grade, affichage optionnel, examen pur, leçon de stratégie | Fait |
 | Dictée anzan par paliers, anzan × et ÷, épreuves d'anzan | Fait (formats d'anzan indicatifs) |
 | Non fait : cadence exacte du flash (A-1), sujet d'examen imprimable avec saisie différée (E-4), double passe (P-5), entrée à trois boutons (U-1), générateur injecté (P-6) | À faire |
+
+## Version 0.22.1
+
+| Changement | État |
+|---|---|
+| Anzan × et ÷ : exercices « de tête » (plus de case « Mains sur le soroban », textes adaptés), option « énoncé masqué après 4 s » | Fait |
+| Diagnostic : petit ami ou grand ami fait à l'envers (écart de deux fois le complément) ; le geste n'est accusé que si aucune autre explication ne tient | Fait |
+| Piste anzan : marche « 2 chiffres, sans retenue » (`pa-6`) avant les 2 chiffres complets | Fait |
+| Flash anzan : cadence calée sur l'horloge (`ui/cadence.js`), sans dérive cumulée | Fait |
+| Leçon `p7-e` : bouton vers le sprint d'estimation du quotient | Fait |

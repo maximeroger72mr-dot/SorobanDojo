@@ -30,11 +30,15 @@ import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
 import { creerCourse } from './course.js';
 import { sousTotaux } from '../core/generateur.js';
 
+/** Anzan × et ÷ : durée d'affichage de l'énoncé quand l'option « énoncé masqué » est cochée. */
+const DUREE_ENONCE_MENTAL_MS = 4000;
+
 /** Un exercice qui a une explication pas à pas (pas les exercices de visualisation). */
 /** Résultat attendu tel qu'il faut l'écrire (table : sur deux tiges, « 08 »). */
 const attenduTexte = (ex) => ex.attendu ?? valeur(ex, ex.resultat);
 const explicable = (ex) => !['photo', 'tenir', 'quotidien'].includes(ex.type) && !ex.negatif;
 import { ouvrirExplication } from './explication.js';
+import { cadencer } from './cadence.js';
 import { ouvrirDemo } from './panneauDemo.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
@@ -94,6 +98,12 @@ export function creerSerie(conteneur, o) {
   caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
   const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono dès que votre soroban est fini ; vous tapez ensuite le résultat (la frappe ne compte pas dans le temps).' },
     caseEspace, ' Mains sur le soroban (Espace)');
+  // Anzan × et ÷ : option « énoncé masqué » (il disparaît après quelques secondes).
+  const caseMasque = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().enonceMasque });
+  caseMasque.addEventListener('change', () => { modifierReglages({ enonceMasque: caseMasque.checked }); saisie.focus(); });
+  const choixMasque = h('label', { class: 'mode-espace', style: 'display:none', title: 'L\'opération s\'affiche quelques secondes, puis disparaît : vous la gardez sur votre soroban imaginaire. Appliqué à partir du calcul suivant.' },
+    caseMasque, ' Masquer l\'énoncé après 4 s');
+  let minuterieMasque = null;
   // Rappel doigté : pouce / index / pincée à côté de chaque ligne. Masqué d'office quand le geste
   // de la leçon est acquis (opts.doigteMasque), pour ne pas devenir une béquille.
   const caseDoigte = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().doigte });
@@ -106,7 +116,7 @@ export function creerSerie(conteneur, o) {
   const racine = h('div', { class: 'serie' },
     // Options repliées : pendant le calcul, seuls la colonne, la saisie et un petit chrono restent.
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }),
-      opts.defi ? null : h('details', { class: 'options-serie' }, h('summary', {}, 'Options'), h('div', { class: 'options-contenu' }, choixDoigte, choixEspace)),
+      opts.defi ? null : h('details', { class: 'options-serie' }, h('summary', {}, 'Options'), h('div', { class: 'options-contenu' }, choixDoigte, choixEspace, choixMasque)),
       fantome, chrono, compteur),
     course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
@@ -141,15 +151,18 @@ export function creerSerie(conteneur, o) {
   const durees = [];
   let espaceArrete = false; // mode Espace : chrono arrêté par Espace, on tape maintenant la réponse
   // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
-  const modeEspace = () => caseEspace.checked && !opts.defi && !ex?.flash;
+  // De tête aussi pour les × et ÷ d'anzan (ex.mental) : le soroban est rangé.
+  const deTete = () => !!(ex?.flash || ex?.mental);
+  const modeEspace = () => caseEspace.checked && !opts.defi && !deTete();
   function majModeEspace() {
-    choixEspace.style.display = ex?.flash ? 'none' : '';
+    choixEspace.style.display = deTete() ? 'none' : '';
+    choixMasque.style.display = ex?.mental ? '' : 'none';
     choixDoigte.style.display = ex?.type !== 'addsub' || ex?.flash || ex?.decimales || ex?.negatif || opts.doigteMasque?.() ? 'none' : '';
     const sansSaisie = (modeEspace() && !espaceArrete) || ex?.type === 'tenir';
     saisie.style.display = sansSaisie ? 'none' : '';
     btnSigne.style.display = !sansSaisie && ex?.negatif ? '' : 'none';
     btnValider.style.display = sansSaisie ? 'none' : '';
-    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : modeEspace() ? 'Calculez sur votre soroban, appuyez sur Espace dès qu\'il est fini, puis tapez le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : ex?.mental ? 'De tête, soroban rangé : voyez les boules bouger, puis tapez le résultat.' : modeEspace() ? 'Calculez sur votre soroban, appuyez sur Espace dès qu\'il est fini, puis tapez le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
   }
   let zoneLocalisationCourante = null;
   let timer = null;
@@ -218,6 +231,15 @@ export function creerSerie(conteneur, o) {
     btnBloque.disabled = false;
     saisie.inputMode = ex.decimales ? 'decimal' : 'numeric';
     debutExercice = performance.now();
+    clearTimeout(minuterieMasque);
+    if (ex.mental && caseMasque.checked) {
+      // Énoncé masqué après quelques secondes : il faut l'avoir posé dans la tête.
+      const cible = ex;
+      minuterieMasque = setTimeout(() => {
+        if (ex !== cible || phase !== 'question') return;
+        remplir(zoneEnonce, h('div', { class: 'enonce-masque', title: 'L\'énoncé a été masqué : il est posé sur votre soroban imaginaire.' }, '· · ·'));
+      }, DUREE_ENONCE_MENTAL_MS);
+    }
     if (ex.flash) jouerFlash(ex);
     else if (!modeEspace()) saisie.focus();
   }
@@ -273,16 +295,19 @@ export function creerSerie(conteneur, o) {
         h('button', { class: 'btn ko-btn', onclick: () => autoEvaluer(false) }, 'Non ', h('kbd', {}, 'N')));
       return;
     } else {
-      for (let k = 0; k < exo.lignes.length; k++) {
-        const l = exo.lignes[k];
-        if (interrompu()) return;
-        ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
-        // L'image suit le total, sans s'effacer entre deux nombres.
-        sorobanImage?.definirValeur(totaux[k]);
-        await attendre(exo.flash.duree * 850);
-        ecran.textContent = '';
-        await attendre(exo.flash.duree * 150);
-      }
+      // Cadence calée sur l'horloge (ui/cadence.js) : pas de dérive d'un nombre à l'autre.
+      await cadencer({
+        periodeMs: exo.flash.duree * 1000,
+        nombre: exo.lignes.length,
+        interrompu,
+        surAfficher: (k) => {
+          const l = exo.lignes[k];
+          ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+          // L'image suit le total, sans s'effacer entre deux nombres.
+          sorobanImage?.definirValeur(totaux[k]);
+        },
+        surMasquer: () => { ecran.textContent = ''; },
+      });
       vueImage?.detruire();
       remplir(zoneEnonce, ecran);
     }

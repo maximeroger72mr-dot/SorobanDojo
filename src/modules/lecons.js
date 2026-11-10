@@ -278,6 +278,14 @@ export default {
               : 'Avant de multiplier sur le soroban, les 81 produits une fois chacun : ceux qui sont faux ou plus lents que 2,5 s seront travaillés chaque jour. Un produit hésitant bloque toute la chaîne.',
             h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: fait ? 'btn' : 'btn principal', onclick: () => app.aller('drills', { tables: '81' }) }, fait ? 'Refaire les 81 produits' : 'Faire le diagnostic (81 produits)'))));
         }
+        if (sp.id === 'p7-e') {
+          // Estimer le quotient : le réflexe se travaille à part, d'une touche (sprint dans Tables).
+          const rec = progression().records['sprint-quotient'];
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Estimation du quotient. '),
+            'Le chiffre du quotient doit venir d\'un coup, déjà corrigé (150 ÷ 18 : 8, et non le 7 que donne l\'arrondi). 20 estimations à la suite, une touche par réponse : c\'est ce réflexe qui fait la vitesse des divisions par 2 chiffres.',
+            rec ? ` Votre record : ${formaterDuree(rec.dureeMs)}.` : '',
+            h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: rec ? 'btn' : 'btn principal', onclick: () => app.aller('drills', { quotient: true }) }, rec ? 'Refaire le sprint d\'estimation' : 'S\'entraîner à estimer (20 estimations)'))));
+        }
         const vitesse = encadreVitesse(sp);
         if (vitesse) zone.append(vitesse);
         if (sp.type === 'placement') {

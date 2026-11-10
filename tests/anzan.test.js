@@ -45,3 +45,31 @@ test('piste anzan : leçons de × et ÷ de tête, ouvertes après la leçon sur 
   }
   assert.equal(exigeVitesse(SOUS_PALIERS.find((s) => s.id === 'p6-1')), true);
 });
+
+test('anzan × et ÷ : exercices marqués « de tête » ; marche à 2 chiffres sans retenue avant les 2 chiffres complets', async () => {
+  const { genererExercice } = await import('../src/core/curriculum.js');
+  for (const id of ['pa-m1', 'pa-m2', 'pa-d1']) assert.equal(genererExercice(SOUS_PALIERS.find((s) => s.id === id)).mental, true, id);
+  assert.equal(genererExercice(SOUS_PALIERS.find((s) => s.id === 'p6-1')).mental, undefined);
+  const pa6 = SOUS_PALIERS.find((s) => s.id === 'pa-6');
+  const p5a = SOUS_PALIERS.find((s) => s.id === 'p5-a');
+  assert.ok(pa6.ordre < p5a.ordre && pa6.ordre > SOUS_PALIERS.find((s) => s.id === 'pa-5').ordre);
+  assert.ok([...pa6.autorises].every((m) => m.endsWith(':direct')), 'pa-6 : gestes directs seulement');
+  for (let i = 0; i < 20; i++) {
+    const ex = genererExercice(pa6);
+    assert.ok(ex.lignes.every((l) => l.n < 100) && ex.flash);
+  }
+});
+
+test('cadence : les échéances ne dérivent pas d\'un élément à l\'autre', async () => {
+  const { cadencer } = await import('../src/ui/cadence.js');
+  const instants = [];
+  const t0 = performance.now();
+  const r = await cadencer({ periodeMs: 40, nombre: 8, surAfficher: () => instants.push(performance.now() - t0), surMasquer: () => {} });
+  assert.equal(r.fini, true);
+  assert.equal(instants.length, 8);
+  // Le 8e élément tombe à 7 × 40 ms du départ, à 25 ms près (et non 7 retards cumulés).
+  assert.ok(Math.abs(instants[7] - 280) < 25, `8e affichage à ${instants[7].toFixed(1)} ms`);
+  let arret = 0;
+  const s = await cadencer({ periodeMs: 20, nombre: 10, surAfficher: () => { arret += 1; }, surMasquer: () => {}, interrompu: () => arret >= 3 });
+  assert.equal(s.fini, false);
+});
