@@ -53,12 +53,19 @@ export function motifsAppris(d) {
  * ÷1 chiffre ; 8e : × 3×1 et 2×2, ÷ à 2 chiffres ; 7e : ÷ 2 chiffres, quotient 2 chiffres).
  */
 const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
-export const PREREQUIS = {
-  10: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1'],
-  9: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p7-0', 'p7-1'],
-  8: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p6-2', 'p6-3', 'p7-0', 'p7-1', 'p7-2', 'p7-e', 'p7-3'],
-  7: [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1', 'p6-2', 'p6-3', 'p7-0', 'p7-1', 'p7-2', 'p7-e', 'p7-3', 'p7-4'],
-};
+const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1'];
+const K9 = [...K10, 'p7-0', 'p7-1'];
+const K8 = [...K9, 'p6-2', 'p6-3', 'p7-2', 'p7-e', 'p7-3'];
+const K7 = [...K8, 'p7-4'];
+// 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
+// était exigé dès le 6e kyū, décimaux et division par 3 chiffres compris).
+const K6 = [...K7, 'p6-4', 'p8-t1'];
+const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6'];
+const K4 = [...K5, 'p8-3', 'p8-5', 'p8-7'];
+const K3 = [...K4, ...idsPaliers('pd')];
+const K2 = [...K3, 'p9-1', 'p9-3', 'p9-5', 'p8-n'];
+const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6'];
+export const PREREQUIS = { 10: K10, 9: K9, 8: K8, 7: K7, 6: K6, 5: K5, 4: K4, 3: K3, 2: K2, 1: K1 };
 const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 
 /**

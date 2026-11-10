@@ -37,6 +37,18 @@ export function facteur(k) {
   return entier(10 ** (k - 1), 10 ** k - 1);
 }
 
+/**
+ * Facteur « net » : comme facteur, mais jamais terminé par 0. Un 0 final rend le calcul plus
+ * court (un produit « 00 » de moins à poser) et fait rencontrer la règle des zéros avant sa
+ * leçon : on le réserve aux leçons sur les zéros.
+ */
+export function facteurNet(k) {
+  for (;;) {
+    const n = facteur(k);
+    if (k === 1 || n % 10 !== 0) return n;
+  }
+}
+
 // ------------------------------------------------------------------ génération
 
 /**
@@ -60,8 +72,8 @@ export function facteurAvecZero(k) {
 
 /** Multiplication : a (m chiffres) × b (n chiffres). zeros : un facteur au moins contient un zéro. */
 export function genererMultiplication(m, n, zeros = false) {
-  let a = facteur(m);
-  let b = facteur(n);
+  let a = facteurNet(m);
+  let b = facteurNet(n);
   if (zeros) {
     if (m >= 2 && (n < 2 || Math.random() < 0.6)) a = facteurAvecZero(m);
     else b = facteurAvecZero(n);
@@ -71,8 +83,8 @@ export function genererMultiplication(m, n, zeros = false) {
 
 /** Division exacte : diviseur de `nd` chiffres, quotient de `nq` chiffres. zeros : quotient avec un zéro. */
 export function genererDivision(nd, nq, zeros = false) {
-  const diviseur = facteur(nd);
-  const quotient = zeros && nq >= 2 ? facteurAvecZero(nq) : facteur(nq);
+  const diviseur = facteurNet(nd);
+  const quotient = zeros && nq >= 2 ? facteurAvecZero(nq) : facteurNet(nq);
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };
 }
 
@@ -285,6 +297,8 @@ export function genererMultiplicationDecimale(m, n, decimales = 3) {
     // Pas de zéro final derrière une virgule (187,70 s'afficherait 187,7 : décimales trompeuses).
     if ((pa && A % 10 === 0) || (pb && B % 10 === 0)) continue;
     const k = pa + pb;
+    // decimales = 0 : résultat arrondi à l'unité (les montants des examens), s'il n'est pas entier.
+    if (decimales === 0 && (A * B) % 10 ** k === 0) continue;
     const arrondi = k > decimales;
     const resultat = arrondi ? diviserArrondi(A * B, 10 ** k, decimales) : (A * B) / 10 ** k;
     return { type: 'mul', a: A / 10 ** pa, b: B / 10 ** pb, resultat, decimales: arrondi ? decimales : k, arrondi, entiers: [A, B], virgules: [pa, pb] };
@@ -300,7 +314,8 @@ export function genererDivisionDecimale(nd, nq, decimales = 3) {
     const pb = entier(0, Math.min(nd - 1, 2));
     if ((pa && A % 10 === 0) || (pb && B % 10 === 0)) continue;
     const resultat = diviserArrondi(A * 10 ** pb, B * 10 ** pa, decimales);
-    if (resultat === 0 || Number.isInteger(resultat * 10)) continue; // éviter les quotients trop « ronds »
+    // Éviter les quotients trop « ronds » ; à l'unité (decimales = 0), la division ne doit pas tomber juste.
+    if (decimales === 0 ? (resultat < 10 || (A * 10 ** pb) % (B * 10 ** pa) === 0) : (resultat === 0 || Number.isInteger(resultat * 10))) continue;
     return { type: 'div', a: A / 10 ** pa, b: B / 10 ** pb, resultat, decimales, arrondi: true, entiers: [A, B], virgules: [pa, pb] };
   }
 }

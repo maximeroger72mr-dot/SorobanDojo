@@ -30,7 +30,7 @@ const RAPPELS = {
 /** La question de doigté d'une leçon (null : pas de question pour ce type de leçon). */
 export function questionDe(sp) {
   if (!sp || sp.mental || ['theorie', 'lire', 'complement', 'placement', 'table'].includes(sp.type)) return null;
-  const muldiv = ['mul', 'div', 'muldec', 'divdec', 'divarrondi'].includes(sp.type);
+  const muldiv = ['mul', 'div', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'].includes(sp.type);
   const cle = QUESTIONS[sp.id] ? sp.id : muldiv ? 'muldiv' : QUESTIONS[sp.palier?.id] ? sp.palier.id : null;
   return { cle: cle ?? 'generale', texte: cle ? QUESTIONS[cle] : GENERALE, rappel: RAPPELS[cle] ?? null };
 }

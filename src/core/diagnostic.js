@@ -150,7 +150,7 @@ export function diagnostiquer(ex, reponse) {
   if (ex.type === 'table') {
     return reponse === ex.resultat ? [`Le nombre est juste, mais il s'écrit sur DEUX tiges : « ${ex.attendu} ». La tige des dizaines compte même vide.`] : [`${ex.a} × ${ex.b} = ${ex.attendu}.`];
   }
-  if (ex.decimales) return diagnostiquerDecimal(ex, reponse);
+  if (ex.decimales || ex.virgules) return diagnostiquerDecimal(ex, reponse);
   if (ex.type === 'mul') return diagnostiquerMultiplication(ex, reponse);
   if (ex.type === 'div') return diagnostiquerDivision(ex, reponse);
   return diagnostiquerColonne(ex, reponse);

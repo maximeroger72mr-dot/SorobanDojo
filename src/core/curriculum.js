@@ -14,7 +14,7 @@
  *  - pourquoi    : explication du geste ; demos : exemples animés
  *  - type 'theorie'  : leçon à lire (Leçon 0), validée par « J'ai lu et compris » ;
  *  - type 'table'    : produit de la table à écrire sur DEUX chiffres (2 × 3 = « 06 ») ;
- *  - types décimaux  : 'addsubdec', 'muldec', 'divdec', 'divarrondi', placement op 'muldec' ;
+ *  - types décimaux  : 'addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite', placement op 'muldec' ;
  *  - type 'placement': réflexe de position (sur quelle tige commence la multiplication / division) ;
  *  - zeros : exercices avec zéros internes ; chiffresMax : alterne entre chiffres et chiffresMax ;
  *  - type 'anzan' : calcul mental en flash (nombres montrés un par un : `duree` secondes chacun),
@@ -34,7 +34,7 @@ import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
 import {
   genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
-  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale,
+  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale,
 } from './multiplication.js';
 
 const DIRECT = famille('direct');
@@ -245,26 +245,6 @@ export const PALIERS = [
     ],
   },
   {
-    id: 'pd', titre: 'Décimaux et arrondis',
-    sousPaliers: [
-      { id: 'pd-1', titre: 'Le point des unités : additions et soustractions de décimaux', type: 'addsubdec', repetitions: 30,
-        pourquoi: 'Les points de la barre servent de repère : on choisit l\'un d\'eux comme tige des unités, et TOUTES les virgules s\'alignent dessus. Les décimales se posent sur les tiges à sa droite (dixièmes, centièmes…). Pour 12,5 + 3,075 : 12 avant le point, 5 sur la 1re tige après ; puis 3 sur les unités, 0, 7, 5 sur les trois tiges suivantes. Rien d\'autre ne change : mêmes gestes, mêmes amis.',
-        demos: [] },
-      { id: 'pd-2', titre: 'Placer un produit décimal (compte des chiffres)', type: 'placement', op: 'muldec', repetitions: 30,
-        pourquoi: 'La méthode la plus rapide ne place pas la virgule à la fin : elle pose le premier produit directement au bon endroit. On compte les chiffres de chaque facteur AVEC SIGNE : 37,2 compte 2 (chiffres avant la virgule), 0,85 compte 0, 0,04 compte −1 (un zéro juste après la virgule). On additionne : la dizaine du premier produit va sur la tige de ce rang (2 → 2e tige avant la virgule ; 0 → 1re tige après la virgule ; −1 → 2e tige après). C\'est la règle « m + n » des entiers, prolongée.',
-        demos: [] },
-      { id: 'pd-3', titre: 'Multiplier des décimaux', type: 'muldec', repetitions: 30,
-        pourquoi: 'Compte des chiffres, puis 両落とし exactement comme avec des entiers. Le résultat se lit directement par rapport au point des unités. Vérification rapide : le nombre de décimales du résultat est la somme de celles des facteurs.',
-        demos: [] },
-      { id: 'pd-4', titre: 'Diviser des décimaux', type: 'divdec', repetitions: 30,
-        pourquoi: 'Le quotient a q chiffres avant la virgule, avec q = compte(dividende) − compte(diviseur), plus 1 si le début du dividende est plus grand ou égal au diviseur (le même test que pour poser le premier chiffre). Exemple : 1,56 ÷ 0,12 : 1 − 0 + 1 = 2 chiffres → 13. On divise comme d\'habitude, et on lit le quotient avec ce compte.',
-        demos: [] },
-      { id: 'pd-5', titre: 'Arrondir au millième', type: 'divarrondi', repetitions: 30,
-        pourquoi: 'Pour arrondir au millième, on calcule UNE décimale de plus (la 4e), puis on arrondit. Astuce rapide au soroban : on ajoute 5 sur la tige de cette 4e décimale ; si elle valait 5 ou plus, la retenue monte toute seule sur le millième. On lit ensuite jusqu\'au millième, sans rien effacer.',
-        demos: [] },
-    ],
-  },
-  {
     id: 'p8', titre: 'Vers le 5e et le 4e kyū',
     sousPaliers: [
       { id: 'p8-t1', titre: 'Transition : 3 chiffres, 6 à 7 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 6, lignesMax: 7, repetitions: 30, cumul: true,
@@ -294,8 +274,54 @@ export const PALIERS = [
       { id: 'p8-7', titre: 'Division par 3 chiffres', type: 'div', nd: 3, nq: 2, repetitions: 30, corrections: true,
         pourquoi: 'Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare les 3 premiers chiffres du dividende au diviseur pour savoir où poser le quotient.',
         demos: [{ a: 5832, b: 243 }] },
-      { id: 'p8-n', titre: 'Résultats négatifs : le complément (facultatif)', type: 'negatif', chiffres: 2, lignes: 4, repetitions: 20, optionnel: true,
-        pourquoi: 'Quand une soustraction « dépasse » (il faut retirer plus que ce qui est posé), on emprunte un 1 IMAGINAIRE sur la tige à gauche de la colonne (100 pour une colonne à 2 chiffres) et on continue normalement. À la fin, le soroban affiche le COMPLÉMENT du résultat : s\'il affiche 63 après un emprunt de 100, le résultat est −(100 − 63) = −37. Lecture rapide : complément à 9 de chaque chiffre, à 10 pour le dernier (63 → 3 et 7 → −37). Si le calcul repasse au-dessus de zéro, la retenue rend le 1 emprunté. Tapez le résultat avec le signe moins.',
+    ],
+  },
+  {
+    id: 'pd', titre: 'Décimaux et arrondis',
+    sousPaliers: [
+      { id: 'pd-1', titre: 'Le point des unités : additions et soustractions de décimaux', type: 'addsubdec', repetitions: 30,
+        pourquoi: 'Les points de la barre servent de repère : on choisit l\'un d\'eux comme tige des unités, et TOUTES les virgules s\'alignent dessus. Les décimales se posent sur les tiges à sa droite (dixièmes, centièmes…). Pour 12,5 + 3,075 : 12 avant le point, 5 sur la 1re tige après ; puis 3 sur les unités, 0, 7, 5 sur les trois tiges suivantes. Rien d\'autre ne change : mêmes gestes, mêmes amis.',
+        demos: [] },
+      { id: 'pd-2', titre: 'Placer un produit décimal (compte des chiffres)', type: 'placement', op: 'muldec', repetitions: 30,
+        pourquoi: 'La méthode la plus rapide ne place pas la virgule à la fin : elle pose le premier produit directement au bon endroit. On compte les chiffres de chaque facteur AVEC SIGNE : 37,2 compte 2 (chiffres avant la virgule), 0,85 compte 0, 0,04 compte −1 (un zéro juste après la virgule). On additionne : la dizaine du premier produit va sur la tige de ce rang (2 → 2e tige avant la virgule ; 0 → 1re tige après la virgule ; −1 → 2e tige après). C\'est la règle « m + n » des entiers, prolongée.',
+        demos: [] },
+      { id: 'pd-3', titre: 'Multiplier des décimaux', type: 'muldec', repetitions: 30,
+        pourquoi: 'Compte des chiffres, puis 両落とし exactement comme avec des entiers. Le résultat se lit directement par rapport au point des unités. Vérification rapide : le nombre de décimales du résultat est la somme de celles des facteurs.',
+        demos: [] },
+      { id: 'pd-4', titre: 'Diviser des décimaux', type: 'divdec', repetitions: 30,
+        pourquoi: 'Le quotient a q chiffres avant la virgule, avec q = compte(dividende) − compte(diviseur), plus 1 si le début du dividende est plus grand ou égal au diviseur (le même test que pour poser le premier chiffre). Exemple : 1,56 ÷ 0,12 : 1 − 0 + 1 = 2 chiffres → 13. On divise comme d\'habitude, et on lit le quotient avec ce compte.',
+        demos: [] },
+      { id: 'pd-5', titre: 'Arrondir au millième', type: 'divarrondi', repetitions: 30,
+        pourquoi: 'Pour arrondir au millième, on calcule UNE décimale de plus (la 4e), puis on arrondit. Astuce rapide au soroban : on ajoute 5 sur la tige de cette 4e décimale ; si elle valait 5 ou plus, la retenue monte toute seule sur le millième. On lit ensuite jusqu\'au millième, sans rien effacer.',
+        demos: [] },
+      { id: 'pd-6', titre: 'Arrondir à l\'unité (les montants)', type: 'arrondiunite', repetitions: 30,
+        pourquoi: 'Dans la seconde moitié des multiplications et des divisions d\'examen, les nombres sont des montants : le résultat s\'arrondit à l\'UNITÉ. Même geste que pour le millième, un cran plus haut : on calcule UNE décimale (le dixième), on ajoute 5 sur sa tige, et on lit jusqu\'aux unités. En multiplication, les décimales du produit se posent normalement ; seul le premier chiffre après le point des unités décide de l\'arrondi. Lisez bien la consigne en tête de chaque série : l\'erreur la plus fréquente est d\'arrondir au mauvais rang.',
+        demos: [] },
+    ],
+  },
+  {
+    id: 'p9', titre: 'Vers le 1er kyū',
+    sousPaliers: [
+      { id: 'p9-1', titre: '7 et 8 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 7, chiffresMax: 8, lignes: 10, repetitions: 20, cumul: true,
+        pourquoi: 'Le format du 2e kyū : 10 lignes de 8 chiffres. Aucun geste nouveau : ce qui change, c\'est la lecture. Lisez par tranches de 3 chiffres, repérées par les points de la barre (millions, milliers, unités), et posez chaque tranche pendant que l\'œil prend la suivante. Ne revenez jamais en arrière sur une ligne : mieux vaut une colonne refaite qu\'une ligne « rattrapée ».',
+        demos: [{ depart: 4072581, op: '+', n: 3964207 }] },
+      { id: 'p9-2', titre: '9 et 10 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 9, chiffresMax: 10, lignes: 10, repetitions: 20, cumul: true,
+        pourquoi: 'Le format du 1er kyū : 10 lignes de 10 chiffres, soit 100 chiffres par colonne. C\'est une épreuve d\'endurance : gardez un rythme égal du premier au dernier chiffre, sans accélérer sur les lignes faciles. La main gauche suit la ligne sur la feuille pour ne pas en sauter une.',
+        demos: [{ depart: 407258136, op: '+', n: 396420715 }] },
+      { id: 'p9-3', titre: 'Multiplication 4 × 4 et 5 × 4 chiffres', type: 'mul', m: 4, n: 4, mMax: 5, repetitions: 20,
+        pourquoi: 'Même méthode, plus de produits : 8 ou 9 chiffres au total, donc 16 ou 20 produits de table. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; ne le lâchez jamais, c\'est lui qui garde la place.',
+        demos: [{ a: 2468, b: 3751 }] },
+      { id: 'p9-4', titre: 'Multiplication 6 × 5 chiffres', type: 'mul', m: 6, n: 5, repetitions: 20,
+        pourquoi: 'Le format du 1er kyū : 11 chiffres au total, 30 produits de table à la suite. La difficulté est de ne perdre ni sa place sur la feuille ni sa tige sur le soroban. Dites intérieurement le chiffre du multiplicande en cours.',
+        demos: [{ a: 246813, b: 37519 }] },
+      { id: 'p9-5', titre: 'Division : diviseur à 4 chiffres', type: 'div', nd: 4, nq: 3, repetitions: 20, corrections: true,
+        pourquoi: 'On estime toujours avec le diviseur arrondi sur son premier chiffre (2 431 → 2 000, 2 780 → 3 000), puis on corrige de ±1. Avec 4 chiffres au diviseur, chaque chiffre du quotient demande 4 retraits : vérifiez l\'estimation de tête avant de poser.',
+        demos: [{ a: 1110967, b: 2431 }] },
+      { id: 'p9-6', titre: 'Division : 5 chiffres par 5 chiffres', type: 'div', nd: 5, nq: 5, repetitions: 20,
+        pourquoi: 'Le format du 1er kyū : diviseur et quotient à 5 chiffres, 10 chiffres au total. L\'unité du quotient est 6 tiges à gauche de l\'unité du dividende (5 chiffres au diviseur + 1). Comparez les 5 premiers chiffres du dividende au diviseur pour savoir où poser le premier chiffre.',
+        demos: [{ a: 760107726, b: 24318 }] },
+      { id: 'p8-n', titre: 'Résultats négatifs : le complément', type: 'negatif', chiffres: 2, lignes: 4, repetitions: 20,
+        pourquoi: 'Au 1er kyū, une colonne finit sous zéro ; cela peut arriver au 2e. Quand une soustraction « dépasse » (il faut retirer plus que ce qui est posé), on emprunte un 1 IMAGINAIRE sur la tige à gauche de la colonne (100 pour une colonne à 2 chiffres) et on continue normalement. À la fin, le soroban affiche le COMPLÉMENT du résultat : s\'il affiche 63 après un emprunt de 100, le résultat est −(100 − 63) = −37. Lecture rapide : complément à 9 de chaque chiffre, à 10 pour le dernier (63 → 3 et 7 → −37). Si le calcul repasse au-dessus de zéro, la retenue rend le 1 emprunté. Tapez le résultat avec le signe moins.',
         demos: [] },
     ],
   },
@@ -504,6 +530,8 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   if (sp.type === 'muldec') return genererMultiplicationDecimaleSimple(2, entre(1, 2));
   if (sp.type === 'divdec') return genererDivisionDecimaleExacte(entre(1, 2), 2);
   if (sp.type === 'divarrondi') return genererDivisionDecimale(entre(1, 2), 2, 3);
+  // Arrondi à l'unité (montants) : une multiplication sur deux, une division sur deux.
+  if (sp.type === 'arrondiunite') return Math.random() < 0.5 ? genererMultiplicationDecimale(3, 2, 0) : genererDivisionDecimale(2, 3, 0);
   if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
     if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);

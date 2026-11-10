@@ -43,8 +43,10 @@ test('chaque sous-palier génère des exercices stricts ; ses démos sont valide
         continue;
       }
       if (ex.virgules) {
-        if (ex.type === 'mul') assert.ok(Math.abs(ex.a * ex.b - ex.resultat) <= 0.0005 + 1e-9, `${sp.id} ${ex.a}×${ex.b}`);
-        else assert.ok(Math.abs(ex.a / ex.b - ex.resultat) <= 0.0005 + 1e-9, `${sp.id} ${ex.a}÷${ex.b}`);
+        // Tolérance : une demi-unité du rang d'arrondi (millième, ou unité pour les montants).
+        const tol = 0.5 * 10 ** -(ex.arrondi ? ex.decimales : 3) + 1e-9;
+        if (ex.type === 'mul') assert.ok(Math.abs(ex.a * ex.b - ex.resultat) <= tol, `${sp.id} ${ex.a}×${ex.b}`);
+        else assert.ok(Math.abs(ex.a / ex.b - ex.resultat) <= tol, `${sp.id} ${ex.a}÷${ex.b}`);
         continue;
       }
       if (sp.zeros && ex.type === 'mul') assert.ok(/0/.test(`${ex.a}${ex.b}`), sp.id);
@@ -60,7 +62,7 @@ test('chaque sous-palier génère des exercices stricts ; ses démos sont valide
     }
     if (sp.type === 'addsub') {
       for (const d of sp.demos) {
-        const a = analyserOperation(d.depart, d.op, d.n, 8);
+        const a = analyserOperation(d.depart, d.op, d.n, 14); // assez de tiges pour les colonnes à 10 chiffres
         assert.ok(a && a.motifs.every((m) => sp.autorises.has(m)), `${sp.id} démo ${d.depart}${d.op}${d.n} : ${a?.motifs}`);
       }
     }

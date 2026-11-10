@@ -48,7 +48,7 @@ const SEUIL_SPRINT = 0.7;
 function resume(g) {
   const m = g.mitori;
   const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.soustractions ? ', additions et soustractions' : ''}`];
-  const dec = (f) => (f.decimales ? `, moitié en décimaux (arrondi ${f.decimales === 4 ? 'au dix-millième' : 'au millième'})` : '');
+  const dec = (f) => (f.decimales ? ', un problème sur deux en décimaux (arrondi au millième dans la première moitié, à l\'unité dans la seconde)' : '');
   if (g.mul) p.push(`multiplication ${g.mul.nb} × (${g.mul.total} chiffres au total${dec(g.mul)})`);
   if (g.div) p.push(`division ${g.div.nb} × (diviseur + quotient : ${g.div.total} chiffres${dec(g.div)})`);
   return p.join(' · ');
