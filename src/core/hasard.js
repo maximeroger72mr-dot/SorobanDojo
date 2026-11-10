@@ -4,7 +4,7 @@
  */
 
 /** Générateur pseudo-aléatoire mulberry32 (rapide, suffisant pour des exercices). */
-function mulberry32(graine) {
+export function mulberry32(graine) {
   let a = graine >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -35,4 +35,38 @@ export function semaineISO(date) {
   const debutAnnee = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const semaine = Math.ceil(((d - debutAnnee) / 86400000 + 1) / 7);
   return { annee: d.getUTCFullYear(), semaine, cle: `${d.getUTCFullYear()}-S${String(semaine).padStart(2, '0')}` };
+}
+
+// ------------------------------------------------------------------ graines et codes de planche
+
+/** Alphabet des codes : 32 signes, sans 0, O, 1 ni I (trop faciles à confondre sur papier). */
+const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+/** Graine tirée au hasard (30 bits : elle tient dans un code de 6 signes). */
+export function graineAleatoire() {
+  return Math.floor(Math.random() * 2 ** 30);
+}
+
+/** Code de 6 signes d'une graine (affiché sur la planche, imprimé avec elle). */
+export function codeDepuisGraine(graine) {
+  let g = graine >>> 0;
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code = ALPHABET[g % 32] + code;
+    g = Math.floor(g / 32);
+  }
+  return code;
+}
+
+/** Graine d'un code tapé (majuscules ou minuscules, espaces tolérés) ; null si le code est invalide. */
+export function graineDepuisCode(code) {
+  const c = String(code ?? '').toUpperCase().replace(/\s/g, '');
+  if (c.length !== 6) return null;
+  let g = 0;
+  for (const s of c) {
+    const v = ALPHABET.indexOf(s);
+    if (v < 0) return null;
+    g = g * 32 + v;
+  }
+  return g;
 }

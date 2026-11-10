@@ -275,7 +275,10 @@ export function genererColonne(params) {
  *  2. pas d'alternance A, B, A, B ;
  *  3. au moins 3 valeurs différentes dans une colonne de 5 lignes ou plus ;
  *  4. aucune valeur sur plus de la moitié des lignes (3 « −2 » au plus sur 6 lignes) ;
- *  5. un geste choisi seul (une seule cible) jamais deux lignes de suite.
+ *  5. un geste choisi seul (une seule cible) jamais deux lignes de suite ;
+ *  6. à 2 chiffres et plus : aucun passage par zéro (un sous-total nul se lit sans calculer) ;
+ *  7. à 2 chiffres et plus : pas trois lignes de suite avec le même chiffre des unités ;
+ *  8. à 3 chiffres et plus : un seul nombre à chiffres tous identiques (333) par colonne.
  * strict = false : seulement les règles 1 et 2.
  */
 export function colonneValide(col, cibles = [], strict = true) {
@@ -292,6 +295,11 @@ export function colonneValide(col, cibles = [], strict = true) {
     const vise = col.motifsLignes.slice(1).map((ms) => ms.includes(cibles[0]));
     for (let i = 1; i < vise.length; i++) if (vise[i] && vise[i - 1]) return false;
   }
+  const large = Math.max(...N.map((n) => String(n).length));
+  // À 1 chiffre, les colonnes possibles sont trop peu nombreuses pour interdire le passage par zéro.
+  if (large >= 2 && sousTotaux(col.lignes).some((v) => v === 0)) return false;
+  if (large >= 2) for (let i = 2; i < N.length; i++) if (N[i] % 10 === N[i - 1] % 10 && N[i] % 10 === N[i - 2] % 10) return false;
+  if (large >= 3 && N.filter((n) => n >= 100 && new Set(String(n)).size === 1).length > 1) return false;
   return true;
 }
 

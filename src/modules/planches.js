@@ -7,11 +7,12 @@
  * se limite aux gestes des leçons validées.
  */
 
-import { genererColonneVariee, creerMemoire, ErreurGeneration } from '../core/generateur.js';
-import { genererColonneGeste, creerMemoirePlanche, libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
-import { entier } from '../core/aleatoire.js';
+import { ErreurGeneration } from '../core/generateur.js';
+import { libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
+import { genererPlanche, genererPlancheGeste } from '../core/planche.js';
+import { graineAleatoire } from '../core/hasard.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
-import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression } from '../core/progression.js';
+import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
@@ -117,6 +118,30 @@ function historiqueFeuilles() {
     h('table', {}, h('tr', {}, ['Type de feuille', 'Feuilles', 'Dernière', 'Moyenne (10 dernières)', 'Meilleure', 'Tendance'].map((x) => h('th', {}, x))), lignes));
 }
 
+/**
+ * Ce que la planche fait travailler, avant de commencer : son code, sa charge, les gestes visés
+ * les plus présents, et les replis (ce que les réglages n'ont pas permis).
+ */
+function resumePlanche(planche, rejeu) {
+  const b = planche.bilan;
+  const vus = Object.entries(b.occurrences).sort((x, y) => y[1] - x[1]);
+  const gestes = vus.slice(0, 4).map(([cle, n]) => `${nomMotif(cle)} × ${n}`).join(' · ');
+  const reste = vus.length > 4 ? ` · et ${vus.length - 4} autre${vus.length - 4 > 1 ? 's' : ''}` : '';
+  const messages = [];
+  for (const rp of b.replis ?? []) {
+    if (rp.type === 'impossibles') messages.push(`Impossible avec ces réglages, donc absent de la planche : ${rp.cibles.map(nomMotif).join(', ')}.`);
+    if (rp.type === 'assoupli') messages.push('Pour ce geste, les combinaisons possibles sont peu nombreuses : quelques colonnes répètent une valeur plus souvent que d\'habitude.');
+    if (rp.type === 'simples') messages.push(`${rp.nombre} colonne${rp.nombre > 1 ? 's' : ''} sans piège : le geste et des gestes directs seulement.`);
+    if (rp.type === 'sansFamille') messages.push('Aucun autre ami de cette famille n\'est encore appris : la planche travaille le geste seul.');
+  }
+  if (b.absents?.length) messages.push(`Pas trouvé de place pour : ${b.absents.map(nomMotif).join(', ')}.`);
+  return h('div', { class: 'carte resume-planche' },
+    h('p', {}, h('strong', {}, `Planche ${planche.code}`), rejeu ? ' (rejouée)' : '',
+      h('span', { class: 'discret', title: 'La charge additionne les gestes de la planche : un geste direct pèse 0,6, un petit ami 1, un grand ami 1,1, une combinaison ou une cascade 1,4. Elle sert à comparer deux planches du même format.' }, ` · charge ${Math.round(b.coutTotal)}`)),
+    gestes ? h('p', { class: 'discret' }, `Gestes travaillés : ${gestes}${reste}.`) : null,
+    messages.map((m) => h('p', { class: 'retour' }, m)));
+}
+
 export default {
   id: 'planches',
   titre: 'Planches',
@@ -147,6 +172,18 @@ export default {
     const motifsPar = (regle) => TOUS_LES_MOTIFS.filter((c) => analyserMotif(c).regle === regle).map((c) => [c, nomMotif(c)]);
 
     const zone = h('div', {});
+    // Rejouer une planche par son code (affiché sur la planche, imprimé avec elle).
+    const rejouerCode = () => {
+      const champ = h('input', { type: 'text', maxlength: 6, size: 8, placeholder: 'Code', 'aria-label': 'Code de la planche à rejouer', autocomplete: 'off' });
+      const retour = h('span', { class: 'discret' });
+      const ouvrir = () => {
+        const p = plancheMemorisee(champ.value);
+        retour.textContent = p ? '' : ' Code inconnu : seules les 20 dernières planches sont gardées.';
+        if (p) lancer(p);
+      };
+      champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ouvrir(); } });
+      return h('span', { class: 'discret rejouer-code' }, 'ou rejouer le code ', champ, ' ', h('button', { class: 'btn', onclick: ouvrir }, 'Ouvrir'), retour);
+    };
     // Pour un geste : « −2 petit ami » (seul, avec des gestes directs et un piège) ou
     // « −2 parmi les petits amis » (au milieu des autres amis de sa famille).
     const choixMode = h('select', { onchange: (e) => { reglages.mode = e.target.value; } });
@@ -181,85 +218,75 @@ export default {
           ['Combinaisons', motifsPar('mixte')],
         ]),
         choixMode,
-        h('button', { class: 'btn principal', onclick: () => { reglages.proposition = null; lancer(); } }, 'Créer la planche')),
+        h('button', { class: 'btn principal', onclick: () => { reglages.proposition = null; lancer(); } }, 'Créer la planche'),
+        rejouerCode()),
       zone, historiqueFeuilles());
 
-    function lancer() {
+    /**
+     * Crée et affiche une planche. `rejeu` : une planche déjà créée (bouton « Rejouer », ou code
+     * tapé), reprise telle quelle : mêmes colonnes, même ordre.
+     */
+    function lancer(rejeu = null) {
       feuille?.detruire();
       remplir(zone);
-      const r = { ...reglages };
-      let c = contraintes(r.cible);
+      const r = rejeu ? { ...rejeu.reglages } : { ...reglages };
+      let c = rejeu ? { cibles: rejeu.cibles, libelle: rejeu.libelle } : contraintes(r.cible);
       if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
-      // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
-      let problemes = null;
-      const geste = gesteTravaillable(r.cible);
-      if (geste) {
-        const mode = r.mode === 'famille' ? 'famille' : 'seul';
-        const libelle = libellesModes(r.cible)[mode];
-        const memoireP = creerMemoirePlanche();
-        const appris = motifsAppris();
-        problemes = [];
-        for (let k = 0; k < r.colonnes; k++) {
-          const lignes = Math.max(4, r.lignes + entier(-1, 1)); // longueurs mélangées autour du réglage
-          let col = null;
-          for (let e = 0; e < 5 && !col; e++) {
-            try { col = genererColonneGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes, appris }, memoireP); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; }
+      let planche = rejeu;
+      const mode = r.mode === 'famille' ? 'famille' : 'seul';
+      if (!planche) {
+        const graine = graineAleatoire();
+        // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
+        if (gesteTravaillable(r.cible)) {
+          planche = genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine);
+          if (planche) {
+            planche.parRoles = true;
+            c = { cibles: [r.cible], libelle: libellesModes(r.cible)[mode] };
+          } else {
+            zone.append(h('p', { class: 'retour' }, 'Ce geste ne permet pas de former ces colonnes avec ces réglages : planche classique.'));
           }
-          if (!col) { problemes = null; break; }
-          problemes.push(col);
         }
-        if (problemes) {
-          c = { cibles: [r.cible], libelle };
-          zone.append(h('p', { class: 'discret' }, mode === 'famille'
-            ? 'Le geste 2 fois par colonne, au milieu d\'autres amis de sa famille, avec un piège (le même chiffre fait par un autre geste) et des gestes directs : choisissez le bon geste à chaque ligne.'
-            : 'Le geste 2 fois par colonne, des gestes directs, et un piège : le même chiffre, mais en geste direct. Regardez la tige avant d\'agir.'));
-          if (problemes.some((x) => x.sansFamille)) zone.append(h('p', { class: 'retour' }, 'Aucun autre ami de cette famille n\'est encore appris : la planche travaille le geste seul.'));
-        } else {
-          zone.append(h('p', { class: 'retour' }, 'Ce geste ne permet pas de former ces colonnes avec ces réglages : planche classique.'));
-        }
-      }
-      // Mémoire de la taille de la feuille : toutes les colonnes ont des résultats différents.
-      const memoire = creerMemoire(r.colonnes);
-      if (!problemes) {
-      const poids = poidsAdaptatifs(c.cibles);
-      for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
-      // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
-      // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
-      // mode normal, puis tous les gestes appris.
-      const config = { chiffres: r.chiffres, lignes: r.lignes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros };
-      const replis = [
-        [config, null],
-        [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
-        [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
-      ];
-      for (const [p, message] of replis) {
-        try {
-          const sigs = new Set();
-          problemes = [];
-          for (let k = 0; problemes.length < r.colonnes && k < r.colonnes * 4; k++) {
-            const col = genererColonneVariee(p, memoire);
-            const sig = col.lignes.map((l) => `${l.op}${l.n}`).join();
-            if (sigs.has(sig)) continue;
-            sigs.add(sig);
-            problemes.push(col);
+        if (!planche) {
+          const poids = poidsAdaptatifs(c.cibles);
+          for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
+          // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
+          // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
+          // tous les gestes appris.
+          const config = { chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros };
+          const replis = [
+            [config, null],
+            [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
+            [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
+          ];
+          for (const [p, message] of replis) {
+            try {
+              planche = genererPlanche(p, graine);
+              if (message) zone.append(h('p', { class: 'retour' }, message));
+              break;
+            } catch (e) {
+              if (!(e instanceof ErreurGeneration)) throw e;
+              planche = null;
+            }
           }
-          if (problemes.length < r.colonnes) throw new ErreurGeneration('pas assez de colonnes différentes');
-          if (message) zone.append(h('p', { class: 'retour' }, message));
-          break;
-        } catch (e) {
-          if (!(e instanceof ErreurGeneration)) throw e;
-          problemes = null;
         }
+        if (!planche) { zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez d\'autres réglages.')); return; }
+        Object.assign(planche, { reglages: r, cibles: c.cibles, libelle: c.libelle });
+        memoriserPlanche(planche);
       }
+      const problemes = planche.colonnes;
+      if (planche.parRoles) {
+        zone.append(h('p', { class: 'discret' }, mode === 'famille'
+          ? 'Le geste 2 fois par colonne, au milieu d\'autres amis de sa famille, avec un piège (le même chiffre fait par un autre geste) et des gestes directs : choisissez le bon geste à chaque ligne.'
+          : 'Le geste 2 fois par colonne, des gestes directs, et un piège : le même chiffre, mais en geste direct. Regardez la tige avant d\'agir.'));
       }
-      if (!problemes) { zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez d\'autres réglages.')); return; }
-      if (problemes.some((x) => x.assoupli)) zone.append(h('p', { class: 'discret' }, 'Pour ce geste, les combinaisons possibles sont peu nombreuses : quelques colonnes répètent une valeur plus souvent que d\'habitude.'));
-      const suffixe = geste ? `-${r.mode === 'famille' ? 'famille' : 'seul'}` : '';
+      zone.append(resumePlanche(planche, !!rejeu));
+      const suffixe = planche.parRoles ? `-${mode}` : '';
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${r.cible}${suffixe}`;
+      const titre = `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,
-        historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${suffixe}`, libelle: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes` },
-        titre: `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`,
+        historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${suffixe}`, libelle: titre },
+        titre: `${titre} · planche ${planche.code}`,
         sections: [{ problemes }],
         surFin: (b) => {
           (async () => {
@@ -275,13 +302,16 @@ export default {
             }
             await enregistrerSession({ module: 'planches', mode: r.cible, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           })();
-          const record = b.justes === b.total ? proposerRecord(cleRecord, b.dureeMs) : Promise.resolve(false);
+          // Record : seulement sur une planche découverte (rejouée, on connaît déjà les colonnes).
+          const record = b.justes === b.total && !rejeu ? proposerRecord(cleRecord, b.dureeMs) : Promise.resolve(false);
           const info = h('p', {}, `Réussite ${formaterPourcent(b.justes, b.total)} · temps ${formaterDuree(b.dureeMs)}`);
           record.then((oui) => { if (oui) info.append(' · nouveau record personnel !'); });
           return h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`), info,
             h('p', { class: 'discret' }, 'Sur une colonne fausse, « Expliquer » montre chaque ligne avec ses sous-totaux.'),
-            h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle planche'));
+            h('div', { class: 'actions' },
+              h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle planche'),
+              h('button', { class: 'btn', title: 'Les mêmes colonnes, dans le même ordre : pour comparer deux temps sur la même planche.', onclick: () => lancer(planche) }, 'Rejouer cette planche')));
         },
       });
     }

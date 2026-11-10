@@ -583,6 +583,29 @@ export async function noterFeuille({ cle, libelle, t, justes, total }) {
   return { moyenne: avant.length ? avant.reduce((s, f) => s + f.t, 0) / avant.length : null, nombre: avant.length };
 }
 
+// ------------------------------------------------------------------ planches récentes
+
+/**
+ * Garde une planche créée (ses colonnes, dans l'ordre), pour la rejouer telle quelle ou saisir
+ * plus tard les réponses d'une planche imprimée. Les 20 dernières planches sont gardées.
+ */
+export async function memoriserPlanche(p) {
+  const liste = (donnees.planches ??= []).filter((x) => x.code !== p.code);
+  liste.push({
+    code: p.code, graine: p.graine, date: aujourdhui(), reglages: p.reglages, cibles: p.cibles, libelle: p.libelle,
+    parRoles: !!p.parRoles, bilan: p.bilan,
+    colonnes: p.colonnes.map((c) => ({ type: 'addsub', lignes: c.lignes, resultat: c.resultat, motifs: c.motifs, motifsLignes: c.motifsLignes, roles: c.roles, cout: c.cout })),
+  });
+  donnees.planches = liste.slice(-20);
+  await sauver();
+}
+
+/** Planche gardée, par son code (majuscules ou minuscules) ; null si elle n'y est plus. */
+export function plancheMemorisee(code) {
+  const c = String(code ?? '').toUpperCase().replace(/\s/g, '');
+  return (donnees.planches ?? []).find((p) => p.code === c) ?? null;
+}
+
 // ------------------------------------------------------------------ erreurs à rejouer
 
 /** Signature d'une colonne (pour ne pas la garder deux fois). */

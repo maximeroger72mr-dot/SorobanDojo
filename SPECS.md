@@ -631,3 +631,30 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 - Wikipédia japonais, 日本商工会議所主催珠算能力検定 : https://ja.wikipedia.org/wiki/日本商工会議所主催珠算能力検定
 - Synthèse par grade : https://seo-sem.co.jp/contents/sorobanfukyu/count/exam1.html
 - Concurrent : https://www.kani-math.com/ , /tools , /tools/flash-anzan , /tools/abacus-worksheet-generator
+
+# ANNEXE C — Avancement et corrections du document
+
+## Lot P livré (branche `claude/audit-specs`)
+
+| Ticket | État | Résultat mesuré (`npm run banc`) |
+|---|---|---|
+| P-0 Banc de qualité | Fait | `npm run banc`, `--json`, `--seuils` ; graines fixes |
+| P-1 Graine et code | Fait | Code à 6 signes sur la planche et à l'impression ; « Rejouer cette planche » ; rejeu par code (20 dernières planches gardées) ; record seulement sur une planche découverte |
+| P-2 Planificateur | Fait | Couverture à 2 chiffres × 5 lignes : 84 % → 100 % ; plus aucun geste réalisable absent à 2 chiffres et plus |
+| P-3 Charge, bilan, rampe | Fait | Charge par colonne et par planche, résumé avant de commencer, colonnes en rampe ; dispersion de la charge 2,2 à 4,3 % |
+| P-4 Repli par colonne, variété | Fait | Planches « un geste » abandonnées : 0 % (colonne simple en remplacement) ; règles V-1, V-3, V-4 |
+| P-5 Double passe | À faire | |
+| P-6 Générateur injecté | À faire (facultatif) | |
+
+Écarts par rapport à la spécification :
+
+- Le rejeu par code passe par la mémoire des 20 dernières planches, pas par une reconstruction depuis la graine : les poids dépendent de la progression de l'élève, qui change entre deux séances. La graine reste la source du tirage (tests, banc).
+- V-1 (passage par zéro) ne s'applique qu'à partir de 2 chiffres : à 1 chiffre, les colonnes possibles sont trop peu nombreuses. V-2 n'est pas implémentée (cas trop rare pour justifier un rejet).
+- Les planches « un geste » demandent 360 ms en moyenne (130 ms avant), à cause des essais supplémentaires avant repli.
+- À 1 chiffre × 5 lignes, la couverture « tout mélangé » est de 99,4 % : quelques gestes rares n'ont pas toujours leur place.
+
+## Corrections de l'audit
+
+- **Test instable découvert** : `tests/jeux.test.js` (« −2 petit ami », variété de la planche) échouait environ une fois sur trois sur le commit d'origine (9 échecs sur 25 lancements). L'annonce « 105 tests sur 105 » en tête de ce document reposait sur deux lancements chanceux. Le test tourne maintenant sur une graine fixe.
+- **Cause réelle** : certains gestes à 1 chiffre n'offrent presque aucune colonne par rôles. « −1 petit ami » échouait sur 22 % des colonnes et répétait ses formes sur 99 % des planches. Le repli par colonne règle l'abandon ; la répétition des formes à 1 chiffre reste une limite du geste lui-même (conseil : le travailler à 2 chiffres).
+- **R-3 existe en partie** : les colonnes fausses sont déjà gardées et rejouées le lendemain (`noterErreurColonne`, écran `erreurs.js`, 30 colonnes sur 14 jours). Le ticket R-3 se réduit à étendre l'espacement (J+3, J+7) au lieu d'un seul rappel.

@@ -9,7 +9,8 @@
     "dist:win": "electron-builder --win portable",
     "html": "node scripts/construire-html.mjs",
     "polices": "node scripts/polices.mjs",
-    "verifier": "node scripts/verifier-ecrans.cjs"
+    "verifier": "node scripts/verifier-ecrans.cjs",
+    "banc": "node scripts/banc-planches.mjs"
   },
   "author": "",
   "license": "UNLICENSED",

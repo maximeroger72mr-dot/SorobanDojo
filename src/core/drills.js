@@ -20,6 +20,7 @@
  */
 
 import { occurrencesColonne } from './generateur.js';
+import { POIDS_GESTE } from './charge.js';
 
 const repeter = (n, fois, op = '+') => Array.from({ length: fois }, () => ({ op, n }));
 const somme = (ops) => ops.reduce((v, o) => (o.op === '+' ? v + o.n : v - o.n), 0);
@@ -114,7 +115,7 @@ export const CLASSEMENT = [
   { id: 'platine', nom: 'Platine', s: 0.35 },
 ];
 /** Poids d'un geste selon sa famille (un geste direct = 0,6 geste « petit ami »). */
-export const POIDS_GESTE = { direct: 0.6, petit: 1, grand: 1.1, mixte: 1.4, cascade: 1.4 };
+export { POIDS_GESTE };
 const memoPoids = new WeakMap();
 /** Charge d'un drill : somme des gestes, pondérés par leur difficulté. */
 export function poidsDrill(d) {

@@ -21,6 +21,7 @@ npm install
 npm start          # lance l'application Electron
 npm test           # tests du moteur
 npm run html       # reconstruit Soroban.html (fichier unique)
+npm run banc       # mesure la qualité des planches (couverture, charge, replis) ; --seuils pour un contrôle
 npm run dist:win   # Windows portable (.exe), à lancer sous Windows
 npm run dist:mac   # Mac (.dmg), à lancer sous macOS
 ```
@@ -49,6 +50,8 @@ Logique (`src/core/`) :
 | `gestes.js` | méthode japonaise : gestes, explications, classement en **motifs** (`+4:petit`, `-8:mixte`, `cascade+`…) |
 | `motifs.js` | catalogue des motifs : noms, geste exact (remédiation), exemple canonique |
 | `generateur.js` | colonnes aléatoires **strictement** limitées aux motifs permis, avec répétition maximale de la cible |
+| `planche.js` | **planche entière** : graine et code (même graine, même planche), tous les gestes visés présents, colonnes en rampe, bilan |
+| `charge.js` | charge d'une colonne d'après ses gestes (direct 0,6 ; petit ami 1 ; grand ami 1,1 ; combinaison et cascade 1,4) |
 | `curriculum.js` | **le parcours** : paliers, sous-paliers, répétitions, explications, démos. À éditer pour changer la progression |
 | `multiplication.js` | multiplication 両落とし et division 片落とし : génération et étapes de démonstration |
 | `diagnostic.js` | causes probables d'une réponse fausse (ligne oubliée, retenue, céleste, produit décalé…) |

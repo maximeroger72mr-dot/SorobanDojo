@@ -537,3 +537,8 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .objectif-planche { border-left: 3px solid var(--accent); }
 .but-proposition { color: var(--accent); font-weight: 600; }
 .plan-enroule summary { cursor: pointer; }
+.resume-planche { margin: 12px 0; }
+.resume-planche p { margin: 4px 0; }
+.rejouer-code input { font-family: var(--police-nombres, monospace); text-transform: uppercase; }
+.bilan .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media print { .resume-planche .retour { display: none; } }

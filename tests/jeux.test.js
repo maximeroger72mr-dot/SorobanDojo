@@ -14,11 +14,17 @@ function motifsLignes(col) {
   return col.lignes.slice(1).map((l) => { const a = analyserOperation(v, l.op, l.n, 12); v = a.resultat; return a.motifs; });
 }
 
-test('« −2 petit ami » / « parmi les petits amis » : rôles, pièges, variété de la planche', async () => {
+test('« −2 petit ami » / « parmi les petits amis » : rôles, pièges, variété de la planche', async (t) => {
   const { genererColonneGeste, creerMemoirePlanche, libellesModes } = await import('../src/core/colonneGeste.js');
   const { colonneValide } = await import('../src/core/generateur.js');
   const appris = new Set([...famille('direct'), ...famille('petit'), ...famille('grand'), ...famille('mixte')]);
   assert.deepEqual(libellesModes('-2:petit'), { seul: '−2 petit ami', famille: '−2 parmi les petits amis' });
+  // Hasard à graine fixe : ce test tirait au sort et échouait environ une fois sur trois
+  // (« −2 petit ami » à 1 chiffre n'a pas toujours 9 formes de colonne différentes sur 10).
+  const { mulberry32 } = await import('../src/core/hasard.js');
+  const hasardNormal = Math.random;
+  t.after(() => { Math.random = hasardNormal; });
+  Math.random = mulberry32(20261110);
   for (const [cible, mode, ch] of [['-2:petit', 'seul', 1], ['-2:petit', 'famille', 1], ['-2:petit', 'seul', 2], ['+9:grand', 'seul', 1], ['+7:mixte', 'famille', 2]]) {
     const m = creerMemoirePlanche();
     const formes = new Set();
