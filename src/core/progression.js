@@ -641,19 +641,48 @@ export async function noterErreurColonne(ex) {
   await sauver();
 }
 
-/** Colonnes ratées lors du dernier jour de pratique AVANT aujourd'hui (au plus 5). */
+/** Rappels d'une colonne ratée : le lendemain, puis 3 jours et 7 jours après chaque réussite. */
+const RAPPELS_ERREUR = [3, 7];
+
+/**
+ * Colonnes à rejouer (au plus 5) : les colonnes ratées lors du dernier jour de pratique AVANT
+ * aujourd'hui, et celles déjà rejouées juste dont le rappel suivant (J+3, J+7) est arrivé.
+ */
 export function erreursARejouer(date = aujourdhui()) {
-  const liste = (donnees.erreursColonnes ?? []).filter((e) => e.date < date);
-  const dernier = liste.map((e) => e.date).sort().at(-1);
-  return dernier ? liste.filter((e) => e.date === dernier).slice(0, 5).map((e) => e.ex) : [];
+  const liste = donnees.erreursColonnes ?? [];
+  const rappels = liste.filter((e) => e.rappel && e.rappel <= date);
+  const neuves = liste.filter((e) => !e.rappel && e.date < date);
+  const dernier = neuves.map((e) => e.date).sort().at(-1);
+  return [...rappels, ...(dernier ? neuves.filter((e) => e.date === dernier) : [])].slice(0, 5).map((e) => e.ex);
 }
 
-/** Une colonne rejouée juste ne revient plus. */
+/**
+ * Colonne rejouée juste : elle revient encore à J+3 puis à J+7 (un seul rappel ne suffit pas à
+ * fixer une correction), puis ne revient plus.
+ */
 export async function retirerErreurColonne(ex) {
   const sig = signature(ex);
-  const avant = donnees.erreursColonnes?.length ?? 0;
-  donnees.erreursColonnes = (donnees.erreursColonnes ?? []).filter((e) => e.sig !== sig);
-  if (donnees.erreursColonnes.length !== avant) await sauver();
+  const e = (donnees.erreursColonnes ?? []).find((x) => x.sig === sig);
+  if (!e) return;
+  const etape = e.etape ?? 0;
+  if (etape < RAPPELS_ERREUR.length) {
+    e.etape = etape + 1;
+    e.date = aujourdhui(); // elle reste dans la fenêtre de 14 jours jusqu'à son rappel
+    e.rappel = ajouterJours(aujourdhui(), RAPPELS_ERREUR[etape]);
+  } else {
+    donnees.erreursColonnes = donnees.erreursColonnes.filter((x) => x.sig !== sig);
+  }
+  await sauver();
+}
+
+/** Colonne encore ratée au rappel : elle repart du début (rejouée à la prochaine séance). */
+export async function relancerErreurColonne(ex) {
+  const e = (donnees.erreursColonnes ?? []).find((x) => x.sig === signature(ex));
+  if (!e) { await noterErreurColonne(ex); return; }
+  e.etape = 0;
+  e.rappel = null;
+  e.date = aujourdhui();
+  await sauver();
 }
 
 // ------------------------------------------------------------------ séance du jour

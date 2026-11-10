@@ -2,10 +2,11 @@
  * À revoir : les colonnes qui ont posé problème lors du dernier jour de pratique (ratées, ou
  * anormalement longues), rejouées à l'identique, sans dire pourquoi elles reviennent.
  * Refaire exactement ce qu'on a raté, à un jour d'écart, corrige le geste mieux qu'un exercice
- * neuf. Une colonne réussie ne revient plus ; une colonne encore ratée reviendra.
+ * neuf. Une colonne réussie revient encore 3 jours puis 7 jours plus tard, puis ne revient plus ;
+ * une colonne encore ratée reviendra à la prochaine séance.
  */
 
-import { erreursARejouer, retirerErreurColonne, noterErreurColonne, enregistrerSession } from '../core/progression.js';
+import { erreursARejouer, retirerErreurColonne, relancerErreurColonne, enregistrerSession } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree } from '../ui/dom.js';
 
@@ -19,15 +20,15 @@ export default {
       el.append(h('p', {}, 'Rien à revoir aujourd\'hui.'));
       return null;
     }
-    el.append(h('p', { class: 'discret' }, `${colonnes.length} colonne${colonnes.length > 1 ? 's' : ''} de votre dernière séance, à refaire. Prenez votre temps : c'est la justesse qui compte ici.`));
+    el.append(h('p', { class: 'discret' }, `${colonnes.length} colonne${colonnes.length > 1 ? 's' : ''} déjà ratée${colonnes.length > 1 ? 's' : ''}, à refaire. Prenez votre temps : c'est la justesse qui compte ici.`));
     let i = 0;
     let serie = creerSerie(el, {
       generer: () => ({ ...colonnes[i++] }),
       nombre: colonnes.length,
       chrono: true,
       sansMemoireErreurs: true,
-      // Réussie : elle ne revient plus. Encore ratée : redatée d'aujourd'hui, elle reviendra à la prochaine séance.
-      surExercice: async (res, ex) => { await retirerErreurColonne(ex); if (!res.juste) await noterErreurColonne(ex); },
+      // Réussie : elle revient encore à J+3 puis J+7, puis plus. Encore ratée : elle reviendra à la prochaine séance.
+      surExercice: async (res, ex) => { if (res.juste) await retirerErreurColonne(ex); else await relancerErreurColonne(ex); },
       surFin: async (b) => {
         serie.detruire();
         serie = null;

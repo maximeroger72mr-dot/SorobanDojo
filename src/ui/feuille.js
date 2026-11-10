@@ -7,7 +7,7 @@
  * sur une page séparée.
  */
 
-import { diagnostiquer } from '../core/diagnostic.js';
+import { diagnostiquer, erreurIdentifiee } from '../core/diagnostic.js';
 import { noterErreurColonne, noterFeuille, noterVolume } from '../core/progression.js';
 import { NIVEAUX, unites, familleTemps, formaterTemps, formaterCadence, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
@@ -24,6 +24,8 @@ import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
  * @param {(bilan) => any} [o.surFin]  { justes, total, points, pointsMax, parSection, dureeMs, resultats }
  * @param {boolean} [o.doigte]  rappel doigté à côté de chaque ligne des colonnes
  * @param {{cle: string, libelle: string}} [o.historique]  type de feuille, pour suivre ses résultats
+ * @param {number} [o.reprises]  nombre de colonnes fausses, au plus, dont on propose la reprise
+ *   immédiate ; seulement quand l'erreur est identifiée sans ambiguïté (jamais en examen)
  */
 export function creerFeuille(conteneur, o) {
   const limiteMs = o.minutes ? o.minutes * 60000 : null;
@@ -83,6 +85,53 @@ export function creerFeuille(conteneur, o) {
   const minuterie = setInterval(tic, 250);
   tic();
 
+  let reprisesRestantes = o.reprises ?? 0;
+
+  /** Correction habituelle : le résultat, la cause la plus probable, « Expliquer ». */
+  function montrerCorrection(c, reponse, enTete = null) {
+    const causes = reponse === null ? [] : diagnostiquer(c.ex, reponse);
+    c.carte.append(h('div', { class: 'correction' },
+      enTete,
+      h('div', {}, 'Résultat : ', h('strong', {}, formaterNombre(c.ex.resultat))),
+      causes[0] ? h('div', { class: 'discret' }, causes[0]) : null,
+      h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex) }, 'Expliquer')));
+  }
+
+  /**
+   * Reprise d'une colonne fausse : on sait quelle ligne est en cause, on le dit, et l'élève
+   * refait la colonne sans voir ni sa première réponse ni le résultat. Il peut aussi passer.
+   * La reprise ne compte ni dans le score ni dans les statistiques de la feuille.
+   */
+  function proposerReprise(c, reponse, ident) {
+    const bloc = h('div', { class: 'correction reprise' });
+    const fermer = (contenu) => { bloc.remove(); c.input.disabled = true; contenu(); };
+    const verifier = () => {
+      const r = lireReponse(c.input.value, 0);
+      if (r === null) return;
+      if (r === c.ex.resultat) {
+        fermer(() => {
+          c.carte.classList.replace('ko', 'repris');
+          c.carte.append(h('div', { class: 'correction' }, h('div', {}, h('strong', {}, 'Juste à la reprise.')), h('div', { class: 'discret' }, ident.detail)));
+        });
+      } else {
+        fermer(() => montrerCorrection(c, r, h('div', { class: 'discret' }, `Encore faux. ${ident.detail}`)));
+      }
+    };
+    const reprendre = () => {
+      c.input.value = '';
+      c.input.disabled = false;
+      c.input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); verifier(); } };
+      remplir(bloc, h('div', {}, h('strong', {}, ident.indice), ' Refaites la colonne.'),
+        h('button', { class: 'btn', onclick: verifier }, 'Vérifier'));
+      c.input.focus();
+    };
+    bloc.append(h('div', {}, h('strong', {}, 'Erreur repérée. '), ident.indice),
+      h('div', { class: 'ligne' },
+        h('button', { class: 'btn principal', onclick: reprendre }, 'Reprendre'),
+        h('button', { class: 'lien', onclick: () => fermer(() => montrerCorrection(c, reponse)) }, 'Voir le résultat')));
+    c.carte.append(bloc);
+  }
+
   function corriger() {
     if (fini) return;
     fini = true;
@@ -96,11 +145,10 @@ export function creerFeuille(conteneur, o) {
       c.input.disabled = true;
       c.carte.classList.add(juste ? 'ok' : 'ko');
       if (!juste) {
-        const causes = reponse === null ? [] : diagnostiquer(c.ex, reponse);
-        c.carte.append(h('div', { class: 'correction' },
-          h('div', {}, 'Résultat : ', h('strong', {}, formaterNombre(c.ex.resultat))),
-          causes[0] ? h('div', { class: 'discret' }, causes[0]) : null,
-          h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex) }, 'Expliquer')));
+        // Reprise proposée seulement si l'erreur est identifiée (une ligne précise), et pas
+        // plus de o.reprises fois par feuille : sinon la correction habituelle, tout de suite.
+        const ident = reprisesRestantes > 0 && reponse !== null ? erreurIdentifiee(c.ex, reponse) : null;
+        if (ident) { reprisesRestantes -= 1; proposerReprise(c, reponse, ident); } else montrerCorrection(c, reponse);
       }
       if (!juste && reponse !== null) noterErreurColonne(c.ex); // à rejouer demain
       if (reponse !== null) noterVolume(unites(c.ex));

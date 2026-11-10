@@ -41,3 +41,37 @@ test('localisation : retenue oubliée du grand ami', () => {
   const ex = { type: 'addsub', lignes: [{ op: '+', n: 8 }, { op: '+', n: 7 }, { op: '+', n: 1 }], resultat: 16 };
   assert.deepEqual(localiserErreur(ex, 6), { ligne: 1, motifs: ['+7:grand'], raison: 'retenue ou emprunt' });
 });
+
+import { erreurIdentifiee } from '../src/core/diagnostic.js';
+
+test('erreur identifiée : une seule ligne peut l\'expliquer, sinon rien', () => {
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 478 }, { op: '+', n: 236 }, { op: '-', n: 152 }, { op: '+', n: 317 }], resultat: 879 };
+  // Ligne 3 oubliée : 879 + 152
+  assert.deepEqual([erreurIdentifiee(ex, 1031).ligne, erreurIdentifiee(ex, 1031).type], [2, 'oubliee']);
+  // Ligne 2 faite deux fois
+  assert.equal(erreurIdentifiee(ex, 879 + 236).type, 'doublee');
+  // Ligne 3 avec le mauvais signe : +152 au lieu de −152
+  assert.deepEqual([erreurIdentifiee(ex, 879 + 304).ligne, erreurIdentifiee(ex, 879 + 304).type], [2, 'signe']);
+  // Juste, sans réponse, ou colonne à résultat négatif : rien
+  assert.equal(erreurIdentifiee(ex, 879), null);
+  assert.equal(erreurIdentifiee(ex, null), null);
+  assert.equal(erreurIdentifiee({ ...ex, negatif: true }, 1031), null);
+  // Écart quelconque (ici +37) : aucune ligne ne l'explique
+  assert.equal(erreurIdentifiee(ex, 879 + 37), null);
+});
+
+test('erreur identifiée : ambiguë dès que deux lignes sont possibles', () => {
+  // Écart de +20 : un 3 lu 5 à la ligne 2, ou un 1 lu 3 à la ligne 4… plusieurs lignes possibles
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 478 }, { op: '+', n: 236 }, { op: '-', n: 152 }, { op: '+', n: 317 }], resultat: 879 };
+  assert.equal(erreurIdentifiee(ex, 899), null);
+  // Deux lignes identiques en valeur : l'oubli de l'une ou de l'autre ne se distingue pas
+  const ex2 = { type: 'addsub', lignes: [{ op: '+', n: 50 }, { op: '+', n: 23 }, { op: '-', n: 11 }, { op: '+', n: 23 }], resultat: 85 };
+  assert.equal(erreurIdentifiee(ex2, 62), null);
+});
+
+test('erreur identifiée : ligne décalée d\'une tige', () => {
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 4718 }, { op: '+', n: 2364 }, { op: '+', n: 37 }], resultat: 7119 };
+  // 37 posé une tige trop à gauche (370) : +333
+  const r = erreurIdentifiee(ex, 7119 + 333);
+  assert.deepEqual([r.ligne, r.type], [2, 'decalee']);
+});

@@ -119,3 +119,22 @@ test('photo du soroban : diagnostic par tige (céleste ou terrestres)', () => {
   assert.equal(d.length, 1);
   assert.match(d[0], /dizaines.*céleste/);
 });
+
+test('mini-test équilibré : chaque geste de la leçon y est posé (révision générale comprise)', async () => {
+  const { fluxEquilibre, TEST } = await import('../src/core/curriculum.js');
+  const { mulberry32 } = await import('../src/core/hasard.js');
+  const normal = Math.random;
+  Math.random = mulberry32(31);
+  try {
+    for (const id of ['p1-1', 'p4-5', 'p5-5', 'p8-t1']) {
+      const sp = SOUS_PALIERS.find((s) => s.id === id);
+      const n = sp.testNombre ?? TEST.exercices;
+      for (let t = 0; t < 5; t++) {
+        const suivant = fluxEquilibre(sp, n);
+        const vus = new Set();
+        for (let i = 0; i < n; i++) suivant().motifs.forEach((m) => vus.add(m));
+        assert.deepEqual(sp.cibles.filter((c) => !vus.has(c)), [], `${id} : gestes absents du mini-test`);
+      }
+    }
+  } finally { Math.random = normal; }
+});

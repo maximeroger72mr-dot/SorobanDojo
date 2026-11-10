@@ -193,7 +193,8 @@ export const PALIERS = [
       { id: 'p5-4', titre: 'Retenues et emprunts en cascade', cibles: ['cascade+', 'cascade-'], chiffres: 2, lignes: 4, repetitions: 30, cumul: true,
         pourquoi: 'Une retenue qui tombe sur un 9 : ce 9 devient 0 (grand ami, −9) et la retenue continue plus à gauche. Un emprunt sur un 0 le transforme en 9 et continue. C\'est la même règle, répétée.',
         demos: [{ depart: 99, op: '+', n: 1 }, { depart: 100, op: '-', n: 1 }, { depart: 95, op: '+', n: 17 }] },
-      { id: 'p5-5', titre: 'Révision générale, 3 chiffres', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 5, repetitions: 50, cumul: true,
+      // Mini-test de 20 colonnes (17 justes) : 15 ne suffisent pas à poser les 54 gestes.
+      { id: 'p5-5', titre: 'Révision générale, 3 chiffres', cibles: TOUS_LES_MOTIFS, chiffres: 3, lignes: 5, repetitions: 50, cumul: true, testNombre: 20, testMin: 17,
         pourquoi: 'Tous les gestes sont permis : chaque tige choisit le sien. C\'est le calcul courant.',
         demos: [{ depart: 478, op: '+', n: 685 }] },
     ],
@@ -567,6 +568,46 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
   if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
   return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros }, memoireDe(sp.id));
+}
+
+/**
+ * Suite d'exercices ÉQUILIBRÉE sur un bloc (mini-test, ou tranche d'entraînement) : chaque geste
+ * visé de la leçon doit apparaître dans le bloc. Tirés un par un, les exercices oubliaient
+ * souvent les gestes rares (+1 grand ami, qui exige un 9 sur la tige) : la « Révision générale »
+ * validait ainsi des gestes que son mini-test n'avait pas posés.
+ * Ici, un geste pas encore vu dans le bloc passe devant ; dans la seconde moitié du bloc, les
+ * gestes encore absents deviennent prioritaires, et l'on garde le meilleur de trois tirages.
+ * Les leçons qui ne sont pas des colonnes sont tirées comme avant.
+ * @param {object} sp  sous-palier
+ * @param {number} taille  longueur du bloc (15 pour un mini-test, 10 pour une tranche)
+ * @param {() => object} [poidsDe]  poids adaptatifs du moment
+ * @returns {(ctx?: object) => object}  l'exercice suivant
+ */
+export function fluxEquilibre(sp, taille, poidsDe = () => ({})) {
+  if (sp.type !== 'addsub') return (ctx) => genererExercice(sp, poidsDe(), ctx);
+  let vus = {};
+  let rang = 0;
+  return (ctx) => {
+    if (rang >= taille) { vus = {}; rang = 0; }
+    const base = poidsDe();
+    const absents = sp.cibles.filter((c) => !vus[c]);
+    const urgent = absents.length > 0 && rang >= taille / 2;
+    const poids = Object.fromEntries(sp.cibles.map((c) => {
+      const w = base[c] ?? 1;
+      if (urgent) return [c, vus[c] ? 0.2 * w : 40 * w];
+      return [c, vus[c] ? w / (1 + vus[c]) : 4 * w];
+    }));
+    let meilleur = null;
+    for (let e = 0; e < (urgent ? 3 : 1); e++) {
+      const ex = genererExercice(sp, poids, ctx);
+      const gain = absents.filter((c) => ex.motifs.includes(c)).length;
+      if (!meilleur || gain > meilleur.gain) meilleur = { ex, gain };
+      if (gain >= Math.min(absents.length, 2)) break;
+    }
+    for (const m of meilleur.ex.motifs) vus[m] = (vus[m] ?? 0) + 1;
+    rang += 1;
+    return meilleur.ex;
+  };
 }
 
 /**

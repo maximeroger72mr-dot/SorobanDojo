@@ -10,7 +10,7 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
-import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
+import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
@@ -461,8 +461,10 @@ export default {
           remplir(zoneTravail);
           if (mode === 'une') {
             let n = 0;
+            // Tranches de 10 exercices équilibrées : tous les gestes de la leçon y passent.
+            const suivant = fluxEquilibre(sp, 10, () => poidsDe(sp));
             courant = creerExercices(sp, zoneTravail, {
-              generer: () => genererExercice(sp, poidsDe(sp), ctxAnzan()),
+              generer: () => suivant(ctxAnzan()),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
               doigteMasque: () => evaluerPalier(sp.id, famille(sp)).index >= 2,
@@ -532,8 +534,10 @@ export default {
 
         function lancer() {
           intro.remove();
+          // Mini-test équilibré : chaque geste de la leçon y est posé au moins une fois.
+          const suivant = fluxEquilibre(sp, nombreTest(sp), () => poidsDe(sp));
           serie = creerExercices(sp, zone, {
-            generer: () => genererExercice(sp, poidsDe(sp)),
+            generer: () => suivant(),
             nombre: nombreTest(sp),
             chrono: true,
             defi: true,

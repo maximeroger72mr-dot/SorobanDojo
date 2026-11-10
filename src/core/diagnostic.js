@@ -187,3 +187,47 @@ export function localiserErreur(ex, reponse) {
 export function motifsDeLigne(ex, ligne) {
   return [...new Set(occurrencesColonne(ex.lignes)[ligne].map((o) => o.cle))];
 }
+
+/**
+ * Erreur IDENTIFIÉE sans ambiguïté sur une colonne : une seule ligne peut expliquer l'écart.
+ * Sert à proposer une reprise immédiate (« reprenez la ligne 4 »), qui n'a de sens que si l'on
+ * sait où regarder. Sinon null : la colonne suit le circuit normal (rejouée un autre jour).
+ *
+ * Explications reconnues, chacune pour UNE ligne :
+ *  - ligne oubliée, comptée deux fois, ou faite avec le mauvais signe ;
+ *  - un chiffre de la ligne lu ou posé pour un autre (écart sur une seule tige, cohérent avec ce chiffre) ;
+ *  - ligne posée une tige trop à gauche ou trop à droite ;
+ *  - geste localisé par le résultat (boule céleste, retenue ou emprunt : voir localiserErreur).
+ * Deux lignes candidates : ambigu, donc null.
+ * @returns {{ ligne:number, type:string, indice:string, detail:string, motifs:string[] } | null}
+ */
+export function erreurIdentifiee(ex, reponse) {
+  if (ex.type !== 'addsub' || ex.negatif || ex.decimales || reponse === null || reponse === ex.resultat) return null;
+  const ecart = reponse - ex.resultat;
+  const candidats = [];
+  const noter = (ligne, type, detail) => candidats.push({ ligne, type, detail });
+  ex.lignes.forEach((l, i) => {
+    const v = valeurSignee(l);
+    const nom = `${i === 0 ? '' : signe(l.op)}${l.n}`;
+    if (ecart === -v) noter(i, 'oubliee', `La ligne ${i + 1} (${nom}) n'a pas été faite.`);
+    if (ecart === v) noter(i, 'doublee', `La ligne ${i + 1} (${nom}) a été faite deux fois.`);
+    if (i > 0 && ecart === -2 * v) noter(i, 'signe', `La ligne ${i + 1} (${nom}) a été faite avec le mauvais signe.`);
+    if (ecart === 9 * v) noter(i, 'decalee', `La ligne ${i + 1} (${nom}) a été posée une tige trop à gauche.`);
+    if (ecart * 10 === -9 * v) noter(i, 'decalee', `La ligne ${i + 1} (${nom}) a été posée une tige trop à droite.`);
+    // Un chiffre lu pour un autre : l'écart tient sur une tige, et le chiffre « lu » reste un chiffre.
+    const u = unSeulChiffre(l.op === '+' ? ecart : -ecart);
+    if (u && u.k < String(l.n).length) {
+      const vrai = Number(String(l.n).at(-1 - u.k));
+      const lu = vrai + u.d;
+      const enTete = u.k === String(l.n).length - 1;
+      if (lu >= (enTete ? 1 : 0) && lu <= 9) noter(i, 'lecture', `Ligne ${i + 1} (${nom}) : un ${vrai} lu ou posé comme un ${lu} sur les ${nomRang(u.k)}.`);
+    }
+  });
+  const loc = localiserErreur(ex, reponse);
+  if (loc) noter(loc.ligne, 'geste', `Ligne ${loc.ligne + 1} : ${loc.raison} (${loc.motifs.join(', ')}).`);
+  const lignes = [...new Set(candidats.map((c) => c.ligne))];
+  if (lignes.length !== 1) return null;
+  // Plusieurs lectures de la même ligne : on garde la plus précise (le geste, sinon la première).
+  const c = candidats.find((x) => x.type === 'geste') ?? candidats[0];
+  return { ligne: c.ligne, type: c.type, indice: `L'erreur est à la ligne ${c.ligne + 1}.`, detail: c.detail, motifs: loc?.motifs ?? [] };
+}

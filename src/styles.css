@@ -542,3 +542,5 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .rejouer-code input { font-family: var(--police-nombres, monospace); text-transform: uppercase; }
 .bilan .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media print { .resume-planche .retour { display: none; } }
+.probleme.repris { border-color: var(--discret); }
+.correction.reprise .ligne { display: flex; gap: 8px; align-items: center; margin-top: 6px; }

@@ -285,6 +285,7 @@ export default {
       const titre = `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,
+        reprises: 3, // colonnes fausses dont l'erreur est identifiée : reprise proposée, 3 au plus
         historique: { cle: `planche-${r.chiffres}-${r.lignes}-${r.cible}${suffixe}`, libelle: titre },
         titre: `${titre} · planche ${planche.code}`,
         sections: [{ problemes }],
@@ -308,7 +309,7 @@ export default {
           record.then((oui) => { if (oui) info.append(' · nouveau record personnel !'); });
           return h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`), info,
-            h('p', { class: 'discret' }, 'Sur une colonne fausse, « Expliquer » montre chaque ligne avec ses sous-totaux.'),
+            h('p', { class: 'discret' }, 'Sur une colonne fausse, « Expliquer » montre chaque ligne avec ses sous-totaux. Quand l\'erreur est repérée sur une ligne précise, la colonne peut être reprise tout de suite (3 au plus par planche).'),
             h('div', { class: 'actions' },
               h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle planche'),
               h('button', { class: 'btn', title: 'Les mêmes colonnes, dans le même ordre : pour comparer deux temps sur la même planche.', onclick: () => lancer(planche) }, 'Rejouer cette planche')));
