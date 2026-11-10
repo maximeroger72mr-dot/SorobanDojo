@@ -11,6 +11,7 @@ import { diagnostiquer, erreurIdentifiee } from '../core/diagnostic.js';
 import { noterErreurColonne, noterFeuille, noterVolume } from '../core/progression.js';
 import { NIVEAUX, unites, familleTemps, formaterTemps, formaterCadence, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
+import { poidsProbleme, ecartAllure } from '../core/allure.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
 import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
@@ -24,12 +25,15 @@ import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
  * @param {(bilan) => any} [o.surFin]  { justes, total, points, pointsMax, parSection, dureeMs, resultats }
  * @param {boolean} [o.doigte]  rappel doigté à côté de chaque ligne des colonnes
  * @param {{cle: string, libelle: string}} [o.historique]  type de feuille, pour suivre ses résultats
+ * @param {{ part:number }} [o.allure]  épreuve chronométrée : afficher l'avance ou le retard sur
+ *   l'allure nécessaire (option ; jamais en examen pur)
  * @param {number} [o.reprises]  nombre de colonnes fausses, au plus, dont on propose la reprise
  *   immédiate ; seulement quand l'erreur est identifiée sans ambiguïté (jamais en examen)
  */
 export function creerFeuille(conteneur, o) {
   const limiteMs = o.minutes ? o.minutes * 60000 : null;
   const chrono = h('span', { class: 'chrono-feuille' });
+  const allure = h('span', { class: 'allure-feuille', title: 'Avance ou retard sur l\'allure qui permet de traiter la part du sujet nécessaire pour réussir.' });
   const btnCorriger = h('button', { class: 'btn principal', onclick: () => corriger() }, 'Corriger');
   const btnImprimer = h('button', { class: 'btn', onclick: () => window.print() }, 'Imprimer');
   const bilan = h('div', {});
@@ -51,7 +55,7 @@ export function creerFeuille(conteneur, o) {
     h('ol', {}, cases.map((c) => h('li', {}, formaterNombre(c.ex.resultat)))));
 
   const racine = h('div', { class: 'feuille' },
-    h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), chrono, btnImprimer, btnCorriger),
+    h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), o.allure && limiteMs ? allure : null, chrono, btnImprimer, btnCorriger),
     sectionsEl, bilan, corrige);
   conteneur.append(racine);
   racine.dataset.enCours = '1'; // feuille en cours : on prévient avant de quitter la page
@@ -67,6 +71,7 @@ export function creerFeuille(conteneur, o) {
   }));
   cases[0]?.input.focus();
 
+  const poidsTotal = cases.reduce((s, c) => s + poidsProbleme(c.ex), 0);
   const debut = performance.now();
   let fini = false;
   const tic = () => {
@@ -77,6 +82,13 @@ export function creerFeuille(conteneur, o) {
       const sec = Math.floor((reste % 60000) / 1000);
       chrono.textContent = `Temps restant ${min}:${String(sec).padStart(2, '0')}`;
       chrono.classList.toggle('urgent', reste < 60000);
+      if (o.allure) {
+        const fait = cases.reduce((s, c) => s + (c.input.value.trim() ? poidsProbleme(c.ex) : 0), 0);
+        const e = Math.round(ecartAllure(fait, poidsTotal, o.allure.part, limiteMs, ecoule));
+        const duree = Math.abs(e) >= 60 ? `${Math.floor(Math.abs(e) / 60)} min ${String(Math.abs(e) % 60).padStart(2, '0')}` : `${Math.abs(e)} s`;
+        allure.textContent = Math.abs(e) < 10 ? 'Allure : dans le rythme' : `Allure : ${duree} ${e > 0 ? 'd\'avance' : 'de retard'}`;
+        allure.classList.toggle('retard', e <= -10);
+      }
       if (reste === 0) corriger();
     } else {
       chrono.textContent = formaterDuree(ecoule);
@@ -139,6 +151,7 @@ export function creerFeuille(conteneur, o) {
     clearInterval(minuterie);
     const dureeMs = Math.min(performance.now() - debut, limiteMs ?? Infinity);
     btnCorriger.disabled = true;
+    allure.remove();
     const resultats = cases.map((c) => {
       const reponse = lireReponse(c.input.value, c.ex.decimales ?? 0);
       const juste = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0);

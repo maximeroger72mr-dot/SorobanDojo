@@ -7,7 +7,9 @@
 import { manquantesEpreuve } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
 import { GRADES, genererSujet, totalPoints } from '../core/epreuves.js';
-import { enregistrerSession, progression, proposerMeilleurScore } from '../core/progression.js';
+import { enregistrerSession, progression, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
+import { verdictAllure, allureGrade } from '../core/allure.js';
+import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { localiserErreur, diagnostiquer } from '../core/diagnostic.js';
 import { nomMotif } from '../core/motifs.js';
@@ -54,6 +56,19 @@ function resume(g) {
   return p.join(' · ');
 }
 
+/** Allure du grade en face de celle de l'élève : « 96 CPM à tenir · vous : 71 CPM ». */
+function ligneAllure(g) {
+  const v = verdictAllure(g, progression());
+  const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  const ppm = (t) => nf(60 / t);
+  const morceau = (nom, besoin, eleve, ok, fmt) => [`${nom} : ${fmt(besoin)} à tenir`, eleve === null ? ' (la vôtre n\'est pas encore mesurée)' : h('span', { class: ok ? 'allure-ok' : 'allure-courte' }, ` · vous : ${fmt(eleve)}`)];
+  return h('div', { class: 'discret allure-grade', title: `Cadence qui permet de traiter ${Math.round(v.allure.part * 100)} % du sujet en ${g.minutes} minutes (le seuil de réussite, plus une marge pour les erreurs), en comptant 3 secondes par problème pour lire et écrire.` },
+    h('strong', {}, 'Allure : '),
+    morceau('colonnes', v.colonnes.besoin, v.colonnes.eleve, v.colonnes.ok, (t) => `${cpm(t)} CPM`),
+    g.mul ? [' ; ', morceau('× et ÷', v.muldiv.besoin, v.muldiv.eleve, v.muldiv.ok, (t) => `${ppm(t)} produits par minute`)] : null,
+    v.minutes !== null ? `. À votre vitesse : environ ${Math.round(v.minutes)} min pour ${g.minutes} accordées.` : '.');
+}
+
 export default {
   id: 'epreuves',
   titre: 'Épreuves officielles',
@@ -69,12 +84,14 @@ export default {
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
         h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
           'Du 6e au 1er kyū : tableau de référence retenu (seuils 210/300 puis 240/300, décimaux à partir du 3e kyū, réponses arrondies comme indiqué). Du 10e au 7e kyū : formats publics japonais, seuil indicatif de 70 %. Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.'),
+        optionsExamen(),
         h('div', { class: 'liste-grades' }, GRADES.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${meilleur(g)?.reussi ? 'fait' : 'ouvert'}` }, meilleur(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
-          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g)),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.verifie ? '' : ' · format indicatif'),
+          ligneAllure(g),
           (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn principal', onclick: () => lancer(g) }, `Épreuve complète · ${g.minutes} min`),
@@ -82,6 +99,25 @@ export default {
               const r = progression().records[`epreuve-${g.id}-${k}`];
               return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${NOMS_SECTIONS[k]} seule · ${MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
             }))))));
+    }
+
+    /**
+     * Deux options, gardées d'une fois sur l'autre : afficher son allure pendant l'épreuve, et
+     * l'examen pur (conditions réelles : aucune aide), qui masque l'allure d'office.
+     */
+    function optionsExamen() {
+      const r = reglagesUtilisateur();
+      const caseAllure = h('input', { type: 'checkbox', checked: !!r.allureExamen && !r.examenPur, disabled: !!r.examenPur });
+      const casePur = h('input', { type: 'checkbox', checked: !!r.examenPur });
+      caseAllure.addEventListener('change', () => modifierReglages({ allureExamen: caseAllure.checked }));
+      casePur.addEventListener('change', async () => {
+        await modifierReglages({ examenPur: casePur.checked });
+        caseAllure.disabled = casePur.checked;
+        caseAllure.checked = !casePur.checked && !!reglagesUtilisateur().allureExamen;
+      });
+      return h('div', { class: 'carte reglages-examen', style: 'margin-bottom:12px' },
+        h('label', { title: 'Pendant l\'épreuve, à côté du temps restant : votre avance ou votre retard sur l\'allure à tenir.' }, caseAllure, ' Afficher mon allure pendant l\'épreuve'),
+        h('label', { title: 'Comme le jour de l\'examen : le sujet, le temps, rien d\'autre. L\'allure est masquée d\'office.' }, casePur, ' Examen pur (conditions réelles, sans aucune aide)'));
     }
 
     /** Avant les leçons conseillées : on prévient, sans bloquer. */
@@ -100,9 +136,11 @@ export default {
       const seuil = section ? SEUIL_SPRINT : g.seuil;
       const minutes = section ? MINUTES_SPRINT : g.minutes;
       feuille = creerFeuille(el, {
-        titre: `${g.nom} (${g.japonais})${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes`,
+        titre: `${g.nom} (${g.japonais})${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes${!section && reglagesUtilisateur().examenPur ? ' · examen pur' : ''}`,
         minutes,
         sections,
+        // Allure : en option, épreuve complète seulement, jamais en examen pur.
+        allure: !section && reglagesUtilisateur().allureExamen && !reglagesUtilisateur().examenPur ? { part: allureGrade(g).part } : null,
         surFin: (b) => {
           const reussi = b.points >= seuil * max;
           enregistrerSession({ module: 'epreuves', mode: section ? `${g.id}-${section}` : g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
