@@ -11,7 +11,8 @@ export const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
 /** Leçons dont la vitesse compte au mini-test (pas l'anzan, ni la photo / image auto-évaluée). */
 const VITESSE_EXIGEE = ['addsub', 'addsubdec', 'negatif', 'placement', 'table', 'mul', 'div', 'muldiv'];
-export const exigeVitesse = (sp) => VITESSE_EXIGEE.includes(sp.type) || (!['anzan', 'photo', 'tenir', 'theorie'].includes(sp.type) && familleLecon(sp) === 'muldiv');
+// Piste anzan (de tête) : jamais de vitesse exigée, quel que soit le type de calcul.
+export const exigeVitesse = (sp) => !sp.mental && (VITESSE_EXIGEE.includes(sp.type) || (!['anzan', 'photo', 'tenir', 'theorie'].includes(sp.type) && familleLecon(sp) === 'muldiv'));
 
 const mediane = (xs) => {
   if (!xs.length) return null;

@@ -183,8 +183,21 @@ Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de
 
 ## Épreuves
 
-- 6e au 1er kyū : tableau de référence retenu avec l'utilisateur (mitorizan 10 lignes de 3-4 à 8-10 chiffres,
-  multiplication 5 à 11 chiffres au total, division 5 à 10 chiffres diviseur + quotient, seuils 210/300 puis 240/300).
-- Décimaux à partir du 3e kyū : la moitié des × et ÷, résultats arrondis au millième (dix-millième pour les ÷ du 1er kyū).
-- 10e au 7e kyū : formats publics japonais (Nihon Shuzan Renmei), seuil indicatif de 70 %.
-- Soustractions dans le mitorizan dès le 10e kyū.
+- Référentiel : Chambre de commerce et d'industrie du Japon (1er au 3e kyū), Ligue japonaise du soroban (4e au 10e kyū).
+- 1er au 6e kyū : 10 mitorizan, 20 multiplications, 20 divisions, 30 minutes, 300 points (réussite à 240, ou 210 du 4e au 6e).
+- Mitorizan : lignes de longueur fixe (10, 8, 6, 5, 4, 3 chiffres du 1er au 6e kyū) ; un résultat négatif au 1er kyū.
+- × et ÷ du 1er au 3e kyū : un problème sur deux en décimaux, arrondi au millième dans la première moitié, à l'unité dans la seconde.
+- 10e au 7e kyū : formats inspirés des fiches publiques, 20 minutes, seuil indicatif de 70 %.
+- Chaque grade porte `verifie: false` tant que sa fiche officielle n'a pas été contrôlée : l'écran indique « format indicatif ».
+- **Allure** (`core/allure.js`) : pour chaque grade, la cadence à tenir pour traiter la part exigée du sujet dans le temps, en face de celle de l'élève. Pendant l'épreuve, l'avance ou le retard s'affiche en option ; l'« examen pur » le masque d'office.
+- **Épreuves d'anzan** (`core/epreuvesAnzan.js`) : 12 minutes, de tête ; format venu de sources non officielles, en partie reconstitué.
+
+## Nouveautés de la version 0.22
+
+- **Planches** : planche tirée en entier (tous les gestes visés présents), code de planche, « Rejouer », charge affichée, colonnes en rampe ; `npm run banc` mesure la qualité.
+- **Reprise** : sur une planche, une colonne fausse peut être reprise tout de suite, seulement si l'erreur est repérée sur une ligne précise (3 au plus). Les colonnes ratées reviennent le lendemain, puis à J+3 et J+7.
+- **Lièvre** : la cadence atteinte est gardée pour chaque réglage ; la course ne s'arrête qu'à la 2e erreur, ou sur demande.
+- **Parcours** : chaque kyū n'exige que les leçons de son épreuve ; décimaux après le palier 5e-4e kyū ; palier « Vers le 1er kyū » (7 à 10 chiffres, × 6 × 5, ÷ 5 × 5, arrondi à l'unité, résultats négatifs) ; leçon de stratégie d'examen ; mini-tests où chaque geste de la leçon est posé.
+- **Anzan** : leçons de multiplication et de division de tête, dictée anzan par paliers, épreuves d'anzan.
+
+Voir `SPECS.md` (cahier des charges) et `AUDIT-PARCOURS.md` (audit du parcours).

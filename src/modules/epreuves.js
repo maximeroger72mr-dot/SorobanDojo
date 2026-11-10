@@ -9,6 +9,7 @@ import { avertirPrerequis } from '../ui/avertissement.js';
 import { GRADES, genererSujet, totalPoints } from '../core/epreuves.js';
 import { enregistrerSession, progression, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
 import { verdictAllure, allureGrade } from '../core/allure.js';
+import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreuvesAnzan.js';
 import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { localiserErreur, diagnostiquer } from '../core/diagnostic.js';
@@ -98,7 +99,55 @@ export default {
             ['mitori', 'mul', 'div'].filter((k) => g[k]).map((k) => {
               const r = progression().records[`epreuve-${g.id}-${k}`];
               return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${NOMS_SECTIONS[k]} seule · ${MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
-            }))))));
+            }))))),
+        listeAnzan());
+    }
+
+    /** Résumé d'un grade d'anzan : « 50 additions de 3 nombres à 1 chiffre ». */
+    const resumeAnzan = (g) => {
+      const m = g.mitori;
+      const p = [`${m.nb} ${m.soustractions ? 'additions et soustractions' : 'additions'} de ${m.lignes} nombres à ${m.min} chiffre${m.min > 1 ? 's' : ''}`];
+      if (g.mul) p.push(`${g.mul.nb} multiplications (${g.mul.total} chiffres au total)`);
+      if (g.div) p.push(`${g.div.nb} divisions (diviseur + quotient : ${g.div.total} chiffres)`);
+      return p.join(' · ');
+    };
+
+    /** Épreuves d'anzan : même feuille, mais tout de tête, soroban rangé. */
+    function listeAnzan() {
+      const rec = (g) => progression().records[`epreuve-${g.id}`];
+      return [h('h2', {}, 'Épreuves d\'anzan (暗算検定)'),
+        h('p', { class: 'discret' }, 'Tout de tête, soroban rangé, 12 minutes. Format indicatif : il vient de sources non officielles, et la longueur des colonnes a été reconstituée pour que chaque grade soit plus exigeant que le précédent. Ces épreuves ne comptent pas pour le grade de soroban.'),
+        h('div', { class: 'liste-grades' }, GRADES_ANZAN.map((g) => h('div', { class: 'carte grade' },
+          h('div', { class: 'ligne' },
+            h('span', { class: `icone etat-${rec(g)?.reussi ? 'fait' : 'ouvert'}` }, rec(g)?.reussi ? '✓' : '○'),
+            h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
+            h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * totalPointsAnzan(g))} / ${totalPointsAnzan(g)}${rec(g) ? ` · meilleur ${rec(g).points}` : ''}`)),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resumeAnzan(g), ' · format indicatif'),
+          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrerAnzan(g) }, `Épreuve d'anzan · ${g.minutes} min`)))))];
+    }
+
+    function demarrerAnzan(g) {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'),
+        h('p', { class: 'consigne' }, 'De tête, sans toucher le soroban : imaginez-le, puis écrivez le résultat.'));
+      const sujet = genererSujetAnzan(g);
+      const max = totalPointsAnzan(g);
+      feuille = creerFeuille(el, {
+        titre: `${g.nom} (${g.japonais}) · ${g.minutes} minutes · de tête`,
+        minutes: g.minutes,
+        sections: sujet.sections,
+        surFin: (b) => {
+          const reussi = b.points >= g.seuil * max;
+          enregistrerSession({ module: 'epreuves', mode: g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          proposerMeilleurScore(`epreuve-${g.id}`, b.points, { reussi, dureeMs: b.dureeMs });
+          return h('div', { class: 'carte bilan' },
+            h('div', { class: 'grand' }, `${b.points} / ${max} points`),
+            h('p', { class: reussi ? 'retour ok' : 'retour erreur' }, reussi ? `Réussi (seuil ${Math.round(g.seuil * max)} points).` : `Pas encore : il faut ${Math.round(g.seuil * max)} points.`),
+            h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points'].map((x) => h('th', {}, x))),
+              b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
+            h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
+            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrerAnzan(g) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+        },
+      });
     }
 
     /**

@@ -60,7 +60,7 @@ export function allureGrade(g) {
  */
 export function vitesseEleve(d) {
   const gestes = Object.values(d.motifs ?? {}).map((f) => evaluer(f.hist ?? []).temps).filter((t) => t !== null);
-  const lecons = SOUS_PALIERS.filter((sp) => familleLecon(sp) === 'muldiv')
+  const lecons = SOUS_PALIERS.filter((sp) => !sp.mental && familleLecon(sp) === 'muldiv')
     .map((sp) => evaluer(d.paliers?.[sp.id]?.hist ?? [], 'muldiv').temps).filter((t) => t !== null);
   return { parChiffre: gestes.length >= 5 ? mediane(gestes) : null, parProduit: lecons.length >= 1 ? mediane(lecons) : null };
 }

@@ -12,18 +12,19 @@ import { genererColonne, genererColonneVariee, creerMemoire } from '../core/gene
 const memoire = creerMemoire(6);
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
-import { progression, enregistrerSession, noterReponse } from '../core/progression.js';
+import { progression, enregistrerSession, noterReponse, modifierReglages, reglagesUtilisateur } from '../core/progression.js';
+import { PALIERS_DICTEE, DICTEES_PAR_SERIE, palierSuivant, libellePalier } from '../core/dicteeAnzan.js';
 import { lireReponse } from '../core/nombres.js';
 import { chargerVoix, parler, taire, voixDisponible } from '../ui/voix.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, raccourcis, formaterNombre, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { chiffres: 2, nombres: 5, debit: 1, pause: 0.8, soustractions: true, voix: '', questions: 5 };
+const reglages = { chiffres: 2, nombres: 5, debit: 1, pause: 0.8, soustractions: true, voix: '', questions: 5, support: 'soroban' };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 /** Colonne à dicter : gestes appris seulement (aucun ami jamais vu). */
-function colonneADicter() {
+function colonneADicter(reglages) {
   const appris = motifsAppris(progression());
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
   const ops = reglages.soustractions ? ['+', '-'] : ['+'];
@@ -37,7 +38,8 @@ function colonneADicter() {
 export default {
   id: 'dictee',
   titre: 'Dictée (yomiage)',
-  monter(el) {
+  monter(el, app, params = {}) {
+    if (params.support) reglages.support = params.support;
     let actif = true;
     let etat = 'repos'; // repos | lecture | reponse | corrige | fin
     let ex = null;
@@ -65,16 +67,30 @@ export default {
     const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
     saisie.addEventListener('input', () => { if (etat === 'reponse' && dureeCalcul === null && saisie.value.trim()) dureeCalcul = performance.now() - debutReponse; });
 
+    // Dictée anzan : de tête, par paliers (les réglages de longueur et de débit suivent le palier).
+    const palier = () => Math.min(PALIERS_DICTEE.length - 1, reglagesUtilisateur().palierDictee ?? 0);
+    const infoPalier = h('p', { class: 'carte', style: 'margin-bottom:12px' });
+    const majPalier = () => {
+      const tete = reglages.support === 'tete';
+      infoPalier.style.display = tete ? '' : 'none';
+      el.querySelectorAll('.reglages .libre').forEach((x) => { x.style.display = tete ? 'none' : ''; });
+      if (tete) remplir(infoPalier, h('strong', {}, `Dictée anzan · palier ${palier() + 1} / ${PALIERS_DICTEE.length}`), ` : ${libellePalier(palier())}. Soroban rangé : écoutez, voyez les boules bouger, puis tapez le résultat. Une série fait ${DICTEES_PAR_SERIE} dictées : 4 justes font monter d'un palier.`);
+    };
+    const libre = (x) => { x.classList.add('libre'); return x; };
+    const selSupport = select('support', [['soroban', 'sur mon soroban'], ['tete', 'de tête (dictée anzan)']], String);
+    selSupport.addEventListener('change', majPalier);
     el.append(h('h1', {}, 'Dictée (yomiage)'),
-      h('p', { class: 'discret' }, 'Les nombres sont lus à voix haute ; calculez sur votre soroban en écoutant, sans regarder l\'écran. Les additions sont lues telles quelles, les soustractions précédées de « moins ».'),
+      h('p', { class: 'discret' }, 'Les nombres sont lus à voix haute ; calculez en écoutant, sans regarder l\'écran : sur votre soroban, ou de tête (dictée anzan, par paliers). Les additions sont lues telles quelles, les soustractions précédées de « moins ».'),
+      infoPalier,
       h('div', { class: 'reglages' },
-        select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
-        select('nombres', [3, 5, 7, 10].map((n) => [n, `${n} nombres`])),
-        h('label', {}, 'Débit', select('debit', [[0.7, 'lent'], [0.85, 'posé'], [1, 'normal'], [1.2, 'rapide'], [1.4, 'très rapide']])),
-        h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']])),
-        select('soustractions', [['true', 'avec soustractions'], ['false', 'additions seules']], (v) => v === 'true'),
+        selSupport,
+        libre(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']])),
+        libre(select('nombres', [3, 5, 7, 10].map((n) => [n, `${n} nombres`]))),
+        libre(h('label', {}, 'Débit', select('debit', [[0.7, 'lent'], [0.85, 'posé'], [1, 'normal'], [1.2, 'rapide'], [1.4, 'très rapide']]))),
+        libre(h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']]))),
+        libre(select('soustractions', [['true', 'avec soustractions'], ['false', 'additions seules']], (v) => v === 'true')),
         selVoix,
-        select('questions', [[5, '5 dictées'], [10, '10 dictées']])),
+        libre(select('questions', [[5, '5 dictées'], [10, '10 dictées']]))),
       avertissement, h('div', { class: 'ligne' }, progres), indicateur,
       h('div', { class: 'ligne' }, saisie, btn, btnReecouter), retour);
 
@@ -83,6 +99,10 @@ export default {
       btn.style.display = texte ? '' : 'none';
     }
     majBouton('Commencer');
+    majPalier();
+    // Réglages de la série en cours : ceux de l'écran, ou ceux du palier en dictée anzan.
+    let r = { ...reglages };
+    const reglagesSerie = () => (reglages.support === 'tete' ? { ...reglages, ...PALIERS_DICTEE[palier()], questions: DICTEES_PAR_SERIE } : { ...reglages });
 
     async function lire(reecoute = false) {
       etat = 'lecture';
@@ -90,16 +110,16 @@ export default {
       btnReecouter.style.display = 'none';
       saisie.style.display = 'none';
       remplir(retour);
-      const o = { debit: reglages.debit, voix: reglages.voix };
+      const o = { debit: r.debit, voix: reglages.voix };
       indicateur.textContent = '🔈';
       await parler('On commence.', o);
-      await attendre(reglages.pause * 1000);
+      await attendre(r.pause * 1000);
       for (let i = 0; i < ex.lignes.length; i++) {
         if (!actif || etat !== 'lecture') return;
         const l = ex.lignes[i];
         indicateur.textContent = `${i + 1} / ${ex.lignes.length}`;
         await parler(`${l.op === '-' ? 'moins ' : ''}${l.n}`, o);
-        await attendre(reglages.pause * 1000);
+        await attendre(r.pause * 1000);
       }
       if (!actif) return;
       await parler('C\'est tout.', o);
@@ -118,8 +138,9 @@ export default {
     async function action() {
       if (etat === 'repos' || etat === 'fin') {
         serie = { index: 0, justes: 0, dureeMs: 0 };
+        r = reglagesSerie();
         remplir(progres);
-        ex = colonneADicter();
+        ex = colonneADicter(r);
         lire();
       } else if (etat === 'reponse') {
         const r = lireReponse(saisie.value);
@@ -138,11 +159,23 @@ export default {
           h('div', { class: 'discret' }, 'Ce qui a été dicté :'), rendreEnonce(ex, { compact: true, sousTotaux: !juste }),
           juste ? null : h('button', { class: 'btn', onclick: () => ouvrirExplication(ex) }, 'Expliquer'));
         etat = 'corrige';
-        majBouton(serie.index >= reglages.questions ? 'Voir le bilan' : 'Dictée suivante');
+        majBouton(serie.index >= r.questions ? 'Voir le bilan' : 'Dictée suivante');
       } else if (etat === 'corrige') {
-        if (serie.index < reglages.questions) { ex = colonneADicter(); lire(); return; }
+        if (serie.index < r.questions) { ex = colonneADicter(r); lire(); return; }
         etat = 'fin';
-        await enregistrerSession({ module: 'dictee', mode: 'yomiage', reglages: { ...reglages }, total: serie.index, justes: serie.justes, dureeMs: serie.dureeMs });
+        const tete = r.support === 'tete';
+        await enregistrerSession({ module: 'dictee', mode: tete ? 'anzan' : 'yomiage', reglages: { ...r }, total: serie.index, justes: serie.justes, dureeMs: serie.dureeMs });
+        if (tete) {
+          const avant = palier();
+          const apres = palierSuivant(avant, serie.justes, serie.index);
+          if (apres !== avant) await modifierReglages({ palierDictee: apres });
+          indicateur.textContent = `${serie.justes} / ${serie.index}`;
+          retour.className = 'retour';
+          remplir(retour, apres > avant ? `Palier ${apres + 1} atteint : ${libellePalier(apres)}.` : apres < avant ? `On redescend au palier ${apres + 1} pour raffermir l'image : ${libellePalier(apres)}.` : `On reste au palier ${avant + 1} : il faut 4 justes sur ${DICTEES_PAR_SERIE} pour monter.`);
+          majPalier();
+          majBouton('Nouvelle série');
+          return;
+        }
         indicateur.textContent = `${serie.justes} / ${serie.index}`;
         retour.className = 'retour';
         remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)} · ${formaterDuree(serie.dureeMs / serie.index)} en moyenne après la dictée. `,

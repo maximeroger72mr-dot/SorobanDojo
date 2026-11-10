@@ -66,7 +66,8 @@ export default {
     const zone = h('div', {});
     el.append(h('h1', {}, 'Flash anzan'),
       h('p', {}, 'Entraînement LIBRE du calcul de tête : vous choisissez le mode, le nombre de chiffres et la vitesse. Pour apprendre pas à pas (avec mini-tests et révisions), suivez plutôt la piste guidée : ',
-        h('button', { class: 'lien', onclick: () => app.aller('lecons', { piste: 'anzan' }) }, 'Apprendre › Anzan et visualisation'), '.'),
+        h('button', { class: 'lien', onclick: () => app.aller('lecons', { piste: 'anzan' }) }, 'Apprendre › Anzan et visualisation'), '. À l\'oreille : ',
+        h('button', { class: 'lien', onclick: () => app.aller('dictee', { support: 'tete' }) }, 'la dictée anzan, par paliers'), '. Pour se mesurer : les épreuves d\'anzan, dans Se mesurer › Grades.'),
       h('p', { class: 'discret' }, 'Voyez les boules bouger, et faites les gestes avec les doigts dans l\'air. Progression conseillée : photo du soroban et tenir une image, puis flash avec image (nette, estompée, légère), puis flash. Allongez la chaîne de nombres AVANT de réduire le temps d\'affichage ; si l\'image se brouille, revenez à moins de nombres. Le mitori-anzan entraîne sans le stress du défilement.'),
       zoneReglages, zone);
 

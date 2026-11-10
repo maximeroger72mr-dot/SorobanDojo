@@ -658,3 +658,16 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 - **Test instable découvert** : `tests/jeux.test.js` (« −2 petit ami », variété de la planche) échouait environ une fois sur trois sur le commit d'origine (9 échecs sur 25 lancements). L'annonce « 105 tests sur 105 » en tête de ce document reposait sur deux lancements chanceux. Le test tourne maintenant sur une graine fixe.
 - **Cause réelle** : certains gestes à 1 chiffre n'offrent presque aucune colonne par rôles. « −1 petit ami » échouait sur 22 % des colonnes et répétait ses formes sur 99 % des planches. Le repli par colonne règle l'abandon ; la répétition des formes à 1 chiffre reste une limite du geste lui-même (conseil : le travailler à 2 chiffres).
 - **R-3 existe en partie** : les colonnes fausses sont déjà gardées et rejouées le lendemain (`noterErreurColonne`, écran `erreurs.js`, 30 colonnes sur 14 jours). Le ticket R-3 se réduit à étendre l'espacement (J+3, J+7) au lieu d'un seul rappel.
+
+## Suite livrée (version 0.22.0)
+
+| Lot | État |
+|---|---|
+| Lièvre : mémoire par réglage, arrêt à la 2e erreur ou sur demande | Fait |
+| Parcours : prérequis par grade, décimaux déplacés, palier « Vers le 1er kyū », zéros finaux retirés | Fait |
+| Épreuves : formats alignés sur le référentiel (E-1), opérandes sans zéro final (E-2) | Fait, `verifie: false` partout |
+| Mini-tests et leçons équilibrés (0 % de mini-tests incomplets, contre 94 % pour la Révision générale) | Fait |
+| Reprise des colonnes dont l'erreur est identifiée ; rappels à J+3 et J+7 | Fait |
+| Allure par grade, affichage optionnel, examen pur, leçon de stratégie | Fait |
+| Dictée anzan par paliers, anzan × et ÷, épreuves d'anzan | Fait (formats d'anzan indicatifs) |
+| Non fait : cadence exacte du flash (A-1), sujet d'examen imprimable avec saisie différée (E-4), double passe (P-5), entrée à trois boutons (U-1), générateur injecté (P-6) | À faire |
