@@ -12,6 +12,18 @@ export function voixFrancaises() {
   return (synthese?.getVoices() ?? []).filter((v) => v.lang?.toLowerCase().startsWith('fr'));
 }
 
+/**
+ * Meilleure voix française installée : les voix « naturelles » (neuronales) d'abord, bien plus
+ * fluides que les voix classiques ; puis les voix en ligne ; puis ce qu'il y a. Le français de
+ * France passe avant les autres. La qualité dépend de l'ordinateur : l'application ne fait que
+ * choisir la meilleure voix disponible.
+ */
+export function meilleureVoix(voix = voixFrancaises()) {
+  const note = (v) => (/natural|neural|naturelle/i.test(v.name) ? 8 : 0) + (/online|google|siri|premium|enhanced|améliorée/i.test(v.name) ? 4 : 0)
+    + (/^fr[-_]fr/i.test(v.lang ?? '') ? 2 : 0) + (v.default ? 1 : 0);
+  return [...voix].sort((a, b) => note(b) - note(a))[0] ?? null;
+}
+
 /** Attend que la liste des voix soit chargée (certains systèmes la chargent en différé). */
 export function chargerVoix() {
   return new Promise((ok) => {
@@ -35,7 +47,8 @@ export function parler(texte, o = {}) {
     const u = new SpeechSynthesisUtterance(texte);
     u.lang = 'fr-FR';
     u.rate = o.debit ?? 1;
-    const voix = voixFrancaises().find((v) => v.name === o.voix);
+    // Voix choisie ; sinon la meilleure voix française installée (et non la voix par défaut du système).
+    const voix = voixFrancaises().find((v) => v.name === o.voix) ?? meilleureVoix();
     if (voix) u.voice = voix;
     let fini = false;
     const terminer = () => { if (!fini) { fini = true; ok(); } };

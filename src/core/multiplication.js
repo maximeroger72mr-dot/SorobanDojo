@@ -140,14 +140,22 @@ export function etapesMultiplication(a, b) {
     texte: `${a} × ${b} : ${ca.length} + ${cb.length} = ${total} chiffres au total. Le premier produit se pose avec sa dizaine sur la ${total}e tige en partant des unités (les ${nomRang(total - 1)}).`,
     op: '+', valeur: 0,
   }];
+  let valeur = 0;
   ca.forEach((x, i) => {
     cb.forEach((y, j) => {
       const p = x * y;
       const rangDizaine = total - 1 - i - j;
+      // Débordement : le produit s'ajoute sur ses deux tiges, et la retenue monte sur une
+      // troisième tige, à gauche. C'est là qu'on perd sa place si l'index gauche suit la retenue.
+      const ajout = p * 10 ** (rangDizaine - 1);
+      const gauche = 10 ** (rangDizaine + 1);
+      const deborde = Math.floor((valeur + ajout) / gauche) !== Math.floor(valeur / gauche);
+      valeur += ajout;
       macros.push({
+        deborde,
         texte: p === 0
           ? `${x} × ${y} = 00 : rien à poser sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}, MAIS on avance quand même d'une tige. Oublier ce décalage est l'erreur n° 1 avec les zéros.`
-          : `${x} × ${y} = ${deuxChiffres(p)} : on ajoute « ${deuxChiffres(p)} » sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}${p < 10 ? ' (la dizaine est vide : seul le ' + p + ' se pose, sur la tige de droite)' : ''}.`,
+          : `${x} × ${y} = ${deuxChiffres(p)} : on ajoute « ${deuxChiffres(p)} » sur les tiges des ${nomsTiges(rangDizaine, rangDizaine - 1)}${p < 10 ? ' (la dizaine est vide : seul le ' + p + ' se pose, sur la tige de droite)' : ''}.${deborde ? ` Attention : la retenue DÉBORDE sur la tige des ${nomRang(rangDizaine + 1)}, à gauche des deux tiges du produit. C'est normal. L'index gauche ne la suit pas : il reste sur sa tige, et le produit suivant se pose une tige plus à droite, comme prévu.` : ''}`,
         op: '+',
         valeur: p * 10 ** (rangDizaine - 1),
       });
@@ -155,6 +163,9 @@ export function etapesMultiplication(a, b) {
   });
   return { nbTiges: total + 2, depart: 0, macros, lecture: `Résultat : ${a * b}, lu à partir de la tige des unités.`, resultat: a * b };
 }
+
+/** Une multiplication où un produit fait déborder une retenue à gauche de ses deux tiges. */
+export const multiplicationDeborde = (a, b) => etapesMultiplication(a, b).macros.some((m) => m.deborde);
 
 /**
  * Estimation d'un chiffre du quotient, telle qu'on la fait de tête (méthode standard) :
@@ -271,6 +282,62 @@ export function etapesDivision(a, b) {
     rangUniteQuotient: rangUniteQ,
     lecture: `Quotient : ${q}, lu à gauche du reste (qui vaut 0). Son unité est sur la tige des ${nomRang(rangUniteQ)}, ${nd + 1} tiges à gauche de l'unité du dividende.`,
     resultat: q,
+  };
+}
+
+/**
+ * Rattraper un chiffre du quotient TROP GRAND de 1, sans tout effacer.
+ *
+ * On a posé le chiffre estimé et commencé à retirer ses produits ; au produit suivant, il n'y a
+ * plus assez sur le soroban. Au lieu de recommencer : on retire 1 au chiffre du quotient, on
+ * REND les chiffres du diviseur déjà retirés une fois de trop (un par produit déjà fait, chacun
+ * sur la tige de droite de son produit), puis on continue avec le chiffre corrigé.
+ *
+ * @param {number} a  dividende (partiel : la division n'a pas à tomber juste)
+ * @param {number} b  diviseur à 2 chiffres ou plus ; le quotient entier de a par b tient sur 1 chiffre
+ * @returns {{ nbTiges, depart, macros, lecture, resultat, rendus:number } | null}  null si le chiffre
+ *   trop grand se voit dès le premier produit (rien à rattraper)
+ */
+export function etapesRattrapage(a, b) {
+  const juste = Math.floor(a / b);
+  const pose = juste + 1;
+  const cb = chiffresDe(b);
+  const nd = cb.length;
+  if (nd < 2 || juste < 1 || pose > 9) return null;
+  const r = nd + 1; // tige du chiffre du quotient
+  const macros = [{
+    texte: `On pose ${a}. On estime trop vite : ${pose}, posé sur la tige des ${nomRang(r)} sans vérifier de tête. En réalité ${pose} × ${b} = ${pose * b}, plus que ${a} : le chiffre est trop grand de 1.`,
+    op: '+', valeur: pose * 10 ** r,
+  }];
+  let reste = a;
+  let bloque = -1;
+  for (let j = 0; j < nd; j++) {
+    const valeur = pose * cb[j] * 10 ** (r - 2 - j);
+    if (valeur > reste) { bloque = j; break; }
+    macros.push({ texte: `${pose} × ${cb[j]} = ${deuxChiffres(pose * cb[j])} : on retire « ${deuxChiffres(pose * cb[j])} » des tiges des ${nomsTiges(r - 1 - j, r - 2 - j)}.`, op: '-', valeur });
+    reste -= valeur;
+  }
+  if (bloque <= 0) return null;
+  const p = pose * cb[bloque];
+  macros.push({
+    texte: `${pose} × ${cb[bloque]} = ${deuxChiffres(p)} : IMPOSSIBLE, il ne reste pas assez sur les tiges des ${nomsTiges(r - 1 - bloque, r - 2 - bloque)}. Le ${pose} était trop grand. On ne recommence pas : on retire 1 au quotient (${pose} → ${juste}).`,
+    op: '-', valeur: 10 ** r,
+  });
+  for (let j = 0; j < bloque; j++) {
+    macros.push({
+      texte: `On rend ce qui a été retiré une fois de trop : le ${cb[j]} du diviseur, ajouté sur la tige des ${nomRang(r - 2 - j)} (la tige de droite du produit « × ${cb[j]} »).${bloque > 1 && j === 0 ? ` Il y a ${bloque} produits déjà faits : on rend ${bloque} chiffres du diviseur.` : ''}`,
+      op: '+', valeur: cb[j] * 10 ** (r - 2 - j),
+    });
+    reste += cb[j] * 10 ** (r - 2 - j);
+  }
+  for (let j = bloque; j < nd; j++) {
+    const valeur = juste * cb[j] * 10 ** (r - 2 - j);
+    macros.push({ texte: `On continue avec ${juste} : ${juste} × ${cb[j]} = ${deuxChiffres(juste * cb[j])}, retiré des tiges des ${nomsTiges(r - 1 - j, r - 2 - j)}.`, op: '-', valeur });
+    reste -= valeur;
+  }
+  return {
+    nbTiges: r + 2, depart: a, macros, rendus: bloque, resultat: juste,
+    lecture: `Quotient : ${juste}${reste ? `, et il reste ${reste} pour la suite de la division` : ''}. Rien n'a été effacé : un chiffre retiré au quotient, ${bloque > 1 ? `${bloque} chiffres du diviseur rendus` : 'le premier chiffre du diviseur rendu'}.`,
   };
 }
 

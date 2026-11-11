@@ -681,3 +681,15 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Piste anzan : marche « 2 chiffres, sans retenue » (`pa-6`) avant les 2 chiffres complets | Fait |
 | Flash anzan : cadence calée sur l'horloge (`ui/cadence.js`), sans dérive cumulée | Fait |
 | Leçon `p7-e` : bouton vers le sprint d'estimation du quotient | Fait |
+
+## Version 0.23.0
+
+| Changement | État |
+|---|---|
+| Sprint « division avec reste », relié à `p7-1` | Fait |
+| Démonstration « rattraper un quotient trop grand » dans `p7-e` et `p8-7` | Fait |
+| Débordement à gauche signalé dans les explications de multiplication ; exemple dédié dans `p6-3` | Fait |
+| Sprint « lire un résultat négatif », relié à `p8-n` | Fait |
+| Lecture éclair de grands nombres (3 à 10 chiffres), reliée à `p1-4`, `p8-t2`, `p9-1`, `p9-2` | Fait |
+| Arrondi éclair, relié à `pd-5` et `pd-6` | Fait |
+| Dictée : niveau automatique sur soroban, meilleure voix installée, moins de temps mort au départ | Fait (qualité de la voix non vérifiable ici) |

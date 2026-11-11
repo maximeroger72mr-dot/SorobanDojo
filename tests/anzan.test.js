@@ -73,3 +73,25 @@ test('cadence : les échéances ne dérivent pas d\'un élément à l\'autre', a
   const s = await cadencer({ periodeMs: 20, nombre: 10, surAfficher: () => { arret += 1; }, surMasquer: () => {}, interrompu: () => arret >= 3 });
   assert.equal(s.fini, false);
 });
+
+test('dictée sur soroban, à son niveau : pas plus de chiffres que dans les leçons validées', async () => {
+  const { paliersSoroban, PALIERS_DICTEE_SOROBAN, libellePalier: lib } = await import('../src/core/dicteeAnzan.js');
+  assert.ok(paliersSoroban(1).every((p) => p.chiffres === 1) && paliersSoroban(1).length === 3);
+  assert.equal(paliersSoroban(2).length, 6);
+  assert.equal(paliersSoroban(6).length, PALIERS_DICTEE_SOROBAN.length);
+  assert.equal(palierSuivant(5, 5, 5, paliersSoroban(2).length), 5, 'on ne dépasse pas le dernier palier ouvert');
+  assert.match(lib(3, PALIERS_DICTEE_SOROBAN), /5 nombres à 2 chiffres/);
+});
+
+test('voix : les voix naturelles passent devant, le français de France avant les autres', async () => {
+  const { meilleureVoix } = await import('../src/ui/voix.js');
+  const voix = [
+    { name: 'Microsoft Hortense', lang: 'fr-FR', default: true },
+    { name: 'Microsoft Sylvie Online (Natural)', lang: 'fr-CA' },
+    { name: 'Microsoft Denise Online (Natural)', lang: 'fr-FR' },
+    { name: 'Google français', lang: 'fr-FR' },
+  ];
+  assert.equal(meilleureVoix(voix).name, 'Microsoft Denise Online (Natural)');
+  assert.equal(meilleureVoix(voix.slice(0, 1)).name, 'Microsoft Hortense');
+  assert.equal(meilleureVoix([]), null);
+});

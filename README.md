@@ -200,4 +200,11 @@ Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de
 - **Parcours** : chaque kyū n'exige que les leçons de son épreuve ; décimaux après le palier 5e-4e kyū ; palier « Vers le 1er kyū » (7 à 10 chiffres, × 6 × 5, ÷ 5 × 5, arrondi à l'unité, résultats négatifs) ; leçon de stratégie d'examen ; mini-tests où chaque geste de la leçon est posé.
 - **Anzan** : leçons de multiplication et de division de tête, dictée anzan par paliers, épreuves d'anzan.
 
+## Nouveautés de la version 0.23
+
+- **Sprints** (`core/sprints.js`, écran Jeux, reliés aux leçons par un bouton) : division avec reste (avant la première division), lecture éclair de grands nombres (dès les gestes directs à 2 et 3 chiffres), arrondi éclair, lecture d'un résultat négatif sur le soroban.
+- **Division** : démonstration animée du rattrapage d'un chiffre de quotient trop grand, sans tout effacer (1 chiffre du diviseur rendu, ou 2 avec un diviseur à 3 chiffres).
+- **Multiplication** : la retenue qui déborde à gauche des deux tiges d'un produit est signalée dans toutes les explications ; l'index gauche ne bouge pas.
+- **Dictée** : « à mon niveau » (paliers automatiques, pas plus de chiffres que dans les leçons validées) ; la meilleure voix française installée est choisie d'office.
+
 Voir `SPECS.md` (cahier des charges) et `AUDIT-PARCOURS.md` (audit du parcours).

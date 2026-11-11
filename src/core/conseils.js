@@ -44,11 +44,13 @@ const PAR_PALIER = {
     'Lisez les deux facteurs une seule fois, puis ne regardez plus la feuille : récitez intérieurement les produits (« 24, 15… »).',
     'L\'index gauche marque la tige où commence le produit en cours : la main droite pose, la gauche guide. On ne cherche jamais sa place.',
     'Chaque produit sur DEUX tiges, même « 06 » ou « 00 » : avancer d\'une tige est un réflexe, jamais un calcul.',
+    'Quand une retenue déborde à gauche des deux tiges du produit, l\'index gauche ne bouge pas : c\'est la main droite qui monte la retenue et revient. Le produit suivant part toujours une tige à droite du précédent.',
   ],
   p7: [
     'Estimez avec le diviseur arrondi (18 → 20) : c\'est plus rapide que de chercher la table exacte, et la correction de ±1 est rare.',
     'L\'index gauche suit le chiffre du quotient en cours ; les produits se retirent juste à sa droite.',
     'Un chiffre de quotient trop petit se corrige sans tout effacer : +1 au quotient, on retire encore le diviseur.',
+    'Un chiffre de quotient trop grand se rattrape aussi : −1 au quotient, on rend les chiffres du diviseur déjà retirés une fois de trop, et on continue.',
   ],
   p8: [
     'Grands nombres : découpez par tranches de 3 chiffres (les points de la barre) ; l\'œil repère la tranche, la main pose.',

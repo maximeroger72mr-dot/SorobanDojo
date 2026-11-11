@@ -11,16 +11,16 @@ import { genererColonne, genererColonneVariee, creerMemoire } from '../core/gene
 
 const memoire = creerMemoire(6);
 import { famille } from '../core/motifs.js';
-import { motifsAppris } from '../core/parcours.js';
+import { motifsAppris, chiffresAppris } from '../core/parcours.js';
 import { progression, enregistrerSession, noterReponse, modifierReglages, reglagesUtilisateur } from '../core/progression.js';
-import { PALIERS_DICTEE, DICTEES_PAR_SERIE, palierSuivant, libellePalier } from '../core/dicteeAnzan.js';
+import { PALIERS_DICTEE, DICTEES_PAR_SERIE, palierSuivant, libellePalier, paliersSoroban } from '../core/dicteeAnzan.js';
 import { lireReponse } from '../core/nombres.js';
-import { chargerVoix, parler, taire, voixDisponible } from '../ui/voix.js';
+import { chargerVoix, parler, taire, voixDisponible, meilleureVoix } from '../ui/voix.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, raccourcis, formaterNombre, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { chiffres: 2, nombres: 5, debit: 1, pause: 0.8, soustractions: true, voix: '', questions: 5, support: 'soroban' };
+const reglages = { chiffres: 2, nombres: 5, debit: 1, pause: 0.8, soustractions: true, voix: '', questions: 5, support: 'niveau' };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 /** Colonne à dicter : gestes appris seulement (aucun ami jamais vu). */
@@ -52,10 +52,12 @@ export default {
       s.value = String(reglages[cle]);
       return s;
     };
-    const selVoix = h('select', { onchange: (e) => { reglages.voix = e.target.value; } }, h('option', { value: '' }, 'Voix par défaut'));
+    const selVoix = h('select', { onchange: (e) => { reglages.voix = e.target.value; } }, h('option', { value: '' }, 'Meilleure voix installée'));
     chargerVoix().then((voix) => {
       selVoix.append(...voix.map((v) => h('option', { value: v.name }, v.name)));
       selVoix.value = reglages.voix;
+      const m = meilleureVoix(voix);
+      if (m) selVoix.options[0].textContent = `Meilleure voix installée (${m.name})`;
       if (!voix.length) avertissement.textContent = 'Aucune voix française n\'a été trouvée sur cet ordinateur : la voix par défaut sera utilisée (Windows : Paramètres > Heure et langue > Voix ; Mac : Réglages > Accessibilité > Contenu énoncé).';
     });
     const avertissement = h('p', { class: 'discret' }, voixDisponible() ? '' : 'La synthèse vocale n\'est pas disponible ici.');
@@ -68,16 +70,22 @@ export default {
     saisie.addEventListener('input', () => { if (etat === 'reponse' && dureeCalcul === null && saisie.value.trim()) dureeCalcul = performance.now() - debutReponse; });
 
     // Dictée anzan : de tête, par paliers (les réglages de longueur et de débit suivent le palier).
-    const palier = () => Math.min(PALIERS_DICTEE.length - 1, reglagesUtilisateur().palierDictee ?? 0);
+    // Deux échelles de paliers : de tête (dictée anzan), ou sur le soroban à son niveau (pas plus
+    // de chiffres que dans les leçons validées). Chacune garde son palier.
+    const paliers = () => (reglages.support === 'tete' ? PALIERS_DICTEE : paliersSoroban(chiffresAppris(progression())));
+    const clePalier = () => (reglages.support === 'tete' ? 'palierDictee' : 'palierDicteeSoroban');
+    const palier = () => Math.min(paliers().length - 1, reglagesUtilisateur()[clePalier()] ?? 0);
     const infoPalier = h('p', { class: 'carte', style: 'margin-bottom:12px' });
     const majPalier = () => {
       const tete = reglages.support === 'tete';
-      infoPalier.style.display = tete ? '' : 'none';
-      el.querySelectorAll('.reglages .libre').forEach((x) => { x.style.display = tete ? 'none' : ''; });
-      if (tete) remplir(infoPalier, h('strong', {}, `Dictée anzan · palier ${palier() + 1} / ${PALIERS_DICTEE.length}`), ` : ${libellePalier(palier())}. Soroban rangé : écoutez, voyez les boules bouger, puis tapez le résultat. Une série fait ${DICTEES_PAR_SERIE} dictées : 4 justes font monter d'un palier.`);
+      const auto = reglages.support !== 'soroban';
+      infoPalier.style.display = auto ? '' : 'none';
+      el.querySelectorAll('.reglages .libre').forEach((x) => { x.style.display = auto ? 'none' : ''; });
+      if (tete) remplir(infoPalier, h('strong', {}, `Dictée anzan · palier ${palier() + 1} / ${paliers().length}`), ` : ${libellePalier(palier(), paliers())}. Soroban rangé : écoutez, voyez les boules bouger, puis tapez le résultat. Une série fait ${DICTEES_PAR_SERIE} dictées : 4 justes font monter d'un palier.`);
+      else if (auto) remplir(infoPalier, h('strong', {}, `À mon niveau · palier ${palier() + 1} / ${paliers().length}`), ` : ${libellePalier(palier(), paliers())}. Uniquement les gestes de vos leçons validées, et pas plus de chiffres que vous n'en avez appris. Une série fait ${DICTEES_PAR_SERIE} dictées : 4 justes font monter d'un palier (plus de nombres, puis plus vite, puis plus de chiffres).`);
     };
     const libre = (x) => { x.classList.add('libre'); return x; };
-    const selSupport = select('support', [['soroban', 'sur mon soroban'], ['tete', 'de tête (dictée anzan)']], String);
+    const selSupport = select('support', [['niveau', 'sur mon soroban, à mon niveau'], ['soroban', 'sur mon soroban, réglages libres'], ['tete', 'de tête (dictée anzan)']], String);
     selSupport.addEventListener('change', majPalier);
     el.append(h('h1', {}, 'Dictée (yomiage)'),
       h('p', { class: 'discret' }, 'Les nombres sont lus à voix haute ; calculez en écoutant, sans regarder l\'écran : sur votre soroban, ou de tête (dictée anzan, par paliers). Les additions sont lues telles quelles, les soustractions précédées de « moins ».'),
@@ -102,7 +110,7 @@ export default {
     majPalier();
     // Réglages de la série en cours : ceux de l'écran, ou ceux du palier en dictée anzan.
     let r = { ...reglages };
-    const reglagesSerie = () => (reglages.support === 'tete' ? { ...reglages, ...PALIERS_DICTEE[palier()], questions: DICTEES_PAR_SERIE } : { ...reglages });
+    const reglagesSerie = () => (reglages.support !== 'soroban' ? { ...reglages, ...paliers()[palier()], questions: DICTEES_PAR_SERIE } : { ...reglages });
 
     async function lire(reecoute = false) {
       etat = 'lecture';
@@ -113,7 +121,7 @@ export default {
       const o = { debit: r.debit, voix: reglages.voix };
       indicateur.textContent = '🔈';
       await parler('On commence.', o);
-      await attendre(r.pause * 1000);
+      await attendre(Math.min(r.pause, 0.4) * 1000);
       for (let i = 0; i < ex.lignes.length; i++) {
         if (!actif || etat !== 'lecture') return;
         const l = ex.lignes[i];
@@ -165,13 +173,13 @@ export default {
         etat = 'fin';
         const tete = r.support === 'tete';
         await enregistrerSession({ module: 'dictee', mode: tete ? 'anzan' : 'yomiage', reglages: { ...r }, total: serie.index, justes: serie.justes, dureeMs: serie.dureeMs });
-        if (tete) {
+        if (r.support !== 'soroban') {
           const avant = palier();
-          const apres = palierSuivant(avant, serie.justes, serie.index);
-          if (apres !== avant) await modifierReglages({ palierDictee: apres });
+          const apres = palierSuivant(avant, serie.justes, serie.index, paliers().length);
+          if (apres !== avant) await modifierReglages({ [clePalier()]: apres });
           indicateur.textContent = `${serie.justes} / ${serie.index}`;
           retour.className = 'retour';
-          remplir(retour, apres > avant ? `Palier ${apres + 1} atteint : ${libellePalier(apres)}.` : apres < avant ? `On redescend au palier ${apres + 1} pour raffermir l'image : ${libellePalier(apres)}.` : `On reste au palier ${avant + 1} : il faut 4 justes sur ${DICTEES_PAR_SERIE} pour monter.`);
+          remplir(retour, apres > avant ? `Palier ${apres + 1} atteint : ${libellePalier(apres, paliers())}.` : apres < avant ? `On redescend au palier ${apres + 1} : ${libellePalier(apres, paliers())}.` : `On reste au palier ${avant + 1} : il faut 4 justes sur ${DICTEES_PAR_SERIE} pour monter.`);
           majPalier();
           majBouton('Nouvelle série');
           return;

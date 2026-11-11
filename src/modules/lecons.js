@@ -10,6 +10,7 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
+import { etapesRattrapage } from '../core/multiplication.js';
 import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
@@ -71,6 +72,7 @@ const dateFr = (d) => new Date(`${d}T12:00`).toLocaleDateString('fr-FR', { day: 
 
 /** Démonstration d'un exemple de sous-palier, quel que soit son type. */
 function demoDe(sp, d) {
+  if (d.rattrapage) return { titre: `${d.a} ÷ ${d.b} : rattraper un chiffre trop grand`, ...etapesRattrapage(d.a, d.b) };
   if (sp.type === 'mul' || sp.type === 'table') return demoMultiplication(d.a, d.b);
   if (sp.type === 'div') return demoDivision(d.a, d.b);
   return d;
@@ -89,7 +91,7 @@ function encadreVitesse(sp) {
 }
 const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
 
-const libelleDemo = (sp, d) => (sp.type === 'mul' || sp.type === 'table' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
+const libelleDemo = (sp, d) => (d.rattrapage ? `rattraper un quotient trop grand (${d.a} ÷ ${d.b})` : sp.type === 'mul' || sp.type === 'table' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 
 export default {
   id: 'lecons',
@@ -277,6 +279,22 @@ export default {
             fait ? `Fait : ${n ? `${n} produit${n > 1 ? 's' : ''} à retravailler (faux ou plus lents que 2,5 s), proposés chaque jour jusqu'à ce qu'ils passent.` : 'tous vos produits sont sûrs et rapides.'}`
               : 'Avant de multiplier sur le soroban, les 81 produits une fois chacun : ceux qui sont faux ou plus lents que 2,5 s seront travaillés chaque jour. Un produit hésitant bloque toute la chaîne.',
             h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: fait ? 'btn' : 'btn principal', onclick: () => app.aller('drills', { tables: '81' }) }, fait ? 'Refaire les 81 produits' : 'Faire le diagnostic (81 produits)'))));
+        }
+        // Réflexe à travailler à part, relié à la leçon par un bouton (comme le diagnostic des tables).
+        const sprintLie = {
+          'p7-1': ['Division avec reste. ', 'Avant de diviser sur le soroban : « dans 53, combien de fois 7, et combien reste-t-il ? » doit venir d\'un coup. 60 secondes, sans soroban.', { jeu: 'reste' }, 'Sprint : division avec reste'],
+          'p8-n': ['Lire le complément. ', 'La règle se comprend vite ; c\'est la lecture qui fait perdre du temps à l\'examen. Un soroban affiche le complément, vous tapez le résultat négatif, sans rien calculer.', { jeu: 'negatif' }, 'Sprint : lire un résultat négatif'],
+          'pd-5': ['Arrondi éclair. ', 'Arrondir sans hésiter, au millième ou à l\'unité : 60 secondes pour en faire un réflexe.', { jeu: 'arrondi' }, 'Sprint : arrondi'],
+          'pd-6': ['Arrondi éclair. ', 'Millième et unité mélangés : le piège est de se tromper de rang. 60 secondes.', { jeu: 'arrondi' }, 'Sprint : arrondi'],
+          'p1-4': ['Lecture éclair. ', 'Un nombre s\'affiche un instant : posez-le, puis tapez-le. À 3 chiffres dès maintenant : prendre un nombre d\'un bloc servira à toutes les colonnes qui suivent.', { jeu: 'eclair', chiffres: 3 }, 'Lecture éclair : 3 chiffres'],
+          'p8-t2': ['Lecture éclair. ', 'À 4 et 5 chiffres, on lit par tranches de 3 : c\'est la lecture, plus que le geste, qui fait la vitesse.', { jeu: 'eclair', chiffres: 5 }, 'Lecture éclair : 5 chiffres'],
+          'p9-1': ['Lecture éclair. ', '7 et 8 chiffres : trois tranches à prendre d\'un bloc chacune.', { jeu: 'eclair', chiffres: 8 }, 'Lecture éclair : 8 chiffres'],
+          'p9-2': ['Lecture éclair. ', '9 et 10 chiffres : la lecture décide de tout.', { jeu: 'eclair', chiffres: 10 }, 'Lecture éclair : 10 chiffres'],
+        }[sp.id];
+        if (sprintLie) {
+          const [titre, texte, cible, bouton] = sprintLie;
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, titre), texte,
+            h('div', { class: 'ligne', style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => app.aller('jeux', cible) }, bouton))));
         }
         if (sp.id === 'p7-e') {
           // Estimer le quotient : le réflexe se travaille à part, d'une touche (sprint dans Tables).

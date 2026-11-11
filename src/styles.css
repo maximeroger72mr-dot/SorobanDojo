@@ -552,3 +552,5 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .reglages-examen label { display: flex; gap: 6px; align-items: center; }
 @media print { .allure-feuille, .reglages-examen { display: none !important; } }
 .enonce-masque { font-size: 2rem; letter-spacing: 0.3em; color: var(--discret); padding: 24px 0; }
+.sprint-ecran .consigne-arrondi { font-size: 1rem; }
+.sprint-ecran svg { width: 520px; max-width: 100%; height: auto; }

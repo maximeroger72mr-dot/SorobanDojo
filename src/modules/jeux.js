@@ -12,8 +12,9 @@
 
 import { analyserOperation, genererColonneVariee, creerMemoire, sousTotaux } from '../core/generateur.js';
 import { analyserMotif, famille } from '../core/motifs.js';
-import { famillesApprises, motifsAppris } from '../core/parcours.js';
-import { progression, enregistrerSession, proposerMeilleurScore, noterReponse } from '../core/progression.js';
+import { famillesApprises, motifsAppris, chiffresAppris } from '../core/parcours.js';
+import { tirerReste, resteJuste, tirerComplement, complementJuste, tirerArrondi, arrondiJuste, tirerGrandNombre, dureeEclairDepart, dureeEclairSuivante } from '../core/sprints.js';
+import { progression, enregistrerSession, proposerMeilleurScore, noterReponse, modifierReglages } from '../core/progression.js';
 import { lireReponse } from '../core/nombres.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
@@ -29,6 +30,10 @@ export const JEUX = [
   { id: 'complement', titre: 'Complément éclair', description: 'Le complément à 5, à 10 ou à 100 d\'un nombre. 60 secondes.' },
   { id: 'survie', titre: 'Survie anzan', description: 'De tête : la chaîne s\'allonge d\'un nombre à chaque réussite, jusqu\'à l\'erreur.' },
   { id: 'chasse', titre: 'Chasse à l\'erreur', description: 'Un sous-total faux est caché dans la colonne : trouvez la ligne, soroban en main.' },
+  { id: 'reste', titre: 'Division avec reste', description: '53 ÷ 7 : combien de fois, et combien il reste ? Le réflexe à avoir avant de diviser. 60 secondes.' },
+  { id: 'eclair', titre: 'Lecture éclair', description: 'Un grand nombre s\'affiche un instant : posez-le sur votre soroban, puis tapez-le. La lecture par tranches de 3 chiffres.' },
+  { id: 'arrondi', titre: 'Arrondi éclair', description: 'Un nombre avec une décimale de trop : arrondissez au millième ou à l\'unité, sans vous tromper de rang. 60 secondes.' },
+  { id: 'negatif', titre: 'Lire un résultat négatif', description: 'Le soroban affiche le complément (99 947 283) : tapez le résultat (−52 717). 60 secondes.' },
 ];
 
 /** Meilleur score d'un jeu (texte court), pour les cartes et l'accueil. */
@@ -38,6 +43,9 @@ export function recordJeu(id) {
   if (id === 'complement') return ['5', '10', '100'].filter((m) => r[`jeu-complement-${m}`]).map((m) => `à ${m} : ${r[`jeu-complement-${m}`].points}`).join(' · ') || null;
   if (id === 'survie') return r['jeu-survie'] ? `record ${r['jeu-survie'].points} nombres` : null;
   if (id === 'chasse') return r['jeu-chasse'] ? `record ${r['jeu-chasse'].points} / 10` : null;
+  if (id === 'reste' || id === 'arrondi') return r[`jeu-${id}`] ? `record ${r[`jeu-${id}`].points} points` : null;
+  if (id === 'negatif') return [2, 4, 8].filter((c) => r[`jeu-negatif-${c}`]).map((c) => `${c} tiges : ${r[`jeu-negatif-${c}`].points}`).join(' · ') || null;
+  if (id === 'eclair') { const d = progression().reglages?.eclair ?? {}; return Object.keys(d).sort((a, b) => a - b).map((c) => `${c} chiffres : ${d[c].toLocaleString('fr-FR')} s`).join(' · ') || null; }
   return null;
 }
 
@@ -60,7 +68,7 @@ export default {
       el.append(h('h1', {}, 'Jeux'),
         h('p', { class: 'discret' }, 'Des jeux courts, qui entraînent chacun une compétence précise du soroban. Uniquement avec les gestes que vous avez appris.'),
         // « Le bon geste » n'a de sens qu'avec au moins deux gestes à choisir (petits amis appris).
-        h('div', { class: 'cartes' }, JEUX.filter((j) => j.id !== 'survie' && (j.id !== 'geste' || famillesApprises(progression()).has('petit') || progression().reglages?.decouverte)).map((j) => h('button', { class: 'carte-hub', onclick: () => changer({ geste, complement, survie, chasse }[j.id]) },
+        h('div', { class: 'cartes' }, JEUX.filter((j) => j.id !== 'survie' && (j.id !== 'geste' || famillesApprises(progression()).has('petit') || progression().reglages?.decouverte)).map((j) => h('button', { class: 'carte-hub', onclick: () => changer({ geste, complement, survie, chasse, reste, eclair, arrondi, negatif }[j.id]) },
           h('strong', {}, j.titre), h('span', {}, j.description), recordJeu(j.id) ? h('span', { class: 'carte-info' }, recordJeu(j.id)) : null))));
       return null;
     }
@@ -188,6 +196,186 @@ export default {
       return () => { clearInterval(minuterie); sans(); };
     }
 
+    // ------------------------------------------------------------ sprints de 60 secondes
+    /**
+     * Sprint générique : une question, une réponse, Entrée, la suivante ; 60 secondes.
+     * Score : justes moins erreurs (on ne gagne rien à taper au hasard).
+     * @param {{ cle, titre, consigne, tirer, rendre, juste, correction, aide, retourVers, mode }} d
+     */
+    function sprint(d) {
+      const DUREE = 60000;
+      let q = null;
+      let justes = 0;
+      let faux = 0;
+      let fin = false;
+      const ecran = h('div', { class: 'flash-ecran sprint-ecran' });
+      const saisie = h('input', { type: 'text', inputmode: d.clavier ?? 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: d.aide });
+      const temps = h('strong', {});
+      const score = h('span', { class: 'discret' });
+      const retourEl = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
+      el.append(h('button', { class: 'lien', onclick: () => changer(d.retourVers) }, `← ${d.titreRetour ?? d.titre}`), h('h1', {}, d.titre),
+        h('p', { class: 'discret' }, d.consigne),
+        h('div', { class: 'ruban-entete' }, temps, score), ecran, h('div', { class: 'ligne' }, saisie), retourEl);
+      const nouveau = () => { q = d.tirer(q); remplir(ecran, d.rendre(q)); saisie.value = ''; saisie.focus(); };
+      const valider = async () => {
+        if (fin || !saisie.value.trim()) return;
+        const juste = d.juste(q, saisie.value);
+        if (juste === null) return;
+        if (juste) justes += 1; else faux += 1;
+        await noterReponse(juste);
+        retourEl.className = `retour ${juste ? 'ok' : 'erreur'}`;
+        retourEl.textContent = juste ? '✓' : `✗ ${d.correction(q)}`;
+        nouveau();
+      };
+      const sans = raccourcis({ Enter: () => valider() });
+      const debut = performance.now();
+      const minuterie = setInterval(async () => {
+        const reste = Math.max(0, DUREE - (performance.now() - debut));
+        temps.textContent = formaterDuree(reste);
+        score.textContent = `${justes} juste${justes > 1 ? 's' : ''} · ${faux} erreur${faux > 1 ? 's' : ''}`;
+        if (reste === 0 && !fin) {
+          fin = true;
+          clearInterval(minuterie);
+          saisie.disabled = true;
+          const points = Math.max(0, justes - faux);
+          await enregistrerSession({ module: 'jeux', mode: d.mode ?? d.cle, total: justes + faux, justes, dureeMs: DUREE });
+          const record = await proposerMeilleurScore(`jeu-${d.cle}`, points);
+          el.append(bilan(`${points} point${points > 1 ? 's' : ''}`, [`${justes} justes, ${faux} erreurs.`, record ? 'Nouveau record !' : ''], d.rejouer));
+        }
+      }, 100);
+      nouveau();
+      return () => { clearInterval(minuterie); sans(); };
+    }
+
+    // Division avec reste : quotient puis reste, deux touches (« 74 » pour 7 reste 4).
+    function reste() {
+      return sprint({
+        cle: 'reste', titre: 'Division avec reste', retourVers: accueil, titreRetour: 'Jeux', rejouer: reste, aide: 'quotient puis reste',
+        consigne: 'Dans 53, combien de fois 7, et combien reste-t-il ? Tapez le quotient PUIS le reste, collés : 53 ÷ 7 → 74 (7 fois, reste 4). Reste nul : 56 ÷ 7 → 80. Pas de soroban : c\'est le réflexe qui prépare la division.',
+        tirer: (prec) => tirerReste(prec),
+        rendre: (q) => q.texte,
+        juste: (q, texte) => resteJuste(q, texte),
+        correction: (q) => `${q.texte} : ${q.correction} → ${q.attendu}`,
+      });
+    }
+
+    // Arrondi : au millième ou à l'unité.
+    function arrondi() {
+      return sprint({
+        cle: 'arrondi', titre: 'Arrondi éclair', retourVers: accueil, titreRetour: 'Jeux', rejouer: arrondi, aide: 'arrondi', clavier: 'decimal',
+        consigne: 'Arrondissez au rang demandé : on regarde le chiffre SUIVANT ; 5 ou plus, on arrondit au-dessus. À l\'examen, la première moitié des multiplications et des divisions s\'arrondit au millième, la seconde à l\'unité : se tromper de rang coûte le point.',
+        tirer: (prec) => tirerArrondi(prec),
+        rendre: (q) => [h('div', {}, q.texte), h('div', { class: 'consigne-arrondi' }, `arrondir ${q.consigne}`)],
+        juste: (q, texte) => { const r = lireReponse(texte, 3); return r === null ? null : arrondiJuste(q, r); },
+        correction: (q) => `${q.texte} ${q.consigne} : ${q.correction}`,
+      });
+    }
+
+    // Lecture du complément : le soroban affiche le complément d'un résultat négatif.
+    function negatif() {
+      const choix = h('div', { class: 'ligne' }, [2, 4, 8].map((c) => h('button', { class: 'btn principal', onclick: () => changer(() => partieNegatif(c)) }, `${c} tiges`)));
+      el.append(retour(), h('h1', {}, 'Lire un résultat négatif'),
+        h('p', { class: 'discret' }, 'Quand une colonne passe sous zéro, on emprunte un 1 imaginaire et le soroban affiche le COMPLÉMENT du résultat. Lecture : le complément à 9 de chaque chiffre, à 10 pour le dernier chiffre non nul. Ici, rien à calculer : le soroban s\'affiche, vous tapez le résultat (le signe moins est facultatif). 60 secondes.'),
+        choix, h('p', { class: 'discret' }, recordJeu('negatif') ?? 'Pas encore de record.'));
+      return null;
+    }
+    function partieNegatif(chiffres) {
+      let vue = null;
+      const fin = sprint({
+        cle: `negatif-${chiffres}`, mode: 'negatif', titre: `Lire un résultat négatif · ${chiffres} tiges`, retourVers: negatif, titreRetour: 'Lire un résultat négatif', rejouer: () => partieNegatif(chiffres), aide: 'résultat',
+        consigne: `Emprunt imaginaire de ${(10 ** chiffres).toLocaleString('fr-FR')} : le soroban affiche le complément. Tapez le résultat négatif.`,
+        tirer: (prec) => tirerComplement(chiffres, prec),
+        rendre: (q) => {
+          vue?.detruire();
+          const zone = h('div', { class: 'photo-soroban' });
+          const s = new Soroban(chiffres);
+          s.definirValeur(q.affiche);
+          vue = new SorobanVue(zone, s, { interactif: false });
+          return zone;
+        },
+        juste: (q, texte) => { const r = lireReponse(texte); return r === null ? null : complementJuste(q, r); },
+        correction: (q) => q.correction,
+      });
+      return () => { fin(); vue?.detruire(); };
+    }
+
+    // ------------------------------------------------------------ lecture éclair
+    function eclair() {
+      const d = progression();
+      const conseille = Math.min(10, Math.max(3, chiffresAppris(d) + 1));
+      const choix = h('div', { class: 'ligne', style: 'flex-wrap:wrap' }, [3, 4, 5, 6, 7, 8, 9, 10].map((c) => h('button', { class: c === conseille ? 'btn principal' : 'btn', onclick: () => changer(() => partieEclair(c)) }, `${c} chiffres`)));
+      el.append(retour(), h('h1', {}, 'Lecture éclair'),
+        h('p', { class: 'discret' }, 'Un nombre s\'affiche un court instant, puis disparaît. Posez-le sur votre soroban, puis tapez ce que le soroban affiche. On ne lit pas chiffre par chiffre : on prend chaque tranche de 3 chiffres d\'un bloc (« 407 », « 258 »), repérée par les points de la barre. La durée d\'affichage raccourcit quand vous réussissez, et elle est gardée pour chaque longueur. Utile bien avant les colonnes longues.'),
+        choix, h('p', { class: 'discret' }, recordJeu('eclair') ? `Durée atteinte : ${recordJeu('eclair')}` : `Conseillé à votre niveau : ${conseille} chiffres.`));
+      return null;
+    }
+    function partieEclair(chiffres) {
+      const TOTAL = 8;
+      let actif = true;
+      let n = null;
+      let k = 0;
+      let justes = 0;
+      let serie = 0;
+      let phase = 'pret';
+      let duree = progression().reglages?.eclair?.[chiffres] ?? dureeEclairDepart(chiffres);
+      const ecran = h('div', { class: 'flash-ecran' });
+      const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', placeholder: 'ce que votre soroban affiche', disabled: true });
+      const btn = h('button', { class: 'btn principal', onclick: () => action() });
+      const info = h('span', { class: 'discret' });
+      const retourEl = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
+      const majBouton = (texte) => { remplir(btn, texte, ' ', h('kbd', {}, 'Entrée')); btn.style.display = texte ? '' : 'none'; };
+      const majInfo = () => { info.textContent = `nombre ${Math.min(k + 1, TOTAL)} / ${TOTAL} · ${justes} juste${justes > 1 ? 's' : ''} · affichage ${duree.toLocaleString('fr-FR')} s`; };
+      el.append(h('button', { class: 'lien', onclick: () => changer(eclair) }, '← Lecture éclair'), h('h1', {}, `Lecture éclair · ${chiffres} chiffres`),
+        h('div', { class: 'ruban-entete' }, info), ecran, h('div', { class: 'ligne' }, saisie, btn), retourEl);
+      async function montrer() {
+        phase = 'affiche';
+        majBouton('');
+        remplir(retourEl);
+        saisie.value = '';
+        saisie.disabled = true;
+        n = tirerGrandNombre(chiffres, n);
+        const cible = n;
+        ecran.textContent = formaterNombre(n);
+        await new Promise((ok) => setTimeout(ok, duree * 1000));
+        if (!actif || n !== cible) return;
+        ecran.textContent = '· · ·';
+        phase = 'reponse';
+        saisie.disabled = false;
+        saisie.focus();
+        majBouton('Valider');
+      }
+      async function action() {
+        if (phase === 'pret' || phase === 'suite') { montrer(); return; }
+        if (phase !== 'reponse') return;
+        const r = lireReponse(saisie.value);
+        if (r === null) return;
+        const juste = r === n;
+        k += 1;
+        if (juste) { justes += 1; serie += 1; } else serie = 0;
+        await noterReponse(juste);
+        duree = dureeEclairSuivante(duree, chiffres, juste, serie);
+        await modifierReglages({ eclair: { ...(progression().reglages?.eclair ?? {}), [chiffres]: duree } });
+        ecran.textContent = formaterNombre(n);
+        saisie.disabled = true;
+        retourEl.className = `retour ${juste ? 'ok' : 'erreur'}`;
+        retourEl.textContent = juste ? '✓ Juste.' : `✗ Vous avez tapé ${formaterNombre(r)}. Lisez par tranches de 3 chiffres, de gauche à droite.`;
+        majInfo();
+        if (k >= TOTAL) {
+          phase = 'fin';
+          majBouton('');
+          await enregistrerSession({ module: 'jeux', mode: 'eclair', reglages: { chiffres }, total: TOTAL, justes, dureeMs: TOTAL * duree * 1000 });
+          el.append(bilan(`${justes} / ${TOTAL}`, [`Affichage atteint : ${duree.toLocaleString('fr-FR')} s pour ${chiffres} chiffres. Vous repartirez de là.`], () => partieEclair(chiffres)));
+          return;
+        }
+        phase = 'suite';
+        majBouton('Nombre suivant');
+      }
+      majInfo();
+      majBouton('Afficher le premier nombre');
+      const sans = raccourcis({ Enter: () => action() });
+      return () => { actif = false; sans(); };
+    }
+
     // ------------------------------------------------------------ survie anzan
     function survie() {
       const choix = h('div', { class: 'ligne' }, [2.5, 2, 1.5, 1].map((d) => h('button', { class: d === 2 ? 'btn principal' : 'btn', onclick: () => changer(() => chaine(d)) }, `${d.toLocaleString('fr-FR')} s par nombre`)));
@@ -282,7 +470,9 @@ export default {
     }
 
     // Complément éclair lancé directement à 5 ou à 10 (échauffement de la séance).
-    const direct = params.jeu === 'complement' && params.cible ? () => partie(params.cible) : { geste, complement, survie, chasse }[params.jeu];
+    const direct = params.jeu === 'complement' && params.cible ? () => partie(params.cible)
+      : params.jeu === 'eclair' && params.chiffres ? () => partieEclair(params.chiffres)
+        : { geste, complement, survie, chasse, reste, eclair, arrondi, negatif }[params.jeu];
     changer(direct ?? accueil);
     return () => nettoyer?.();
   },
