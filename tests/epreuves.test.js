@@ -54,14 +54,24 @@ test('grille officielle : seuils, formes et résultat négatif', () => {
   assert.deepEqual(GRADES.filter((x) => x.milliers).map((x) => x.id), ['3', '2', '1']);
 });
 
-test('1er kyū : un mitorizan à résultat négatif dans la seconde moitié ; longueur des lignes fixe', () => {
-  const g1 = GRADES.find((g) => g.id === '1');
-  for (let k = 0; k < 10; k++) {
-    const m = genererSujet(g1).sections[0].problemes;
-    assert.equal(m.filter((p) => p.resultat < 0).length, 1);
-    assert.ok(m.every((p) => p.lignes.every((l) => String(l.n).length === 10)));
+test('mitorizan : total de chiffres par problème fixé par le grade (字数), longueurs imposées', () => {
+  const totaux = { 6: 35, 5: 45, 4: 55, 3: 65, 2: 75, 1: 90 };
+  for (const [id, total] of Object.entries(totaux)) {
+    const g = GRADES.find((x) => x.id === id);
+    assert.equal(g.mitori.longueurs.reduce((t, x) => t + x, 0), total, id);
+    for (let k = 0; k < 3; k++) for (const p of genererSujet(g).sections[0].problemes) {
+      const longueurs = p.lignes.map((l) => String(l.n).length).sort((a, b) => a - b);
+      assert.deepEqual(longueurs, [...g.mitori.longueurs].sort((a, b) => a - b), `${id} : ${longueurs}`);
+    }
   }
-  for (const [id, n] of [['2', 8], ['3', 6], ['4', 5], ['5', 4], ['6', 3]]) assert.equal(GRADES.find((g) => g.id === id).mitori.max, n);
+  // 6e au 4e kyū : moitié-moitié sur deux longueurs voisines.
+  for (const [id, court] of [['6', 3], ['5', 4], ['4', 5]]) {
+    const l = GRADES.find((x) => x.id === id).mitori.longueurs;
+    assert.equal(l.filter((x) => x === court).length, 5);
+    assert.equal(l.filter((x) => x === court + 1).length, 5);
+  }
+  const g1 = GRADES.find((g) => g.id === '1');
+  for (let k = 0; k < 5; k++) assert.equal(genererSujet(g1).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
 });
 
 test('× et ÷ d\'examen : aucun opérande entier terminé par 0, aucun doublon', () => {

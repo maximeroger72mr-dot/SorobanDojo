@@ -1,6 +1,6 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.24.1",
+  "version": "0.24.2",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {

@@ -5,7 +5,10 @@
  *
  *  - 1er au 6e kyū : 10 mitorizan, 20 multiplications, 20 divisions, 30 minutes pour le tout,
  *    300 points ; réussite à 240 (1er au 3e) ou 210 (4e au 6e).
- *  - Mitorizan : 10 lignes de longueur FIXE (10, 8, 6, 5, 4, 3 chiffres du 1er au 6e kyū) ;
+ *  - Mitorizan : 10 lignes dont le TOTAL de chiffres est fixé par le règlement (字数) :
+ *    35 au 6e kyū (5 nombres de 3 chiffres, 5 de 4), 45 au 5e (4 et 5), 55 au 4e (5 et 6),
+ *    65 au 3e (5 à 7 chiffres), 75 au 2e (6 à 9, surtout 7 et 8), 90 au 1er (7 à 10, surtout 9
+ *    et 10). `longueurs` donne les longueurs des 10 lignes ; leur ordre est tiré au hasard ;
  *    6 problèmes d'addition pure, puis 4 qui mêlent additions et soustractions.
  *    Aux 1er et 2e kyū, un problème de la seconde moitié a un résultat négatif.
  *  - Multiplication : « chiffres des deux facteurs au total » ; division : « chiffres du diviseur
@@ -28,7 +31,7 @@ import { entier } from './aleatoire.js';
 import { facteur, facteurNet, genererMultiplicationDecimale, genererDivisionDecimale } from './multiplication.js';
 
 /**
- * mitori : { nb, lignes, min, max (chiffres par ligne), soustractions, points, negatifs? [min, max] }
+ * mitori : { nb, lignes, min, max (chiffres par ligne), longueurs? (longueur de chaque ligne), soustractions, points, negatifs? [min, max] }
  * mul    : { nb, total, points, decimales? }  div : { nb, total, points, decimales? }
  * decimales : rang d'arrondi de la PREMIÈRE moitié ; la seconde s'arrondit à l'unité.
  */
@@ -46,22 +49,22 @@ export const GRADES = [
     mitori: { nb: 10, lignes: 10, min: 2, max: 2, soustractions: true, pures: 6, points: 10 },
     mul: { nb: 10, total: 4, formes: [[2, 2]], points: 5 }, div: { nb: 10, total: 4, formes: [[1, 3]], points: 5 } },
   { id: '6', nom: '6e kyū', japonais: '6級', minutes: 30, seuil: 0.7, confirme: true, verifie: false,
-    mitori: { nb: 10, lignes: 10, min: 3, max: 3, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 3, max: 4, longueurs: [3, 3, 3, 3, 3, 4, 4, 4, 4, 4], soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 5, formes: [[3, 2], [2, 3]], points: 5 }, div: { nb: 20, total: 4, formes: [[2, 2]], points: 5 } },
   { id: '5', nom: '5e kyū', japonais: '5級', minutes: 30, seuil: 0.7, confirme: true, verifie: false,
-    mitori: { nb: 10, lignes: 10, min: 4, max: 4, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 4, max: 5, longueurs: [4, 4, 4, 4, 4, 5, 5, 5, 5, 5], soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 6, points: 5 }, div: { nb: 20, total: 5, points: 5 } },
   { id: '4', nom: '4e kyū', japonais: '4級', minutes: 30, seuil: 0.7, confirme: true, verifie: false,
-    mitori: { nb: 10, lignes: 10, min: 5, max: 5, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 5, max: 6, longueurs: [5, 5, 5, 5, 5, 6, 6, 6, 6, 6], soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 7, points: 5 }, div: { nb: 20, total: 6, points: 5 } },
   { id: '3', nom: '3e kyū', japonais: '3級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
-    mitori: { nb: 10, lignes: 10, min: 6, max: 6, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 5, max: 7, longueurs: [5, 6, 6, 6, 7, 7, 7, 7, 7, 7], soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 7, points: 5, decimales: 3 }, div: { nb: 20, total: 6, points: 5, decimales: 3 } },
   { id: '2', nom: '2e kyū', japonais: '2級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
-    mitori: { nb: 10, lignes: 10, min: 8, max: 8, soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
+    mitori: { nb: 10, lignes: 10, min: 6, max: 9, longueurs: [6, 7, 7, 7, 7, 8, 8, 8, 8, 9], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
     mul: { nb: 20, total: 9, points: 5, decimales: 3 }, div: { nb: 20, total: 8, points: 5, decimales: 3 } },
   { id: '1', nom: '1er kyū', japonais: '1級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
-    mitori: { nb: 10, lignes: 10, min: 10, max: 10, soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
+    mitori: { nb: 10, lignes: 10, min: 7, max: 10, longueurs: [7, 8, 9, 9, 9, 9, 9, 10, 10, 10], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
     mul: { nb: 20, total: 11, points: 5, decimales: 3 }, div: { nb: 20, total: 10, points: 5, decimales: 3 } },
 ];
 
@@ -71,9 +74,17 @@ export const totalPoints = (g) => ['mitori', 'mul', 'div'].reduce((s, k) => s + 
  * Un problème de mitorizan. Avec soustractions : 1 ligne négative sur 5 lignes, 1 à 2 sur 8,
  * 2 à 3 sur 10 ; jamais en 1re ou 2e ligne, jamais de total partiel négatif.
  */
+/** Longueurs des lignes d'un problème : celles du grade, dans un ordre tiré au hasard ; sinon min à max. */
+function longueursLignes(f) {
+  if (!f.longueurs) return Array.from({ length: f.lignes }, () => entier(f.min, f.max));
+  const l = [...f.longueurs];
+  for (let i = l.length - 1; i > 0; i--) { const j = entier(0, i); [l[i], l[j]] = [l[j], l[i]]; }
+  return l;
+}
+
 export function genererMitori(f) {
   for (;;) {
-    const lignes = Array.from({ length: f.lignes }, () => ({ op: '+', n: facteur(entier(f.min, f.max)) }));
+    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: facteur(k) }));
     if (f.soustractions) {
       const nbMoins = f.lignes <= 5 ? 1 : f.lignes <= 8 ? entier(1, 2) : entier(2, 3);
       const indices = new Set();
@@ -100,7 +111,7 @@ export function genererMitori(f) {
 export function genererMitoriNegatif(f) {
   const k = 10 ** f.max;
   for (;;) {
-    const lignes = Array.from({ length: f.lignes }, () => ({ op: '+', n: facteur(entier(f.min, f.max)) }));
+    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: facteur(k) }));
     const indices = new Set();
     while (indices.size < Math.ceil(f.lignes / 2)) indices.add(entier(1, f.lignes - 1));
     for (const i of indices) lignes[i].op = '-';

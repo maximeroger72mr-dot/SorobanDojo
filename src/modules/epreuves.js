@@ -61,7 +61,7 @@ const SEUIL_SPRINT = 0.7;
 function resume(g) {
   const m = g.mitori;
   const melange = m.pures >= m.nb ? ', additions seules' : m.pures ? ` (${m.pures} d'additions seules, ${m.nb - m.pures} avec soustractions${m.negatifs?.[0] ? ', dont un résultat négatif' : ''})` : ', additions et soustractions';
-  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${melange}`];
+  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.longueurs ? ` (${m.longueurs.reduce((t, x) => t + x, 0)} chiffres par problème)` : ''}${melange}`];
   const forme = (f, sep) => (f.formes ? f.formes.map(([x, y]) => `${x} ${sep} ${y} chiffre${y > 1 ? 's' : ''}`).join(' ou ') : null);
   const dec = (f) => (f.decimales ? ', décimaux : arrondi au millième dans la première moitié, à l\'unité dans la seconde' : '');
   if (g.mul) p.push(`multiplication ${g.mul.nb} × (${forme(g.mul, '×') ?? `${g.mul.total} chiffres au total`}${dec(g.mul)})`);

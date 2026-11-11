@@ -726,3 +726,9 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Additions seules : tous les gestes d'addition appris sont permis ; le titre annonce la planche réellement créée | Fait |
 | Feuilles : largeur des colonnes selon le plus long nombre (10 chiffres au 1er kyū) | Corrigé |
 | Feuilles : vitesse calculée sur les seules réponses saisies ; une feuille incomplète n'entre pas dans les moyennes | Corrigé |
+
+## Version 0.24.2
+
+| Changement | État |
+|---|---|
+| Mitorizan d'examen : total de chiffres par problème (字数) et longueurs imposées : 35 (5 × 3, 5 × 4), 45, 55, 65 (1 × 5, 3 × 6, 6 × 7), 75 (1 × 6, 4 × 7, 4 × 8, 1 × 9), 90 (1 × 7, 1 × 8, 5 × 9, 3 × 10) ; ordre des lignes tiré au hasard | Fait (règle donnée par l'utilisateur ; au 3e kyū, le total de 65 a été préféré à l'exemple 2 / 6 / 2 qui n'en fait que 60) |
