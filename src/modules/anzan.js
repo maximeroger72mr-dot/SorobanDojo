@@ -20,16 +20,17 @@ const memoirePhoto = creerMemoire(6);
 import { genererMultiplication } from '../core/multiplication.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
-import { progression, enregistrerSession, noterReponse } from '../core/progression.js';
+import { progression, enregistrerSession, noterReponse, proposerMeilleurScore } from '../core/progression.js';
 import { lireReponse } from '../core/nombres.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
-import { cadencer } from '../ui/cadence.js';
+import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, periodeGrade, libelleGradeFlash, meilleurGradeFlash, prochainGradeFlash } from '../core/flashGrades.js';
+import { cadencer, afficherNombreFlash, decompteFlash } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
+const reglages = { grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
 const IMAGES = [[1, 'image nette'], [0.5, 'image estompée'], [0.2, 'image légère']];
@@ -73,8 +74,17 @@ export default {
       zoneReglages, zone);
 
     function afficherReglages() {
-      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
+      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['grade', 'Grade de flash (temps total)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
       const elements = [mode];
+      if (reglages.mode === 'grade') {
+        reglages.grade ??= prochainGradeFlash(progression()).id;
+        const obtenu = meilleurGradeFlash(progression());
+        elements.push(select('grade', GRADES_FLASH.map((x) => [x.id, `${progression().records[`flash-grade-${x.id}`]?.reussi ? '✓ ' : ''}${libelleGradeFlash(x)}`]), String),
+          h('button', { class: 'btn principal', onclick: () => lancer() }, 'Passer ce grade ', h('kbd', {}, 'Entrée')),
+          h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, `${QUESTIONS_GRADE_FLASH} questions, ${JUSTES_GRADE_FLASH} justes pour obtenir le grade. ${obtenu ? `Votre meilleur grade : ${obtenu.nom}.` : 'Aucun grade obtenu pour l\'instant.'} Échelle indicative, du 10e kyū au 10e dan : ce n'est pas la grille d'un examen.`));
+        remplir(zoneReglages, elements);
+        return;
+      }
       if (reglages.mode === 'mul') elements.push(select('mulChiffres', [[2, '2 × 1 chiffres'], [3, '3 × 1 chiffres']]));
       else if (reglages.mode === 'photo' || reglages.mode === 'tenir') {
         elements.push(select('chiffres', [[1, '1 tige'], [2, '2 tiges'], [3, '3 tiges']]));
@@ -121,6 +131,10 @@ export default {
         nettoyerMode = () => serie.detruire();
         return;
       }
+      if (r.mode === 'grade') {
+        const x = GRADES_FLASH.find((y) => y.id === r.grade) ?? GRADES_FLASH[0];
+        Object.assign(r, { gradeFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: periodeGrade(x), questions: QUESTIONS_GRADE_FLASH, soustractions: false });
+      }
       nettoyerMode = flash(r);
     }
 
@@ -152,8 +166,8 @@ export default {
         saisie.style.display = 'none';
         remplir(retour);
         question = colonne(r.chiffres, r.termes, r.soustractions);
-        for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(400); if (!actif) return; }
-        ecran.classList.remove('decompte');
+        await decompteFlash(ecran, 400, () => !actif);
+        if (!actif) return;
         sorobanImage?.effacer();
         const totaux = sousTotaux(question.lignes);
         // Cadence calée sur l'horloge : pas de dérive, même à 0,3 s par nombre.
@@ -163,7 +177,7 @@ export default {
           interrompu: () => !actif,
           surAfficher: (k) => {
             const l = question.lignes[k];
-            ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+            afficherNombreFlash(ecran, formaterNombre(l.n), l.op === '-');
             sorobanImage?.definirValeur(Math.max(0, totaux[k]));
           },
           surMasquer: () => { ecran.textContent = ''; },
@@ -203,6 +217,16 @@ export default {
           await enregistrerSession({ module: 'anzan', mode: r.mode, reglages: r, total: serie.index, justes: serie.justes, dureeMs: performance.now() - serie.debut });
           ecran.textContent = `${serie.justes} / ${serie.index}`;
           retour.className = 'retour';
+          if (r.gradeFlash) {
+            const reussi = serie.justes >= JUSTES_GRADE_FLASH;
+            await proposerMeilleurScore(`flash-grade-${r.gradeFlash.id}`, serie.justes, { reussi });
+            const suivant = GRADES_FLASH[GRADES_FLASH.indexOf(r.gradeFlash) + 1];
+            remplir(retour, reussi ? `${r.gradeFlash.nom} de flash obtenu. ${suivant ? `Le suivant : ${libelleGradeFlash(suivant)}.` : 'C\'est le plus haut grade.'}` : `Pas encore : il faut ${JUSTES_GRADE_FLASH} justes sur ${QUESTIONS_GRADE_FLASH}. Retentez quand vous voulez.`);
+            if (reussi && suivant) reglages.grade = suivant.id;
+            afficherReglages();
+            majBouton('Recommencer');
+            return;
+          }
           const conseil = serie.justes === serie.index
             ? (r.mode === 'image' ? (r.image > 0.2 ? 'Parfait : estompez l\'image d\'un cran.' : 'Parfait : passez au flash sans image.') : 'Parfait : ajoutez un nombre (puis, plus tard, réduisez le temps d\'affichage).')
             : serie.justes / serie.index < 0.7 ? 'Retirez un nombre à la chaîne, ou repassez par le flash avec image.' : 'Encore une série au même niveau.';

@@ -693,3 +693,25 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Lecture éclair de grands nombres (3 à 10 chiffres), reliée à `p1-4`, `p8-t2`, `p9-1`, `p9-2` | Fait |
 | Arrondi éclair, relié à `pd-5` et `pd-6` | Fait |
 | Dictée : niveau automatique sur soroban, meilleure voix installée, moins de temps mort au départ | Fait (qualité de la voix non vérifiable ici) |
+
+## Version 0.24.0
+
+| Changement | État |
+|---|---|
+| Épreuves : formes imposées (2 × 1, 3 × 1, 2 × 2, 3 × 2 ou 2 × 3 ; ÷ 1 chiffre aux 8e et 7e kyū, 2 ÷ 2 au 6e), plus de 4 × 1 | Fait |
+| Épreuves : 6 mitorizan d'additions seules puis 4 mêlés ; 10e kyū en additions seules, sans division aux 10e et 9e | Fait |
+| Épreuves : seuils 60 / 200 (10e), 120 / 200 (9e au 7e), 210 / 300, 240 / 300 ; résultat négatif imposé au 2e kyū ; tous les × et ÷ arrondis dès le 3e kyū | Fait (`verifie: false` : chiffres donnés par l'utilisateur, sites officiels inaccessibles d'ici) |
+| Séparateurs de milliers exigés en « examen pur », du 1er au 3e kyū (`milliersCorrects`) | Fait (espace ou point : la virgule reste le signe décimal) |
+| Prérequis des grades réalignés sur les nouvelles formes (`PREREQUIS`) | Fait |
+| Flash : décompte en points discrets, nombre toujours centré (signe hors centrage) | Fait |
+| Grades de flash en temps total, 20 marches du 10e kyū au 10e dan (`core/flashGrades.js`) | Fait, échelle indicative |
+| Épreuves d'anzan : chaque épreuve a son propre temps (`parEpreuve`) | Fait (temps total partagé à parts égales, format indicatif) |
+| Piste anzan : `pa-7` (2 chiffres, 6 nombres), `pa-8` (3 chiffres), `pa-m3` (2 × 2), `pa-d2` (÷ 2 chiffres) | Fait |
+| Séance : leçon limitée à un tiers de l'objectif, puis planche d'ancrage (3 dernières leçons et gestes faibles), anzan dans l'essentiel | Fait |
+| Prof : la dernière leçon doit être « débutant » (toujours) ; l'avant-dernière « confirmé », sinon ancrage, 7 jours de pratique au plus | Fait |
+| Examen de la semaine : rappelé en tête de « Pour compléter », adapté au niveau (colonnes à 3-6 chiffres, × et ÷ de la dernière leçon validée) ; le jour où on le passe, il remplace leçon et ancrage | Fait |
+| Mini-test des leçons avancées : vitesse à 70 % de la cadence du grade visé ; l'épreuve est conseillée à 100 % | Fait (effet à partir des leçons du 4e kyū ; avant, « débutant » est plus strict) |
+| Planches : additions seules, longueurs mêlées, format d'examen, négatifs, décimaux ; jusqu'à 10 chiffres, 20 lignes, 30 colonnes | Fait |
+| Feuilles × et ÷ : zéros, arrondi au millième ou à l'unité, mélange d'examen | Fait |
+| Erreurs de × et ÷ suivies par type (placement, zéro, quotient trop grand ou trop petit, arrondi, produit), alimentées par les leçons, les feuilles et les épreuves ; entraînement proposé à la 3e en 21 jours | Fait |
+| Non fait : montants en yens dans les énoncés, grille officielle des grades de flash, ciblage des feuilles × et ÷ par produit de table | À faire |

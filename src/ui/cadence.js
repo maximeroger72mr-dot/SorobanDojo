@@ -50,3 +50,36 @@ export async function cadencer({ periodeMs, nombre, partVisible = 0.85, surAffic
   await jusqua(depart + nombre * periodeMs);
   return { fini: !interrompu(), ecartMaxMs };
 }
+
+/**
+ * Affiche un nombre du flash, toujours CENTRÉ au même endroit : le signe moins est posé à gauche
+ * du nombre sans le décaler (l'œil n'a pas à se recaler d'un nombre à l'autre).
+ */
+export function afficherNombreFlash(ecran, texte, negatif = false) {
+  const doc = ecran.ownerDocument;
+  const nombre = doc.createElement('span');
+  nombre.className = 'flash-nombre';
+  if (negatif) {
+    const signe = doc.createElement('span');
+    signe.className = 'flash-signe';
+    signe.textContent = '−';
+    nombre.append(signe);
+  }
+  nombre.append(texte);
+  ecran.replaceChildren(nombre);
+}
+
+/**
+ * Décompte avant un flash : trois points qui s'éteignent, petits et discrets. Pas de chiffres :
+ * un « 3, 2, 1 » de la taille des nombres se confond avec les nombres à calculer.
+ */
+export async function decompteFlash(ecran, pasMs = 400, interrompu = () => false) {
+  ecran.classList.add('decompte');
+  for (const t of ['● ● ●', '● ●', '●']) {
+    ecran.textContent = t;
+    await new Promise((ok) => setTimeout(ok, pasMs));
+    if (interrompu()) break;
+  }
+  ecran.classList.remove('decompte');
+  ecran.textContent = '';
+}

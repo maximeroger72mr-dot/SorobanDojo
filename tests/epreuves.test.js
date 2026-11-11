@@ -16,24 +16,42 @@ test('sujets conformes au tableau retenu', () => {
         if (sec.cle === 'mitori') {
           assert.equal(p.lignes.length, f.lignes);
           assert.ok(p.lignes.every((l) => String(l.n).length >= f.min && String(l.n).length <= f.max), `${g.id} mitori`);
-          assert.ok(p.lignes.some((l) => l.op === '-'), `${g.id} : soustraction attendue`);
-          // Résultat négatif : seulement là où le grade le prévoit, et dans la seconde moitié.
+          // Les `pures` premiers problèmes : additions seules ; les suivants ont des soustractions.
+          assert.equal(p.lignes.some((l) => l.op === '-'), i >= f.pures, `${g.id} : problème ${i + 1}`);
           if (p.resultat < 0) assert.ok(f.negatifs?.[1] > 0 && p.negatif && i >= f.nb / 2 && p.resultat > -(10 ** f.max), `${g.id} : négatif inattendu`);
-        } else if (p.arrondi !== undefined) {
-          // Première moitié : arrondi au rang du grade (millième) ; seconde moitié : à l'unité.
-          assert.ok(f.decimales, `${g.id} : décimaux inattendus`);
+        } else if (f.decimales) {
+          // Du 3e au 1er kyū : TOUS les problèmes sont en décimaux ; millième puis unité.
+          assert.ok(p.virgules, `${g.id} : problème entier`);
           if (i < f.nb / 2) assert.ok(p.decimales <= f.decimales, `${g.id} : arrondi de la première moitié`);
           else assert.equal(p.decimales, 0, `${g.id} : la seconde moitié s'arrondit à l'unité`);
         } else if (sec.cle === 'mul') {
           assert.equal(chiffres(p.a) + chiffres(p.b), f.total);
           assert.equal(p.a * p.b, p.resultat);
+          if (f.formes) assert.ok(f.formes.some(([x, y]) => chiffres(p.a) === x && chiffres(p.b) === y), `${g.id} : ${p.a} × ${p.b}`);
+          else assert.ok(chiffres(p.a) >= 2 && chiffres(p.b) >= 2, `${g.id} : ${p.a} × ${p.b}`);
         } else {
           assert.equal(chiffres(p.b) + chiffres(p.resultat), f.total);
           assert.equal(p.a, p.b * p.resultat);
+          if (f.formes) assert.ok(f.formes.some(([x, y]) => chiffres(p.b) === x && chiffres(p.resultat) === y), `${g.id} : ${p.a} ÷ ${p.b}`);
+          else assert.ok(chiffres(p.b) >= 2 && chiffres(p.resultat) >= 2, `${g.id} : ${p.a} ÷ ${p.b}`);
         }
       });
     }
   }
+});
+
+test('grille officielle : seuils, formes et résultat négatif', () => {
+  const g = (id) => GRADES.find((x) => x.id === id);
+  assert.equal(g('10').seuil * totalPoints(g('10')), 60);
+  for (const id of ['9', '8', '7']) assert.equal(g(id).seuil * totalPoints(g(id)), 120);
+  for (const id of ['6', '5', '4']) assert.equal(g(id).seuil * totalPoints(g(id)), 210);
+  for (const id of ['3', '2', '1']) assert.equal(g(id).seuil * totalPoints(g(id)), 240);
+  assert.equal(g('10').div, undefined);
+  assert.equal(g('9').div, undefined);
+  assert.equal(g('10').mitori.pures, 10);
+  // 2e et 1er kyū : exactement un résultat négatif, dans la seconde moitié.
+  for (const id of ['2', '1']) for (let k = 0; k < 5; k++) assert.equal(genererSujet(g(id)).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
+  assert.deepEqual(GRADES.filter((x) => x.milliers).map((x) => x.id), ['3', '2', '1']);
 });
 
 test('1er kyū : un mitorizan à résultat négatif dans la seconde moitié ; longueur des lignes fixe', () => {

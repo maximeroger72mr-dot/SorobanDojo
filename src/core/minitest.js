@@ -6,6 +6,9 @@
 
 import { TEST, familleLecon } from './curriculum.js';
 import { NIVEAUX, tempsParUnite, UNITES_TEMPS } from './maitrise.js';
+import { tempsLecon, PART_CADENCE_LECON } from './allure.js';
+import { GRADES } from './epreuves.js';
+import { PREREQUIS } from './parcours.js';
 
 export const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
 
@@ -34,7 +37,12 @@ export function verdictMiniTest(sp, bilan) {
     return { reussi: false, justesOk, vitesseOk: false, temps: null, seuil: null, unite: null, raison: `Assez de justes, mais en ${s} s : il faut les ${sp.testNombre} réponses en ${sp.testSecondes} s.` };
   }
   const famille = familleLecon(sp);
-  const seuil = NIVEAUX[2].temps[famille];
+  // Leçons avancées : la vitesse exigée suit l'examen visé (70 % de sa cadence), dès qu'elle est
+  // plus stricte que le niveau « acquis débutant ».
+  const base = NIVEAUX[2].temps[famille];
+  const cadence = ['addsub', 'muldiv'].includes(famille) ? tempsLecon(sp, GRADES, (g) => PREREQUIS[g.id]) : null;
+  const parGrade = !!cadence && cadence.temps < base;
+  const seuil = parGrade ? Math.round(cadence.temps * 100) / 100 : base;
   const unite = UNITES_TEMPS[famille] ?? 'unité';
   const mesures = (bilan.resultats ?? []).filter((r) => r.juste && !r.autoEvalue && r.ex && Number.isFinite(r.dureeMs));
   const temps = exigeVitesse(sp) && mesures.length ? mediane(mesures.map((r) => tempsParUnite(r.ex, r.dureeMs))) : null;
@@ -42,6 +50,6 @@ export function verdictMiniTest(sp, bilan) {
   const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
   let raison = '';
   if (!justesOk) raison = `Il faut ${testMin(sp)} réussites.`;
-  else if (!vitesseOk) raison = `Assez de justes, mais trop lent : ${nf(temps)} s par ${unite} en moyenne, il faut au plus ${nf(seuil)} s (niveau « acquis débutant »).`;
+  else if (!vitesseOk) raison = `Assez de justes, mais trop lent : ${nf(temps)} s par ${unite} en moyenne, il faut au plus ${nf(seuil)} s (${parGrade ? `${Math.round(PART_CADENCE_LECON * 100)} % de la cadence du ${cadence.grade.nom}` : 'niveau « acquis débutant »'}).`;
   return { reussi: justesOk && vitesseOk, justesOk, vitesseOk, temps, seuil, unite, raison };
 }

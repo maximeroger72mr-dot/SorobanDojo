@@ -99,3 +99,19 @@ export function ecartAllure(fait, total, part, limiteMs, ecouleMs) {
   const prevu = Math.min(1, fait / (part * total)) * limiteMs;
   return (prevu - ecouleMs) / 1000;
 }
+
+/** Part de la cadence d'examen exigée pour valider une leçon (l'épreuve, elle, demande 100 %). */
+export const PART_CADENCE_LECON = 0.7;
+
+/**
+ * Temps maximal par unité (chiffre ou produit) au mini-test d'une leçon AVANCÉE : 70 % de la
+ * cadence de l'examen du premier grade qui exige cette leçon. La cadence complète s'atteint en
+ * fin de grade, pas à chaque leçon. null si la leçon n'est exigée par aucun grade.
+ * @param {(g:object) => string[]} prerequisDe  leçons exigées par un grade (parcours.PREREQUIS)
+ */
+export function tempsLecon(sp, grades, prerequisDe) {
+  const g = grades.find((x) => (prerequisDe(x) ?? []).includes(sp.id));
+  if (!g) return null;
+  const a = allureGrade(g);
+  return { grade: g, temps: (familleLecon(sp) === 'muldiv' ? a.parProduit : a.parChiffre) / PART_CADENCE_LECON };
+}

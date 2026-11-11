@@ -16,8 +16,8 @@ import { genererMitori, genererMulGrade, genererDivGrade } from './epreuves.js';
 const seul = (lignes, soustractions = false) => ({ nb: 50, lignes, min: 1, max: 1, soustractions, points: 10 });
 const complet = (lignes, chiffres, total) => ({
   mitori: { nb: 20, lignes, min: chiffres, max: chiffres, soustractions: true, points: 10 },
-  mul: { nb: 30, total, points: 5 },
-  div: { nb: 30, total, points: 5, maxDiviseur: 2 },
+  mul: { nb: 30, total, court: 1, points: 5 },
+  div: { nb: 30, total, court: 1, points: 5, maxDiviseur: 2 },
 });
 
 export const GRADES_ANZAN = [

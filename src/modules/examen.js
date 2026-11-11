@@ -4,7 +4,7 @@
  * ne retire rien. Le ton est volontairement calme : un échec à un examen est normal.
  */
 
-import { examenDeLaSemaine, sujetExamen, minutesExamen, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, COLONNES, SEUIL } from '../core/examen.js';
+import { examenDeLaSemaine, sectionsExamen, minutesExamen, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, COLONNES, SEUIL } from '../core/examen.js';
 import { progression, aujourdhui, enregistrerSession, proposerMeilleurScore } from '../core/progression.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { listeErreurs } from '../ui/serie.js';
@@ -34,7 +34,7 @@ export default {
         const obtenu = g.id !== 'hebdo' && prekyuObtenu(d, g);
         el.append(h('div', { class: 'carte' },
           h('h2', { style: 'margin-top:0' }, `${g.nom} · ${g.theme}`),
-          h('p', {}, `${COLONNES} colonnes de ${g.lignes} lignes à ${g.chiffres} chiffre${g.chiffres > 1 ? 's' : ''}, en ${min} minutes. Il faut ${Math.ceil(COLONNES * SEUIL)} réponses justes.`),
+          h('p', {}, `${g.colonnes ?? COLONNES} colonnes de ${g.lignes} lignes à ${g.chiffres} chiffre${g.chiffres > 1 ? 's' : ''}${g.mul ? `, 5 multiplications (${g.mul.titre})` : ''}${g.div ? `, 5 divisions (${g.div.titre})` : ''}, en ${min} minutes. Il faut ${Math.ceil(COLONNES * SEUIL)} réponses justes.`),
           obtenu ? h('p', { class: 'retour ok' }, `Grade obtenu. Le suivant s'ouvrira avec les prochaines leçons ; en attendant, repassez celui-ci quand vous voulez pour garder le rythme d'examen.`)
             : r ? h('p', {}, `Meilleur passage cette semaine : ${r.points} / ${r.total}. Pas encore, et c'est normal : retentez quand vous voulez.`)
               : h('p', {}, 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il vous donne le grade ; raté, il ne vous retire rien.'),
@@ -54,8 +54,8 @@ export default {
     function lancer(g) {
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Passage de kyū'));
       feuille = creerFeuille(el, {
-        titre: `${g.nom} · ${COLONNES} colonnes · ${minutesExamen(g)} minutes`,
-        sections: [{ problemes: sujetExamen(progression(), g) }],
+        titre: `${g.nom} · ${COLONNES} problèmes · ${minutesExamen(g)} minutes`,
+        sections: sectionsExamen(progression(), g),
         minutes: minutesExamen(g),
         surFin: (b) => {
           const reussi = b.justes >= Math.ceil(b.total * SEUIL);

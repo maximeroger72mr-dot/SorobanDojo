@@ -18,7 +18,10 @@
 
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { famille } from './motifs.js';
-import { motifsAppris, estValide, grade } from './parcours.js';
+import { motifsAppris, estValide, grade, chiffresAppris } from './parcours.js';
+import { SOUS_PALIERS, genererExercice } from './curriculum.js';
+import { verdictAllure } from './allure.js';
+import { cpm } from './maitrise.js';
 import { semaineISO } from './hasard.js';
 
 export const COLONNES = 20;
@@ -37,7 +40,24 @@ export const PREKYU = [
   { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 6, theme: 'combinaisons' },
   { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 3, lignes: 6, theme: 'cascades et révision générale' },
 ];
-const APRES = { id: 'hebdo', nom: 'Examen de niveau', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
+const APRES = { id: 'hebdo', nom: 'Examen de la semaine', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
+
+/** Dernière leçon validée d'un type (multiplication ou division sur le soroban, nombres entiers). */
+const derniereValidee = (d, type) => SOUS_PALIERS.filter((sp) => sp.type === type && !sp.mental && estValide(d, sp.id)).at(-1) ?? null;
+
+/**
+ * Format de l'examen de la semaine, ADAPTÉ AU NIVEAU une fois les grades préparatoires passés :
+ * des colonnes au nombre de chiffres des leçons validées (3 à 6), et, dès que ces leçons sont
+ * validées, des multiplications et des divisions du type de la dernière leçon acquise.
+ */
+export function formatHebdo(d) {
+  const mul = derniereValidee(d, 'mul');
+  const div = derniereValidee(d, 'div');
+  const chiffres = Math.min(6, Math.max(3, chiffresAppris(d)));
+  const operations = (mul ? 5 : 0) + (div ? 5 : 0);
+  const parties = ['tous les gestes appris', mul && 'multiplications', div && 'divisions'].filter(Boolean);
+  return { ...APRES, chiffres, lignes: chiffres >= 5 ? 10 : 7, colonnes: COLONNES - operations, mul, div, theme: `${chiffres} chiffres, ${parties.join(', ')}` };
+}
 
 /** Grade préparatoire accessible : ses leçons et celles des grades d'avant sont validées. */
 export function prekyuAccessible(d, g) {
@@ -57,13 +77,15 @@ export function examenDeLaSemaine(d) {
   if (!accessibles.length) return null;
   const dernier = accessibles.at(-1);
   // Tout le préparatoire est validé et obtenu : examen hebdomadaire au format avancé.
-  if (dernier === PREKYU.at(-1) && prekyuObtenu(d, dernier)) return APRES;
+  if (dernier === PREKYU.at(-1) && prekyuObtenu(d, dernier)) return formatHebdo(d);
   return dernier;
 }
 
 /** Temps fixe : 2,5 s par chiffre + 3 s de lecture et d'écriture par colonne, arrondi à la minute. */
 export function minutesExamen(g) {
-  const s = COLONNES * (g.chiffres * g.lignes * 2.5 + 3);
+  // × et ÷ : 5 s par produit de table (m × n produits), plus la lecture et l'écriture.
+  const produits = (sp) => (sp ? 5 * ((sp.m ?? sp.nd ?? 2) * (sp.n ?? sp.nq ?? 1) * 5 + 3) : 0);
+  const s = (g.colonnes ?? COLONNES) * (g.chiffres * g.lignes * 2.5 + 3) + produits(g.mul) + produits(g.div);
   return Math.max(3, Math.ceil(s / 60));
 }
 
@@ -72,9 +94,17 @@ export function sujetExamen(d, g) {
   const appris = motifsAppris(d);
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
   const memoire = creerMemoire(COLONNES);
-  return Array.from({ length: COLONNES }, () => genererColonneVariee({
+  return Array.from({ length: g.colonnes ?? COLONNES }, () => genererColonneVariee({
     chiffres: g.chiffres, lignes: g.lignes, autorises: appris, cibles: amis.length ? amis : famille('direct'),
   }, memoire));
+}
+
+/** Sujet complet, par sections : colonnes, puis multiplications et divisions si le niveau y est. */
+export function sectionsExamen(d, g) {
+  const sections = [{ titre: g.mul || g.div ? 'Colonnes' : undefined, problemes: sujetExamen(d, g) }];
+  if (g.mul) sections.push({ titre: 'Multiplications', problemes: Array.from({ length: 5 }, () => genererExercice(g.mul)) });
+  if (g.div) sections.push({ titre: 'Divisions', problemes: Array.from({ length: 5 }, () => genererExercice(g.div)) });
+  return sections;
 }
 
 /** Clé et meilleur résultat des passages de cette semaine (pour le rendez-vous hebdomadaire du prof). */
@@ -98,7 +128,14 @@ export function libelleGrade(d) {
   const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : prep ? prep.nom : 'aucun pour l\'instant';
   let officiel;
   if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
-  else if (g.pret) officiel = `Prochain grade officiel : ${g.prochain.nom}, vous pouvez tenter l'épreuve.`;
+  else if (g.pret) {
+    // Les leçons sont validées à 70 % de la cadence ; l'épreuve, elle, demande la cadence entière.
+    const v = verdictAllure(g.prochain, d);
+    const lent = v.colonnes.ok === false || v.muldiv.ok === false;
+    officiel = lent
+      ? `Prochain grade officiel : ${g.prochain.nom}. Les leçons sont validées ; il reste à tenir l'allure de l'épreuve (${cpm(v.colonnes.besoin)} CPM en colonnes) avant de la tenter.`
+      : `Prochain grade officiel : ${g.prochain.nom}, vous pouvez tenter l'épreuve.`;
+  }
   else officiel = `Prochain grade officiel : ${g.prochain.nom}, ${g.manquantes.length} leçon${g.manquantes.length > 1 ? 's' : ''} à valider.`;
   return { valeur, detail: officiel };
 }

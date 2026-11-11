@@ -270,3 +270,62 @@ export function erreurIdentifiee(ex, reponse) {
   const c = candidats.find((x) => x.type === 'geste') ?? candidats[0];
   return { ligne: c.ligne, type: c.type, indice: `L'erreur est à la ligne ${c.ligne + 1}.`, detail: c.detail, motifs: loc?.motifs ?? [] };
 }
+
+/**
+ * TYPE d'une erreur de multiplication ou de division, quand le résultat tapé le prouve. Ces
+ * types se comptent comme on compte les gestes ratés en colonnes : une erreur qui se répète
+ * appelle un entraînement précis (voir ENTRAINEMENTS_ERREUR, progression.erreursOperationRepetees).
+ *  - placement : résultat décalé d'une ou plusieurs tiges (ou virgule mal placée) ;
+ *  - zero : un zéro du résultat oublié, ou un zéro en trop ;
+ *  - quotient-grand / quotient-petit : un chiffre du quotient faux de 1 ;
+ *  - arrondi : dernière décimale fausse de 1, ou résultat tronqué au lieu d'être arrondi ;
+ *  - produit : un produit partiel oublié, doublé ou décalé d'une tige.
+ * Sinon null : on ne classe pas au hasard.
+ * @returns {'placement'|'zero'|'quotient-grand'|'quotient-petit'|'arrondi'|'produit'|null}
+ */
+export function typeErreurOperation(ex, reponse) {
+  if (!ex || reponse === null || reponse === undefined || ex.mental) return null;
+  const mul = ex.type === 'mul' || ex.type === 'muldec';
+  const div = ex.type === 'div' || ex.type === 'divdec';
+  if (!mul && !div) return null;
+  const dec = ex.decimales ?? 0;
+  const R = Math.round(ex.resultat * 10 ** dec);
+  const r = Math.round(reponse * 10 ** dec);
+  if (R === r || r <= 0) return null;
+  // Mêmes chiffres, à une puissance de 10 près : le résultat est décalé.
+  const nu = (x) => String(x).replace(/0+$/, '');
+  const brut = (x) => String(x).replace('.', '').replace(/^0+/, '').replace(/0+$/, '');
+  if (brut(reponse) === brut(ex.resultat) || nu(r) === nu(R)) return 'placement';
+  // Arrondi : une unité d'écart sur la dernière décimale demandée.
+  if (ex.arrondi && Math.abs(r - R) === 1) return 'arrondi';
+  // Zéro oublié ou en trop : mêmes chiffres non nuls, dans le même ordre.
+  const sansZero = (x) => String(x).replace(/0/g, '');
+  if (sansZero(r) === sansZero(R) && String(r).length !== String(R).length) return 'zero';
+  if (div) {
+    const u = unSeulChiffre(r - R);
+    if (u && Math.abs(u.d) === 1) return u.d > 0 ? 'quotient-grand' : 'quotient-petit';
+    return null;
+  }
+  // Multiplication entière : un produit partiel oublié, doublé ou décalé.
+  if (ex.type === 'mul' && Number.isInteger(ex.a) && Number.isInteger(ex.b)) {
+    const ca = String(ex.a).split('').map(Number);
+    const cb = String(ex.b).split('').map(Number);
+    const total = ca.length + cb.length;
+    const ecart = reponse - ex.resultat;
+    for (let i = 0; i < ca.length; i++) for (let j = 0; j < cb.length; j++) {
+      const p = ca[i] * cb[j] * 10 ** (total - 2 - i - j);
+      if (p && (ecart === -p || ecart === p || ecart === 9 * p || ecart * 10 === -9 * p)) return 'produit';
+    }
+  }
+  return null;
+}
+
+/** Nom de chaque type d'erreur, et l'entraînement qui le corrige (écran, paramètres). */
+export const ENTRAINEMENTS_ERREUR = {
+  placement: { nom: 'résultat décalé d\'une tige', remede: 'Placement du premier produit ou du premier chiffre du quotient', aller: (div) => ['lecons', { sousPalier: div ? 'p7-0' : 'p6-0', onglet: 'entrainement' }] },
+  zero: { nom: 'zéro oublié ou en trop', remede: 'Planche de multiplications et divisions avec des zéros', aller: () => ['muldiv', { zeros: true, auto: true }] },
+  'quotient-grand': { nom: 'chiffre du quotient trop grand', remede: 'Estimation du quotient', aller: () => ['drills', { quotient: true }] },
+  'quotient-petit': { nom: 'chiffre du quotient trop petit', remede: 'Estimation du quotient', aller: () => ['drills', { quotient: true }] },
+  arrondi: { nom: 'arrondi faux', remede: 'Arrondi éclair', aller: () => ['jeux', { jeu: 'arrondi' }] },
+  produit: { nom: 'produit partiel oublié, doublé ou décalé', remede: 'Tables : vos produits les plus lents', aller: () => ['drills', { tables: 'lents', auto: true }] },
+};

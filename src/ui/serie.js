@@ -16,14 +16,14 @@
  * O (mon soroban affiche ce nombre) ou N. Compte pour le volume, pas pour le niveau.
  */
 
-import { diagnostiquer, localiserErreur, motifsDeLigne } from '../core/diagnostic.js';
+import { diagnostiquer, localiserErreur, motifsDeLigne, typeErreurOperation } from '../core/diagnostic.js';
 import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { tempsParUnite, tempsCible, unites, SURCOUT_S, MIN_ESSAIS } from '../core/maitrise.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from './sorobanVue.js';
-import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages, noterErreurColonne, signalerLenteur, noterVolume, noterRythme, MESSAGE_RYTHME } from '../core/progression.js';
+import { motifsEnDifficulte, noterGestes, noterReponse, reglagesUtilisateur, modifierReglages, noterErreurColonne, noterErreurOperation, signalerLenteur, noterVolume, noterRythme, MESSAGE_RYTHME } from '../core/progression.js';
 import { scoreRythme } from '../core/regularite.js';
 import { notifier } from './toast.js';
 import { rendreEnonce, formaterValeur as valeur } from './enonce.js';
@@ -38,7 +38,7 @@ const DUREE_ENONCE_MENTAL_MS = 4000;
 const attenduTexte = (ex) => ex.attendu ?? valeur(ex, ex.resultat);
 const explicable = (ex) => !['photo', 'tenir', 'quotidien'].includes(ex.type) && !ex.negatif;
 import { ouvrirExplication } from './explication.js';
-import { cadencer } from './cadence.js';
+import { cadencer, afficherNombreFlash, decompteFlash } from './cadence.js';
 import { ouvrirDemo } from './panneauDemo.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
@@ -267,8 +267,7 @@ export function creerSerie(conteneur, o) {
     const vueImage = sorobanImage ? new SorobanVue(zoneImage, sorobanImage, { interactif: false }) : null;
     const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
     const interrompu = () => ex !== exo || phase === 'fin';
-    for (const t of ['3', '2', '1']) { ecran.textContent = t; ecran.classList.add('decompte'); await attendre(350); }
-    ecran.classList.remove('decompte');
+    await decompteFlash(ecran, 350);
     if (exo.type === 'photo') {
       // L'image seule, sans le nombre : on la « photographie ».
       remplir(ecran, zoneImage);
@@ -302,7 +301,7 @@ export function creerSerie(conteneur, o) {
         interrompu,
         surAfficher: (k) => {
           const l = exo.lignes[k];
-          ecran.textContent = `${l.op === '-' ? '−' : ''}${formaterNombre(l.n)}`;
+          afficherNombreFlash(ecran, formaterNombre(l.n), l.op === '-');
           // L'image suit le total, sans s'effacer entre deux nombres.
           sorobanImage?.definirValeur(totaux[k]);
         },
@@ -372,6 +371,10 @@ export function creerSerie(conteneur, o) {
     racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
     noterVolume(unites(ex));
     if (!juste && !opts.sansMemoireErreurs) await noterErreurColonne(ex); // à rejouer demain
+    if (!juste && reponse !== null && !opts.sansMemoireErreurs) {
+      const typeErreur = typeErreurOperation(ex, reponse);
+      if (typeErreur) await noterErreurOperation(typeErreur, String(ex.type).startsWith('div'));
+    }
     pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}`, title: juste ? 'juste' : `faux (${valeur(ex, ex.resultat)})` }, juste ? '✓' : '✗'));
 
     const t = tempsParUnite(ex, dureeMs);

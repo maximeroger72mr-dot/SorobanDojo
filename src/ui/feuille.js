@@ -7,10 +7,10 @@
  * sur une page séparée.
  */
 
-import { diagnostiquer, erreurIdentifiee } from '../core/diagnostic.js';
-import { noterErreurColonne, noterFeuille, noterVolume } from '../core/progression.js';
+import { diagnostiquer, erreurIdentifiee, typeErreurOperation } from '../core/diagnostic.js';
+import { noterErreurColonne, noterErreurOperation, noterFeuille, noterVolume } from '../core/progression.js';
 import { NIVEAUX, unites, familleTemps, formaterTemps, formaterCadence, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
-import { lireReponse, egal } from '../core/nombres.js';
+import { lireReponse, egal, milliersCorrects } from '../core/nombres.js';
 import { poidsProbleme, ecartAllure } from '../core/allure.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
@@ -27,14 +27,19 @@ import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
  * @param {{cle: string, libelle: string}} [o.historique]  type de feuille, pour suivre ses résultats
  * @param {{ part:number }} [o.allure]  épreuve chronométrée : afficher l'avance ou le retard sur
  *   l'allure nécessaire (option ; jamais en examen pur)
+ * @param {boolean} [o.milliers]  exiger les séparateurs de milliers (examen pur, 1er au 3e kyū)
+ * @param {boolean} [o.parEpreuve]  chaque section a son propre temps (sec.minutes) : on les passe
+ *   l'une après l'autre, sans revenir en arrière (épreuves d'anzan)
  * @param {number} [o.reprises]  nombre de colonnes fausses, au plus, dont on propose la reprise
  *   immédiate ; seulement quand l'erreur est identifiée sans ambiguïté (jamais en examen)
  */
 export function creerFeuille(conteneur, o) {
-  const limiteMs = o.minutes ? o.minutes * 60000 : null;
+  const parEpreuve = !!o.parEpreuve && o.sections.length > 1 && o.sections.every((x) => x.minutes);
+  let limiteMs = o.minutes ? o.minutes * 60000 : null;
+  if (parEpreuve) limiteMs = o.sections[0].minutes * 60000;
   const chrono = h('span', { class: 'chrono-feuille' });
   const allure = h('span', { class: 'allure-feuille', title: 'Avance ou retard sur l\'allure qui permet de traiter la part du sujet nécessaire pour réussir.' });
-  const btnCorriger = h('button', { class: 'btn principal', onclick: () => corriger() }, 'Corriger');
+  const btnCorriger = h('button', { class: 'btn principal', onclick: () => (parEpreuve && courante < o.sections.length - 1 ? passerEpreuve() : corriger()) }, parEpreuve ? 'Épreuve suivante' : 'Corriger');
   const btnImprimer = h('button', { class: 'btn', onclick: () => window.print() }, 'Imprimer');
   const bilan = h('div', {});
   const cases = []; // { ex, input, carte, section }
@@ -66,21 +71,39 @@ export function creerFeuille(conteneur, o) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     e.stopPropagation();
-    if (cases[i + 1]) cases[i + 1].input.focus();
+    if (cases[i + 1] && parEpreuve && cases[i + 1].section !== c.section) passerEpreuve();
+    else if (cases[i + 1]) cases[i + 1].input.focus();
     else corriger();
   }));
   cases[0]?.input.focus();
 
   const poidsTotal = cases.reduce((s, c) => s + poidsProbleme(c.ex), 0);
   const debut = performance.now();
+  let debutEpreuve = debut;
+  let courante = 0;
   let fini = false;
+  /** Épreuves chronométrées séparément : on ferme la section en cours et on ouvre la suivante. */
+  function activerEpreuve() {
+    cases.forEach((c) => { c.input.disabled = c.section !== courante; });
+    sectionsEl.forEach((s, i) => s.classList.toggle('epreuve-inactive', i !== courante));
+    limiteMs = o.sections[courante].minutes * 60000;
+    debutEpreuve = performance.now();
+    if (courante === o.sections.length - 1) btnCorriger.textContent = 'Corriger';
+    cases.find((c) => c.section === courante)?.input.focus();
+  }
+  function passerEpreuve() {
+    if (fini) return;
+    if (courante >= o.sections.length - 1) { corriger(); return; }
+    courante += 1;
+    activerEpreuve();
+  }
   const tic = () => {
-    const ecoule = performance.now() - debut;
+    const ecoule = performance.now() - (parEpreuve ? debutEpreuve : debut);
     if (limiteMs) {
       const reste = Math.max(0, limiteMs - ecoule);
       const min = Math.floor(reste / 60000);
       const sec = Math.floor((reste % 60000) / 1000);
-      chrono.textContent = `Temps restant ${min}:${String(sec).padStart(2, '0')}`;
+      chrono.textContent = `${parEpreuve ? `Épreuve ${courante + 1} / ${o.sections.length} · ` : ''}Temps restant ${min}:${String(sec).padStart(2, '0')}`;
       chrono.classList.toggle('urgent', reste < 60000);
       if (o.allure) {
         const fait = cases.reduce((s, c) => s + (c.input.value.trim() ? poidsProbleme(c.ex) : 0), 0);
@@ -89,11 +112,12 @@ export function creerFeuille(conteneur, o) {
         allure.textContent = Math.abs(e) < 10 ? 'Allure : dans le rythme' : `Allure : ${duree} ${e > 0 ? 'd\'avance' : 'de retard'}`;
         allure.classList.toggle('retard', e <= -10);
       }
-      if (reste === 0) corriger();
+      if (reste === 0) { if (parEpreuve) passerEpreuve(); else corriger(); }
     } else {
       chrono.textContent = formaterDuree(ecoule);
     }
   };
+  if (parEpreuve) activerEpreuve();
   const minuterie = setInterval(tic, 250);
   tic();
 
@@ -149,21 +173,30 @@ export function creerFeuille(conteneur, o) {
     fini = true;
     delete racine.dataset.enCours;
     clearInterval(minuterie);
-    const dureeMs = Math.min(performance.now() - debut, limiteMs ?? Infinity);
+    const dureeMs = parEpreuve ? performance.now() - debut : Math.min(performance.now() - debut, limiteMs ?? Infinity);
+    sectionsEl.forEach((s) => s.classList.remove('epreuve-inactive'));
     btnCorriger.disabled = true;
     allure.remove();
     const resultats = cases.map((c) => {
       const reponse = lireReponse(c.input.value, c.ex.decimales ?? 0);
-      const juste = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0);
+      const bonNombre = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0);
+      // Examen pur, 1er au 3e kyū : sans séparateurs de milliers, la réponse est comptée fausse.
+      const sansMilliers = !!o.milliers && bonNombre && !milliersCorrects(c.input.value);
+      const juste = bonNombre && !sansMilliers;
       c.input.disabled = true;
       c.carte.classList.add(juste ? 'ok' : 'ko');
       if (!juste) {
         // Reprise proposée seulement si l'erreur est identifiée (une ligne précise), et pas
         // plus de o.reprises fois par feuille : sinon la correction habituelle, tout de suite.
         const ident = reprisesRestantes > 0 && reponse !== null ? erreurIdentifiee(c.ex, reponse) : null;
-        if (ident) { reprisesRestantes -= 1; proposerReprise(c, reponse, ident); } else montrerCorrection(c, reponse);
+        if (sansMilliers) c.carte.append(h('div', { class: 'correction' }, h('div', {}, h('strong', {}, 'Nombre juste, compté faux : '), 'il manque les séparateurs de milliers (', formaterNombre(c.ex.resultat), ').')));
+        else if (ident) { reprisesRestantes -= 1; proposerReprise(c, reponse, ident); } else montrerCorrection(c, reponse);
       }
-      if (!juste && reponse !== null) noterErreurColonne(c.ex); // à rejouer demain
+      if (!juste && !sansMilliers && reponse !== null) {
+        noterErreurColonne(c.ex); // à rejouer demain
+        const type = typeErreurOperation(c.ex, reponse);
+        if (type) noterErreurOperation(type, String(c.ex.type).startsWith('div'));
+      }
       if (reponse !== null) noterVolume(unites(c.ex));
       return { ex: c.ex, reponse, juste, section: c.section };
     });

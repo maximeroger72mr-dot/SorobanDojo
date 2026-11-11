@@ -49,8 +49,10 @@ test('kyū officiels : les leçons exigées couvrent ce que l\'épreuve demande'
     const ids = PREREQUIS[g.id];
     for (const id of ids) assert.ok(sousPalier(id), `${g.nom} : leçon inconnue ${id}`);
     if (g.div) assert.ok(ids.some((id) => sousPalier(id).type === 'div'), `${g.nom} demande des divisions sans leçon de division`);
-    if (g.div?.total >= 3) assert.ok(ids.some((id) => sousPalier(id).type === 'div' && sousPalier(id).nd >= 2), `${g.nom} : diviseur à 2 chiffres non appris`);
-    if (g.mul?.total >= 4) assert.ok(ids.includes('p6-3'), `${g.nom} : 2 × 2 chiffres non appris`);
+    // Formes imposées : une leçon exigée couvre chaque découpage (facteurs, ou diviseur et quotient).
+    const types = (t) => ids.map(sousPalier).filter((x) => x.type === t);
+    for (const [m, n] of g.mul?.formes ?? []) assert.ok(types('mul').some((x) => (x.mMax ?? x.m) >= Math.max(m, n) && x.n >= Math.min(m, n)), `${g.nom} : ${m} × ${n} non appris`);
+    for (const [nd, nq] of g.div?.formes ?? []) assert.ok(types('div').some((x) => (x.ndMax ?? x.nd) >= nd && x.nq >= Math.min(nq, 2)), `${g.nom} : ÷ ${nd} chiffre(s), quotient ${nq}, non appris`);
     // Le sujet se génère et respecte le format.
     const sujet = genererSujet(g);
     assert.equal(sujet.sections.length, 1 + !!g.mul + !!g.div);

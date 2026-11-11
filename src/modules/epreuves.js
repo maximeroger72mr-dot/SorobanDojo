@@ -12,7 +12,7 @@ import { verdictAllure, allureGrade } from '../core/allure.js';
 import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreuvesAnzan.js';
 import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
-import { localiserErreur, diagnostiquer } from '../core/diagnostic.js';
+import { localiserErreur, diagnostiquer, typeErreurOperation, ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { nomMotif } from '../core/motifs.js';
 
 /**
@@ -22,11 +22,17 @@ import { nomMotif } from '../core/motifs.js';
 function rapport(app, resultats) {
   const gestes = {};
   const causes = {};
+  const types = {};
   for (const r of resultats.filter((x) => !x.juste && x.reponse !== null)) {
     if (r.ex.type === 'addsub') {
       for (const m of localiserErreur(r.ex, r.reponse)?.motifs ?? []) gestes[m] = (gestes[m] ?? 0) + 1;
     } else {
-      const c = diagnostiquer(r.ex, r.reponse)[0];
+      // Type d'erreur reconnu (déjà compté dans le suivi par la feuille) : on le regroupe et on
+      // propose son entraînement ; sinon, la cause la plus probable, telle quelle.
+      const t = typeErreurOperation(r.ex, r.reponse);
+      const c = t ? null : diagnostiquer(r.ex, r.reponse)[0];
+      if (t) (types[t] ??= { n: 0, div: false }).n += 1;
+      if (t && String(r.ex.type).startsWith('div')) types[t].div = true;
       if (c) causes[c] = (causes[c] ?? 0) + 1;
     }
   }
@@ -34,6 +40,10 @@ function rapport(app, resultats) {
   const elements = [];
   for (const [m, n] of Object.entries(gestes).sort((a, b) => b[1] - a[1])) {
     elements.push(h('li', {}, `${nomMotif(m)} (${n} fois) `, h('button', { class: 'lien', onclick: () => app.aller('planches', { cible: m, auto: true }) }, '→ planche de ce geste')));
+  }
+  for (const [t, x] of Object.entries(types).sort((a, b) => b[1].n - a[1].n)) {
+    const e = ENTRAINEMENTS_ERREUR[t];
+    elements.push(h('li', {}, `× et ÷ : ${e.nom} (${x.n} fois) `, h('button', { class: 'lien', onclick: () => app.aller(...e.aller(x.div)) }, `→ ${e.remede}`)));
   }
   for (const [c, n] of Object.entries(causes).sort((a, b) => b[1] - a[1])) elements.push(h('li', {}, `${c}${n > 1 ? ` (${n} fois)` : ''}`));
   if (vides) elements.push(h('li', {}, `${vides} problème${vides > 1 ? 's' : ''} sans réponse : travaillez la vitesse (défis, planches « vitesse »).`));
@@ -50,10 +60,12 @@ const SEUIL_SPRINT = 0.7;
 
 function resume(g) {
   const m = g.mitori;
-  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.soustractions ? ', additions et soustractions' : ''}`];
-  const dec = (f) => (f.decimales ? ', un problème sur deux en décimaux (arrondi au millième dans la première moitié, à l\'unité dans la seconde)' : '');
-  if (g.mul) p.push(`multiplication ${g.mul.nb} × (${g.mul.total} chiffres au total${dec(g.mul)})`);
-  if (g.div) p.push(`division ${g.div.nb} × (diviseur + quotient : ${g.div.total} chiffres${dec(g.div)})`);
+  const melange = m.pures >= m.nb ? ', additions seules' : m.pures ? ` (${m.pures} d'additions seules, ${m.nb - m.pures} avec soustractions${m.negatifs?.[0] ? ', dont un résultat négatif' : ''})` : ', additions et soustractions';
+  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${melange}`];
+  const forme = (f, sep) => (f.formes ? f.formes.map(([x, y]) => `${x} ${sep} ${y} chiffre${y > 1 ? 's' : ''}`).join(' ou ') : null);
+  const dec = (f) => (f.decimales ? ', décimaux : arrondi au millième dans la première moitié, à l\'unité dans la seconde' : '');
+  if (g.mul) p.push(`multiplication ${g.mul.nb} × (${forme(g.mul, '×') ?? `${g.mul.total} chiffres au total`}${dec(g.mul)})`);
+  if (g.div) p.push(`division ${g.div.nb} × (${g.div.formes ? g.div.formes.map(([x, y]) => `diviseur ${x} chiffre${x > 1 ? 's' : ''}, quotient ${y}`).join(' ou ') : `diviseur + quotient : ${g.div.total} chiffres`}${dec(g.div)})`);
   return p.join(' · ');
 }
 
@@ -84,13 +96,13 @@ export default {
       remplir(el, h('h1', {}, 'Épreuves officielles'),
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
         h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
-          'Du 6e au 1er kyū : tableau de référence retenu (seuils 210/300 puis 240/300, décimaux à partir du 3e kyū, réponses arrondies comme indiqué). Du 10e au 7e kyū : formats publics japonais, seuil indicatif de 70 %. Les séparateurs de milliers sont acceptés dans les réponses, jamais exigés.'),
+          'Du 6e au 1er kyū : 300 points, réussite à 210 (4e au 6e) puis 240 (1er au 3e) ; dès le 3e kyū, toutes les multiplications et divisions s\'arrondissent. Du 10e au 7e kyū : 200 points, réussite à 120 (60 au 10e kyū). En mitorizan, 6 problèmes d\'additions seules puis 4 avec soustractions. Les séparateurs de milliers (« 1 234 567 ») ne sont exigés qu\'en examen pur, du 1er au 3e kyū, comme à l\'examen où une réponse sans séparateurs est comptée fausse.'),
         optionsExamen(),
         h('div', { class: 'liste-grades' }, GRADES.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${meilleur(g)?.reussi ? 'fait' : 'ouvert'}` }, meilleur(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
-            h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * 100)} %${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
+            h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * totalPoints(g))} / ${totalPoints(g)}${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
           h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.verifie ? '' : ' · format indicatif'),
           ligneAllure(g),
           (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
@@ -116,7 +128,7 @@ export default {
     function listeAnzan() {
       const rec = (g) => progression().records[`epreuve-${g.id}`];
       return [h('h2', {}, 'Épreuves d\'anzan (暗算検定)'),
-        h('p', { class: 'discret' }, 'Tout de tête, soroban rangé, 12 minutes. Format indicatif : il vient de sources non officielles, et la longueur des colonnes a été reconstituée pour que chaque grade soit plus exigeant que le précédent. Ces épreuves ne comptent pas pour le grade de soroban.'),
+        h('p', { class: 'discret' }, 'Tout de tête, soroban rangé. Chaque épreuve (additions, multiplications, divisions) a son propre temps : on les passe l\'une après l\'autre, sans revenir en arrière. Format indicatif : il vient de sources non officielles, et la longueur des colonnes a été reconstituée pour que chaque grade soit plus exigeant que le précédent. Ces épreuves ne comptent pas pour le grade de soroban.'),
         h('div', { class: 'liste-grades' }, GRADES_ANZAN.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${rec(g)?.reussi ? 'fait' : 'ouvert'}` }, rec(g)?.reussi ? '✓' : '○'),
@@ -134,7 +146,9 @@ export default {
       feuille = creerFeuille(el, {
         titre: `${g.nom} (${g.japonais}) · ${g.minutes} minutes · de tête`,
         minutes: g.minutes,
-        sections: sujet.sections,
+        // Chaque épreuve chronométrée séparément : le temps total, partagé à parts égales.
+        sections: sujet.sections.map((x) => ({ ...x, minutes: g.minutes / sujet.sections.length })),
+        parEpreuve: true,
         surFin: (b) => {
           const reussi = b.points >= g.seuil * max;
           enregistrerSession({ module: 'epreuves', mode: g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
@@ -182,12 +196,15 @@ export default {
       const sujet = genererSujet(g);
       const sections = section ? sujet.sections.filter((x) => x.cle === section) : sujet.sections;
       const max = sections.reduce((t, x) => t + x.problemes.length * x.points, 0);
-      const seuil = section ? SEUIL_SPRINT : g.seuil;
+      const seuil = section ? Math.max(SEUIL_SPRINT, g.seuil) : g.seuil;
+      const milliers = !section && !!g.milliers && !!reglagesUtilisateur().examenPur;
+      if (milliers) el.append(h('p', { class: 'consigne' }, 'Examen pur : écrivez les séparateurs de milliers (« 1 234 567 », ou « 12 345,678 »). Sans eux, une réponse juste est comptée fausse, comme à l\'examen.'));
       const minutes = section ? MINUTES_SPRINT : g.minutes;
       feuille = creerFeuille(el, {
         titre: `${g.nom} (${g.japonais})${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes${!section && reglagesUtilisateur().examenPur ? ' · examen pur' : ''}`,
         minutes,
         sections,
+        milliers,
         // Allure : en option, épreuve complète seulement, jamais en examen pur.
         allure: !section && reglagesUtilisateur().allureExamen && !reglagesUtilisateur().examenPur ? { part: allureGrade(g).part } : null,
         surFin: (b) => {

@@ -609,7 +609,7 @@ export async function memoriserPlanche(p) {
   liste.push({
     code: p.code, graine: p.graine, date: aujourdhui(), reglages: p.reglages, cibles: p.cibles, libelle: p.libelle,
     parRoles: !!p.parRoles, bilan: p.bilan,
-    colonnes: p.colonnes.map((c) => ({ type: 'addsub', lignes: c.lignes, resultat: c.resultat, motifs: c.motifs, motifsLignes: c.motifsLignes, roles: c.roles, cout: c.cout })),
+    colonnes: p.colonnes.map((c) => ({ type: 'addsub', lignes: c.lignes, resultat: c.resultat, motifs: c.motifs, motifsLignes: c.motifsLignes, roles: c.roles, cout: c.cout, decimales: c.decimales, negatif: c.negatif, astuce: c.astuce })),
   });
   donnees.planches = liste.slice(-20);
   await sauver();
@@ -638,6 +638,44 @@ export async function noterErreurColonne(ex) {
   liste.push({ date: aujourdhui(), sig, ex: { type: 'addsub', lignes: ex.lignes, resultat: ex.resultat, motifs: ex.motifs, decimales: ex.decimales, negatif: ex.negatif } });
   const limite = ajouterJours(aujourdhui(), -14);
   donnees.erreursColonnes = liste.filter((e) => e.date > limite).slice(-30);
+  await sauver();
+}
+
+/** Erreurs d'un même type qui déclenchent une proposition d'entraînement, et sur combien de jours. */
+export const SEUIL_ERREUR_OPERATION = 3;
+export const JOURS_ERREUR_OPERATION = 21;
+
+/**
+ * Compte une erreur de multiplication ou de division par TYPE (placement, zéro, quotient trop
+ * grand ou trop petit, arrondi, produit), comme on compte les gestes ratés en colonnes.
+ * Alimenté par les leçons, les planches et les rapports d'épreuve.
+ */
+export async function noterErreurOperation(type, div = false) {
+  const f = ((donnees.erreursOperations ??= {})[type] ??= { total: 0, dates: [] });
+  f.total += 1;
+  f.div = div;
+  f.dates = [...f.dates, aujourdhui()].slice(-20);
+  await sauver();
+}
+
+/**
+ * Types d'erreur qui se répètent : au moins SEUIL_ERREUR_OPERATION fois en JOURS_ERREUR_OPERATION
+ * jours, depuis le dernier entraînement proposé et suivi. Les plus fréquents d'abord.
+ * @returns {Array<{ type:string, nombre:number, total:number, div:boolean }>}
+ */
+export function erreursOperationRepetees(d = donnees, date = aujourdhui()) {
+  const limite = ajouterJours(date, -JOURS_ERREUR_OPERATION);
+  return Object.entries(d.erreursOperations ?? {})
+    .map(([type, f]) => ({ type, total: f.total, div: !!f.div, nombre: f.dates.filter((x) => x > limite && (!f.traite || x > f.traite || f.traite === date)).length }))
+    .filter((x) => x.nombre >= SEUIL_ERREUR_OPERATION)
+    .sort((a, b) => b.nombre - a.nombre);
+}
+
+/** L'entraînement proposé a été suivi : le compteur repart de ce jour (l'historique reste). */
+export async function traiterErreurOperation(type) {
+  const f = donnees.erreursOperations?.[type];
+  if (!f) return;
+  f.traite = aujourdhui();
   await sauver();
 }
 

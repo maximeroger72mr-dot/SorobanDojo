@@ -18,6 +18,8 @@ import { famille } from './motifs.js';
 import { coutColonne } from './charge.js';
 import { avecGraine, codeDepuisGraine } from './hasard.js';
 import { entier } from './aleatoire.js';
+import { genererMitori, genererMitoriNegatif } from './epreuves.js';
+import { genererColonneDecimale } from './multiplication.js';
 
 const DIRECTS = famille('direct');
 const signature = (col) => col.lignes.map((l) => `${l.op}${l.n}`).join();
@@ -75,8 +77,9 @@ export function bilanPlanche(colonnes, cibles, realisables = cibles, replis = []
  */
 export function genererPlanche(spec, graine) {
   return avecGraine(graine, () => {
-    const { chiffres, lignes, colonnes: nb, autorises = null, cibles, poids = {}, zeros = false, profil = 'rampe' } = spec;
-    const base = { chiffres, lignes, autorises, cibles, zeros };
+    const { chiffres, lignes, colonnes: nb, autorises = null, cibles, poids = {}, zeros = false, profil = 'rampe', ops } = spec;
+    // ops : ['+'] pour une planche d'additions seules (les gestes visés sont alors ceux d'addition).
+    const base = { chiffres, lignes, autorises, cibles, zeros, ...(ops ? { ops } : {}) };
     const realisables = ciblesRealisables(base);
     const vus = {};
     // Un geste pas encore vu sur la planche passe devant ; un geste déjà vu recule.
@@ -172,5 +175,47 @@ export function genererPlancheGeste(spec, graine) {
     if (simples) replis.push({ type: 'simples', nombre: simples });
     if (cols.some((c) => c.sansFamille)) replis.push({ type: 'sansFamille' });
     return { graine, code: codeDepuisGraine(graine), colonnes: cols, bilan: bilanPlanche(cols, [cible], [cible], replis) };
+  });
+}
+
+/** Genres de planche qui ne passent pas par le planificateur de gestes. */
+export const GENRES_PLANCHE = {
+  melees: 'Longueurs mêlées (comme en compétition)',
+  examen: 'Format d\'examen : 6 additions seules, 4 mêlées',
+  negatifs: 'Résultats négatifs',
+  decimaux: 'Décimaux',
+};
+
+/**
+ * Planche « spéciale » : même code rejouable, mais des colonnes tirées au format des examens.
+ *  - melees : dans une même colonne, des nombres de 3 chiffres (ou moins) jusqu'au réglage :
+ *    859, 768 024, 7 845… Savoir où poser chaque nombre est une compétence de lecture à part ;
+ *  - examen : lignes de longueur fixe, 6 colonnes d'additions seules sur 10, puis des mêlées ;
+ *  - negatifs : le total passe sous zéro (complément) ;
+ *  - decimaux : additions et soustractions de décimaux, à aligner sur le point des unités.
+ * @param {{genre:string, chiffres:number, lignes:number, colonnes:number}} spec
+ * @returns {{ graine, code, colonnes, bilan:null, speciale:true }}
+ */
+export function genererPlancheSpeciale(spec, graine) {
+  return avecGraine(graine, () => {
+    const { genre, chiffres, lignes, colonnes: nb } = spec;
+    const fixe = { lignes, min: chiffres, max: chiffres, soustractions: lignes >= 3 };
+    const une = (k) => {
+      if (genre === 'melees') return genererMitori({ lignes, min: Math.min(3, chiffres), max: chiffres, soustractions: lignes >= 3 });
+      if (genre === 'negatifs') return genererMitoriNegatif({ lignes: Math.max(2, lignes), min: chiffres, max: chiffres });
+      if (genre === 'decimaux') return genererColonneDecimale(lignes, Math.max(2, Math.min(6, chiffres)), 2);
+      return genererMitori(k < Math.round(nb * 0.6) ? { ...fixe, soustractions: false } : fixe);
+    };
+    const cols = [];
+    const sigs = new Set();
+    for (let e = 0; cols.length < nb && e < nb * 20; e++) {
+      const col = une(cols.length);
+      const sig = signature(col);
+      if (sigs.has(sig)) continue;
+      sigs.add(sig);
+      cols.push(col);
+    }
+    if (cols.length < nb) throw new ErreurGeneration('pas assez de colonnes différentes');
+    return { graine, code: codeDepuisGraine(graine), colonnes: cols, bilan: null, speciale: true };
   });
 }

@@ -281,7 +281,12 @@ table.colonne.compacte td { padding: 0 4px; }
   background: var(--surface); border: 1px solid var(--ligne); border-radius: 10px;
   font-size: 6rem; font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.flash-ecran.decompte { color: var(--discret); font-size: 3rem; }
+.flash-ecran.decompte { color: var(--discret); font-size: 1.1rem; font-weight: 400; letter-spacing: 0.3em; opacity: 0.7; }
+/* Le nombre reste centré : le signe moins se pose à sa gauche sans le décaler. */
+.flash-nombre { position: relative; display: inline-block; line-height: 1; }
+.flash-signe { position: absolute; right: 100%; padding-right: 0.12em; }
+/* Épreuves chronométrées une par une : celles qui ne sont pas en cours sont estompées. */
+.section-feuille.epreuve-inactive { opacity: 0.35; }
 
 /* ------------------------------------------------------------ impression : la feuille seule, corrigé sur une autre page */
 @media print {

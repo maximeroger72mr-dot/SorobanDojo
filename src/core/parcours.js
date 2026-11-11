@@ -49,17 +49,17 @@ export function motifsAppris(d) {
 
 /**
  * Leçons à valider avant de tenter chaque grade : exactement ce que l'épreuve demande
- * (10e : additions et soustractions avec tous les amis, multiplication 2×1 ; 9e : + division
- * ÷1 chiffre ; 8e : × 3×1 et 2×2, ÷ à 2 chiffres ; 7e : ÷ 2 chiffres, quotient 2 chiffres).
+ * (10e et 9e : additions et soustractions avec tous les amis, multiplication 2×1 ; 8e : × 3×1,
+ * ÷ 1 chiffre ; 7e : × 2×2 ; 6e : × 3×2, ÷ 2 chiffres).
  */
 const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
 const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1'];
-const K9 = [...K10, 'p7-0', 'p7-1'];
-const K8 = [...K9, 'p6-2', 'p6-3', 'p7-2', 'p7-e', 'p7-3'];
-const K7 = [...K8, 'p7-4'];
+const K9 = [...K10]; // même contenu que le 10e kyū (avec soustractions), seuil plus haut
+const K8 = [...K9, 'p6-2', 'p7-0', 'p7-1', 'p7-2']; // 3 × 1, ÷ 1 chiffre
+const K7 = [...K8, 'p6-3']; // 2 × 2
 // 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
 // était exigé dès le 6e kyū, décimaux et division par 3 chiffres compris).
-const K6 = [...K7, 'p6-4', 'p8-t1'];
+const K6 = [...K7, 'p6-4', 'p7-e', 'p7-3', 'p7-4', 'p8-t1']; // 3 × 2, ÷ 2 chiffres
 const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6'];
 const K4 = [...K5, 'p8-3', 'p8-5', 'p8-7'];
 const K3 = [...K4, ...idsPaliers('pd')];
@@ -78,6 +78,21 @@ export function grade(d) {
   const prochain = obtenu ? GRADES[GRADES.indexOf(obtenu) + 1] ?? null : GRADES[0];
   const manquantes = prochain ? prerequis(prochain).filter((id) => !estValide(d, id)).map((id) => SOUS_PALIERS.find((s) => s.id === id)) : [];
   return { obtenu, prochain, manquantes, pret: !!prochain && manquantes.length === 0 };
+}
+
+/**
+ * Ancrage : les leçons de colonnes validées le plus récemment (3 au plus), dont les gestes sont
+ * mélangés dans une même planche. Répéter le geste du jour l'installe ; le retrouver les jours
+ * suivants, mêlé aux précédents, le fixe.
+ * @returns {{ lecons: object[], cibles: string[], chiffres: number } | null}
+ */
+export function ancrageDuJour(d) {
+  const lecons = ADDSUB.filter((sp) => estValide(d, sp.id) && !sp.cumul)
+    .sort((a, b) => (d.paliers[a.id].valide < d.paliers[b.id].valide ? -1 : d.paliers[a.id].valide > d.paliers[b.id].valide ? 1 : a.ordre - b.ordre))
+    .slice(-3);
+  if (!lecons.length) return null;
+  const cibles = [...new Set(lecons.flatMap((sp) => sp.cibles))];
+  return { lecons, cibles, chiffres: Math.min(3, Math.max(1, ...lecons.map((sp) => sp.chiffres ?? 1))) };
 }
 
 /** Nombre de chiffres le plus grand vu dans les leçons d'addition validées (au moins 1). */

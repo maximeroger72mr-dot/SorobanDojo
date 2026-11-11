@@ -200,6 +200,15 @@ Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de
 - **Parcours** : chaque kyū n'exige que les leçons de son épreuve ; décimaux après le palier 5e-4e kyū ; palier « Vers le 1er kyū » (7 à 10 chiffres, × 6 × 5, ÷ 5 × 5, arrondi à l'unité, résultats négatifs) ; leçon de stratégie d'examen ; mini-tests où chaque geste de la leçon est posé.
 - **Anzan** : leçons de multiplication et de division de tête, dictée anzan par paliers, épreuves d'anzan.
 
+## Nouveautés de la version 0.24
+
+- **Épreuves plus proches des examens** : découpage des chiffres imposé par grade, 6 mitorizan d'additions seules sur 10, seuils officiels, résultat négatif au 2e kyū, tous les calculs arrondis dès le 3e kyū. En « examen pur », du 1er au 3e kyū, les séparateurs de milliers sont exigés.
+- **Séance partagée** : un peu de leçon, puis une planche d'ancrage sur les dernières leçons, puis deux minutes d'anzan. La leçon suivante attend que l'avant-dernière soit « acquis confirmé », 7 jours de pratique au plus.
+- **Examen de la semaine** adapté au niveau, à passer le jour que l'on veut.
+- **Erreurs de multiplication et de division suivies par type** : quand la même revient, l'entraînement correspondant est proposé.
+- **Planches** : additions seules, longueurs mêlées, format d'examen, résultats négatifs, décimaux, jusqu'à 10 chiffres. Feuilles × et ÷ avec zéros et arrondis.
+- **Anzan** : grades de flash en temps total (10e kyū au 10e dan, échelle indicative), épreuves chronométrées une par une, quatre nouvelles leçons, affichage du flash centré.
+
 ## Nouveautés de la version 0.23
 
 - **Sprints** (`core/sprints.js`, écran Jeux, reliés aux leçons par un bouton) : division avec reste (avant la première division), lecture éclair de grands nombres (dès les gestes directs à 2 et 3 chiffres), arrondi éclair, lecture d'un résultat négatif sur le soroban.

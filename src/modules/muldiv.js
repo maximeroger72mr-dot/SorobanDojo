@@ -3,20 +3,23 @@
  * Méthodes japonaises standard : 両落とし pour la multiplication, 片落とし pour la division.
  */
 
-import { genererMultiplication, genererDivision } from '../core/multiplication.js';
-import { enregistrerSession } from '../core/progression.js';
+import { genererMultiplication, genererDivision, genererMultiplicationDecimale, genererDivisionDecimale } from '../core/multiplication.js';
+import { enregistrerSession, traiterErreurOperation } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une' };
+const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', variante: 'simple' };
 
 export default {
   id: 'muldiv',
   titre: 'Multiplication et division',
-  monter(el) {
+  monter(el, app, params = {}) {
     let courant = null;
+    // Arrivée depuis une proposition (« zéro oublié qui se répète ») : planche de zéros, lancée d'office.
+    if (params.zeros) Object.assign(reglages, { variante: 'zeros', x: Math.max(3, reglages.x), y: reglages.type === 'mul' ? reglages.y : Math.max(3, reglages.y) });
+    if (params.type) reglages.type = params.type;
     const zone = h('div', {});
     const etiquettes = h('span', {});
     const selX = h('select', { onchange: (e) => { reglages.x = Number(e.target.value); } });
@@ -39,16 +42,32 @@ export default {
     modeSel.value = reglages.mode;
     const nbSel = h('select', { onchange: (e) => { reglages.nombre = Number(e.target.value); } }, [10, 20].map((n) => h('option', { value: n }, `${n} calculs`)));
     nbSel.value = String(reglages.nombre);
+    const varSel = h('select', { title: 'Nombres entiers simples, avec des zéros à l\'intérieur, ou décimaux à arrondir comme à l\'examen', onchange: (e) => { reglages.variante = e.target.value; } },
+      h('option', { value: 'simple' }, 'Entiers'), h('option', { value: 'zeros' }, 'Avec des zéros'),
+      h('option', { value: 'millieme' }, 'Arrondi au millième'), h('option', { value: 'unite' }, 'Arrondi à l\'unité'), h('option', { value: 'examen' }, 'Mélange d\'examen'));
+    varSel.value = reglages.variante;
     majLibelles();
 
-    const generer = () => (reglages.type === 'mul' ? genererMultiplication(reglages.x, reglages.y) : genererDivision(reglages.x, reglages.y));
+    /** Un calcul, selon la variante : entier, avec zéros, arrondi, ou le mélange des trois. */
+    const generer = () => {
+      const { type, x, y } = reglages;
+      let v = reglages.variante;
+      if (v === 'examen') v = ['simple', 'zeros', 'millieme', 'unite'][Math.floor(Math.random() * 4)];
+      // Un zéro intérieur demande au moins 3 chiffres (premier facteur, ou quotient).
+      const zeros = v === 'zeros';
+      if (v === 'millieme' || v === 'unite') {
+        const d = v === 'millieme' ? 3 : 0;
+        return type === 'mul' ? genererMultiplicationDecimale(Math.max(2, x), Math.max(2, y), d) : genererDivisionDecimale(Math.max(2, x), Math.max(2, y), d);
+      }
+      return type === 'mul' ? genererMultiplication(zeros ? Math.max(3, x) : x, y, zeros) : genererDivision(x, zeros ? Math.max(3, y) : y, zeros);
+    };
 
     el.append(h('h1', {}, 'Multiplication et division'),
       h('details', { class: 'carte' }, h('summary', {}, 'Rappel des méthodes'),
         h('ul', {},
           h('li', {}, h('strong', {}, 'Multiplication 両落とし : '), 'aucun facteur n\'est posé. On pose les produits de table sur deux tiges chacun (6 = « 06 »), en commençant par le chiffre de gauche du multiplicande multiplié par chaque chiffre du multiplicateur. Premier produit : sa dizaine sur la (m+n)-ième tige depuis les unités ; chaque produit suivant une tige plus à droite.'),
           h('li', {}, h('strong', {}, 'Division 片落とし : '), 'seul le dividende est posé. Début du dividende ≥ diviseur : chiffre du quotient deux tiges à gauche ; sinon juste à gauche. On retire ensuite quotient × chaque chiffre du diviseur, sur deux tiges, juste à droite du quotient. Unité du quotient : (chiffres du diviseur + 1) tiges à gauche de l\'unité du dividende.'))),
-      h('div', { class: 'reglages' }, typeSel, etiquettes, nbSel, modeSel,
+      h('div', { class: 'reglages' }, typeSel, etiquettes, varSel, nbSel, modeSel,
         h('button', { class: 'btn', onclick: () => ouvrirExplication(generer()) }, 'Voir un exemple'),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer')),
       zone);
@@ -82,6 +101,7 @@ export default {
       });
     }
 
+    if (params.auto) { if (params.zeros) traiterErreurOperation('zero'); lancer(); }
     return () => courant?.detruire();
   },
 };

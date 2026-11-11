@@ -12,10 +12,12 @@
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur, erreursARejouer,
+  erreursOperationRepetees, traiterErreurOperation,
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide } from '../core/parcours.js';
+import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { GRADES } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
@@ -105,11 +107,12 @@ function plan(d, debut, seance = null) {
   const exam = examenDeLaSemaine(d);
   const examFait = resultatSemaine(d, date);
   const examObtenu = exam && exam.id !== 'hebdo' && d.records[`prekyu-${exam.id}`]?.reussi;
-  const itemExamen = exam ? { titre: `Passage de kyū · ${exam.nom}`, detail: examFait ? `${examFait.points} / ${examFait.total} cette semaine${examFait.reussi ? ', réussi' : ', pas encore : retentez quand vous voulez'}` : `20 colonnes en ${minutesExamen(exam)} min, quand vous vous sentez prêt`, minutes: minutesExamen(exam),
+  const itemExamen = exam ? { titre: exam.id === 'hebdo' ? 'Examen de la semaine' : `Passage de kyū · ${exam.nom}`, detail: examFait ? `${examFait.points} / ${examFait.total} cette semaine${examFait.reussi ? ', réussi' : ', pas encore : retentez quand vous voulez'}` : `20 problèmes en ${minutesExamen(exam)} min, adaptés à votre niveau`, minutes: minutesExamen(exam),
     fait: !!examFait, aller: ['examen', {}], examen: true } : null;
   const passeAujourdhui = fait((s) => s.module === 'examen');
+  // Le jour où on le passe, l'examen de la semaine REMPLACE la leçon et l'ancrage.
   const examEssentiel = itemExamen && passeAujourdhui;
-  if (examEssentiel) essentiel.push(itemExamen);
+  if (examEssentiel) essentiel.push({ ...itemExamen, pourquoi: 'L\'examen de la semaine remplace aujourd\'hui la leçon et l\'ancrage.' });
   // 4. Priorité du jour : le geste à ancrer, à accélérer, ou le plateau à casser.
   //    Elle suit les progrès : recalculée à chaque affichage (le geste le plus lent change), sauf
   //    si celle fixée en début de séance a déjà été faite (elle reste alors, cochée).
@@ -139,15 +142,42 @@ function plan(d, debut, seance = null) {
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
-  essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: dureeDecision(d, decision, parExo), aller: decision.aller, decision: true,
-    pourquoi: decision.raison, fait: decisionFaite(decision) });
-  // 6. Consolidation (2 à 7 jours après une leçon) : mélanger pour retenir.
+  // La séance se PARTAGE : une part de leçon (un tiers de l'objectif, 5 min au moins), puis de
+  // l'ancrage. Une leçon plus longue se poursuit le lendemain.
+  const partLecon = Math.max(5, Math.round(reglagesUtilisateur().objectifMinutes / 3));
+  const dureeLecon = dureeDecision(d, decision, parExo);
+  const leconCoupee = decision.type === 'lecon' && dureeLecon > partLecon;
+  if (!examEssentiel || decisionFaite(decision)) {
+    essentiel.push({ titre: decision.titre, detail: leconCoupee ? `${decision.detail} (${partLecon} min aujourd'hui, la suite demain)` : decision.detail, minutes: leconCoupee ? partLecon : dureeLecon, aller: decision.aller, decision: true,
+      pourquoi: decision.raison, fait: decisionFaite(decision) || (leconCoupee && depuis.filter((s) => s.module === 'lecons' && s.reglages?.sousPalier === decision.aller[1].sousPalier).reduce((t, s) => t + (s.dureeMs ?? 0), 0) >= partLecon * 60000) });
+  }
+  // 6. Consolidation (2 à 7 jours après une leçon) : mélanger pour retenir. Sinon, les jours de
+  //    leçon, l'ANCRAGE : une planche qui mélange les gestes des 2 ou 3 dernières leçons et les
+  //    gestes faibles. Avancer et ancrer dans la même séance, au lieu de choisir.
   const conso = consolidationDuJour(d, date);
-  if (conso) {
+  const ancre = !conso && decision.type === 'lecon' ? ancrageDuJour(d) : null;
+  const ancrageFait = fait((s) => s.module === 'planches' && s.mode === 'ancrage');
+  if (ancre && (!examEssentiel || ancrageFait)) {
+    essentiel.push({ titre: 'Ancrage', detail: `10 colonnes qui mélangent ${ancre.lecons.map((x) => `« ${x.titre} »`).join(', ')} et vos gestes faibles`, minutes: Math.min(6, minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres: ancre.chiffres })),
+      pourquoi: 'Le soroban est un geste : il s\'installe en revenant plusieurs jours de suite, mêlé aux autres, plutôt qu\'en une seule longue leçon.',
+      fait: ancrageFait, aller: ['planches', { ancrage: true, auto: true }] });
+  }
+  if (conso && (!examEssentiel || fait((s) => s.mode === `consolidation:${conso.id}`))) {
     essentiel.push({ titre: 'Consolidation', detail: `${conso.titre}, mélangé aux gestes précédents (10 colonnes)`, minutes: minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres: Math.max(1, conso.chiffres ?? 1) }),
       pourquoi: 'Mélangé aux autres, le nouveau geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       fait: fait((s) => s.mode === `consolidation:${conso.id}`), aller: ['planches', { consolidation: conso.id, auto: true }] });
   }
+  // 6 bis. Anzan (2 min) : la leçon d'anzan en cours, sinon un flash réglé sur le niveau.
+  if (estValide(d, 'p1-4')) {
+    const leconAnzan = prochainAnzan();
+    const a = anzanAdapte(d);
+    essentiel.push(leconAnzan
+      ? { titre: 'Anzan', detail: leconAnzan.titre, minutes: 2, pourquoi: 'Deux minutes de calcul de tête par jour : l\'image du soroban se construit par petites touches régulières.',
+        fait: fait((s) => s.module === 'anzan' || (s.module === 'lecons' && s.reglages?.sousPalier === leconAnzan.id)), aller: ['lecons', { sousPalier: leconAnzan.id }] }
+      : { titre: 'Anzan', detail: `${a.questions} calculs de tête de ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}`, minutes: 2, pourquoi: 'Deux minutes de calcul de tête par jour entretiennent l\'image du soroban.',
+        fait: fait((s) => s.module === 'anzan'), aller: ['anzan', { ...a, auto: true }] });
+  }
+
   // 7. Multiplication / division : tables et placement deviennent des réflexes quotidiens.
   //    En ouvrant l'étape : le diagnostic des 81 produits (les trous dans les tables, repérés AVANT
   //    qu'on les attribue au placement).
@@ -164,6 +194,20 @@ function plan(d, debut, seance = null) {
     const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
     essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
       fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
+  }
+  // 7 bis. Erreurs de multiplication ou de division qui se RÉPÈTENT (placement, zéro, quotient,
+  //        arrondi, produit) : l'entraînement qui correspond, comme pour un geste faible.
+  const repetee = erreursOperationRepetees(d, date)[0];
+  if (repetee && ENTRAINEMENTS_ERREUR[repetee.type]) {
+    const e = ENTRAINEMENTS_ERREUR[repetee.type];
+    const aller = e.aller(repetee.div);
+    const suivi = fait((s) => s.module === aller[0] && (aller[0] !== 'lecons' || s.reglages?.sousPalier === aller[1].sousPalier)
+      && (aller[0] !== 'drills' || (aller[1].quotient ? s.mode === 'quotient' : String(s.mode).startsWith('tables')))
+      && (aller[0] !== 'jeux' || s.mode === aller[1].jeu));
+    if (suivi && d.erreursOperations?.[repetee.type]?.traite !== date) traiterErreurOperation(repetee.type);
+    essentiel.push({ titre: 'Erreur qui se répète (× et ÷)', detail: `${e.nom}, ${repetee.nombre} fois ces derniers jours : ${e.remede.toLowerCase()}`, minutes: 3,
+      pourquoi: 'La même erreur revient : ce n\'est plus de l\'inattention, c\'est un point à travailler à part, quelques minutes.',
+      fait: suivi, aller });
   }
   const placement = placementDuJour(d, date, sp);
   if (placement && placement.id !== sp?.id) {
@@ -193,7 +237,8 @@ function plan(d, debut, seance = null) {
   // Pour compléter : ce qui n'a pas tenu dans l'objectif, puis une planche, un flash anzan, un jeu
   // (et, si le temps restant est long, d'autres planches, un drill, un examen blanc…).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
-  const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, motifsEnDifficulte(), restant, priorite?.aller?.[1]?.cibles ?? [])];
+  // L'examen de la semaine, tant qu'il n'est pas passé : en tête, à faire le jour que l'on veut.
+  const complements = [...(itemExamen && !examFait && !examEssentiel ? [{ ...itemExamen, but: 'un jour de la semaine, quand vous voulez' }] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, motifsEnDifficulte(), restant, priorite?.aller?.[1]?.cibles ?? [])];
   return { essentiel: garde, bonus: complements, mot, minutes, decision };
 }
 

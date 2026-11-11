@@ -33,6 +33,17 @@ export function lireReponse(brut, decimales = 0) {
   return negatif ? -Number(t) : Number(t);
 }
 
+/**
+ * Séparateurs de milliers bien placés (exigés à l'examen du 1er au 3e kyū) : « 1 234 567 »,
+ * « 1.234.567 », « 12 345,678 ». Un nombre de moins de 4 chiffres avant la virgule n'en a pas besoin.
+ */
+export function milliersCorrects(brut) {
+  const t = String(brut).trim().replace(/^[-−]\s*/, '').replace(/[\u00a0\u202f]/g, ' ');
+  const entier = t.split(',')[0];
+  if (/^\d{1,3}$/.test(entier)) return true;
+  return /^\d{1,3}( \d{3})+$/.test(entier) || (t.includes(',') || !/^\d{1,3}\.\d{3}$/.test(t) ? /^\d{1,3}(\.\d{3})+$/.test(entier) : true);
+}
+
 /** Égalité à la précision de l'exercice. */
 export function egal(a, b, decimales = 0) {
   if (a === null || b === null) return false;

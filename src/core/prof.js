@@ -2,8 +2,11 @@
  * Le prof : décide, chaque jour, ce qui fait progresser, et le dit franchement.
  *
  *  - decisionDuJour : avancer (nouvelle leçon) ou ancrer (drill sur la dernière leçon). On
- *    n'avance que si la dernière leçon est acquise (juste ET rapide, seuil « débutant ») ;
- *    après 3 jours d'absence, on reprend en ancrant ; une leçon commencée se termine.
+ *    n'avance que si la dernière leçon est acquise (juste ET rapide, seuil « débutant ») : cette
+ *    condition ne se lève jamais. On attend aussi que l'AVANT-DERNIÈRE leçon soit « acquis
+ *    confirmé » ; faute de quoi on ancre, pendant JOURS_ANCRAGE_MAX jours de pratique au plus,
+ *    puis on avance quand même (le geste est entré, la vitesse viendra en route).
+ *    Après 3 jours d'absence, on reprend en ancrant ; une leçon commencée se termine.
  *  - jeuDuJour : le jeu « bonus » du jour, qui change chaque jour parmi ceux qui ont du sens
  *    au niveau atteint.
  *  - motDuProf : 3 ou 4 phrases : ce qui s'est passé, la décision du jour et pourquoi,
@@ -29,11 +32,28 @@ export function joursAbsence(d, date) {
   return dates.length ? ecartJours(dates.at(-1), date) : null;
 }
 
+const LECON_SOROBAN = (sp) => !sp.mental && !['theorie', 'placement', 'lire', 'complement'].includes(sp.type);
+const parValidation = (d) => (a, b) => (d.paliers[a.id].valide < d.paliers[b.id].valide ? -1 : d.paliers[a.id].valide > d.paliers[b.id].valide ? 1 : a.ordre - b.ordre);
+
 /** Dernière leçon du parcours soroban validée (la plus récente). */
 export function derniereLecon(d) {
-  return SOUS_PALIERS.filter((sp) => !sp.mental && !['theorie', 'placement', 'lire', 'complement'].includes(sp.type) && d.paliers[sp.id]?.valide)
-    .sort((a, b) => (d.paliers[a.id].valide < d.paliers[b.id].valide ? -1 : d.paliers[a.id].valide > d.paliers[b.id].valide ? 1 : a.ordre - b.ordre))
-    .at(-1) ?? null;
+  return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide).sort(parValidation(d)).at(-1) ?? null;
+}
+
+/** Avant-dernière leçon du parcours soroban validée (null s'il n'y en a qu'une). */
+export function avantDerniereLecon(d) {
+  return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide).sort(parValidation(d)).at(-2) ?? null;
+}
+
+/** Jours de pratique d'ancrage, au plus, avant d'ouvrir la leçon suivante malgré tout. */
+export const JOURS_ANCRAGE_MAX = 7;
+
+/** Jours de pratique depuis la validation de la dernière leçon (aujourd'hui non compris). */
+export function joursDepuisDerniereLecon(d, date) {
+  const derniere = derniereLecon(d);
+  if (!derniere) return 0;
+  const v = d.paliers[derniere.id].valide;
+  return new Set(d.sessions.map((s) => s.date).filter((x) => x > v && x < date)).size;
 }
 
 /** Exercice d'ancrage d'une leçon : marathon sur ses gestes, ou entraînement de la leçon. */
@@ -63,6 +83,18 @@ export function decisionDuJour(d, date, prochain) {
     if (ev.essais >= 8 && ev.index < 2) {
       const a = ancrage(derniere);
       return { type: 'ancrage', titre: 'Ancrage', ...a, raison: `Pas de nouvelle leçon aujourd'hui : « ${derniere.titre} » n'est pas encore acquise (${ev.manque.join(', ')}). Mieux vaut drill qu'empiler.`, minutes: 10, sp: derniere };
+    }
+  }
+  // L'avant-dernière leçon doit être « acquis confirmé » (index 3) ; sinon on ancre encore, mais
+  // pas plus de JOURS_ANCRAGE_MAX jours de pratique : au-delà, on avance (débutant est acquis).
+  const avant = avantDerniereLecon(d);
+  if (prochain && avant) {
+    const ev = evaluer(d.paliers[avant.id].hist ?? [], familleLecon(avant));
+    const jours = joursDepuisDerniereLecon(d, date);
+    if (ev.essais >= 8 && ev.index < 3 && jours < JOURS_ANCRAGE_MAX) {
+      const a = ancrage(avant);
+      const reste = JOURS_ANCRAGE_MAX - jours;
+      return { type: 'ancrage', titre: 'Ancrage', ...a, raison: `Pas de nouvelle leçon aujourd'hui : « ${avant.titre} » n'est pas encore « acquis confirmé » (${ev.manque.join(', ')}). On fait entrer le mouvement ; la leçon suivante s'ouvrira dès que ce sera le cas, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.`, minutes: 10, sp: avant };
     }
   }
   if (prochain) {
@@ -148,13 +180,18 @@ export function motDuProf(d, date, decision, minutesEssentiel, objectifMinutes, 
   if (g) {
     // Le rendez-vous de la semaine, sans échéance ni pression : un échec est normal.
     const r = resultatSemaine(d, date);
+    // « L'examen de la semaine » ou « Le 15e kyū prép. » : l'article suit le nom.
+    const hebdo = g.id === 'hebdo';
+    const Le = hebdo ? 'L\'examen de la semaine' : `Le ${g.nom}`;
+    const le = hebdo ? 'l\'examen de la semaine' : `le ${g.nom}`;
+    const du = hebdo ? 'de l\'examen de la semaine' : `du ${g.nom}`;
     const obtenu = g.id !== 'hebdo' && d.records[`prekyu-${g.id}`]?.reussi;
     if (r?.reussi) phrases.push(`${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.`);
     else if (r) phrases.push(v('kyu-rate', [`Passage de kyū : ${r.points} / ${r.total} cette semaine, pas encore. C'est normal ; retentez quand vous voulez, après un peu d'entraînement.`,
-      `Le ${g.nom} n'est pas encore passé (${r.points} / ${r.total}) : regardez vos erreurs, et retentez un jour de forme. Rien ne presse.`]));
-    else if (!obtenu) phrases.push(v('kyu', [`Le ${g.nom} est ouvert : passez-le cette semaine, le jour où vous vous sentez en forme. Raté, il ne vous retire rien.`,
-      `Quand vous voulez cette semaine : le ${g.nom}, pour voir où vous en êtes sous un peu de pression.`,
-      `Le passage du ${g.nom} vous attend, sans date limite : choisissez un moment calme.`]));
+      `${Le} n'est pas encore passé (${r.points} / ${r.total}) : regardez vos erreurs, et retentez un jour de forme. Rien ne presse.`]));
+    else if (!obtenu) phrases.push(v('kyu', [`${Le} est ouvert : passez-le cette semaine, le jour où vous vous sentez en forme. Raté, il ne vous retire rien.`,
+      `Quand vous voulez cette semaine : ${le}, pour voir où vous en êtes sous un peu de pression.`,
+      `Le passage ${du} vous attend, sans date limite : choisissez un moment calme.`]));
   } else if (!meilleurPrekyu(d)) {
     phrases.push('Le kyū prép. le plus simple (20e) s\'ouvrira dès que les gestes directs seront validés.');
   }
