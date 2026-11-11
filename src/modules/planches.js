@@ -7,7 +7,7 @@
  * se limite aux gestes des leçons validées.
  */
 
-import { ErreurGeneration } from '../core/generateur.js';
+import { ErreurGeneration, avecDelai } from '../core/generateur.js';
 import { libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
 import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLANCHE } from '../core/planche.js';
 import { graineAleatoire } from '../core/hasard.js';
@@ -20,6 +20,9 @@ import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
+
+/** Temps accordé à la création d'une planche avant de se replier (l'écran ne doit jamais se figer). */
+const DELAI_PLANCHE_MS = 1000;
 
 const reglages = { genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
@@ -258,7 +261,7 @@ export default {
         // Genres d'examen (longueurs mêlées, négatifs, décimaux…) : pas de planificateur de gestes.
         if (GENRES_PLANCHE[r.genre]) {
           try {
-            planche = genererPlancheSpeciale({ genre: r.genre, chiffres: r.genre === 'melees' ? Math.max(3, r.chiffres) : r.chiffres, lignes: r.lignes, colonnes: r.colonnes }, graine);
+            planche = genererPlancheSpeciale({ genre: r.genre, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes }, graine);
             c = { cibles: [], libelle: GENRES_PLANCHE[r.genre] };
           } catch (e) {
             if (!(e instanceof ErreurGeneration)) throw e;
@@ -269,11 +272,15 @@ export default {
         // Additions seules : seuls les gestes d'addition sont visés, aucune ligne à soustraire.
         if (!planche && r.genre === 'additions') {
           const plus = c.cibles.filter((x) => x.startsWith('+') || x === 'cascade+');
-          c = { ...c, cibles: plus.length ? plus : famille('direct').filter((x) => x.startsWith('+')), libelle: `Additions seules · ${c.libelle}`, ops: ['+'] };
+          // Sans soustraction, la colonne ne fait que monter : il faut des retenues pour tenir sur
+          // plusieurs lignes. Tous les gestes d'addition déjà appris sont donc PERMIS (les gestes
+          // choisis restent ceux que la planche vise).
+          const permis = c.autorises ? new Set([...c.autorises, ...motifsAppris()]) : null;
+          c = { ...c, autorises: permis, cibles: plus.length ? plus : famille('direct').filter((x) => x.startsWith('+')), libelle: `Additions seules · ${c.libelle}`, ops: ['+'] };
         }
         // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
         if (!planche && r.genre !== 'additions' && gesteTravaillable(r.cible)) {
-          planche = genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine);
+          planche = avecDelai(DELAI_PLANCHE_MS, () => genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine));
           if (planche) {
             planche.parRoles = true;
             c = { cibles: [r.cible], libelle: libellesModes(r.cible)[mode] };
@@ -292,12 +299,14 @@ export default {
             [config, null],
             [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
             // (additions seules : le repli reste sans soustraction, avec moins de lignes s'il le faut)
-            c.ops ? [{ ...config, lignes: Math.min(3, r.lignes), chiffres: Math.max(2, r.chiffres) }, 'Avec les gestes appris, des additions seules ne tiennent pas sur autant de lignes : planche à 3 lignes.'] : [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
+            c.ops ? [{ ...config, lignes: Math.min(3, r.lignes), chiffres: Math.max(2, r.chiffres) }, 'Avec les gestes appris, des additions seules ne tiennent pas sur autant de lignes (il faudrait des retenues, donc les grands amis) : planche à 3 lignes.'] : [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
           ];
           for (const [p, message] of replis) {
             try {
-              planche = genererPlanche(p, graine);
+              planche = avecDelai(DELAI_PLANCHE_MS, () => genererPlanche(p, graine));
               if (message) zone.append(h('p', { class: 'retour' }, message));
+              // Le titre et le résumé annoncent la planche réellement créée, pas la demande.
+              Object.assign(r, { chiffres: p.chiffres, lignes: p.lignes });
               break;
             } catch (e) {
               if (!(e instanceof ErreurGeneration)) throw e;
@@ -305,7 +314,7 @@ export default {
             }
           }
         }
-        if (!planche) { zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez d\'autres réglages.')); return; }
+        if (!planche) { zone.append(h('p', { class: 'retour erreur' }, 'Cette planche ne peut pas être créée avec ces réglages : choisissez moins de chiffres ou de lignes, ou davantage de gestes.')); return; }
         Object.assign(planche, { reglages: r, cibles: c.cibles, libelle: c.libelle });
         memoriserPlanche(planche);
       }
@@ -365,6 +374,21 @@ export default {
     selCible.addEventListener('change', majChoix);
     selCible.addEventListener('change', majMode);
     majChoix();
+    // Formats d'examen, négatifs, décimaux : le choix des gestes, le mode et les zéros ne s'y
+    // appliquent pas ; on les retire de l'écran plutôt que de les ignorer en silence.
+    const selGenre = el.querySelector('.reglages select');
+    const caseZeros = el.querySelector('.reglages label');
+    const majGenre = () => {
+      const special = !!GENRES_PLANCHE[reglages.genre];
+      selCible.style.display = special ? 'none' : '';
+      caseZeros.style.display = special ? 'none' : '';
+      if (special) { choixMode.style.display = 'none'; zoneChoix.style.display = 'none'; } else { majMode(); majChoix(); }
+      // Additions seules : pas de planche « par rôles » (elle contient des soustractions).
+      if (reglages.genre === 'additions') choixMode.style.display = 'none';
+    };
+    selGenre.addEventListener('change', majGenre);
+    selCible.addEventListener('change', majGenre);
+    majGenre();
     if (params.auto) lancer();
     return () => feuille?.detruire();
   },

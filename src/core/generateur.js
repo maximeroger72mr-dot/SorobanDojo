@@ -26,6 +26,21 @@ const ZERO_A_NEUF = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export class ErreurGeneration extends Error {}
 
+/**
+ * Délai de création. Certains réglages (un seul geste sur 10 chiffres, cascades…) demandent un
+ * nombre d'essais qui figerait l'écran : au-delà de l'échéance, chaque boucle de recherche
+ * abandonne par une ErreurGeneration, et l'appelant se replie sur une planche réalisable.
+ * Sans avecDelai (leçons, tests), il n'y a aucune échéance.
+ */
+let echeance = 0;
+const maintenant = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+export const horsDelai = () => echeance > 0 && maintenant() > echeance;
+export function avecDelai(ms, fn) {
+  const avant = echeance;
+  echeance = maintenant() + ms;
+  try { return fn(); } finally { echeance = avant; }
+}
+
 /** Clé du motif obtenu en appliquant `op d` sur une tige qui vaut c. */
 export function cleDe(op, c, d) {
   const regle = (op === '+' ? regleAjout : regleRetrait)(etatDepuisChiffre(c), d);
@@ -91,6 +106,7 @@ function essayerCible(cible, chiffres, autorises, cibles, zeros = false) {
   let valides = 0;
 
   for (let essai = 0; essai < 3000 && valides < 12; essai++) {
+    if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
     const pos = entier(0, chiffres - 1); // tige (dans n) qui porte le motif cible
     const chiffresN = [];
     const chiffresDepart = [];
@@ -198,6 +214,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
   let meilleur = null;
   let valides = 0;
   for (let essai = 0; essai < 2500 && valides < 15; essai++) {
+    if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
     let op = hasard(ops);
     let cible = null;
     if (viser && cibles?.length && essai < 1800) {
@@ -256,6 +273,7 @@ export function genererColonne(params) {
   // (seulement pas de ligne répétée ni de ping-pong), et la colonne le signale (assoupli).
   for (const niveau of ['strict', 'assoupli', 'libre']) {
     for (let tentative = 0; tentative < (niveau === 'strict' ? 40 : 20); tentative++) {
+      if (horsDelai()) throw new ErreurGeneration('délai dépassé');
       let col;
       try {
         col = colonneSimple(params);

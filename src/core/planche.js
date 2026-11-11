@@ -12,7 +12,7 @@
  *  - Bilan : ce que la planche fait travailler, sa charge, ses replis éventuels.
  */
 
-import { genererColonne, genererColonneVariee, genererOperation, creerMemoire, ErreurGeneration } from './generateur.js';
+import { genererColonne, genererColonneVariee, genererOperation, creerMemoire, ErreurGeneration, horsDelai } from './generateur.js';
 import { genererColonneGeste, creerMemoirePlanche } from './colonneGeste.js';
 import { famille } from './motifs.js';
 import { coutColonne } from './charge.js';
@@ -93,6 +93,7 @@ export function genererPlanche(spec, graine) {
     const sigs = new Set();
     const premiers = new Set();
     for (let k = 0; cols.length < nb && k < nb * 6; k++) {
+      if (horsDelai()) throw new ErreurGeneration('délai dépassé');
       const col = genererColonneVariee({ ...base, poids: poidsPlanche() }, memoire);
       const sig = signature(col);
       // Jamais deux colonnes identiques ; premiers nombres tous différents tant que c'est possible.
@@ -108,6 +109,7 @@ export function genererPlanche(spec, graine) {
     // ne fait disparaître aucun autre geste par une colonne qui apporte le geste manquant.
     const manquants = () => realisables.filter((c) => !vus[c]);
     for (let passe = 0; passe < 4 * nb && manquants().length; passe++) {
+      if (horsDelai()) break; // le rattrapage est un plus : hors délai, on garde la planche telle quelle
       const dus = manquants();
       let nouvelle = null;
       for (let e = 0; e < 6; e++) {
@@ -154,6 +156,7 @@ export function genererPlancheGeste(spec, graine) {
     const cols = [];
     let simples = 0;
     for (let k = 0; k < nb; k++) {
+      if (horsDelai()) return null;
       const n = Math.max(4, lignes + entier(-1, 1)); // longueurs mélangées autour du réglage
       let col = null;
       for (let e = 0; e < 20 && !col; e++) {
@@ -180,7 +183,6 @@ export function genererPlancheGeste(spec, graine) {
 
 /** Genres de planche qui ne passent pas par le planificateur de gestes. */
 export const GENRES_PLANCHE = {
-  melees: 'Longueurs mêlées (comme en compétition)',
   examen: 'Format d\'examen : 6 additions seules, 4 mêlées',
   negatifs: 'Résultats négatifs',
   decimaux: 'Décimaux',
@@ -188,8 +190,6 @@ export const GENRES_PLANCHE = {
 
 /**
  * Planche « spéciale » : même code rejouable, mais des colonnes tirées au format des examens.
- *  - melees : dans une même colonne, des nombres de 3 chiffres (ou moins) jusqu'au réglage :
- *    859, 768 024, 7 845… Savoir où poser chaque nombre est une compétence de lecture à part ;
  *  - examen : lignes de longueur fixe, 6 colonnes d'additions seules sur 10, puis des mêlées ;
  *  - negatifs : le total passe sous zéro (complément) ;
  *  - decimaux : additions et soustractions de décimaux, à aligner sur le point des unités.
@@ -201,7 +201,6 @@ export function genererPlancheSpeciale(spec, graine) {
     const { genre, chiffres, lignes, colonnes: nb } = spec;
     const fixe = { lignes, min: chiffres, max: chiffres, soustractions: lignes >= 3 };
     const une = (k) => {
-      if (genre === 'melees') return genererMitori({ lignes, min: Math.min(3, chiffres), max: chiffres, soustractions: lignes >= 3 });
       if (genre === 'negatifs') return genererMitoriNegatif({ lignes: Math.max(2, lignes), min: chiffres, max: chiffres });
       if (genre === 'decimaux') return genererColonneDecimale(lignes, Math.max(2, Math.min(6, chiffres)), 2);
       return genererMitori(k < Math.round(nb * 0.6) ? { ...fixe, soustractions: false } : fixe);

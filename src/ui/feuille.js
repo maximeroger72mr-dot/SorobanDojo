@@ -47,7 +47,10 @@ export function creerFeuille(conteneur, o) {
 
   const sectionsEl = o.sections.map((sec, si) => h('section', { class: 'section-feuille' },
     sec.titre ? h('h2', {}, sec.titre, sec.points ? h('span', { class: 'discret' }, ` · ${sec.points} point${sec.points > 1 ? 's' : ''} par problème`) : null) : null,
-    h('div', { class: `grille-feuille ${sec.problemes[0]?.type === 'addsub' ? 'colonnes' : 'operations'}` },
+    // Colonnes de grands nombres (10 chiffres au 1er kyū) : la case s'élargit avec le plus long
+    // nombre, séparateurs et signe compris, pour que deux colonnes voisines ne se chevauchent pas.
+    h('div', { class: `grille-feuille ${sec.problemes[0]?.type === 'addsub' ? 'colonnes' : 'operations'}`,
+      style: sec.problemes[0]?.type === 'addsub' ? `grid-template-columns: repeat(auto-fill, minmax(${Math.max(130, 17 * Math.max(...sec.problemes.flatMap((ex) => (ex.lignes ?? []).map((l) => formaterNombre(l.n).length + 2))) + 44)}px, 1fr))` : null },
       sec.problemes.map((ex) => {
         numero += 1;
         const input = h('input', { type: 'text', inputmode: ex.decimales ? 'decimal' : 'numeric', autocomplete: 'off', 'aria-label': `Réponse ${numero}` });
@@ -223,17 +226,25 @@ export function creerFeuille(conteneur, o) {
   }
 
   function vitesseFeuille(b) {
-    const familles = new Set(cases.map((c) => familleTemps(c.ex)));
+    // Seuls les problèmes RÉPONDUS comptent : le temps n'est divisé que par ce qui a été calculé
+    // (sinon, une seule réponse sur une feuille de 10 colonnes afficherait une vitesse absurde).
+    const repondus = cases.filter((c, i) => b.resultats[i].reponse !== null);
+    if (!repondus.length) return h('div', { class: 'vitesse-feuille discret' }, 'Aucune réponse saisie : pas de vitesse mesurée.');
+    const complet = repondus.length === cases.length;
+    const familles = new Set(repondus.map((c) => familleTemps(c.ex)));
     const famille = familles.size === 1 ? [...familles][0] : 'addsub';
-    const total = cases.reduce((s, c) => s + unites(c.ex), 0);
-    const t = Math.max(0.1, (b.dureeMs / 1000 - cases.length * SURCOUT_FEUILLE_S) / Math.max(1, total));
-    const taux = b.total ? b.justes / b.total : 0;
+    const total = repondus.reduce((s, c) => s + unites(c.ex), 0);
+    const t = Math.max(0.1, (b.dureeMs / 1000 - repondus.length * SURCOUT_FEUILLE_S) / Math.max(1, total));
+    const justesRepondus = b.resultats.filter((r) => r.reponse !== null && r.juste).length;
+    const taux = justesRepondus / repondus.length;
     const niveau = [...NIVEAUX].reverse().find((n) => n.temps && t <= n.temps[famille] && taux >= n.reussite) ?? NIVEAUX[1];
     const metal = { progres: 'bronze', debutant: 'argent', confirme: 'or', expert: 'platine' }[niveau.id];
     const ligne = h('div', { class: `vitesse-feuille vf-${niveau.id}` },
       h('strong', {}, formaterCadence(t, famille)), h('span', { class: 'discret' }, ` (${formaterTemps(t)} par ${famille === 'muldiv' ? 'produit' : 'chiffre'})`),
       ` · ${niveau.id === 'progres' ? 'en progrès' : niveau.nom}${metal ? ` (${metal})` : ''}`);
-    if (o.historique) {
+    if (!complet) ligne.append(h('span', { class: 'discret' }, ` · sur ${repondus.length > 1 ? `les ${repondus.length} réponses saisies` : 'la seule réponse saisie'} (feuille incomplète : non comptée dans vos moyennes)`));
+    // Une feuille incomplète n'entre pas dans l'historique des vitesses.
+    if (o.historique && complet) {
       noterFeuille({ ...o.historique, t, justes: b.justes, total: b.total }).then(({ moyenne, nombre }) => {
         if (moyenne === null) { ligne.append(h('span', { class: 'discret' }, ' · première feuille de ce type')); return; }
         const ecart = (t - moyenne) / moyenne;

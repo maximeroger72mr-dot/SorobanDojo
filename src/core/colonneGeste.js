@@ -17,7 +17,7 @@
  * Les règles de qualité de colonneValide s'appliquent en plus.
  */
 
-import { analyserOperation, colonneValide, ErreurGeneration } from './generateur.js';
+import { analyserOperation, colonneValide, ErreurGeneration, horsDelai } from './generateur.js';
 import { analyserMotif, famille } from './motifs.js';
 
 const DIRECTS = new Set(famille('direct'));
@@ -71,6 +71,7 @@ function candidats(chiffres, op, d) {
  * @param {ReturnType<creerMemoirePlanche>} memoire  la planche en cours
  */
 export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes = 6, appris = new Set() }, memoire = creerMemoirePlanche()) {
+  if (horsDelai()) throw new ErreurGeneration('délai dépassé');
   const { op: opG, d: dG, regle } = analyserMotif(cible);
   const nbTiges = chiffres + 4;
   const autresFamille = mode === 'famille' ? [...appris].filter((c) => c !== cible && analyserMotif(c)?.regle === regle) : [];

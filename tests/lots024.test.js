@@ -57,18 +57,15 @@ test('grades de flash : 20 marches, chacune au moins aussi haute que la précéd
   assert.equal(prochainGradeFlash(d).id, 'k8');
 });
 
-test('planches : additions seules, longueurs mêlées, négatifs, décimaux, 10 chiffres', () => {
+test('planches : additions seules, format d\'examen, négatifs, décimaux, 10 chiffres', () => {
   const plus = famille('grand').filter((c) => c.startsWith('+'));
   const p = genererPlanche({ chiffres: 2, lignes: 5, colonnes: 10, cibles: plus, ops: ['+'] }, 7);
   assert.ok(p.colonnes.every((c) => c.lignes.every((l) => l.op === '+')));
-  const m = genererPlancheSpeciale({ genre: 'melees', chiffres: 9, lignes: 10, colonnes: 10 }, 3);
-  const longueurs = new Set(m.colonnes.flatMap((c) => c.lignes.map((l) => String(l.n).length)));
-  assert.ok(longueurs.size >= 4 && Math.min(...longueurs) === 3 && Math.max(...longueurs) === 9);
   assert.ok(genererPlancheSpeciale({ genre: 'negatifs', chiffres: 3, lignes: 5, colonnes: 10 }, 3).colonnes.every((c) => c.resultat < 0));
   assert.ok(genererPlancheSpeciale({ genre: 'decimaux', chiffres: 4, lignes: 5, colonnes: 10 }, 3).colonnes.every((c) => c.decimales === 2));
   const e = genererPlancheSpeciale({ genre: 'examen', chiffres: 10, lignes: 10, colonnes: 10 }, 3);
   assert.equal(e.colonnes.filter((c) => c.lignes.every((l) => l.op === '+')).length, 6);
-  assert.deepEqual(genererPlancheSpeciale({ genre: 'melees', chiffres: 6, lignes: 5, colonnes: 5 }, 9).colonnes, genererPlancheSpeciale({ genre: 'melees', chiffres: 6, lignes: 5, colonnes: 5 }, 9).colonnes);
+  assert.deepEqual(genererPlancheSpeciale({ genre: 'examen', chiffres: 6, lignes: 5, colonnes: 5 }, 9).colonnes, genererPlancheSpeciale({ genre: 'examen', chiffres: 6, lignes: 5, colonnes: 5 }, 9).colonnes);
 });
 
 /** Historique de `n` essais justes à `t` secondes par chiffre. */

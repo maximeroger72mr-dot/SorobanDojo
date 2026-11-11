@@ -140,6 +140,10 @@ export default {
 
     /** Flash (avec ou sans image) : nombres un par un, puis la somme. */
     function flash(r) {
+      // Chaque flash a son propre témoin : en arrêter un (nouveau réglage, « Commencer » une seconde
+      // fois) ne doit pas bloquer le suivant.
+      let vivant = true;
+      const arrete = () => !actif || !vivant;
       let etat = 'pret';
       let question = null;
       const serie = { index: 0, justes: 0, debut: performance.now() };
@@ -166,15 +170,15 @@ export default {
         saisie.style.display = 'none';
         remplir(retour);
         question = colonne(r.chiffres, r.termes, r.soustractions);
-        await decompteFlash(ecran, 400, () => !actif);
-        if (!actif) return;
+        await decompteFlash(ecran, 400, arrete);
+        if (arrete()) return;
         sorobanImage?.effacer();
         const totaux = sousTotaux(question.lignes);
         // Cadence calée sur l'horloge : pas de dérive, même à 0,3 s par nombre.
         const { fini } = await cadencer({
           periodeMs: r.duree * 1000,
           nombre: question.lignes.length,
-          interrompu: () => !actif,
+          interrompu: arrete,
           surAfficher: (k) => {
             const l = question.lignes[k];
             afficherNombreFlash(ecran, formaterNombre(l.n), l.op === '-');
@@ -240,7 +244,7 @@ export default {
       majBouton('Commencer');
       const sansRaccourcis = raccourcis({ Enter: () => { if (etat !== 'flash') action(); } });
       if (params.auto) action();
-      return () => { actif = false; sansRaccourcis(); vue?.detruire(); };
+      return () => { vivant = false; sansRaccourcis(); vue?.detruire(); };
     }
 
     afficherReglages();

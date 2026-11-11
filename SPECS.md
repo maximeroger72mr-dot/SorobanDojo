@@ -715,3 +715,14 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Feuilles × et ÷ : zéros, arrondi au millième ou à l'unité, mélange d'examen | Fait |
 | Erreurs de × et ÷ suivies par type (placement, zéro, quotient trop grand ou trop petit, arrondi, produit), alimentées par les leçons, les feuilles et les épreuves ; entraînement proposé à la 3e en 21 jours | Fait |
 | Non fait : montants en yens dans les énoncés, grille officielle des grades de flash, ciblage des feuilles × et ÷ par produit de table | À faire |
+
+## Version 0.24.1
+
+| Changement | État |
+|---|---|
+| Flash anzan : un flash relancé (second « Commencer », nouveau réglage) restait bloqué après le décompte | Corrigé |
+| Planches : création limitée dans le temps (`avecDelai`), repli sur une planche réalisable ; plus d'écran figé à 10 chiffres sur un geste | Corrigé |
+| Planches : genre « longueurs mêlées » retiré (le mitorizan est toujours à longueur fixe) ; choix des gestes, mode et zéros masqués pour les genres d'examen | Fait |
+| Additions seules : tous les gestes d'addition appris sont permis ; le titre annonce la planche réellement créée | Fait |
+| Feuilles : largeur des colonnes selon le plus long nombre (10 chiffres au 1er kyū) | Corrigé |
+| Feuilles : vitesse calculée sur les seules réponses saisies ; une feuille incomplète n'entre pas dans les moyennes | Corrigé |
