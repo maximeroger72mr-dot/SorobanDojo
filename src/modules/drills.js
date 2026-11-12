@@ -17,6 +17,9 @@ import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
 
 const NOMS_FAMILLES = { petit: 'petits amis', grand: 'grands amis', mixte: 'combinaisons', cascade: 'cascades' };
 
+/** Acharnement : secondes laissées pour relire les produits visés et leur résultat avant le départ. */
+const SECONDES_RAPPEL = 5;
+
 export default {
   id: 'drills',
   titre: 'Drills',
@@ -191,7 +194,8 @@ export default {
     function ecranRapide(mode) {
       const crible = mode === 'criblage';
       const liste = crible ? serieCriblage() : null;
-      const acharne = crible ? null : creerAcharnement(piresProduits(statsTables()));
+      const cibles = crible ? [] : piresProduits(statsTables());
+      const acharne = crible ? null : creerAcharnement(cibles);
       const resultats = [];
       let ex = null;
       let debutEx = 0;
@@ -275,8 +279,23 @@ export default {
             h('button', { class: 'btn principal', onclick: () => changer(() => ecranRapide(crible && cles.length ? 'acharnement' : mode)) }, crible && cles.length ? 'Acharnement sur les pires' : 'Recommencer'),
             h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))));
       }
-      poser();
-      return () => { fini = true; clearInterval(minuterie); };
+      let rappel = null;
+      if (crible) poser();
+      else {
+        // Acharnement : d'abord les produits visés AVEC leur résultat, 5 secondes pour les revoir,
+        // puis le départ. On ne teste pas la mémoire à froid : on installe la bonne réponse.
+        let reste = SECONDES_RAPPEL;
+        saisie.style.display = 'none';
+        const decompte = h('p', { class: 'consigne' });
+        const majDecompte = () => { decompte.textContent = `Relisez-les. Départ dans ${reste} seconde${reste > 1 ? 's' : ''}…`; };
+        const bloc = h('div', {}, h('div', { class: 'rappel-acharnement' }, cibles.map(([a, b]) => h('span', {}, `${a} × ${b} = `, h('strong', {}, String(a * b))))), decompte,
+          h('button', { class: 'btn', onclick: () => partir() }, 'Partir tout de suite'));
+        const partir = () => { clearInterval(rappel); rappel = null; bloc.remove(); saisie.style.display = ''; poser(); };
+        majDecompte();
+        enonce.before(bloc);
+        rappel = setInterval(() => { reste -= 1; if (reste <= 0) partir(); else majDecompte(); }, 1000);
+      }
+      return () => { fini = true; clearInterval(minuterie); clearInterval(rappel); };
     }
 
     /**

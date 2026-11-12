@@ -189,3 +189,21 @@ test('sprint de surcharge : proposé seulement sur le plateau d\'un geste, à 11
   assert.deepEqual(surcharges[0].cibles, ['+4:petit']);
   assert.ok(Math.abs(surcharges[0].surcharge - 2 / SURCHARGE) < 0.02);
 });
+
+test('franchissement raté plus une autre erreur : hypothèse à deux causes, seulement si elle est unique', async () => {
+  const { franchissementCompose, diagnostiquerColonne } = await import('../src/core/diagnostic.js');
+  // 57 + 38 = 95, + 9 = 104 (franchissement), + 23 = 127. Réponse 104 : retenue manquée (−100)
+  // serait 27 ; ici on teste « franchissement manqué (−100) et ligne 4 oubliée (−23) » = 4.
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 57 }, { op: '+', n: 38 }, { op: '+', n: 9 }, { op: '+', n: 23 }], resultat: 127 };
+  const c = franchissementCompose(ex, 4);
+  assert.equal(c.franchissement.ligne, 2);
+  assert.ok(c.autre.includes('ligne 4'));
+  const causes = diagnostiquerColonne(ex, 4);
+  assert.ok(causes[0].startsWith('Hypothèse, deux erreurs'));
+  // Écart sans rapport : aucune hypothèse.
+  assert.equal(franchissementCompose(ex, 163), null);
+  // Écart exact de 100 : c'est le diagnostic simple qui parle, pas l'hypothèse.
+  assert.ok(!diagnostiquerColonne(ex, 27)[0].startsWith('Hypothèse'));
+  // Sans franchissement dans la colonne : rien.
+  assert.equal(franchissementCompose({ type: 'addsub', lignes: [{ op: '+', n: 21 }, { op: '+', n: 34 }, { op: '+', n: 12 }], resultat: 67 }, 45), null);
+});

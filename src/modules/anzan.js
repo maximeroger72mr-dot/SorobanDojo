@@ -97,7 +97,7 @@ export default {
         if (reglages.mode !== 'mitori') {
           const coche = (cle, texte, titre) => h('label', { title: titre }, h('input', { type: 'checkbox', checked: reglages[cle], onchange: (e) => { reglages[cle] = e.target.checked; } }), ` ${texte}`);
           elements.push(coche('auto', 'vitesse automatique', 'Une série sans faute : la suivante va un cran plus vite. Trop d\'erreurs : un cran moins vite. La vitesse est gardée pour chaque réglage.'),
-            coche('distractVisuel', 'distracteurs visuels', 'De légers éclats de lumière au bord de l\'écran pendant le calcul : l\'image du soroban doit tenir malgré eux.'),
+            coche('distractVisuel', 'distracteurs visuels', 'De petites formes discrètes se promènent sur l\'écran pendant le calcul : l\'image du soroban doit tenir malgré elles.'),
             coche('distractVoix', 'voix parasite', 'Une voix lit d\'autres nombres, au rythme du flash : à ne pas écouter.'));
         }
         if (reglages.mode === 'image') elements.push(select('image', IMAGES));
@@ -171,17 +171,30 @@ export default {
       if (r.mode !== 'image') ecran.classList.add('pur');
       if (r.mode === 'tapis') ecran.classList.add('tapis');
       const info = h('p', { class: 'discret', style: 'margin:0' }, r.gradeFlash ? '' : `${r.duree.toLocaleString('fr-FR')} s par nombre${r.cleVitesse ? ' (vitesse automatique)' : ''}`);
-      const eclats = h('div', { class: 'distracteurs', 'aria-hidden': 'true' }, ['haut', 'bas', 'gauche', 'droite'].map((c) => h('span', { class: `eclat eclat-${c}` })));
-      let minuterieEclats = null;
+      // Distracteurs visuels : des « mouches », petites formes discrètes qui se promènent au hasard
+      // sur tout l'écran (moins agressif que des éclats lumineux, et plus difficile à ignorer).
+      const eclats = h('div', { class: 'distracteurs', 'aria-hidden': 'true' });
+      let mouches = [];
       const distraire = (oui) => {
-        clearInterval(minuterieEclats);
-        eclats.querySelectorAll('.eclat').forEach((e) => e.classList.remove('actif'));
+        mouches.forEach((m) => { m.vivante = false; m.anim?.cancel(); m.el.remove(); });
+        mouches = [];
         if (!oui || !r.distractVisuel) return;
-        minuterieEclats = setInterval(() => {
-          const e = eclats.children[Math.floor(Math.random() * eclats.children.length)];
-          e.classList.add('actif');
-          setTimeout(() => e.classList.remove('actif'), 220);
-        }, 450 + Math.random() * 500);
+        const hasard = (a, b) => a + Math.random() * (b - a);
+        mouches = ['rond', 'carre', 'triangle', 'rond', 'carre', 'rond', 'triangle'].map((forme) => {
+          const m = { el: h('span', { class: `mouche mouche-${forme}` }), x: hasard(5, 95), y: hasard(5, 95), vivante: true, anim: null };
+          eclats.append(m.el);
+          const voler = () => {
+            if (!m.vivante) return;
+            // Trajets courts et irréguliers, avec de petites pauses : comme une mouche.
+            const x = Math.min(97, Math.max(3, m.x + hasard(-28, 28)));
+            const y = Math.min(97, Math.max(3, m.y + hasard(-28, 28)));
+            m.anim = m.el.animate([{ left: `${m.x}vw`, top: `${m.y}vh` }, { left: `${x}vw`, top: `${y}vh` }], { duration: hasard(500, 1500), delay: hasard(0, 350), easing: 'ease-in-out', fill: 'forwards' });
+            m.x = x; m.y = y;
+            m.anim.onfinish = voler;
+          };
+          voler();
+          return m;
+        });
       };
       /** Voix parasite : un AUTRE nombre, dit au moment où le nombre à calculer apparaît. */
       const parasite = (n) => {
@@ -271,10 +284,13 @@ export default {
           interrompu: arrete,
           surAfficher: (k) => {
             const l = question.lignes[k];
-            const e = h('div', { class: 'tapis-nombre', style: `animation-duration:${traversee}s` });
+            const e = h('div', { class: 'tapis-nombre' });
             afficherNombreFlash(e, formaterNombre(l.n), l.op === '-');
-            e.addEventListener('animationend', () => e.remove());
             ecran.append(e);
+            // Mouvement piloté par le script (et non par une animation CSS) : il fonctionne aussi
+            // quand le système demande de réduire les animations, car ici le mouvement EST l'exercice.
+            const a = e.animate([{ top: '100%' }, { top: '-25%' }], { duration: traversee * 1000, easing: 'linear', fill: 'forwards' });
+            a.onfinish = () => e.remove();
             parasite(l.n);
           },
           surMasquer: () => {},
@@ -292,7 +308,13 @@ export default {
       async function effacement() {
         ecran.classList.add('colonne-efface');
         const lignes = question.lignes.map((l) => { const e = h('div', { class: 'ligne-efface' }); afficherNombreFlash(e, formaterNombre(l.n), l.op === '-'); return e; });
-        remplir(ecran, h('div', { class: 'pile-efface' }, lignes));
+        // La colonne ENTIÈRE doit tenir à l'écran, sans défilement : la taille des chiffres s'adapte
+        // au nombre de lignes et à la hauteur de la fenêtre.
+        const pile = h('div', { class: 'pile-efface' }, lignes);
+        const hauteur = Math.max(240, window.innerHeight - 48);
+        pile.style.fontSize = `${Math.max(14, Math.min(42, Math.floor(hauteur / (lignes.length * 1.3))))}px`;
+        remplir(ecran, pile);
+        ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
         const { fini } = await cadencer({
           periodeMs: r.duree * 1000,
           nombre: lignes.length,

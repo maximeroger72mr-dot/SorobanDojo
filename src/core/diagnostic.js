@@ -111,6 +111,42 @@ export function franchissementEnCause(ex, reponse) {
 }
 
 /**
+ * Franchissement raté ET une seconde erreur : l'écart total n'est plus 10, 100 ou 1 000. On
+ * retire de la réponse l'effet d'un franchissement manqué (± 10^k, au rang franchi ou juste en
+ * dessous) ; si l'écart restant s'explique par UNE cause nette (ligne oubliée, comptée deux fois,
+ * signe inversé, écart de 5 ou de 1 sur une seule tige), on rend les deux.
+ * Une seule décomposition possible : sinon null (on ne choisit pas au hasard).
+ * @returns {{ franchissement: object, autre: string } | null}
+ */
+export function franchissementCompose(ex, reponse) {
+  if (ex.type !== 'addsub' || ex.negatif || ex.decimales || !ex.lignes || reponse === null) return null;
+  const ecart = reponse - ex.resultat;
+  const trouvees = [];
+  for (const f of franchissements(ex.lignes)) {
+    for (const k of [f.rang, f.rang - 1]) {
+      if (k < 1) continue;
+      // Retenue non posée : il manque 10^k ; emprunt non fait : 10^k en trop (et l'inverse si posé deux fois).
+      for (const s of [1, -1]) {
+        const reste = ecart - s * 10 ** k;
+        if (reste === 0) continue;
+        const autres = [];
+        ex.lignes.forEach((l, i) => {
+          const v = valeurSignee(l);
+          const nom = i === 0 ? `la 1re ligne (${l.n})` : `la ligne ${i + 1} (${signe(l.op)}${l.n})`;
+          if (reste === -v) autres.push(`Un oubli de ${nom}.`);
+          if (reste === v) autres.push(`${nom[0].toUpperCase()}${nom.slice(1)} comptée deux fois.`);
+          if (i > 0 && reste === -2 * v) autres.push(`${nom[0].toUpperCase()}${nom.slice(1)} faite avec le mauvais signe.`);
+        });
+        const u = unSeulChiffre(reste);
+        if (!autres.length && u && (Math.abs(u.d) === 5 || (Math.abs(u.d) === 1 && u.k !== k))) autres.push(causesEcartTige(reste)[0]);
+        if (autres.length === 1) trouvees.push({ franchissement: f, autre: autres[0], cle: `${f.ligne}|${autres[0]}` });
+      }
+    }
+  }
+  return new Set(trouvees.map((t) => t.cle)).size === 1 ? { franchissement: trouvees[0].franchissement, autre: trouvees[0].autre } : null;
+}
+
+/**
  * Diagnostic d'une colonne d'addition/soustraction.
  * @param {{lignes:Array<{op,n}>, resultat:number}} ex
  */
@@ -132,9 +168,16 @@ export function diagnostiquerColonne(ex, reponse) {
   // 10, 100, 1 000… C'est le passage d'une tige à la suivante qui a lâché. On l'accuse en premier,
   // sauf si une ligne oubliée, doublée ou de signe inversé explique déjà l'écart.
   const f = franchissementEnCause(ex, reponse);
+  const phraseFranchissement = (x) => `Vous perdez votre image ou votre doigté au passage ${x.monte ? 'aux' : 'sous les'} ${nomRang(x.rang)} (${x.avant} → ${x.apres}, ligne ${x.ligne + 1}) : ${x.monte ? 'la retenue' : 'l\'emprunt'} en cascade n'est pas fluide.`;
   if (f) {
-    const phrase = `Vous perdez votre image ou votre doigté au passage ${f.monte ? 'aux' : 'sous les'} ${nomRang(f.rang)} (${f.avant} → ${f.apres}, ligne ${f.ligne + 1}) : ${f.monte ? 'la retenue' : 'l\'emprunt'} en cascade n'est pas fluide.`;
-    if (causes.length) causes.push(phrase); else causes.unshift(phrase);
+    if (causes.length) causes.push(phraseFranchissement(f)); else causes.unshift(phraseFranchissement(f));
+  }
+  // Franchissement raté PLUS une autre erreur : l'écart n'est plus une puissance de 10. Si rien
+  // n'explique l'écart tel quel, on retire l'effet d'un franchissement et on regarde si ce qui
+  // reste a une cause simple. C'est une hypothèse, et elle est présentée comme telle.
+  if (!causes.length && !f) {
+    const c = franchissementCompose(ex, reponse);
+    if (c) causes.push(`Hypothèse, deux erreurs : ${phraseFranchissement(c.franchissement)} Et, en plus : ${c.autre[0].toLowerCase()}${c.autre.slice(1)}`);
   }
   causes.push(...causesEcartTige(ecart));
   if (chiffresEchanges(reponse, ex.resultat)) causes.push('Deux chiffres voisins sont inversés : erreur de lecture ou de recopie du soroban ?');

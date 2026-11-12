@@ -751,3 +751,13 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Anzan : tapis roulant ; colonne qui s'efface ligne à ligne | Fait |
 | Distracteurs : éclats au bord de l'écran ; voix qui lit d'autres nombres au rythme du flash | Fait (voix non vérifiable ici) |
 | Sprint de surcharge (une colonne d'environ 20 s à 115 % du meilleur rythme), proposé seulement sur le plateau d'un geste | Fait (rien n'est noté sur la carte de maîtrise) |
+
+## Version 0.25.1
+
+| Changement | État |
+|---|---|
+| Tapis roulant : mouvement piloté par le script ; il ne s'affichait pas quand le système réduit les animations | Corrigé |
+| Colonne qui s'efface : taille des chiffres adaptée pour que toute la colonne tienne à l'écran | Corrigé |
+| Acharnement : les 4 produits et leur résultat affichés 5 secondes avant le départ | Fait |
+| Distracteurs visuels : « mouches » (petites formes discrètes qui se promènent) à la place des éclats lumineux | Fait |
+| Franchissement raté plus une autre erreur : hypothèse à deux causes, donnée seulement si elle est unique et que rien d'autre n'explique l'écart | Fait |
