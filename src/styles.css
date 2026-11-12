@@ -258,6 +258,10 @@ table.colonne.compacte td { padding: 0 4px; }
 }
 .chrono-feuille { font-variant-numeric: tabular-nums; color: var(--discret); }
 .chrono-feuille.urgent { color: var(--erreur); font-weight: 700; }
+/* La feuille occupe au moins la hauteur de l'écran : elle peut toujours se caler tout en haut,
+   même courte, sur un grand écran. */
+.feuille { scroll-margin-top: 6px; min-height: calc(100vh - 12px); }
+@media print { .feuille { min-height: 0; } }
 .grille-feuille { display: grid; gap: 10px; }
 .grille-feuille.colonnes { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 .grille-feuille.operations { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }

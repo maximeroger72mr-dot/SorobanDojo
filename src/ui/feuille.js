@@ -78,7 +78,12 @@ export function creerFeuille(conteneur, o) {
     else if (cases[i + 1]) cases[i + 1].input.focus();
     else corriger();
   }));
-  cases[0]?.input.focus();
+  cases[0]?.input.focus({ preventScroll: true });
+  // La feuille se cale d'elle-même en haut de l'écran : on ne voit que la barre (titre, temps) et
+  // les problèmes, quels que soient la taille de la fenêtre et ce qui précède (réglages, consignes).
+  const caler = () => racine.scrollIntoView({ block: 'start', behavior: 'instant' });
+  caler();
+  if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(caler); // après la mise en page
 
   const poidsTotal = cases.reduce((s, c) => s + poidsProbleme(c.ex), 0);
   const debut = performance.now();
