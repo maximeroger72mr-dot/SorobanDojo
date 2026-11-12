@@ -1,3 +1,4 @@
+import { avecGraine } from '../src/core/hasard.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluer, ajouterEssai, poidsEquilibre, unites, tempsParUnite } from '../src/core/maitrise.js';
@@ -34,10 +35,13 @@ test('équilibrage sur une séance : aucun ami n\'apparaît plus de 1,5 fois plu
   for (const id of ['p2-1', 'p2-3', 'p3-1', 'p3-3', 'p3-4', 'p4-1', 'p4-4', 'p5-1', 'p5-2']) {
     const sp = SOUS_PALIERS.find((s) => s.id === id);
     const fiches = {};
-    for (let i = 0; i < 60; i++) {
-      const ex = genererExercice(sp, poidsEquilibre(sp.cibles, (c) => fiches[c]));
-      for (const m of ex.motifs) if (sp.cibles.includes(m)) (fiches[m] ??= { essais: 0, dette: 0 }).essais += 1;
-    }
+    // Tirage à graine fixe : le test mesure le générateur, pas la chance du jour.
+    avecGraine(20260312, () => {
+      for (let i = 0; i < 60; i++) {
+        const ex = genererExercice(sp, poidsEquilibre(sp.cibles, (c) => fiches[c]));
+        for (const m of ex.motifs) if (sp.cibles.includes(m)) (fiches[m] ??= { essais: 0, dette: 0 }).essais += 1;
+      }
+    });
     const n = sp.cibles.map((c) => fiches[c]?.essais ?? 0);
     assert.ok(Math.max(...n) / Math.max(1, Math.min(...n)) <= 1.5, `${id} : ${sp.cibles.map((c, i) => `${c}=${n[i]}`).join(' ')}`);
   }
