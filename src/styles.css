@@ -563,3 +563,34 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .enonce-masque { font-size: 2rem; letter-spacing: 0.3em; color: var(--discret); padding: 24px 0; }
 .sprint-ecran .consigne-arrondi { font-size: 1rem; }
 .sprint-ecran svg { width: 520px; max-width: 100%; height: auto; }
+
+/* Acharnement des tables : une pastille par produit, trois ronds à remplir. */
+.suivi-acharnement { gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.pastille-table { border: 1px solid var(--ligne); border-radius: 999px; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+.pastille-table.ok { border-color: var(--ok, #2a7); color: var(--ok, #2a7); }
+
+/* ------------------------------------------------------------ flash anzan : centrage, tapis, effacement, distracteurs */
+/* Le nombre à regarder est toujours au milieu, quel que soit le thème. */
+.flash-ecran.centre { justify-content: center !important; text-align: center; }
+/* Mode normal : un grand écran vide autour du nombre, sans cadre ni rien qui accroche l'œil. */
+.flash-ecran.pur { height: min(62vh, 520px); background: var(--fond) !important; border: none !important; border-radius: 0; }
+.flash-en-cours .pastilles, .flash-en-cours .retour, .flash-en-cours .discret { visibility: hidden; }
+/* Tapis roulant : chaque nombre monte du bas vers le haut. */
+.flash-ecran.tapis { position: relative; overflow: hidden; }
+.tapis-nombre { position: absolute; left: 0; right: 0; top: 100%; text-align: center; animation: tapis-monte linear forwards; will-change: transform; }
+@keyframes tapis-monte { from { top: 100%; } to { top: -25%; } }
+/* Colonne qui s'efface, ligne à ligne. */
+.flash-ecran.colonne-efface { font-size: 2.6rem; height: auto; min-height: min(62vh, 520px); padding: 16px 0; }
+.pile-efface { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ligne-efface.courante { color: var(--accent); }
+/* Distracteurs : éclats légers au bord de l'écran. */
+.distracteurs { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.eclat { position: absolute; background: var(--accent); opacity: 0; transition: opacity 0.12s; filter: blur(18px); }
+.eclat.actif { opacity: 0.28; }
+.eclat-haut { top: 0; left: 20%; right: 20%; height: 26px; }
+.eclat-bas { bottom: 0; left: 20%; right: 20%; height: 26px; }
+.eclat-gauche { left: 0; top: 20%; bottom: 20%; width: 26px; }
+.eclat-droite { right: 0; top: 20%; bottom: 20%; width: 26px; }
+@media (prefers-reduced-motion: reduce) { .eclat { transition: none; } }
+/* Pendant le défilement, rien d'autre à l'écran que le nombre : titre, texte et réglages s'effacent. */
+.contenu:has(> .flash-en-cours) > *:not(.flash-en-cours) { visibility: hidden; }

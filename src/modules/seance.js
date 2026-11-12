@@ -119,7 +119,7 @@ function plan(d, debut, seance = null) {
   const prescritPar = (pr) => {
     const [module, p] = pr.aller;
     return (s) => s.module === module && (module === 'rythme'
-      ? s.mode === p.jeu && (!p.cibles || (s.reglages?.cibles ?? []).includes(p.cibles[0]))
+      ? s.mode === (p.surcharge ? 'surcharge' : p.jeu) && (!p.cibles || (s.reglages?.cibles ?? []).includes(p.cibles[0]))
       : !!s.reglages?.priorite);
   };
   const fixee = seance?.priorite ?? null;

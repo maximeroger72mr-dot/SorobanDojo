@@ -200,6 +200,14 @@ Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de
 - **Parcours** : chaque kyū n'exige que les leçons de son épreuve ; décimaux après le palier 5e-4e kyū ; palier « Vers le 1er kyū » (7 à 10 chiffres, × 6 × 5, ÷ 5 × 5, arrondi à l'unité, résultats négatifs) ; leçon de stratégie d'examen ; mini-tests où chaque geste de la leçon est posé.
 - **Anzan** : leçons de multiplication et de division de tête, dictée anzan par paliers, épreuves d'anzan.
 
+## Nouveautés de la version 0.25
+
+- **Tables** : criblage des 36 produits en une minute, et acharnement sur vos 4 pires produits jusqu'à 3 réussites rapides de suite.
+- **Anzan** : nombre centré sur un écran vide, vitesse qui s'ajuste seule, tapis roulant, colonne qui s'efface ligne à ligne, distracteurs (éclats lumineux, voix parasite).
+- **Diagnostic du franchissement** : une erreur de 10, 100 ou 1 000 au passage d'un rang (99 → 100) est nommée.
+- **Sprint de surcharge** : 20 secondes à 115 % de votre meilleur rythme, proposé seulement quand un geste stagne.
+- Les feuilles se calent en haut de l'écran dès leur création.
+
 ## Nouveautés de la version 0.24
 
 - **Épreuves plus proches des examens** : découpage des chiffres imposé par grade, 6 mitorizan d'additions seules sur 10, seuils officiels, résultat négatif au 2e kyū, tous les calculs arrondis dès le 3e kyū. En « examen pur », du 1er au 3e kyū, les séparateurs de milliers sont exigés.

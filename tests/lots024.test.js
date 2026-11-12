@@ -118,3 +118,74 @@ test('mini-test : la vitesse des leçons avancées suit 70 % de la cadence du gr
   // Une leçon de début de parcours garde le seuil « acquis débutant ».
   assert.equal(verdictMiniTest(sousPalier('p2-1'), { justes: 20, total: 20, resultats: [] }).seuil, 3);
 });
+
+test('tables : criblage (36 produits) et acharnement (retour 3 questions plus tard, 3 réussites rapides de suite)', async () => {
+  const { serieCriblage, piresProduits, creerAcharnement, cleProduit } = await import('../src/core/tables.js');
+  const s = serieCriblage();
+  assert.equal(s.length, 36);
+  assert.equal(new Set(s.map((e) => cleProduit(e.a, e.b))).size, 36);
+  assert.ok(s.every((e) => e.a >= 2 && e.b >= 2));
+  const stats = { '7x8': { hist: [{ ok: 0, t: 3 }, { ok: 1, t: 4 }] }, '6x7': { hist: [{ ok: 1, t: 3.5 }] }, '2x2': { hist: [{ ok: 1, t: 0.6 }] } };
+  const pires = piresProduits(stats);
+  assert.equal(pires.length, 4);
+  assert.deepEqual(pires[0], [7, 8]);
+  assert.deepEqual(pires[1], [6, 7]);
+  // Tout juste et rapide : 4 produits × 3 réussites = 12 questions.
+  const a = creerAcharnement(pires);
+  let n = 0;
+  while (a.suivant()) { a.repondre(true, 1); n += 1; }
+  assert.equal(n, 12);
+  assert.equal(a.etat().fini, true);
+  // Un produit raté revient exactement 3 questions plus tard.
+  const b = creerAcharnement([[7, 8], [6, 7], [6, 8], [7, 9], [8, 9], [6, 9]]);
+  const premier = b.suivant();
+  b.repondre(false, 1);
+  const suite = [b.suivant(), (b.repondre(true, 1), b.suivant()), (b.repondre(true, 1), b.suivant())];
+  assert.equal(cleProduit(suite[2].a, suite[2].b), cleProduit(premier.a, premier.b));
+  assert.notEqual(cleProduit(suite[0].a, suite[0].b), cleProduit(premier.a, premier.b));
+  // Juste mais entre 1,5 s et 2 s : la suite repart de zéro, sans retour anticipé.
+  const c = creerAcharnement([[7, 8]]);
+  c.suivant(); c.repondre(true, 1); c.suivant(); c.repondre(true, 1.8);
+  assert.equal(c.etat().suites['7x8'], 0);
+  // Plafond : l'exercice s'arrête même si l'on n'y arrive pas.
+  const d = creerAcharnement([[7, 8]]);
+  let k = 0;
+  while (d.suivant()) { d.repondre(false, 3); k += 1; }
+  assert.equal(k, 80);
+  assert.equal(d.etat().abandon, true);
+});
+
+test('diagnostic : franchissement (99 → 100) accusé en premier quand l\'écart est de 10, 100, 1 000', async () => {
+  const { franchissements, franchissementEnCause, diagnostiquerColonne } = await import('../src/core/diagnostic.js');
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 57 }, { op: '+', n: 38 }, { op: '+', n: 9 }, { op: '-', n: 12 }], resultat: 92 };
+  assert.deepEqual(franchissements(ex.lignes).map((f) => [f.ligne, f.avant, f.apres, f.monte]), [[2, 95, 104, true], [3, 104, 92, false]]);
+  assert.equal(franchissementEnCause(ex, 82).ligne, 2);
+  assert.ok(diagnostiquerColonne(ex, 82)[0].includes('95 → 104'));
+  assert.equal(franchissementEnCause(ex, 93), null); // écart de 1 : pas un franchissement
+  assert.equal(franchissementEnCause(ex, 62), null); // écart de 30
+  // Pas de franchissement dans la colonne : rien n'est accusé.
+  const sans = { type: 'addsub', lignes: [{ op: '+', n: 21 }, { op: '+', n: 34 }, { op: '+', n: 12 }], resultat: 67 };
+  assert.equal(franchissementEnCause(sans, 77), null);
+  // Une ligne oubliée explique l'écart : elle reste citée d'abord.
+  const oubli = { type: 'addsub', lignes: [{ op: '+', n: 95 }, { op: '+', n: 10 }, { op: '+', n: 3 }], resultat: 108 };
+  assert.ok(diagnostiquerColonne(oubli, 98)[0].includes('oubli'));
+});
+
+test('sprint de surcharge : proposé seulement sur le plateau d\'un geste, à 115 % du meilleur rythme', async () => {
+  const { prioriteDuJour, SURCHARGE } = await import('../src/core/parcours.js');
+  const { lundi } = await import('../src/core/maitrise.js');
+  const date = '2026-03-25';
+  const jourPlus = (j) => { const x = new Date(`${date}T12:00`); x.setDate(x.getDate() + j); return x.toISOString().slice(0, 10); };
+  const sem = Object.fromEntries([0, -7, -14, -21].map((j) => [lundi(jourPlus(j)), Array(12).fill(2)]));
+  const hist = Array.from({ length: 20 }, () => ({ ok: 1, t: 2 }));
+  // Sans plateau (pas d'historique par semaine) : jamais de surcharge.
+  const sans = { motifs: { '+4:petit': { hist } }, paliers: {}, sessions: [], records: {} };
+  for (let j = 0; j < 4; j++) assert.ok(!prioriteDuJour(sans, jourPlus(j))?.aller?.[1]?.surcharge);
+  // Plateau sur le geste : la surcharge est l'un des 4 remèdes, qui tournent d'un jour à l'autre.
+  const avec = { ...sans, motifs: { '+4:petit': { hist, sem } } };
+  const surcharges = [0, 1, 2, 3].map((j) => prioriteDuJour(avec, jourPlus(j))?.aller?.[1]).filter((p) => p?.surcharge);
+  assert.equal(surcharges.length, 1);
+  assert.equal(surcharges[0].jeu, 'lievre');
+  assert.deepEqual(surcharges[0].cibles, ['+4:petit']);
+  assert.ok(Math.abs(surcharges[0].surcharge - 2 / SURCHARGE) < 0.02);
+});

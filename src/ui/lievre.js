@@ -39,6 +39,8 @@ const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maxi
  * @param {number} o.cadence         secondes par ligne au départ
  * @param {number} [o.erreursMax=2] la course s'arrête à cette erreur
  * @param {number} [o.colonnes]      nombre de colonnes au plus (par défaut : sans limite)
+ * @param {boolean} [o.fixe]         cadence imposée : ni accélération ni ralentissement (sprint de surcharge)
+ * @param {boolean} [o.sansNotation] ne rien inscrire sur la carte de maîtrise (cadence volontairement trop haute)
  * @param {boolean} [o.metronome]
  * @param {(cadence:number) => any} [o.surCadence]  après chaque colonne : la cadence à retenir
  * @param {(bilan) => any} o.surFin  { justes, total, erreurs, arret, cadenceDepart, meilleureCadence, cadenceFin }
@@ -75,7 +77,7 @@ export function creerLievre(conteneur, o) {
   const majEntete = () => {
     infoCadence.textContent = `Lièvre : ${sec(cadence)} par ligne`;
     const reste = erreursMax - erreurs;
-    compteur.textContent = `colonne ${k + 1} · ${justes} juste${justes > 1 ? 's' : ''} · ${reste > 1 ? `${reste} erreurs permises` : 'plus qu\'une erreur permise'}`;
+    compteur.textContent = o.fixe ? 'cadence imposée, une seule colonne' : `colonne ${k + 1} · ${justes} juste${justes > 1 ? 's' : ''} · ${reste > 1 ? `${reste} erreurs permises` : 'plus qu\'une erreur permise'}`;
   };
 
   function colonne() {
@@ -132,7 +134,7 @@ export function creerLievre(conteneur, o) {
     // Carte de maîtrise : une colonne juste crédite ses gestes, au temps de la cadence imposée
     // (on l'a tenue, donc au moins aussi vite) ; une erreur n'accuse qu'un geste prouvé.
     const t = cadence / o.chiffres;
-    if (juste) await noterGestes(col.motifs, [], t);
+    if (o.sansNotation) { /* surcharge : au-dessus de sa vitesse, l'erreur est attendue */ } else if (juste) await noterGestes(col.motifs, [], t);
     else await noterGestes([], localiserErreur(col, rep)?.motifs ?? [], t);
     k += 1;
     saisie.disabled = true;
@@ -141,16 +143,16 @@ export function creerLievre(conteneur, o) {
       justes += 1;
       serie += 1;
       meilleure = meilleure === null ? cadence : Math.min(meilleure, cadence);
-      const accelere = serie % 3 === 0;
+      const accelere = !o.fixe && serie % 3 === 0;
       if (accelere) cadence = borne(cadence * ACCELERATION);
       retour.className = 'retour ok';
       remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(col.resultat)}.`, accelere ? ` Le lièvre accélère : ${sec(cadence)} par ligne.` : '');
     } else {
       serie = 0;
       erreurs += 1;
-      cadence = borne(cadence / ACCELERATION);
+      if (!o.fixe) cadence = borne(cadence / ACCELERATION);
       retour.className = 'retour erreur';
-      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Le résultat était ${formaterNombre(col.resultat)}. Le lièvre ralentit : ${sec(cadence)} par ligne.`,
+      remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Le résultat était ${formaterNombre(col.resultat)}.${o.fixe ? '' : ` Le lièvre ralentit : ${sec(cadence)} par ligne.`}`,
         erreurs < erreursMax ? ` Encore ${erreursMax - erreurs} erreur${erreursMax - erreurs > 1 ? 's' : ''} permise${erreursMax - erreurs > 1 ? 's' : ''} : on continue.` : '');
     }
     o.surCadence?.(cadence);

@@ -43,6 +43,9 @@ function tempsGestes(cibles) {
   return ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : null;
 }
 
+/** Durée visée d'un sprint de surcharge (secondes). */
+const DUREE_SURCHARGE_S = 20;
+
 export default {
   id: 'rythme',
   titre: 'Rythme et endurance',
@@ -152,8 +155,13 @@ export default {
     }
 
     // ------------------------------------------------------------ lièvre
-    function lancerLievre(cibles = null, accelere = false) {
+    /**
+     * `surcharge` : sprint très court (une colonne d'environ 20 s) à une cadence imposée, 15 % plus
+     * rapide que le meilleur rythme de l'élève sur ce geste. Proposé seulement sur un plateau.
+     */
+    function lancerLievre(cibles = null, accelere = false, surcharge = null) {
       const r = { ...reglages.lievre };
+      if (surcharge) Object.assign(r, { chiffres: 1, lignes: Math.min(30, Math.max(8, Math.round(DUREE_SURCHARGE_S / surcharge.cadence))), cadence: surcharge.cadence });
       const { c, note } = contraintesDe(r, cibles);
       // Mémoire par réglage : mêmes gestes, même façon, mêmes chiffres et lignes → on repart de
       // la cadence atteinte la dernière fois (un peu ralentie), pas de zéro.
@@ -162,7 +170,8 @@ export default {
       const cadence = r.cadence !== 'auto' ? r.cadence : gardee ? cadenceReprise(gardee, accelere) : cadenceDepart(tempsGestes(c.cibles), r.chiffres, accelere);
       const cle = `lievre-${r.chiffres}-${r.lignes}`;
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
-        h('h1', {}, `Le lièvre : ${c.libelle}`),
+        h('h1', {}, surcharge ? `Sprint de surcharge : ${c.libelle}` : `Le lièvre : ${c.libelle}`),
+        surcharge ? h('p', { class: 'consigne' }, `Une seule colonne, environ ${DUREE_SURCHARGE_S} secondes, à ${sec(r.cadence)} par ligne : 15 % plus vite que votre meilleur rythme sur ce geste. Le but n'est pas d'avoir juste, mais de suivre : accrochez-vous au surligneur. Rien n'est noté sur votre carte de maîtrise.`) : null,
         note ? h('p', { class: 'discret' }, note) : null,
         r.cadence === 'auto' && gardee ? h('p', { class: 'discret' }, `Reprise à ${sec(cadence)} par ligne : vous vous étiez arrêté à ${sec(gardee)} sur ce réglage.`) : null);
       courant = creerLievre(el, {
@@ -171,9 +180,16 @@ export default {
         lignes: r.lignes,
         cadence,
         metronome: r.metronome,
-        surCadence: (x) => memoriserLievre(cleMemoire, x),
+        ...(surcharge ? { fixe: true, sansNotation: true, colonnes: 1, erreursMax: 99 } : {}),
+        surCadence: (x) => (surcharge ? null : memoriserLievre(cleMemoire, x)),
         surFin: async (b) => {
-          await enregistrerSession({ module: 'rythme', mode: 'lievre', reglages: { ...r, cibles: c.cibles }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
+          await enregistrerSession({ module: 'rythme', mode: surcharge ? 'surcharge' : 'lievre', reglages: { ...r, cibles: c.cibles }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
+          if (surcharge) {
+            el.append(h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, b.justes ? 'Tenu !' : 'Sprint fait'),
+              h('p', {}, b.justes ? 'Juste à 115 % de votre rythme : le plateau est en train de céder. Reprenez maintenant à votre cadence habituelle, elle paraîtra lente.' : 'Faux, et c\'est normal à cette vitesse. Ce qui compte : vos mains ont suivi un rythme plus haut. Reprenez maintenant à votre cadence habituelle.'),
+              h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancerLievre(cibles, false, surcharge) }, 'Un autre sprint'), h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'))));
+            return;
+          }
           const nouveau = b.meilleureCadence !== null && await proposerRecord(cle, b.meilleureCadence * 1000);
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
@@ -196,7 +212,7 @@ export default {
     } else if (params.jeu === 'lievre') {
       if (params.chiffres) reglages.lievre.chiffres = params.chiffres;
       reglages.lievre.cadence = 'auto';
-      lancerLievre(params.cibles ?? null, !!params.accelere);
+      lancerLievre(params.cibles ?? null, !!params.accelere, params.surcharge ? { cadence: params.surcharge } : null);
     } else accueil();
     return () => courant?.detruire();
   },

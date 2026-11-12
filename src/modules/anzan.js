@@ -20,7 +20,8 @@ const memoirePhoto = creerMemoire(6);
 import { genererMultiplication } from '../core/multiplication.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
-import { progression, enregistrerSession, noterReponse, proposerMeilleurScore } from '../core/progression.js';
+import { progression, enregistrerSession, noterReponse, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
+import { parler, taire } from '../ui/voix.js';
 import { lireReponse } from '../core/nombres.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
@@ -30,7 +31,7 @@ import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, periodeGrade, 
 import { cadencer, afficherNombreFlash, decompteFlash } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
+const reglages = { auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
 const IMAGES = [[1, 'image nette'], [0.5, 'image estompée'], [0.2, 'image légère']];
@@ -74,7 +75,7 @@ export default {
       zoneReglages, zone);
 
     function afficherReglages() {
-      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['grade', 'Grade de flash (temps total)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
+      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['tapis', 'Tapis roulant (les nombres défilent)'], ['efface', 'Colonne qui s\'efface ligne à ligne'], ['grade', 'Grade de flash (temps total)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
       const elements = [mode];
       if (reglages.mode === 'grade') {
         reglages.grade ??= prochainGradeFlash(progression()).id;
@@ -93,6 +94,12 @@ export default {
         elements.push(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
           select('termes', [3, 4, 5, 7, 10, 15].map((n) => [n, `${n} nombres`])));
         if (reglages.mode !== 'mitori') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s par nombre`])));
+        if (reglages.mode !== 'mitori') {
+          const coche = (cle, texte, titre) => h('label', { title: titre }, h('input', { type: 'checkbox', checked: reglages[cle], onchange: (e) => { reglages[cle] = e.target.checked; } }), ` ${texte}`);
+          elements.push(coche('auto', 'vitesse automatique', 'Une série sans faute : la suivante va un cran plus vite. Trop d\'erreurs : un cran moins vite. La vitesse est gardée pour chaque réglage.'),
+            coche('distractVisuel', 'distracteurs visuels', 'De légers éclats de lumière au bord de l\'écran pendant le calcul : l\'image du soroban doit tenir malgré eux.'),
+            coche('distractVoix', 'voix parasite', 'Une voix lit d\'autres nombres, au rythme du flash : à ne pas écouter.'));
+        }
         if (reglages.mode === 'image') elements.push(select('image', IMAGES));
         elements.push(h('label', {}, h('input', { type: 'checkbox', checked: reglages.soustractions, onchange: (e) => { reglages.soustractions = e.target.checked; } }), ' avec soustractions'));
       }
@@ -135,6 +142,12 @@ export default {
         const x = GRADES_FLASH.find((y) => y.id === r.grade) ?? GRADES_FLASH[0];
         Object.assign(r, { gradeFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: periodeGrade(x), questions: QUESTIONS_GRADE_FLASH, soustractions: false });
       }
+      // Vitesse automatique : on reprend la vitesse atteinte la dernière fois sur ce réglage.
+      if (r.mode !== 'grade' && r.auto) {
+        r.cleVitesse = `${r.mode}-${r.chiffres}-${r.termes}`;
+        const gardee = reglagesUtilisateur().flashDurees?.[r.cleVitesse];
+        if (gardee && DUREES.includes(gardee)) r.duree = gardee;
+      }
       nettoyerMode = flash(r);
     }
 
@@ -153,7 +166,32 @@ export default {
       const btn = h('button', { class: 'btn principal', onclick: () => action() });
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
       const pastilles = h('div', { class: 'pastilles' });
-      zone.append(h('div', { class: 'ligne' }, pastilles), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour);
+      // Mode normal (sans image d'aide) : un grand écran vide, le nombre seul en son centre.
+      ecran.classList.add('centre');
+      if (r.mode !== 'image') ecran.classList.add('pur');
+      if (r.mode === 'tapis') ecran.classList.add('tapis');
+      const info = h('p', { class: 'discret', style: 'margin:0' }, r.gradeFlash ? '' : `${r.duree.toLocaleString('fr-FR')} s par nombre${r.cleVitesse ? ' (vitesse automatique)' : ''}`);
+      const eclats = h('div', { class: 'distracteurs', 'aria-hidden': 'true' }, ['haut', 'bas', 'gauche', 'droite'].map((c) => h('span', { class: `eclat eclat-${c}` })));
+      let minuterieEclats = null;
+      const distraire = (oui) => {
+        clearInterval(minuterieEclats);
+        eclats.querySelectorAll('.eclat').forEach((e) => e.classList.remove('actif'));
+        if (!oui || !r.distractVisuel) return;
+        minuterieEclats = setInterval(() => {
+          const e = eclats.children[Math.floor(Math.random() * eclats.children.length)];
+          e.classList.add('actif');
+          setTimeout(() => e.classList.remove('actif'), 220);
+        }, 450 + Math.random() * 500);
+      };
+      /** Voix parasite : un AUTRE nombre, dit au moment où le nombre à calculer apparaît. */
+      const parasite = (n) => {
+        if (!r.distractVoix) return;
+        let x = n;
+        while (x === n) x = Math.floor(Math.random() * (10 ** r.chiffres - 1)) + 1;
+        taire();
+        parler(String(x), { debit: Math.min(1.6, Math.max(0.9, 1.3 / r.duree)) });
+      };
+      zone.append(h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), info), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour, eclats);
       // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.
       zoneImage.style.opacity = String(r.image);
       let vue = null;
@@ -170,8 +208,27 @@ export default {
         saisie.style.display = 'none';
         remplir(retour);
         question = colonne(r.chiffres, r.termes, r.soustractions);
+        zone.classList.add('flash-en-cours');
+        ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
         await decompteFlash(ecran, 400, arrete);
         if (arrete()) return;
+        distraire(true);
+        if (r.mode === 'tapis' || r.mode === 'efface') {
+          const fini = r.mode === 'tapis' ? await tapis() : await effacement();
+          distraire(false);
+          taire();
+          if (!fini) return;
+          zone.classList.remove('flash-en-cours');
+          ecran.classList.remove('colonne-efface');
+          ecran.textContent = '?';
+          etat = 'reponse';
+          saisie.style.display = '';
+          saisie.disabled = false;
+          saisie.value = '';
+          saisie.focus();
+          majBouton('Valider');
+          return;
+        }
         sorobanImage?.effacer();
         const totaux = sousTotaux(question.lignes);
         // Cadence calée sur l'horloge : pas de dérive, même à 0,3 s par nombre.
@@ -182,11 +239,15 @@ export default {
           surAfficher: (k) => {
             const l = question.lignes[k];
             afficherNombreFlash(ecran, formaterNombre(l.n), l.op === '-');
+            parasite(l.n);
             sorobanImage?.definirValeur(Math.max(0, totaux[k]));
           },
           surMasquer: () => { ecran.textContent = ''; },
         });
+        distraire(false);
+        taire();
         if (!fini) return;
+        zone.classList.remove('flash-en-cours');
         ecran.textContent = '?';
         etat = 'reponse';
         saisie.style.display = '';
@@ -194,6 +255,68 @@ export default {
         saisie.value = '';
         saisie.focus();
         majBouton('Valider');
+      }
+
+      /**
+       * Tapis roulant : les nombres montent du bas vers le haut, comme un ticket qui s'imprime.
+       * Le regard doit les suivre pendant que l'image du soroban, elle, ne bouge pas.
+       */
+      async function tapis() {
+        remplir(ecran);
+        const traversee = Math.max(1.8, r.duree * 2.6); // secondes pour traverser l'écran
+        const { fini } = await cadencer({
+          periodeMs: r.duree * 1000,
+          nombre: question.lignes.length,
+          partVisible: 1,
+          interrompu: arrete,
+          surAfficher: (k) => {
+            const l = question.lignes[k];
+            const e = h('div', { class: 'tapis-nombre', style: `animation-duration:${traversee}s` });
+            afficherNombreFlash(e, formaterNombre(l.n), l.op === '-');
+            e.addEventListener('animationend', () => e.remove());
+            ecran.append(e);
+            parasite(l.n);
+          },
+          surMasquer: () => {},
+        });
+        if (!fini) return false;
+        await attendre(Math.max(0, (traversee - r.duree) * 1000)); // le dernier nombre finit de sortir
+        remplir(ecran);
+        return !arrete();
+      }
+
+      /**
+       * Colonne qui s'efface : tout est affiché, puis les lignes disparaissent une à une, par le
+       * haut. Il faut lire en avance, et ne jamais s'arrêter sur une ligne.
+       */
+      async function effacement() {
+        ecran.classList.add('colonne-efface');
+        const lignes = question.lignes.map((l) => { const e = h('div', { class: 'ligne-efface' }); afficherNombreFlash(e, formaterNombre(l.n), l.op === '-'); return e; });
+        remplir(ecran, h('div', { class: 'pile-efface' }, lignes));
+        const { fini } = await cadencer({
+          periodeMs: r.duree * 1000,
+          nombre: lignes.length,
+          partVisible: 1,
+          interrompu: arrete,
+          surAfficher: (k) => { lignes[k].classList.add('courante'); parasite(question.lignes[k].n); },
+          surMasquer: (k) => { lignes[k].style.visibility = 'hidden'; },
+        });
+        return fini;
+      }
+
+      /** Vitesse automatique : un cran plus vite après une série sans faute, un cran moins vite sous 60 %. */
+      async function ajusterVitesse() {
+        if (!r.cleVitesse || serie.index < 5) return '';
+        const i = DUREES.indexOf(r.duree);
+        const taux = serie.justes / serie.index;
+        const j = taux === 1 ? Math.min(DUREES.length - 1, i + 1) : taux < 0.6 ? Math.max(0, i - 1) : i;
+        if (i < 0 || j === i) return '';
+        const nouvelle = DUREES[j];
+        await modifierReglages({ flashDurees: { ...(reglagesUtilisateur().flashDurees ?? {}), [r.cleVitesse]: nouvelle } });
+        r.duree = nouvelle;
+        reglages.duree = nouvelle;
+        info.textContent = `${nouvelle.toLocaleString('fr-FR')} s par nombre (vitesse automatique)`;
+        return j > i ? ` Sans faute : la prochaine série passe à ${nouvelle.toLocaleString('fr-FR')} s par nombre.` : ` La prochaine série ralentit à ${nouvelle.toLocaleString('fr-FR')} s par nombre.`;
       }
 
       async function action() {
@@ -234,7 +357,8 @@ export default {
           const conseil = serie.justes === serie.index
             ? (r.mode === 'image' ? (r.image > 0.2 ? 'Parfait : estompez l\'image d\'un cran.' : 'Parfait : passez au flash sans image.') : 'Parfait : ajoutez un nombre (puis, plus tard, réduisez le temps d\'affichage).')
             : serie.justes / serie.index < 0.7 ? 'Retirez un nombre à la chaîne, ou repassez par le flash avec image.' : 'Encore une série au même niveau.';
-          remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${conseil}`);
+          const vitesse = await ajusterVitesse();
+          remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${vitesse || conseil}`);
           majBouton('Nouvelle série');
           return;
         }
@@ -244,7 +368,7 @@ export default {
       majBouton('Commencer');
       const sansRaccourcis = raccourcis({ Enter: () => { if (etat !== 'flash') action(); } });
       if (params.auto) action();
-      return () => { vivant = false; sansRaccourcis(); vue?.detruire(); };
+      return () => { vivant = false; distraire(false); taire(); sansRaccourcis(); vue?.detruire(); };
     }
 
     afficherReglages();

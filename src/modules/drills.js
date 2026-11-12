@@ -4,13 +4,13 @@
  */
 
 import { catalogueDrills, drillRepetition, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill } from '../core/drills.js';
-import { enregistrerSession, proposerRecord, progression, etatDrill, noterDrill } from '../core/progression.js';
+import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, etatDrill, noterDrill } from '../core/progression.js';
 import { drillOuvert, prerequisDrill, drillValide, estValide } from '../core/parcours.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
 import { creerDrill } from '../ui/drill.js';
 import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
-import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler } from '../core/tables.js';
+import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler, serieCriblage, piresProduits, creerAcharnement, CRIBLAGE_S, ACHARNEMENT } from '../core/tables.js';
 import { noterProduit, statsTables, reglagesUtilisateur, noterVolume } from '../core/progression.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
 import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
@@ -52,6 +52,11 @@ export default {
           h('button', { class: 'btn principal', onclick: () => changer(() => ecranTables('81')) }, `Les 81 produits${rec81 ? ` (record ${formaterDuree(rec81.dureeMs)})` : ''}`),
           h('button', { class: 'btn', onclick: () => changer(() => ecranTables('lents')) }, produitsARetravailler(statsTables()).length ? `Mes produits à retravailler (${produitsARetravailler(statsTables()).length})` : 'Mes 20 produits les plus lents'),
         ),
+        h('h3', {}, 'Criblage et acharnement'),
+        h('p', { class: 'discret' }, `Criblage : les 36 produits de base (2 × 2 à 9 × 9) en ${CRIBLAGE_S} secondes, pour repérer ceux qui accrochent. Acharnement : vos ${ACHARNEMENT.produits} pires produits seulement ; un produit faux ou lent revient ${ACHARNEMENT.retour} questions plus tard, et l'exercice ne s'arrête que lorsque chacun est réussi ${ACHARNEMENT.suite} fois de suite en moins de ${ACHARNEMENT.rapide.toLocaleString('fr-FR')} s. Le chrono s'arrête à la première touche.`),
+        h('div', { class: 'ligne' },
+          h('button', { class: 'btn', onclick: () => changer(() => ecranRapide('criblage')) }, `Criblage · ${CRIBLAGE_S} s${progression().records['tables-criblage'] ? ` (record ${progression().records['tables-criblage'].points} / 36)` : ''}`),
+          h('button', { class: 'btn', onclick: () => changer(() => ecranRapide('acharnement')) }, `Acharnement : ${piresProduits(statsTables()).map(([a, b]) => `${a} × ${b}`).join(', ')}`)),
         h('h3', {}, 'Mes tables, mélangées'),
         choixTable,
         h('button', { class: 'btn', onclick: () => { const t = tablesChoisies(); if (t.length) changer(() => ecranTables(t)); } }, 'Commencer avec ces tables'));
@@ -179,6 +184,102 @@ export default {
     }
 
     /**
+     * Criblage (36 produits en 60 s) et acharnement (les 4 pires produits, en boucle). Le produit
+     * s'affiche, on tape la réponse : elle est validée dès que le bon nombre de chiffres est tapé.
+     * Le temps compté s'arrête à la PREMIÈRE touche (la frappe n'est pas du calcul).
+     */
+    function ecranRapide(mode) {
+      const crible = mode === 'criblage';
+      const liste = crible ? serieCriblage() : null;
+      const acharne = crible ? null : creerAcharnement(piresProduits(statsTables()));
+      const resultats = [];
+      let ex = null;
+      let debutEx = 0;
+      let premiere = null;
+      let debut = null;
+      let fini = false;
+      let attente = false;
+      const enonce = h('div', { class: 'operation estimation' });
+      const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', autocomplete: 'off', 'aria-label': 'Produit' });
+      const compteur = h('span', { class: 'compteur' });
+      const chrono = h('span', { class: 'compteur chrono' });
+      const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
+      const suivi = h('div', { class: 'ligne suivi-acharnement' });
+      el.append(h('button', { class: 'lien', onclick: () => changer(catalogueTables) }, '← Tables'), h('h1', {}, crible ? 'Criblage des tables' : 'Acharnement'),
+        h('p', { class: 'discret' }, crible ? `Les 36 produits de base, ${CRIBLAGE_S} secondes. Tapez le produit : il est validé tout seul.` : `Vos ${ACHARNEMENT.produits} pires produits. Chacun doit être réussi ${ACHARNEMENT.suite} fois de suite en moins de ${ACHARNEMENT.rapide.toLocaleString('fr-FR')} s (temps jusqu'à la première touche).`),
+        h('div', { class: 'ligne' }, h('span', { style: 'flex:1' }), chrono, compteur), enonce, saisie, suivi, retour);
+      const majSuivi = () => {
+        if (crible) return;
+        const e = acharne.etat();
+        remplir(suivi, Object.entries(e.suites).map(([c, n]) => h('span', { class: `pastille-table${n >= ACHARNEMENT.suite ? ' ok' : ''}` }, `${c.replace('x', ' × ')} `, '●'.repeat(Math.min(n, ACHARNEMENT.suite)) + '○'.repeat(Math.max(0, ACHARNEMENT.suite - n)))));
+      };
+      const poser = () => {
+        ex = crible ? liste[resultats.length] ?? null : acharne.suivant();
+        if (!ex) { fin(); return; }
+        attente = false;
+        remplir(enonce, `${ex.a} × ${ex.b}`);
+        saisie.value = '';
+        saisie.disabled = false;
+        saisie.focus();
+        premiere = null;
+        debutEx = performance.now();
+        debut ??= debutEx;
+        compteur.textContent = crible ? `${resultats.length + 1} / 36` : `question ${resultats.length + 1}`;
+        majSuivi();
+      };
+      const valider = async () => {
+        if (attente || fini || !ex) return;
+        const reponse = Number(saisie.value);
+        const juste = reponse === ex.resultat;
+        const t = ((premiere ?? performance.now()) - debutEx) / 1000;
+        attente = true;
+        saisie.disabled = true;
+        resultats.push({ ex, reponse, juste, t });
+        acharne?.repondre(juste, t);
+        await noterProduit(cleProduit(ex.a, ex.b), juste, t);
+        retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
+        const lent = juste && !crible && t > ACHARNEMENT.rapide;
+        remplir(retour, juste ? (lent ? `Juste, mais en ${t.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s : la suite repart de zéro.` : '✓') : `✗ ${ex.a} × ${ex.b} = ${ex.resultat}`);
+        setTimeout(poser, juste ? (lent ? 700 : 120) : 1100);
+      };
+      saisie.addEventListener('keydown', (e) => { if (/^\d$/.test(e.key)) premiere ??= performance.now(); if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (saisie.value) valider(); } });
+      // Validation dès que le nombre de chiffres attendu est tapé (pas d'Entrée : c'est un réflexe).
+      saisie.addEventListener('input', () => { if (ex && saisie.value.replace(/\D/g, '').length >= String(ex.resultat).length) valider(); });
+      const minuterie = setInterval(() => {
+        if (!debut || fini) return;
+        const ecoule = performance.now() - debut;
+        chrono.textContent = crible ? `${Math.max(0, Math.ceil(CRIBLAGE_S - ecoule / 1000))} s` : formaterDuree(ecoule);
+        if (crible && ecoule >= CRIBLAGE_S * 1000) fin();
+      }, 100);
+      async function fin() {
+        if (fini) return;
+        fini = true;
+        clearInterval(minuterie);
+        const dureeMs = performance.now() - (debut ?? performance.now());
+        const justes = resultats.filter((r) => r.juste).length;
+        saisie.remove();
+        remplir(enonce);
+        remplir(retour);
+        await enregistrerSession({ module: 'drills', mode: `tables-${mode}`, total: resultats.length, justes, dureeMs });
+        const nouveau = crible && await proposerMeilleurScore('tables-criblage', justes);
+        const lents = resultats.filter((r) => !r.juste || r.t > ACHARNEMENT.lent);
+        const cles = [...new Set(lents.map((r) => cleProduit(r.ex.a, r.ex.b)))];
+        const e = acharne?.etat();
+        el.append(h('div', { class: 'carte bilan' },
+          h('div', { class: 'grand' }, crible ? `${justes} / 36` : e.abandon ? 'Arrêt' : 'Terminé'),
+          crible
+            ? h('p', {}, `${resultats.length} produit${resultats.length > 1 ? 's' : ''} traité${resultats.length > 1 ? 's' : ''} en ${formaterDuree(dureeMs)}${nouveau ? ' · nouveau record' : ''}.`)
+            : h('p', {}, e.abandon ? `${resultats.length} questions sans y arriver : arrêtez-vous là, et reprenez demain. Ces produits resteront vos cibles.` : `Les ${ACHARNEMENT.produits} produits réussis ${ACHARNEMENT.suite} fois de suite, en ${resultats.length} questions et ${formaterDuree(dureeMs)}.`),
+          crible ? h('p', {}, cles.length ? [h('strong', {}, `Faux ou plus lents que ${ACHARNEMENT.lent} s (${cles.length}) : `), cles.map((c) => c.replace('x', ' × ')).join(' · '), '. L\'acharnement les prendra pour cibles.'] : 'Aucun produit faux ni lent.') : null,
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn principal', onclick: () => changer(() => ecranRapide(crible && cles.length ? 'acharnement' : mode)) }, crible && cles.length ? 'Acharnement sur les pires' : 'Recommencer'),
+            h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))));
+      }
+      poser();
+      return () => { fini = true; clearInterval(minuterie); };
+    }
+
+    /**
      * Sprint d'estimation : une touche (1 à 9) valide aussitôt. Juste : couple suivant. Faux : le
      * raisonnement s'affiche (arrondi, vérification, correction), Entrée pour continuer.
      */
@@ -245,7 +346,7 @@ export default {
     }
 
     const direct = params.drill ? catalogueDrills().find((d) => d.id === params.drill) : null;
-    changer(params.quotient ? ecranQuotient : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
+    changer(params.quotient ? ecranQuotient : params.tables === 'criblage' || params.tables === 'acharnement' ? () => ecranRapide(params.tables) : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
     return () => nettoyer?.();
   },
 };

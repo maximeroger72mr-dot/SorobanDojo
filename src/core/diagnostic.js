@@ -80,6 +80,37 @@ function phraseAmiInverse({ ligne, cle, rang, complement, famille }) {
 }
 
 /**
+ * Franchissements d'une colonne : les lignes où le total change de longueur (97 + 8 = 105 passe
+ * à 3 chiffres ; 102 − 5 = 97 repasse à 2). C'est là que les adultes accrochent le plus.
+ * @returns {Array<{ ligne:number, avant:number, apres:number, rang:number, monte:boolean }>}
+ */
+export function franchissements(lignes) {
+  const liste = [];
+  let v = 0;
+  lignes.forEach((l, i) => {
+    const avant = v;
+    v += valeurSignee(l);
+    const a = String(Math.abs(avant)).length;
+    const b = String(Math.abs(v)).length;
+    if (i > 0 && a !== b && avant > 0 && v > 0) liste.push({ ligne: i, avant, apres: v, rang: Math.max(a, b) - 1, monte: b > a });
+  });
+  return liste;
+}
+
+/**
+ * Franchissement mis en cause par une réponse fausse : l'écart est exactement 10, 100, 1 000…
+ * (une seule tige, d'une unité, pas les unités) et la colonne franchit un rang au moins aussi
+ * haut. Sinon null : sans franchissement dans la colonne, on n'accuse rien.
+ */
+export function franchissementEnCause(ex, reponse) {
+  if (ex.type !== 'addsub' || ex.negatif || ex.decimales || !ex.lignes || reponse === null) return null;
+  const u = unSeulChiffre(reponse - ex.resultat);
+  if (!u || Math.abs(u.d) !== 1 || u.k < 1) return null;
+  // Le franchissement le plus proche du rang fautif (99 → 100 pour un écart de 10 ou de 100).
+  return franchissements(ex.lignes).filter((f) => f.rang >= u.k && f.rang <= u.k + 1).sort((a, b) => a.rang - b.rang)[0] ?? null;
+}
+
+/**
  * Diagnostic d'une colonne d'addition/soustraction.
  * @param {{lignes:Array<{op,n}>, resultat:number}} ex
  */
@@ -97,6 +128,14 @@ export function diagnostiquerColonne(ex, reponse) {
   // Ami fait à l'envers : plus précis que « écart de 2 sur une tige », donc dit en premier.
   const inverses = ex.lignes ? amisInverses({ type: 'addsub', ...ex }, reponse) : [];
   causes.push(...inverses.slice(0, 2).map(phraseAmiInverse));
+  // Franchissement : le total change de longueur (99 → 100) et la réponse est fausse d'exactement
+  // 10, 100, 1 000… C'est le passage d'une tige à la suivante qui a lâché. On l'accuse en premier,
+  // sauf si une ligne oubliée, doublée ou de signe inversé explique déjà l'écart.
+  const f = franchissementEnCause(ex, reponse);
+  if (f) {
+    const phrase = `Vous perdez votre image ou votre doigté au passage ${f.monte ? 'aux' : 'sous les'} ${nomRang(f.rang)} (${f.avant} → ${f.apres}, ligne ${f.ligne + 1}) : ${f.monte ? 'la retenue' : 'l\'emprunt'} en cascade n'est pas fluide.`;
+    if (causes.length) causes.push(phrase); else causes.unshift(phrase);
+  }
   causes.push(...causesEcartTige(ecart));
   if (chiffresEchanges(reponse, ex.resultat)) causes.push('Deux chiffres voisins sont inversés : erreur de lecture ou de recopie du soroban ?');
   return causes;

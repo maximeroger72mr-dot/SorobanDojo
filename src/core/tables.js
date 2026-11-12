@@ -109,3 +109,70 @@ export function produitLent(stats, precedent) {
     return Math.random() < 0.5 ? exercice(c.a, c.b) : exercice(c.b, c.a);
   }
 }
+
+// ------------------------------------------------------------------ criblage et acharnement
+
+/** Durée du criblage, et seuils de l'acharnement (secondes, jusqu'à la PREMIÈRE touche). */
+export const CRIBLAGE_S = 60;
+export const ACHARNEMENT = { produits: 4, lent: 2, rapide: 1.5, suite: 3, retour: 3, plafond: 80 };
+
+/** Criblage : les 36 produits de base (2 × 2 à 9 × 9, chacun une fois), dans le désordre. */
+export function serieCriblage() {
+  const t = [];
+  for (let a = 2; a <= 9; a++) for (let b = a; b <= 9; b++) t.push(Math.random() < 0.5 ? exercice(a, b) : exercice(b, a));
+  return melanger(t);
+}
+
+/**
+ * Les `n` pires produits (2 × 2 à 9 × 9) : poids = temps médian récent × (1 + erreurs récentes)²,
+ * le même que pour « mes produits les plus lents ». Un produit jamais vu compte pour 2 s.
+ * @returns {Array<[number, number]>}
+ */
+export function piresProduits(stats, n = ACHARNEMENT.produits) {
+  const liste = [];
+  for (let a = 2; a <= 9; a++) {
+    for (let b = a; b <= 9; b++) {
+      const recents = (stats[cleProduit(a, b)]?.hist ?? []).slice(-6);
+      const temps = recents.filter((x) => x.ok).map((x) => x.t).sort((x, y) => x - y);
+      const mediane = temps.length ? temps[Math.floor(temps.length / 2)] : 2;
+      const erreurs = recents.filter((x) => !x.ok).length;
+      // À poids égal, les grands produits d'abord (7 × 8 avant 2 × 3).
+      liste.push({ a, b, poids: mediane * (1 + erreurs) ** 2 + (a * b) / 1000 });
+    }
+  }
+  return liste.sort((x, y) => y.poids - x.poids).slice(0, n).map((x) => [x.a, x.b]);
+}
+
+/**
+ * Acharnement : on ne travaille que quelques « bêtes noires ». Un produit faux ou lent (plus de
+ * 2 s) revient exactement 3 questions plus tard ; l'exercice se termine quand CHAQUE produit a
+ * été réussi 3 fois de suite en moins de 1,5 s (temps jusqu'à la première touche).
+ * @param {Array<[number, number]>} produits
+ * @returns {{ suivant: () => object|null, repondre: (juste:boolean, t:number) => void, etat: () => object }}
+ */
+export function creerAcharnement(produits, regles = ACHARNEMENT) {
+  const suites = Object.fromEntries(produits.map(([a, b]) => [cleProduit(a, b), 0]));
+  let file = melanger(produits.map(([a, b]) => cleProduit(a, b)));
+  let courant = null;
+  let questions = 0;
+  const fini = () => Object.values(suites).every((s) => s >= regles.suite) || questions >= regles.plafond;
+  return {
+    suivant() {
+      if (fini()) return null;
+      if (!file.length) file = melanger(Object.keys(suites).filter((c) => suites[c] < regles.suite));
+      courant = file.shift();
+      const [a, b] = courant.split('x').map(Number);
+      return Math.random() < 0.5 ? exercice(a, b) : exercice(b, a);
+    },
+    repondre(juste, t) {
+      questions += 1;
+      const rapide = juste && t <= regles.rapide;
+      suites[courant] = rapide ? suites[courant] + 1 : 0;
+      if (suites[courant] >= regles.suite) return;
+      // Faux ou lent : il revient exactement `retour` questions plus tard. Sinon, en fin de file.
+      if (!juste || t > regles.lent) file.splice(Math.min(regles.retour - 1, file.length), 0, courant);
+      else file.push(courant);
+    },
+    etat: () => ({ suites: { ...suites }, questions, fini: fini(), abandon: questions >= regles.plafond && !Object.values(suites).every((s) => s >= regles.suite) }),
+  };
+}

@@ -738,3 +738,16 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Changement | État |
 |---|---|
 | Feuilles (planches, épreuves, examens) : calées en haut de l'écran dès leur création, quelle que soit la taille de la fenêtre | Fait |
+
+## Version 0.25.0
+
+| Changement | État |
+|---|---|
+| Tables : criblage (36 produits de 2 × 2 à 9 × 9, 60 s) | Fait |
+| Tables : acharnement (4 pires produits ; faux ou plus de 2 s : retour 3 questions plus tard ; fin à 3 réussites de suite en moins de 1,5 s, temps à la première touche ; plafond de 80 questions) | Fait |
+| Diagnostic du franchissement (99 → 100) quand l'écart est de 10, 100, 1 000 et que la colonne franchit ce rang | Fait (cité après une ligne oubliée ou doublée si elle explique aussi l'écart) |
+| Flash : nombre centré, seul sur un grand écran vide ; titre et réglages masqués pendant le défilement | Fait |
+| Flash : vitesse automatique par réglage (un cran plus vite après une série sans faute, un cran moins vite sous 60 %) | Fait |
+| Anzan : tapis roulant ; colonne qui s'efface ligne à ligne | Fait |
+| Distracteurs : éclats au bord de l'écran ; voix qui lit d'autres nombres au rythme du flash | Fait (voix non vérifiable ici) |
+| Sprint de surcharge (une colonne d'environ 20 s à 115 % du meilleur rythme), proposé seulement sur le plateau d'un geste | Fait (rien n'est noté sur la carte de maîtrise) |

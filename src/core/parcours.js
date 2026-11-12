@@ -262,6 +262,9 @@ export function plateaux(d, date) {
   return liste.sort((a, b) => b.maintenant / b.avant - a.maintenant / a.avant);
 }
 
+/** Sprint de surcharge : part du meilleur rythme à laquelle on force la cadence. */
+export const SURCHARGE = 1.15;
+
 const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const jourDe = (date) => Math.floor(new Date(`${date}T12:00`).getTime() / 86400000);
 
@@ -283,6 +286,13 @@ export function prioriteDuJour(d, date, difficiles = []) {
       { titre: 'Casser le plateau : marathon', texte: '40 lignes d\'affilée sur ce geste, sans remettre à zéro. Le volume ancre le mouvement.', aller: ['rythme', { jeu: 'marathon', cibles, lignes: 40, auto: true }] },
       { titre: 'Casser le plateau : drill rythmé', texte: 'Un drill au métronome : un geste par temps, sans accélérer ni ralentir. La régularité débloque souvent la vitesse.', aller: ['drills', { drill: drillEchauffement(d)?.id, priorite: true }] },
     ];
+    // Sprint de surcharge : proposé UNIQUEMENT ici, sur un plateau (la cadence ne monte plus) et
+    // pour un geste précis. 20 secondes à 115 % du meilleur rythme tenu sur ce geste.
+    if (p.type === 'geste') {
+      const record = Math.min(p.avant, p.maintenant);
+      const cadence = Math.max(0.5, Math.round((record / SURCHARGE) * 100) / 100);
+      remedes.push({ titre: 'Casser le plateau : sprint de surcharge', texte: `20 secondes à ${nf(cadence)} s par ligne, soit ${Math.round(SURCHARGE * 100)} % de votre meilleur rythme sur ce geste. On ne cherche pas la justesse : on habitue la main à une vitesse qu'elle ne connaît pas.`, aller: ['rythme', { jeu: 'lievre', cibles, surcharge: cadence, auto: true }] });
+    }
     const r = remedes[jourDe(date) % remedes.length];
     return { ...r, raison: constat };
   }

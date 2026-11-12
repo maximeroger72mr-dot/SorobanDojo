@@ -255,9 +255,10 @@ export function creerSerie(conteneur, o) {
     flashEnCours = true;
     saisie.disabled = true;
     btnValider.disabled = true;
-    const ecran = h('div', { class: 'flash-ecran' });
-    const zoneImage = h('div', { class: 'flash-image' });
     const opacite = exo.flash.photo ? 1 : Number(exo.flash.image) || 0;
+    // Le nombre est toujours centré ; sans image d'aide, il est seul au milieu d'un écran vide.
+    const ecran = h('div', { class: `flash-ecran centre${opacite === 0 && exo.type !== 'tenir' ? ' pur' : ''}` });
+    const zoneImage = h('div', { class: 'flash-image' });
     // Photo : le soroban s'affiche DANS l'écran (à la place du nombre) ; anzan : sous le nombre.
     if (exo.flash.photo) remplir(zoneEnonce, ecran);
     else remplir(zoneEnonce, ecran, opacite > 0 ? zoneImage : null);
