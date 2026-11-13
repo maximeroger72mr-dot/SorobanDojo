@@ -608,3 +608,17 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
    est au centre exact de l'écran, entouré de blanc, quel que soit le reste de la page. */
 .flash-ecran.plein { position: fixed !important; inset: 0; z-index: 20; height: 100vh !important; min-height: 100vh !important; width: 100vw; margin: 0 !important; background: var(--fond) !important; border: none !important; border-radius: 0 !important; display: flex; align-items: center; justify-content: center !important; }
 .distracteurs { z-index: 25; }
+
+/* Frise du parcours (Apprendre) */
+.frise .frise-titre { margin-bottom: 8px; }
+.frise-ligne { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; }
+.frise-etape { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--discret); position: relative; }
+.frise-jauge { display: block; height: 10px; border-radius: 5px; background: var(--cal-0, #eee); border: 1px solid var(--ligne); overflow: hidden; }
+.frise-jauge > span { display: block; height: 100%; background: var(--cal-3, #555); }
+.frise-etape.ici .frise-jauge > span { background: var(--accent); }
+.frise-etape.finie .frise-nom { color: var(--texte); }
+.frise-etape.ici .frise-jauge { outline: 2px solid var(--accent); outline-offset: 1px; }
+.frise-etape.ici .frise-nom { color: var(--accent-texte, var(--accent)); font-weight: 600; }
+.frise-ici { font-size: 0.7rem; color: var(--accent-texte, var(--accent)); }
+.frise-suite { margin: 10px 0 0; }
+.deux-courbes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }

@@ -802,3 +802,18 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Anzan des leçons : case « sans le petit soroban d'aide » (réglage gardé) | Fait |
 | Flash sans image : plein écran pendant le défilement, nombre au centre exact de la fenêtre | Corrigé |
 | Icône du `.exe` (`build/icon.png`) | Fait |
+
+## Version 0.28.0
+
+| Changement | État |
+|---|---|
+| Séance du jour en 5 blocs, calibrée sur l'objectif de temps : échauffement, révision (10 calculs mélangés + « À revoir »), leçon (5 à 10 min, une partie seulement si elle est longue), volume ou vitesse (remplit le temps restant), anzan (temps réservé) | Fait |
+| Prof : la dernière leçon doit être en or (acquis confirmé) pour ouvrir la suivante ; en argent, on l'automatise (isolé et mélangé, volume et vitesse), au plus 10 jours de pratique, puis on avance (sous l'argent : on attend) | Fait |
+| Bloc volume / vitesse (`core/blocs.js`) : une séance sur deux au fil des jours pratiqués (un jour manqué ne décale rien) ; toujours isolé ET mélangé ; la variante faite il y a le plus longtemps d'abord | Fait |
+| Examen blanc du vendredi au dimanche, à la place de la leçon, tant qu'il n'est pas passé dans la semaine | Fait |
+| Révision mélangée : 10 calculs sur les leçons dues (5 au plus, les plus en retard), chaque leçon garde sa boîte | Fait |
+| Anzan du jour : marches (chaîne puis chiffres), on monte après 2 séries ≥ 90 % à ≤ 1,5 s par nombre, on redescend après 2 séries < 70 % ; gestes déjà vus seulement | Fait |
+| Piste anzan : chaque leçon attend sa leçon soroban et UNE leçon d'anzan qui la prépare (`BASE_ANZAN`), plus la précédente de la liste ; une leçon validée n'est jamais grisée ; raison du verrou affichée | Corrigé |
+| Planches proposées : ciblée et mélangée en alternance ; la cible de vitesse est toujours au-dessus de la vitesse actuelle | Corrigé |
+| Mot du prof : thème du jour, constats tirés des données (distance à l'or, écart de vitesse, progrès, erreur qui revient, régularité, anzan), conseil lié à la leçon | Fait |
+| Apprendre : frise du parcours (où j'en suis, ce qui vient) ; Progression : courbes anzan (chaîne tenue, vitesse d'affichage) | Fait |

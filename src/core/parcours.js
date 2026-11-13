@@ -197,19 +197,58 @@ export function defiSemaine(d, date) {
 }
 
 /**
- * Anzan du jour, adapté au niveau : plus on a validé d'étapes d'anzan dans le parcours,
- * plus il y a de nombres, plus ils défilent vite, puis on passe à 2 chiffres.
+ * Les marches de l'anzan du jour : on allonge la chaîne avant de passer à 2 chiffres, et l'image
+ * d'aide reste au début. La vitesse, elle, monte à CHAQUE bonne réponse dans le flash (vitesse
+ * automatique, gardée d'une série à l'autre).
  */
-export function anzanAdapte(d) {
-  // Progression lente : on allonge la chaîne avant d'accélérer, et l'image d'aide reste longtemps.
+export const MARCHES_ANZAN = [
+  { mode: 'image', chiffres: 1, termes: 3 }, { mode: 'image', chiffres: 1, termes: 4 },
+  { mode: 'flash', chiffres: 1, termes: 4 }, { mode: 'flash', chiffres: 1, termes: 5 },
+  { mode: 'flash', chiffres: 1, termes: 6 }, { mode: 'flash', chiffres: 1, termes: 7 },
+  { mode: 'flash', chiffres: 2, termes: 3 }, { mode: 'flash', chiffres: 2, termes: 4 },
+  { mode: 'flash', chiffres: 2, termes: 5 }, { mode: 'flash', chiffres: 2, termes: 6 },
+  { mode: 'flash', chiffres: 3, termes: 3 }, { mode: 'flash', chiffres: 3, termes: 4 },
+];
+/** Vitesse « bonne » pour monter d'une marche : au plus tant de secondes par nombre. */
+export const DUREE_MONTEE = 1.5;
+
+/**
+ * Anzan du jour, adapté au niveau, uniquement sur les gestes déjà vus au soroban :
+ *  - la marche de départ suit les leçons d'anzan validées ;
+ *  - on monte d'une marche après 2 séries de suite à 90 % ou plus ET une vitesse atteinte d'au
+ *    plus DUREE_MONTEE s par nombre (tant que les réponses ne se dégradent pas, on accélère) ;
+ *  - on redescend après 2 séries de suite sous 70 %.
+ * 2 chiffres : après « Anzan : 2 chiffres, sans retenue » ; 3 chiffres : après « Anzan : 3 chiffres ».
+ * @param {number} [minutes]  durée voulue (le nombre de calculs en dépend)
+ */
+export function anzanAdapte(d, minutes = 2) {
   const k = Math.min(6, SOUS_PALIERS.filter((sp) => sp.type === 'anzan' && estValide(d, sp.id)).length);
-  return {
-    mode: k < 3 ? 'image' : 'flash',
-    chiffres: k >= 6 ? 2 : 1,
-    termes: [3, 3, 4, 5, 5, 6, 3][k],
-    duree: [3, 2.5, 2.5, 2, 2, 1.5, 3][k],
-    questions: 5,
-  };
+  const depart = [0, 1, 2, 3, 3, 4, 6][k];
+  const max = estValide(d, 'pa-8') ? MARCHES_ANZAN.length - 1 : estValide(d, 'pa-6') || estValide(d, 'p5-a') ? 9 : 5;
+  let i = Math.min(depart, max);
+  let suite = [];
+  let raison = null;
+  const series = d.sessions.filter((s) => s.module === 'anzan' && s.reglages?.palierAnzan != null && (s.total ?? 0) >= 3);
+  for (const s of series) {
+    if (s.reglages.palierAnzan !== i) continue;
+    suite.push(s);
+    const deux = suite.slice(-2);
+    if (deux.length === 2 && deux.every((x) => x.justes / x.total >= 0.9) && (s.reglages.duree ?? 9) <= DUREE_MONTEE && i < max) { i += 1; suite = []; raison = 'une marche de plus : juste et rapide'; }
+    else if (deux.length === 2 && deux.every((x) => x.justes / x.total < 0.7) && i > 0) { i -= 1; suite = []; raison = 'une marche plus bas, le temps de retrouver des réponses sûres'; }
+  }
+  if (i < depart && !raison) i = Math.min(depart, max);
+  const m = MARCHES_ANZAN[i];
+  const vitesses = d.reglages?.flashDurees ?? {};
+  const duree = vitesses[`${m.mode}-${m.chiffres}-${m.termes}`] ?? (m.mode === 'image' ? 3 : 2.5);
+  if (!raison) {
+    const derniere = suite.at(-1);
+    raison = i >= max ? 'la plus haute marche ouverte pour l\'instant'
+      : !derniere ? 'votre marche du moment'
+        : duree > DUREE_MONTEE ? `encore un peu de vitesse (${String(Math.round(duree * 10) / 10).replace('.', ',')} s, il faut ${String(DUREE_MONTEE).replace('.', ',')} s) avant un nombre de plus`
+          : 'deux séries justes de suite et on ajoute un nombre';
+  }
+  const questions = Math.max(5, Math.min(20, Math.round((minutes * 60) / (m.termes * duree + 10))));
+  return { ...m, duree, questions, palierAnzan: i, raison };
 }
 
 /** L'élève est-il arrivé au cours de multiplication (ou au-delà) ? */

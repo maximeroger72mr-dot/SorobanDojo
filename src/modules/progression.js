@@ -15,7 +15,7 @@ import { minutesParJour, serieJours } from '../core/regularite.js';
 import { grade, compteurs, MESURES_FIABLES } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
-import { calendrier, courbeVitesse, barresSemaines, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
+import { calendrier, courbeVitesse, barresSemaines, courbeSimple, COULEUR_NIVEAU, ENCRE_NIVEAU } from '../ui/graphiques.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 import { prochainSousPalier } from './lecons.js';
@@ -104,6 +104,27 @@ function carte(app) {
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
 }
 
+/** Courbes de l'anzan : longueur de chaîne tenue et vitesse d'affichage (meilleure série réussie du jour). */
+export function seriesAnzan(d) {
+  const parJour = {};
+  for (const x of d.sessions) {
+    const r = x.reglages ?? {};
+    if (x.module !== 'anzan' || !['flash', 'image', 'tapis'].includes(x.mode) || !(x.total >= 3) || x.justes / x.total < 0.8 || !r.termes) continue;
+    const j = (parJour[x.date] ??= { chaine: 0, vitesse: 0 });
+    j.chaine = Math.max(j.chaine, r.termes * (r.chiffres ?? 1));
+    if (r.duree) j.vitesse = Math.max(j.vitesse, 60 / r.duree);
+  }
+  return Object.entries(parJour).sort(([a], [b]) => a.localeCompare(b)).slice(-30)
+    .map(([date, v]) => ({ etiquette: new Date(`${date}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), ...v }));
+}
+function courbesAnzan(d) {
+  const j = seriesAnzan(d);
+  if (!j.length) return null;
+  return h('div', { class: 'deux-courbes' },
+    courbeSimple(j.map((x) => ({ etiquette: x.etiquette, v: x.chaine })), 'Chaîne tenue (nombres × chiffres) : plus haut = plus long', 'chiffres de tête'),
+    courbeSimple(j.filter((x) => x.vitesse).map((x) => ({ etiquette: x.etiquette, v: x.vitesse })), 'Vitesse d\'affichage (nombres par minute) : plus haut = plus rapide', 'nombres par minute'));
+}
+
 /** La sauvegarde et l'apparence sont dans Réglages : un rappel en bas de page. */
 const lienReglages = (app) => h('p', { class: 'discret', style: 'margin-top:28px' }, 'Sauvegarde, apparence et aide : ',
   h('button', { class: 'lien', onclick: () => app.aller('reglages') }, 'Réglages'), '. Déjà pratiqué ailleurs ? ',
@@ -146,6 +167,10 @@ export default {
 
     // Carte de maîtrise
     el.append(h('h2', {}, 'Carte de maîtrise des gestes'), carte(app));
+
+    // Anzan : la chaîne tenue et la vitesse d'affichage, jour par jour.
+    const courbes = courbesAnzan(d);
+    if (courbes) el.append(h('h2', {}, 'Anzan'), h('p', { class: 'discret' }, 'Chaque jour, la meilleure série réussie (au moins 80 % de justes) en flash : combien de nombres vous tenez de tête, et à quelle vitesse ils défilent.'), courbes);
 
     // Succès
     const obtenus = Object.keys(d.succes ?? {});

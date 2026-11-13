@@ -195,3 +195,34 @@ export function courbeVitesse(hist, famille = 'addsub') {
   return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, famille === 'addsub' ? 'Cadence en chiffres par minute (CPM, essais réussis) : plus haut = plus rapide' : 'Cadence (par minute, essais réussis)'), svg);
 }
 
+
+// ------------------------------------------------------------------ courbe simple (une valeur par jour)
+
+/**
+ * Une courbe simple : une valeur par point (ex. un par jour), plus haut = mieux.
+ * @param {Array<{ etiquette: string, v: number }>} points
+ */
+export function courbeSimple(points, titre, unite, { decimales = 0 } = {}) {
+  if (points.length < 2) return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, titre), h('p', { class: 'discret' }, 'Pas encore assez de séries pour tracer la courbe (2 jours au moins).'));
+  const L = 560;
+  const H = 180;
+  const m = { g: 40, d: 16, h: 12, b: 28 };
+  const ymax = Math.max(...points.map((p) => p.v)) * 1.2;
+  const x = (i) => m.g + (i / Math.max(1, points.length - 1)) * (L - m.g - m.d);
+  const y = (v) => m.h + (1 - v / ymax) * (H - m.h - m.b);
+  const f = (v) => v.toLocaleString('fr-FR', { maximumFractionDigits: decimales });
+  const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'courbe', role: 'img', 'aria-label': titre });
+  const pas = ymax > 60 ? 20 : ymax > 20 ? 5 : ymax > 8 ? 2 : 1;
+  for (let v = 0; v <= ymax; v += pas) {
+    svg.append(s('line', { x1: m.g, x2: L - m.d, y1: y(v), y2: y(v), class: 'grille' }), s('text', { x: m.g - 6, y: y(v) + 4, class: 'axe-texte', 'text-anchor': 'end' }, `${v}`));
+  }
+  svg.append(s('text', { x: m.g, y: H - 6, class: 'axe-texte' }, `${points[0].etiquette} → ${points.at(-1).etiquette}`));
+  svg.append(s('polyline', { points: points.map((p, i) => `${x(i)},${y(p.v)}`).join(' '), class: 'trace' }));
+  points.forEach((p, i) => {
+    const c = s('circle', { cx: x(i), cy: y(p.v), r: 3.5, class: 'point' });
+    c.addEventListener('pointermove', (e) => montrerBulle(e, `${p.etiquette} : ${f(p.v)} ${unite}`));
+    c.addEventListener('pointerleave', cacherBulle);
+    svg.append(c);
+  });
+  return h('div', { class: 'graphique' }, h('div', { class: 'titre-graphique' }, titre), svg);
+}

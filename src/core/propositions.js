@@ -40,7 +40,7 @@ export const minutesPlanche = (d, p) => Math.max(2, Math.round((p.colonnes * (p.
  * savoir si elle a été faite aujourd'hui (session « planches » avec reglages.proposition).
  * @param {Array<{cle}>} difficiles  gestes en difficulté (erreurs avérées), voir motifsEnDifficulte
  */
-export function planchesPossibles(d, difficiles = []) {
+export function planchesPossibles(d, difficiles = [], date = null) {
   if (!estValide(d, 'p1-3') && !d.reglages?.decouverte) return [];
   const ch = chiffresAppris(d);
   const liste = [];
@@ -51,7 +51,8 @@ export function planchesPossibles(d, difficiles = []) {
   }
   const lents = gestesLents(d, 2);
   for (const [k, lent] of lents.entries()) {
-    const suivant = NIVEAUX[lent.ev.index + 1]?.temps?.addsub;
+    // La cible : le premier palier de vitesse AU-DESSUS de la vitesse actuelle (jamais en dessous).
+    const suivant = NIVEAUX.filter((n) => n.temps && n.temps.addsub < lent.ev.temps).map((n) => n.temps.addsub).sort((a, b) => b - a)[0];
     const quel = k === 0 ? 'votre geste le plus lent' : 'un de vos gestes les plus lents';
     liste.push({ id: `automatiser:${lent.cle}`, but: 'Automatiser', titre: `Planche « ${nomMotif(lent.cle)} »`, cible: lent.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
       objectif: suivant ? `Automatiser ${quel} : viser ${cpm(suivant)} CPM (vous êtes à ${cpm(lent.ev.temps)}).` : `Automatiser ${quel} (${cpm(lent.ev.temps)} CPM) : un rythme égal, sans réfléchir.` });
@@ -72,7 +73,15 @@ export function planchesPossibles(d, difficiles = []) {
   }
   liste.push({ id: 'vitesse', but: 'Vitesse', titre: 'Planche courte et rapide', cible: 'appris', chiffres: Math.max(1, ch - 1), lignes: 4, colonnes: 10,
     objectif: 'Vitesse : des colonnes courtes avec moins de chiffres, le plus vite possible sans erreur.' });
-  return liste.map((p) => ({ ...p, minutes: minutesPlanche(d, p) }));
+  // Varier : une planche ciblée (un geste), puis une mélangée, en alternance ; le jour décide par
+  // laquelle on commence. Bien faire un geste seul ne suffit pas, il faut le refaire au milieu des autres.
+  const melangees = new Set(['consolider', 'endurance', 'cran', 'vitesse']);
+  const ciblees = liste.filter((p) => !melangees.has(p.id));
+  const autres = liste.filter((p) => melangees.has(p.id));
+  const [a, b] = jourNum(date ?? '2026-01-01') % 2 ? [autres, ciblees] : [ciblees, autres];
+  const alterne = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) alterne.push(a[i]); if (b[i]) alterne.push(b[i]); }
+  return alterne.map((p) => ({ ...p, minutes: minutesPlanche(d, p) }));
 }
 
 const planchesFaites = (d, date) => new Set(sessionsDu(d, date).filter((s) => s.module === 'planches').map((s) => s.reglages?.proposition).filter(Boolean));
@@ -87,7 +96,7 @@ const versPlanche = (p) => ({
 export function prochainesPlanches(d, date, difficiles = [], n = 1, exclure = []) {
   const faites = planchesFaites(d, date);
   // Pas deux fois le même geste dans la séance (la priorité du jour le travaille déjà).
-  const restantes = planchesPossibles(d, difficiles).filter((p) => !faites.has(p.id) && !exclure.includes(p.cible));
+  const restantes = planchesPossibles(d, difficiles, date).filter((p) => !faites.has(p.id) && !exclure.includes(p.cible));
   return restantes.slice(0, n).map(versPlanche);
 }
 

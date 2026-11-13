@@ -53,9 +53,26 @@ export const suivante = (sp) => SOUS_PALIERS.slice(sp.ordre + 1).find((x) => x.m
  */
 export function estDebloque(sp) {
   if (reglagesUtilisateur().decouverte) return true;
+  if (etatPalier(sp.id).valide) return true; // une leçon validée reste toujours ouverte
   if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return false;
+  // Piste anzan : pas une chaîne. Chaque leçon attend sa leçon soroban et UNE leçon d'anzan qui
+  // la prépare vraiment (et non la précédente de la liste).
+  if (sp.mental) { const b = BASE_ANZAN[sp.id]; return !b || !!etatPalier(b).valide; }
   const p = precedente(sp);
   return !p || !!etatPalier(p.id).valide;
+}
+
+/** Piste anzan : la leçon d'anzan qui prépare chacune (aucune : seule la leçon soroban compte). */
+export const BASE_ANZAN = {
+  'pa-1': 'pa-0', 'pa-2': 'pa-1', 'pa-3': 'pa-2', 'p1-a': 'pa-1', 'pa-6': 'p1-a', 'p2-a': 'p1-a', 'p3-a': 'p2-a', 'p4-a': 'p3-a',
+  'pa-5': 'p2-a', 'p5-a': 'pa-6', 'pa-m1': 'pa-0', 'pa-m2': 'pa-m1', 'pa-d1': 'pa-m1', 'pa-7': 'p5-a', 'pa-8': 'pa-7', 'pa-m3': 'pa-m2', 'pa-d2': 'pa-d1',
+};
+
+/** Pourquoi une leçon est fermée, en clair. */
+export function raisonVerrou(sp) {
+  if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return `après « ${sousPalier(sp.apres).titre} » au soroban`;
+  const b = sp.mental ? BASE_ANZAN[sp.id] : precedente(sp)?.id;
+  return b ? `après « ${sousPalier(b).titre} »` : 'Verrouillé';
 }
 
 /** Premier sous-palier du parcours soroban non validé et accessible (pour les suggestions). */
@@ -105,11 +122,12 @@ export default {
     function carte() {
       // Piste anzan seule (carte « Anzan et visualisation » d'Apprendre), ou tout le parcours.
       if (piste === 'anzan') {
+        const ouverte = prochainAnzan();
         const prochain = SOUS_PALIERS.find((sp) => sp.mental && !etatPalier(sp.id).valide);
         el.append(h('h1', {}, 'Anzan et visualisation'),
-          h('p', {}, prochain && !estDebloque(prochain) && prochain.apres
-            ? `Prochaine leçon d'anzan : « ${prochain.titre} », qui s'ouvrira quand « ${sousPalier(prochain.apres).titre} » sera validée sur le vrai soroban. En attendant, revoyez les leçons faites ou entraînez-vous librement en flash anzan.`
-            : 'La piste du calcul de tête, à son rythme, en parallèle du soroban.'),
+          h('p', {}, ouverte ? `À faire maintenant : « ${ouverte.titre} ». La piste du calcul de tête, à son rythme, en parallèle du soroban.`
+            : prochain ? `Prochaine leçon d'anzan : « ${prochain.titre} », ${raisonVerrou(prochain)}. En attendant, entraînez-vous en flash anzan : il ne propose que les gestes que vous connaissez.`
+              : 'La piste du calcul de tête est terminée : entretenez-la en flash anzan.'),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn', onclick: () => app.aller('anzan') }, 'Flash anzan libre'),
             h('button', { class: 'lien', onclick: () => { piste = null; changer(carte); } }, 'Voir tout le parcours →')));
@@ -132,7 +150,7 @@ export default {
           if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = sp.quiz ? 'Compris' : 'Lu'; }
           else if (e.valide) { icone = '✓'; statut = e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
-          else if (!ouvert) { icone = '·'; statut = sp.mental && sp.apres && !etatPalier(sp.apres).valide ? `après « ${sousPalier(sp.apres).titre} »` : 'Verrouillé'; }
+          else if (!ouvert) { icone = '·'; statut = raisonVerrou(sp); }
           else if (e.reps >= sp.repetitions || e.coupeFile) { icone = '●'; statut = e.coupeFile && e.reps < sp.repetitions ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
           else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
           return h('button', {

@@ -71,25 +71,24 @@ test('planches : additions seules, format d\'examen, négatifs, décimaux, 10 ch
 /** Historique de `n` essais justes à `t` secondes par chiffre. */
 const hist = (t, n = 20) => Array.from({ length: n }, () => ({ ok: 1, t }));
 
-test('prof : l\'avant-dernière leçon doit être confirmée, 7 jours d\'ancrage au plus', () => {
+test('prof : la dernière leçon doit être en or ; en argent on automatise, 10 jours de pratique au plus', () => {
   const prochain = sousPalier('p2-3');
-  const base = (tAvant, sessions) => ({
+  const base = (tDerniere, sessions) => ({
     sessions,
-    paliers: { 'p2-1': { valide: '2026-03-01', hist: hist(tAvant) }, 'p2-2': { valide: '2026-03-02', hist: hist(2.5) } },
+    paliers: { 'p2-1': { valide: '2026-03-01', hist: hist(2.5) }, 'p2-2': { valide: '2026-03-02', hist: hist(tDerniere) } },
   });
   const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-03-${String(3 + i).padStart(2, '0')}`, total: 10, justes: 10 }));
-  // Avant-dernière confirmée (1,2 s par chiffre) : on avance.
+  // Dernière leçon en or (1,2 s par chiffre) : on avance.
   assert.equal(decisionDuJour(base(1.2, jours(1)), '2026-03-04', prochain).type, 'lecon');
-  // Débutant seulement (2,5 s) : on ancre…
+  // En argent (2,5 s) : on automatise…
   const d = decisionDuJour(base(2.5, jours(2)), '2026-03-05', prochain);
-  assert.equal(d.type, 'ancrage');
-  assert.equal(d.sp.id, 'p2-1');
-  // … mais pas au-delà de 7 jours de pratique : la leçon s'ouvre.
-  assert.equal(decisionDuJour(base(2.5, jours(JOURS_ANCRAGE_MAX)), '2026-03-10', prochain).type, 'lecon');
-  // La dernière leçon sous le niveau débutant bloque toujours, même après 7 jours.
-  const lent = base(1.2, jours(JOURS_ANCRAGE_MAX));
-  lent.paliers['p2-2'].hist = hist(4);
-  assert.equal(decisionDuJour(lent, '2026-03-10', prochain).type, 'ancrage');
+  assert.equal(d.type, 'automatiser');
+  assert.equal(d.sp.id, 'p2-2');
+  assert.equal(JOURS_ANCRAGE_MAX, 10);
+  // … mais pas au-delà de 10 jours de pratique : la leçon s'ouvre.
+  assert.equal(decisionDuJour(base(2.5, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain).type, 'lecon');
+  // Sous l'argent, la leçon suivante attend toujours.
+  assert.equal(decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain).type, 'automatiser');
 });
 
 test('examen de la semaine adapté au niveau', () => {
@@ -302,21 +301,21 @@ test('marches 2 × 2 et division par 2 chiffres ; divisions avec reste ; pyramid
   assert.deepEqual(paliersPyramide('lignes', { chiffres: 2, lignes: 10, colonnes: 10, depart: 5 }).map((p) => p.lignes), [5, 6, 8, 9, 10]);
 });
 
-test('prof : des gestes passés en or ailleurs valent une avant-dernière leçon confirmée', async () => {
+test('prof : des gestes passés en or ailleurs valent une leçon en or', async () => {
   const { decisionDuJour: decision, niveauLecon } = await import('../src/core/prof.js');
   const h = (t, n = 20) => Array.from({ length: n }, () => ({ ok: 1, t }));
   const prochain = sousPalier('p2-3');
   const d = {
     sessions: [{ date: '2026-03-03', total: 10, justes: 10 }],
-    paliers: { 'p2-1': { valide: '2026-03-01', hist: h(2.5) }, 'p2-2': { valide: '2026-03-02', hist: h(2.5) } },
+    paliers: { 'p2-1': { valide: '2026-03-01', hist: h(1) }, 'p2-2': { valide: '2026-03-02', hist: h(2.5) } },
     motifs: {},
   };
-  assert.equal(decision(d, '2026-03-04', prochain).type, 'ancrage'); // leçon au niveau débutant seulement
-  // Les deux gestes de « +4 et +3 » sont confirmés sur la carte de maîtrise : la leçon suivante s'ouvre.
-  for (const c of sousPalier('p2-1').cibles) d.motifs[c] = { hist: h(1.2) };
-  assert.equal(niveauLecon(d, sousPalier('p2-1')).index, 3);
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'automatiser'); // dernière leçon en argent seulement
+  // Les gestes de la dernière leçon sont confirmés sur la carte de maîtrise : la leçon suivante s'ouvre.
+  for (const c of sousPalier('p2-2').cibles) d.motifs[c] = { hist: h(1.2) };
+  assert.equal(niveauLecon(d, sousPalier('p2-2')).index, 3);
   assert.equal(decision(d, '2026-03-04', prochain).type, 'lecon');
-  // Un seul des deux gestes en or ne suffit pas.
-  d.motifs[sousPalier('p2-1').cibles[0]] = { hist: h(2.5) };
-  assert.equal(decision(d, '2026-03-04', prochain).type, 'ancrage');
+  // Un seul geste en or ne suffit pas.
+  d.motifs[sousPalier('p2-2').cibles[0]] = { hist: h(2.5) };
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'automatiser');
 });

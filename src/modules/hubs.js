@@ -17,6 +17,8 @@ import { recordJeu, JEUX } from './jeux.js';
 import { h } from '../ui/dom.js';
 import { manquantesActivite, PREREQUIS_ACTIVITES } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
+import { frisePiste } from '../ui/frise.js';
+import { SOUS_PALIERS } from '../core/curriculum.js';
 
 const bits = (m) => [1, 2, 4].filter((b) => m & b).length;
 
@@ -75,7 +77,14 @@ function page(id, titre, intro, badge = null) {
     section: true,
     badge,
     monter(el, app) {
-      el.append(h('h1', {}, titre), h('p', { class: 'discret chapeau' }, intro),
+      el.append(h('h1', {}, titre), h('p', { class: 'discret chapeau' }, intro));
+      if (id === 'apprendre') {
+        const d = progression();
+        const prochain = prochainSousPalier();
+        const apres = prochain ? SOUS_PALIERS.filter((sp) => !sp.mental && sp.ordre > prochain.ordre && sp.type !== 'theorie' && !d.paliers[sp.id]?.valide).slice(0, 2) : [];
+        el.append(frisePiste(d, { prochain, anzan: prochainAnzan(), apres }));
+      }
+      el.append(
         // Cartes groupées par section (titre de groupe) quand elles en ont une.
         ...[...new Set(CARTES[id].map((c) => c.groupe ?? ''))].flatMap((g) => [
           g ? h('h2', { class: 'groupe-cartes' }, g) : null,

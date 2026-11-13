@@ -28,7 +28,7 @@ export default {
   id: 'revisions',
   titre: 'Révisions du jour',
   badge: () => revisionsDues().length,
-  monter(el, app) {
+  monter(el, app, params = {}) {
     let serie = null;
 
     function liste() {
@@ -51,6 +51,8 @@ export default {
             h('span', { class: 'titre' }, sp.titre, h('span', { class: 'discret' }, ` · ${sp.palier.titre}`)),
             h('span', { class: 'statut' }, `Boîte ${c.boite}${retard > 0 ? ` · en retard de ${retard} j` : ''} · Test flash →`));
         })));
+        const m = melangeables();
+        if (m.length > 1) el.append(h('button', { class: 'btn principal', style: 'margin-top:8px', onclick: () => melange(m) }, `Révision mélangée : ${m.length} leçons, ${FLASH.exercices} calculs`));
       } else {
         el.append(h('div', { class: 'carte' }, 'Rien à réviser aujourd\'hui.'));
       }
@@ -133,6 +135,38 @@ export default {
       });
     }
 
+    /**
+     * Révision mélangée : 10 calculs qui alternent les leçons dues (les plus en retard d'abord,
+     * 5 au plus). Il faut choisir le bon geste à chaque calcul. Chaque leçon garde sa boîte :
+     * elle monte si tous ses calculs sont justes (une erreur tolérée à partir de 4 calculs).
+     */
+    function melange(sps) {
+      const ordre = Array.from({ length: FLASH.exercices }, (_, i) => sps[i % sps.length]);
+      for (let i = ordre.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ordre[i], ordre[j]] = [ordre[j], ordre[i]]; }
+      let k = 0;
+      lancerSerie({
+        titre: 'Révision mélangée',
+        sousTitre: `${FLASH.exercices} calculs sur votre soroban, mélangés : ${sps.map((x) => `« ${x.titre} »`).join(', ')}. Chaque leçon garde sa boîte de révision.`,
+        generer: () => { const sp = ordre[k++ % ordre.length]; return { ...genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])), revision: sp.id }; },
+        apresBilan: async (b) => {
+          const premiers = new Map();
+          for (const r of b.resultats) if (!premiers.has(r.ex)) premiers.set(r.ex, r.juste);
+          const lignes = [];
+          for (const sp of sps) {
+            const res = [...premiers].filter(([ex]) => ex.revision === sp.id).map(([, j]) => j);
+            if (!res.length) continue;
+            const fautes = res.filter((j) => !j).length;
+            const reussi = fautes === 0 || (res.length >= 4 && fautes <= 1);
+            await enregistrerRevision(sp.id, reussi);
+            const c = etatPalier(sp.id).carte;
+            lignes.push(`${sp.titre} : ${res.length - fautes} / ${res.length}, ${reussi ? `boîte ${c.boite}` : `redescend en boîte ${c.boite}`}`);
+          }
+          await enregistrerSession({ module: 'revisions', mode: 'melange', reglages: { lecons: sps.map((x) => x.id) }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          return lignes.join(' · ');
+        },
+      });
+    }
+
     function cible(cles) {
       // Uniquement les gestes directs et les points faibles : on répète exactement ce qui pose problème.
       const autorises = new Set([...famille('direct'), ...cles]);
@@ -148,7 +182,10 @@ export default {
       });
     }
 
-    liste();
+    const melangeables = () => revisionsDues().map(sousPalier).filter((sp) => sp && !['placement', 'lire', 'complement', 'theorie', 'photo', 'tenir'].includes(sp.type))
+      .sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance)).slice(0, 5);
+    if (params.melange && melangeables().length > 1) melange(melangeables());
+    else liste();
     return () => serie?.detruire();
   },
 };

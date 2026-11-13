@@ -67,10 +67,12 @@ export default {
     for (const k of ['chiffres', 'termes', 'questions']) if (params[k]) reglages[k] = params[k];
     if (params.duree) reglages.duree = DUREES.reduce((a, b) => (Math.abs(b - params.duree) < Math.abs(a - params.duree) ? b : a));
     if (params.mode) reglages.mode = params.mode;
+    // Marche de l'anzan du jour (séance) : gardée dans la série, pour monter ou redescendre.
+    reglages.palierAnzan = params.palierAnzan ?? null;
     let actif = true;
     let nettoyerMode = null;
     const select = (cle, options, conv = Number) => {
-      const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); afficherReglages(); } }, options.map(([v, t]) => h('option', { value: v }, t)));
+      const s = h('select', { onchange: (e) => { reglages[cle] = conv(e.target.value); reglages.palierAnzan = null; afficherReglages(); } }, options.map(([v, t]) => h('option', { value: v }, t)));
       s.value = String(reglages[cle]);
       return s;
     };

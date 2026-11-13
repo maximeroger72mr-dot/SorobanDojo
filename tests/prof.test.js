@@ -40,7 +40,7 @@ test('le prof : on termine une leçon commencée, on ancre ce qui n\'est pas acq
   // Pas acquise (trop lente) : ancrage sur ses gestes.
   d.paliers['p2-1'].hist = Array.from({ length: 20 }, () => ({ ok: 1, t: 5 }));
   const a = decisionDuJour(d, '2026-11-04', prochain);
-  assert.equal(a.type, 'ancrage');
+  assert.equal(a.type, 'automatiser');
   assert.deepEqual(a.aller[1].cibles, sousPalier('p2-1').cibles);
   // Leçon déjà commencée : on la termine, même si la précédente n'est pas acquise.
   d.paliers['p2-2'] = { reps: 5, hist: [] };
@@ -52,8 +52,13 @@ test('le prof : on termine une leçon commencée, on ancre ce qui n\'est pas acq
   assert.equal(decisionDuJour(d, '2026-11-08', prochain).titre, 'Reprise en douceur');
   // Jeu du jour et mot du prof.
   assert.ok(jeuDuJour(d, '2026-11-04').titre);
-  const mot = motDuProf(d, '2026-11-04', decisionDuJour(d, '2026-11-04', prochain), 40, 15);
-  assert.ok(mot.some((p) => p.includes('90 %')) && mot.some((p) => p.includes('40 min')), mot.join(' | '));
+  const mot = motDuProf(d, '2026-11-04', decisionDuJour(d, '2026-11-04', prochain), {});
+  assert.ok(mot.some((p) => p.includes('90 %')) && mot.some((p) => p.startsWith('Le conseil du jour')), mot.join(' | '));
+  // Leçon en argent : le prof dit ce qui manque pour l'or.
+  d.paliers['p2-1'].hist = Array.from({ length: 20 }, () => ({ ok: 1, t: 2.5 }));
+  const auto = decisionDuJour(d, '2026-11-04', prochain);
+  assert.equal(auto.type, 'automatiser');
+  assert.ok(motDuProf(d, '2026-11-04', auto, {}).some((p) => p.includes('Pour l\'or') && p.includes('24 CPM au lieu de 40')));
 });
 
 import { planObjectif } from '../src/core/parcours.js';
@@ -79,8 +84,9 @@ test('grade : les deux échelles, et le nombre de points conseillés suit l\'ess
   const l = libelleGrade(d);
   assert.equal(l.valeur, '18e kyū prép.');
   assert.match(l.detail, /Prochain grade officiel : 10e kyū/);
-  const dec = { raison: 'On avance.' };
-  const deux = motDuProf(d, '2026-11-04', dec, 30, 15, 2);
-  assert.ok(deux.some((p) => p.includes('les deux premiers points')) && !deux.some((p) => p.includes('trois')));
-  assert.ok(!motDuProf(d, '2026-11-04', dec, 30, 15, 1).some((p) => p.includes('premier')));
+  // Le mot du prof commence par le thème du jour, et ne parle plus de « points » : la séance tient dans l'objectif.
+  const dec = { type: 'lecon', raison: 'On avance.' };
+  const mot = motDuProf(d, '2026-11-04', dec, { theme: 'Aujourd\'hui : une nouvelle leçon.' });
+  assert.equal(mot[0], 'Aujourd\'hui : une nouvelle leçon.');
+  assert.ok(!mot.some((p) => p.includes('premiers points')));
 });
