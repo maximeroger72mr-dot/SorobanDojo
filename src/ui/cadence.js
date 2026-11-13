@@ -28,6 +28,7 @@ function jusqua(t) {
  * Fait défiler `nombre` éléments à cadence fixe.
  * @param {object} o
  * @param {number} o.periodeMs      durée totale par élément
+ * @param {number[]} [o.periodesMs] durée de CHAQUE élément (profil de vitesse) ; remplace periodeMs
  * @param {number} o.nombre
  * @param {number} [o.partVisible=0.85]  part de la période pendant laquelle l'élément est affiché
  * @param {(i:number) => void} o.surAfficher
@@ -35,7 +36,8 @@ function jusqua(t) {
  * @param {() => boolean} [o.interrompu]  renvoie true pour arrêter
  * @returns {Promise<{ fini:boolean, ecartMaxMs:number }>}  écart le plus grand entre une échéance et son affichage réel
  */
-export async function cadencer({ periodeMs, nombre, partVisible = 0.85, surAfficher, surMasquer, interrompu = () => false }) {
+export async function cadencer({ periodeMs, periodesMs = null, nombre, partVisible = 0.85, surAfficher, surMasquer, interrompu = () => false }) {
+  if (periodesMs) return cadencerProfil({ periodesMs, partVisible, surAfficher, surMasquer, interrompu });
   const depart = horloge();
   let ecartMaxMs = 0;
   for (let i = 0; i < nombre; i++) {
@@ -82,4 +84,45 @@ export async function decompteFlash(ecran, pasMs = 400, interrompu = () => false
   }
   ecran.classList.remove('decompte');
   ecran.textContent = '';
+}
+
+/** Même principe, avec une durée propre à chaque élément (échéances cumulées depuis le départ). */
+async function cadencerProfil({ periodesMs, partVisible, surAfficher, surMasquer, interrompu }) {
+  const depart = horloge();
+  let ecartMaxMs = 0;
+  let debut = 0;
+  for (let i = 0; i < periodesMs.length; i++) {
+    await jusqua(depart + debut);
+    if (interrompu()) return { fini: false, ecartMaxMs };
+    ecartMaxMs = Math.max(ecartMaxMs, horloge() - (depart + debut));
+    surAfficher(i);
+    await jusqua(depart + debut + partVisible * periodesMs[i]);
+    if (interrompu()) return { fini: false, ecartMaxMs };
+    surMasquer(i);
+    debut += periodesMs[i];
+  }
+  await jusqua(depart + debut);
+  return { fini: !interrompu(), ecartMaxMs };
+}
+
+/** Profils de vitesse d'une série : la durée totale ne change pas, seule sa répartition. */
+export const PROFILS_VITESSE = {
+  constant: 'vitesse constante',
+  accelere: 'qui accélère',
+  brusque: 'départ rapide, puis plus lent',
+  cloche: 'accélère puis ralentit',
+};
+
+/**
+ * Durée de chaque élément (ms) pour un profil : du plus lent (1,4 × la moyenne) au plus rapide
+ * (0,6 ×), normalisé pour que le total reste nombre × periodeMs.
+ */
+export function periodesProfil(profil, nombre, periodeMs) {
+  if (!PROFILS_VITESSE[profil] || profil === 'constant' || nombre < 2) return Array(nombre).fill(periodeMs);
+  const x = (i) => i / (nombre - 1); // 0 au premier, 1 au dernier
+  const poids = Array.from({ length: nombre }, (_, i) => (profil === 'accelere' ? 1.4 - 0.8 * x(i)
+    : profil === 'brusque' ? 0.6 + 0.8 * x(i)
+      : 0.6 + 0.8 * Math.abs(2 * x(i) - 1)));
+  const somme = poids.reduce((t, w) => t + w, 0);
+  return poids.map((w) => (w * nombre * periodeMs) / somme);
 }

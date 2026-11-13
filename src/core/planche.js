@@ -203,7 +203,8 @@ export function genererPlancheSpeciale(spec, graine) {
     const une = (k) => {
       if (genre === 'negatifs') return genererMitoriNegatif({ lignes: Math.max(2, lignes), min: chiffres, max: chiffres });
       if (genre === 'decimaux') return genererColonneDecimale(lignes, Math.max(2, Math.min(6, chiffres)), 2);
-      return genererMitori(k < Math.round(nb * 0.6) ? { ...fixe, soustractions: false } : fixe);
+      // Format d'examen : d'abord les additions seules, puis les colonnes mêlées (2 sur 5 par défaut).
+      return genererMitori(k < Math.round(nb * (1 - (spec.partMoins ?? 0.4))) ? { ...fixe, soustractions: false } : fixe);
     };
     const cols = [];
     const sigs = new Set();
@@ -217,4 +218,21 @@ export function genererPlancheSpeciale(spec, graine) {
     if (cols.length < nb) throw new ErreurGeneration('pas assez de colonnes différentes');
     return { graine, code: codeDepuisGraine(graine), colonnes: cols, bilan: null, speciale: true };
   });
+}
+
+/**
+ * Pyramide : la planche monte en trois paliers jusqu'au réglage choisi, en chiffres ou en lignes
+ * (on commence court, on finit long). null : pas de pyramide, ou réglage trop petit pour monter.
+ * @param {'non'|'chiffres'|'lignes'} sorte
+ * @returns {Array<{ chiffres:number, lignes:number, colonnes:number }> | null}
+ */
+export function paliersPyramide(sorte, { chiffres, lignes, colonnes }) {
+  if (sorte !== 'chiffres' && sorte !== 'lignes') return null;
+  const tiers = Math.floor(colonnes / 3);
+  const parts = [tiers, tiers, colonnes - 2 * tiers];
+  const marches = sorte === 'chiffres'
+    ? [Math.max(1, chiffres - 2), Math.max(1, chiffres - 1), chiffres]
+    : [Math.max(3, Math.round(lignes * 0.5)), Math.max(3, Math.round(lignes * 0.75)), lignes];
+  if (marches[0] === marches[2]) return null;
+  return marches.map((m, i) => ({ chiffres: sorte === 'chiffres' ? m : chiffres, lignes: sorte === 'lignes' ? m : lignes, colonnes: parts[i] })).filter((p) => p.colonnes > 0);
 }

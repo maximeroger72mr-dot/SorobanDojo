@@ -10,7 +10,7 @@ import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', variante: 'simple' };
+const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, rang: 'millieme' };
 
 export default {
   id: 'muldiv',
@@ -18,7 +18,7 @@ export default {
   monter(el, app, params = {}) {
     let courant = null;
     // Arrivée depuis une proposition (« zéro oublié qui se répète ») : planche de zéros, lancée d'office.
-    if (params.zeros) Object.assign(reglages, { variante: 'zeros', x: Math.max(3, reglages.x), y: reglages.type === 'mul' ? reglages.y : Math.max(3, reglages.y) });
+    if (params.zeros) Object.assign(reglages, { partZeros: 1, partArrondis: 0 });
     if (params.type) reglages.type = params.type;
     const zone = h('div', {});
     const etiquettes = h('span', {});
@@ -42,23 +42,27 @@ export default {
     modeSel.value = reglages.mode;
     const nbSel = h('select', { onchange: (e) => { reglages.nombre = Number(e.target.value); } }, [10, 20].map((n) => h('option', { value: n }, `${n} calculs`)));
     nbSel.value = String(reglages.nombre);
-    const varSel = h('select', { title: 'Nombres entiers simples, avec des zéros à l\'intérieur, ou décimaux à arrondir comme à l\'examen', onchange: (e) => { reglages.variante = e.target.value; } },
-      h('option', { value: 'simple' }, 'Entiers'), h('option', { value: 'zeros' }, 'Avec des zéros'),
-      h('option', { value: 'millieme' }, 'Arrondi au millième'), h('option', { value: 'unite' }, 'Arrondi à l\'unité'), h('option', { value: 'examen' }, 'Mélange d\'examen'));
-    varSel.value = reglages.variante;
+    // Fréquences réglables : part des calculs avec un zéro intérieur, part des calculs à arrondir.
+    const PARTS = [[0, 'jamais'], [0.25, '1 sur 4'], [0.5, '1 sur 2'], [1, 'toujours']];
+    const choix = (cle, prefixe, options, titre) => {
+      const x = h('select', { title: titre, onchange: (e) => { reglages[cle] = isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value); } }, options.map(([v, t]) => h('option', { value: v }, `${prefixe}${t}`)));
+      x.value = String(reglages[cle]);
+      return x;
+    };
+    const zerosSel = choix('partZeros', 'zéros : ', PARTS, 'Part des calculs qui contiennent un zéro à l\'intérieur (406 × 7, quotient 304)');
+    const arrondisSel = choix('partArrondis', 'arrondis : ', PARTS, 'Part des calculs en décimaux, à arrondir comme à l\'examen');
+    const rangSel = choix('rang', 'arrondi ', [['millieme', 'au millième'], ['unite', 'à l\'unité'], ['deux', 'au millième ou à l\'unité']], 'Rang de l\'arrondi demandé');
     majLibelles();
 
-    /** Un calcul, selon la variante : entier, avec zéros, arrondi, ou le mélange des trois. */
+    /** Un calcul : entier, avec un zéro intérieur, ou à arrondir, selon les fréquences choisies. */
     const generer = () => {
       const { type, x, y } = reglages;
-      let v = reglages.variante;
-      if (v === 'examen') v = ['simple', 'zeros', 'millieme', 'unite'][Math.floor(Math.random() * 4)];
-      // Un zéro intérieur demande au moins 3 chiffres (premier facteur, ou quotient).
-      const zeros = v === 'zeros';
-      if (v === 'millieme' || v === 'unite') {
-        const d = v === 'millieme' ? 3 : 0;
+      if (Math.random() < reglages.partArrondis) {
+        const d = reglages.rang === 'unite' || (reglages.rang === 'deux' && Math.random() < 0.5) ? 0 : 3;
         return type === 'mul' ? genererMultiplicationDecimale(Math.max(2, x), Math.max(2, y), d) : genererDivisionDecimale(Math.max(2, x), Math.max(2, y), d);
       }
+      // Un zéro intérieur demande au moins 3 chiffres (premier facteur, ou quotient).
+      const zeros = Math.random() < reglages.partZeros;
       return type === 'mul' ? genererMultiplication(zeros ? Math.max(3, x) : x, y, zeros) : genererDivision(x, zeros ? Math.max(3, y) : y, zeros);
     };
 
@@ -67,7 +71,7 @@ export default {
         h('ul', {},
           h('li', {}, h('strong', {}, 'Multiplication 両落とし : '), 'aucun facteur n\'est posé. On pose les produits de table sur deux tiges chacun (6 = « 06 »), en commençant par le chiffre de gauche du multiplicande multiplié par chaque chiffre du multiplicateur. Premier produit : sa dizaine sur la (m+n)-ième tige depuis les unités ; chaque produit suivant une tige plus à droite.'),
           h('li', {}, h('strong', {}, 'Division 片落とし : '), 'seul le dividende est posé. Début du dividende ≥ diviseur : chiffre du quotient deux tiges à gauche ; sinon juste à gauche. On retire ensuite quotient × chaque chiffre du diviseur, sur deux tiges, juste à droite du quotient. Unité du quotient : (chiffres du diviseur + 1) tiges à gauche de l\'unité du dividende.'))),
-      h('div', { class: 'reglages' }, typeSel, etiquettes, varSel, nbSel, modeSel,
+      h('div', { class: 'reglages' }, typeSel, etiquettes, zerosSel, arrondisSel, rangSel, nbSel, modeSel,
         h('button', { class: 'btn', onclick: () => ouvrirExplication(generer()) }, 'Voir un exemple'),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer')),
       zone);

@@ -88,6 +88,56 @@ export function genererDivision(nd, nq, zeros = false) {
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };
 }
 
+// ------------------------------------------------------------------ marches (micro-étapes)
+
+/**
+ * Marches de la multiplication « 2 chiffres × 1 chiffre » (a = 10x + y, fois c) : deux produits
+ * de table, x × c puis y × c posé une tige plus à droite. Chaque marche isole UNE difficulté.
+ *  - mul-direct  : deux produits à 2 chiffres, qui s'ajoutent sans retenue ;
+ *  - mul-retenue : deux produits à 2 chiffres, dont l'addition fait une retenue ;
+ *  - mul-court   : un produit à un seul chiffre (« 06 » : sa tige des dizaines reste vide) ;
+ *  - mul-zero    : un produit qui finit par 0 (5 × 4 = 20) : une tige à laisser vide.
+ */
+export const MARCHES_MUL = {
+  'mul-direct': (x, y, c) => x * c >= 10 && y * c >= 10 && (y * c) % 10 !== 0 && (x * c) % 10 !== 0 && ((x * c) % 10) + Math.floor((y * c) / 10) <= 9,
+  'mul-retenue': (x, y, c) => x * c >= 10 && y * c >= 10 && (y * c) % 10 !== 0 && ((x * c) % 10) + Math.floor((y * c) / 10) >= 10,
+  'mul-court': (x, y, c) => (x * c < 10 || y * c < 10) && (y * c) % 10 !== 0 && (x * c) % 10 !== 0,
+  'mul-zero': (x, y, c) => (x * c) % 10 === 0 || (y * c) % 10 === 0,
+};
+
+/**
+ * Marches de la division « ÷ 1 chiffre, quotient à 2 chiffres » (a = b × q, q = 10u + v) : on
+ * retire u × b, puis v × b une tige plus à droite.
+ *  - div-court   : les deux produits à retirer n'ont qu'un chiffre (84 ÷ 4) ;
+ *  - div-direct  : deux produits à 2 chiffres, retirés sans emprunt (252 ÷ 7) ;
+ *  - div-emprunt : le premier produit se retire avec un emprunt (216 ÷ 8 : 21 − 16) ;
+ *  - div-zero    : le dividende finit par 0 (150 ÷ 6) : le dernier produit finit par 0.
+ */
+export const MARCHES_DIV = {
+  'div-court': (b, u, v) => u * b < 10 && v * b < 10,
+  'div-direct': (b, u, v) => u * b >= 10 && v * b >= 10 && (v * b) % 10 !== 0 && Math.floor((b * (10 * u + v)) / 10) % 10 >= (u * b) % 10,
+  'div-emprunt': (b, u, v) => u * b >= 10 && (v * b) % 10 !== 0 && Math.floor((b * (10 * u + v)) / 10) % 10 < (u * b) % 10,
+  'div-zero': (b, u, v) => (v * b) % 10 === 0,
+};
+
+/** Un exercice d'une marche (tous les cas possibles, tirés au hasard ; jamais deux fois de suite le même). */
+const dernierMarche = {};
+export function genererMarche(marche) {
+  const mul = MARCHES_MUL[marche];
+  const div = MARCHES_DIV[marche];
+  if (!mul && !div) return null;
+  const cas = [];
+  for (let p = 1; p <= 9; p++) for (let q = 1; q <= 9; q++) for (let r = 2; r <= 9; r++) {
+    if (mul ? mul(p, q, r) : div(r, p, q)) cas.push([p, q, r]);
+  }
+  let c;
+  do { c = cas[entier(0, cas.length - 1)]; } while (cas.length > 1 && c.join() === dernierMarche[marche]);
+  dernierMarche[marche] = c.join();
+  if (mul) { const a = 10 * c[0] + c[1]; return { type: 'mul', a, b: c[2], resultat: a * c[2] }; }
+  const q = 10 * c[0] + c[1];
+  return { type: 'div', a: c[2] * q, b: c[2], resultat: q };
+}
+
 // ------------------------------------------------------------------ placement (réflexe de position)
 
 /**

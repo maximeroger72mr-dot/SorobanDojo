@@ -53,9 +53,9 @@ export function motifsAppris(d) {
  * ÷ 1 chiffre ; 7e : × 2×2 ; 6e : × 3×2, ÷ 2 chiffres).
  */
 const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
-const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1'];
+const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1a', 'p6-1b', 'p6-1c', 'p6-1d', 'p6-1'];
 const K9 = [...K10]; // même contenu que le 10e kyū (avec soustractions), seuil plus haut
-const K8 = [...K9, 'p6-2', 'p7-0', 'p7-1', 'p7-2']; // 3 × 1, ÷ 1 chiffre
+const K8 = [...K9, 'p6-2', 'p7-0', 'p7-1', 'p7-2a', 'p7-2b', 'p7-2c', 'p7-2d', 'p7-2']; // 3 × 1, ÷ 1 chiffre
 const K7 = [...K8, 'p6-3']; // 2 × 2
 // 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
 // était exigé dès le 6e kyū, décimaux et division par 3 chiffres compris).

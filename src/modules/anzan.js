@@ -28,10 +28,19 @@ import { SorobanVue } from '../ui/sorobanVue.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, periodeGrade, libelleGradeFlash, meilleurGradeFlash, prochainGradeFlash } from '../core/flashGrades.js';
-import { cadencer, afficherNombreFlash, decompteFlash } from '../ui/cadence.js';
+import { cadencer, afficherNombreFlash, decompteFlash, PROFILS_VITESSE, periodesProfil } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
+/** Vitesse automatique : après chaque réponse, la durée par nombre change de ce facteur. */
+const PLUS_VITE = 0.95;
+const MOINS_VITE = 1.1;
+const DUREE_MIN = 0.25;
+const DUREE_MAX = 4;
+/** Après une erreur : reprises permises du même calcul, et ralentissement de « plus lentement ». */
+const REPRISES_MAX = 2;
+const RALENTI = 1.4;
+
+const reglages = { profil: 'constant', auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
 const IMAGES = [[1, 'image nette'], [0.5, 'image estompée'], [0.2, 'image légère']];
@@ -94,9 +103,10 @@ export default {
         elements.push(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
           select('termes', [3, 4, 5, 7, 10, 15].map((n) => [n, `${n} nombres`])));
         if (reglages.mode !== 'mitori') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s par nombre`])));
+        if (['flash', 'image', 'tapis'].includes(reglages.mode)) elements.push(select('profil', Object.entries(PROFILS_VITESSE), String));
         if (reglages.mode !== 'mitori') {
           const coche = (cle, texte, titre) => h('label', { title: titre }, h('input', { type: 'checkbox', checked: reglages[cle], onchange: (e) => { reglages[cle] = e.target.checked; } }), ` ${texte}`);
-          elements.push(coche('auto', 'vitesse automatique', 'Une série sans faute : la suivante va un cran plus vite. Trop d\'erreurs : un cran moins vite. La vitesse est gardée pour chaque réglage.'),
+          elements.push(coche('auto', 'vitesse automatique', 'Tant que les réponses sont justes, chaque calcul va un peu plus vite que le précédent ; une erreur, et le suivant ralentit. La vitesse atteinte est gardée pour chaque réglage.'),
             coche('distractVisuel', 'distracteurs visuels', 'De petites formes discrètes se promènent sur l\'écran pendant le calcul : l\'image du soroban doit tenir malgré elles.'),
             coche('distractVoix', 'voix parasite', 'Une voix lit d\'autres nombres, au rythme du flash : à ne pas écouter.'));
         }
@@ -146,7 +156,7 @@ export default {
       if (r.mode !== 'grade' && r.auto) {
         r.cleVitesse = `${r.mode}-${r.chiffres}-${r.termes}`;
         const gardee = reglagesUtilisateur().flashDurees?.[r.cleVitesse];
-        if (gardee && DUREES.includes(gardee)) r.duree = gardee;
+        if (gardee >= DUREE_MIN && gardee <= DUREE_MAX) r.duree = gardee;
       }
       nettoyerMode = flash(r);
     }
@@ -170,7 +180,16 @@ export default {
       ecran.classList.add('centre');
       if (r.mode !== 'image') ecran.classList.add('pur');
       if (r.mode === 'tapis') ecran.classList.add('tapis');
-      const info = h('p', { class: 'discret', style: 'margin:0' }, r.gradeFlash ? '' : `${r.duree.toLocaleString('fr-FR')} s par nombre${r.cleVitesse ? ' (vitesse automatique)' : ''}`);
+      const sec2 = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+      const info = h('p', { class: 'discret', style: 'margin:0' });
+      const majInfo = () => { info.textContent = r.gradeFlash ? '' : `${sec2(r.duree)} s par nombre${r.cleVitesse ? ' (vitesse automatique)' : ''}${r.profil && r.profil !== 'constant' && ['flash', 'image', 'tapis'].includes(r.mode) ? ` · ${PROFILS_VITESSE[r.profil]}` : ''}`; };
+      majInfo();
+      // Reprise du même calcul après une erreur : { duree } (null : calcul nouveau).
+      let reprise = null;
+      let reprises = 0;
+      /** Durée par nombre du calcul en cours (ralentie pendant une reprise « plus lentement »). */
+      const dureeCourante = () => reprise?.duree ?? r.duree;
+      const periodes = () => periodesProfil(['flash', 'image', 'tapis'].includes(r.mode) ? r.profil : 'constant', question.lignes.length, dureeCourante() * 1000);
       // Distracteurs visuels : des « mouches », petites formes discrètes qui se promènent au hasard
       // sur tout l'écran (moins agressif que des éclats lumineux, et plus difficile à ignorer).
       const eclats = h('div', { class: 'distracteurs', 'aria-hidden': 'true' });
@@ -220,7 +239,7 @@ export default {
         majBouton('');
         saisie.style.display = 'none';
         remplir(retour);
-        question = colonne(r.chiffres, r.termes, r.soustractions);
+        if (!reprise) { question = colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
         zone.classList.add('flash-en-cours');
         ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
         await decompteFlash(ecran, 400, arrete);
@@ -246,8 +265,7 @@ export default {
         const totaux = sousTotaux(question.lignes);
         // Cadence calée sur l'horloge : pas de dérive, même à 0,3 s par nombre.
         const { fini } = await cadencer({
-          periodeMs: r.duree * 1000,
-          nombre: question.lignes.length,
+          periodesMs: periodes(),
           interrompu: arrete,
           surAfficher: (k) => {
             const l = question.lignes[k];
@@ -276,10 +294,9 @@ export default {
        */
       async function tapis() {
         remplir(ecran);
-        const traversee = Math.max(1.8, r.duree * 2.6); // secondes pour traverser l'écran
+        const traversee = Math.max(1.8, dureeCourante() * 2.6); // secondes pour traverser l'écran
         const { fini } = await cadencer({
-          periodeMs: r.duree * 1000,
-          nombre: question.lignes.length,
+          periodesMs: periodes(),
           partVisible: 1,
           interrompu: arrete,
           surAfficher: (k) => {
@@ -296,7 +313,7 @@ export default {
           surMasquer: () => {},
         });
         if (!fini) return false;
-        await attendre(Math.max(0, (traversee - r.duree) * 1000)); // le dernier nombre finit de sortir
+        await attendre(Math.max(0, (traversee - dureeCourante()) * 1000)); // le dernier nombre finit de sortir
         remplir(ecran);
         return !arrete();
       }
@@ -316,7 +333,7 @@ export default {
         remplir(ecran, pile);
         ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
         const { fini } = await cadencer({
-          periodeMs: r.duree * 1000,
+          periodeMs: dureeCourante() * 1000,
           nombre: lignes.length,
           partVisible: 1,
           interrompu: arrete,
@@ -326,19 +343,41 @@ export default {
         return fini;
       }
 
-      /** Vitesse automatique : un cran plus vite après une série sans faute, un cran moins vite sous 60 %. */
-      async function ajusterVitesse() {
-        if (!r.cleVitesse || serie.index < 5) return '';
-        const i = DUREES.indexOf(r.duree);
-        const taux = serie.justes / serie.index;
-        const j = taux === 1 ? Math.min(DUREES.length - 1, i + 1) : taux < 0.6 ? Math.max(0, i - 1) : i;
-        if (i < 0 || j === i) return '';
-        const nouvelle = DUREES[j];
-        await modifierReglages({ flashDurees: { ...(reglagesUtilisateur().flashDurees ?? {}), [r.cleVitesse]: nouvelle } });
-        r.duree = nouvelle;
-        reglages.duree = nouvelle;
-        info.textContent = `${nouvelle.toLocaleString('fr-FR')} s par nombre (vitesse automatique)`;
-        return j > i ? ` Sans faute : la prochaine série passe à ${nouvelle.toLocaleString('fr-FR')} s par nombre.` : ` La prochaine série ralentit à ${nouvelle.toLocaleString('fr-FR')} s par nombre.`;
+      /**
+       * Vitesse automatique, à CHAQUE réponse : juste, le calcul suivant va 5 % plus vite ; faux,
+       * 10 % moins vite. Tant que les réponses sont bonnes, la vitesse continue donc de monter.
+       */
+      function ajusterVitesse(juste) {
+        if (!r.cleVitesse) return;
+        r.duree = Math.round(Math.min(DUREE_MAX, Math.max(DUREE_MIN, r.duree * (juste ? PLUS_VITE : MOINS_VITE))) * 100) / 100;
+        majInfo();
+      }
+      /** Fin de série : la vitesse atteinte est gardée pour ce réglage. */
+      async function garderVitesse() {
+        if (!r.cleVitesse || serie.index < 3) return '';
+        await modifierReglages({ flashDurees: { ...(reglagesUtilisateur().flashDurees ?? {}), [r.cleVitesse]: r.duree } });
+        return ` Vitesse atteinte : ${sec2(r.duree)} s par nombre ; la prochaine série repartira de là.`;
+      }
+
+      /** Après une erreur : on peut refaire LE MÊME calcul, à la même vitesse ou plus lentement. */
+      function proposerReprise(rep) {
+        etat = 'faux';
+        const rejouer = (duree) => { reprises += 1; reprise = { duree }; defiler(); };
+        remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` Vous avez répondu ${formaterNombre(rep)}. Ce n'est pas ça.`),
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn', onclick: () => rejouer(dureeCourante()) }, `Réessayer (${sec2(dureeCourante())} s par nombre)`),
+            h('button', { class: 'btn', onclick: () => rejouer(Math.min(DUREE_MAX, Math.round(dureeCourante() * RALENTI * 100) / 100)) }, 'Réessayer plus lentement'),
+            h('span', { class: 'discret' }, `Le même calcul, ${REPRISES_MAX - reprises} reprise${REPRISES_MAX - reprises > 1 ? 's' : ''} possible${REPRISES_MAX - reprises > 1 ? 's' : ''}. La première réponse reste comptée.`)));
+        majBouton('Voir la réponse');
+      }
+      function montrerCorrige(juste, rep, enTete = null) {
+        ecran.textContent = formaterNombre(question.resultat);
+        retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
+        remplir(retour, enTete ?? h('div', {}, h('span', { class: 'grand-signe' }, juste ? '✓' : '✗'), juste ? ' Juste.' : rep === null ? ` Le résultat : ${formaterNombre(question.resultat)}.` : ` Vous avez répondu ${formaterNombre(rep)}.`),
+          h('div', { class: 'discret' }, 'Les nombres :'), rendreEnonce(question, { compact: true, sousTotaux: !juste }));
+        reprise = null;
+        etat = 'corrige';
+        majBouton(serie.index >= r.questions ? 'Voir le bilan' : 'Question suivante');
       }
 
       async function action() {
@@ -347,19 +386,26 @@ export default {
           const rep = lireReponse(saisie.value);
           if (rep === null) return;
           const juste = rep === question.resultat;
+          saisie.disabled = true;
+          saisie.style.display = 'none';
+          if (reprise) {
+            // Reprise du même calcul : rien n'est recompté (la première réponse a déjà été notée).
+            if (juste) montrerCorrige(true, rep, h('div', {}, h('span', { class: 'grand-signe' }, '✓'), ' Juste à la reprise.'));
+            else if (reprises < REPRISES_MAX) { retour.className = 'retour erreur'; proposerReprise(rep); }
+            else montrerCorrige(false, rep);
+            return;
+          }
           if (juste) serie.justes += 1;
           serie.index += 1;
           await noterReponse(juste);
-          saisie.disabled = true;
           pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
-          ecran.textContent = formaterNombre(question.resultat);
-          retour.className = `retour ${juste ? 'ok' : 'erreur'}`;
-          remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, juste ? '✓' : '✗'), juste ? ' Juste.' : ` Vous avez répondu ${formaterNombre(rep)}.`),
-            h('div', { class: 'discret' }, 'Les nombres :'), rendreEnonce(question, { compact: true, sousTotaux: !juste }));
-          etat = 'corrige';
-          majBouton(serie.index >= r.questions ? 'Voir le bilan' : 'Question suivante');
+          if (!r.gradeFlash) ajusterVitesse(juste);
+          // Juste : le corrigé. Faux : d'abord la possibilité de refaire le même calcul (hors grade).
+          if (juste || r.gradeFlash) montrerCorrige(juste, rep);
+          else { retour.className = 'retour erreur'; ecran.textContent = '✗'; proposerReprise(rep); }
           return;
         }
+        if (etat === 'faux') { montrerCorrige(false, null); return; }
         if (etat === 'corrige') {
           if (serie.index < r.questions) { defiler(); return; }
           etat = 'fin';
@@ -379,7 +425,7 @@ export default {
           const conseil = serie.justes === serie.index
             ? (r.mode === 'image' ? (r.image > 0.2 ? 'Parfait : estompez l\'image d\'un cran.' : 'Parfait : passez au flash sans image.') : 'Parfait : ajoutez un nombre (puis, plus tard, réduisez le temps d\'affichage).')
             : serie.justes / serie.index < 0.7 ? 'Retirez un nombre à la chaîne, ou repassez par le flash avec image.' : 'Encore une série au même niveau.';
-          const vitesse = await ajusterVitesse();
+          const vitesse = await garderVitesse();
           remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${vitesse || conseil}`);
           majBouton('Nouvelle série');
           return;

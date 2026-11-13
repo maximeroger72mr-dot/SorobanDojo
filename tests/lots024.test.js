@@ -207,3 +207,59 @@ test('franchissement raté plus une autre erreur : hypothèse à deux causes, se
   // Sans franchissement dans la colonne : rien.
   assert.equal(franchissementCompose({ type: 'addsub', lignes: [{ op: '+', n: 21 }, { op: '+', n: 34 }, { op: '+', n: 12 }], resultat: 67 }, 45), null);
 });
+
+test('marches de multiplication et de division : une difficulté à la fois, héritage pour les élèves avancés', async () => {
+  const { genererMarche } = await import('../src/core/multiplication.js');
+  const { genererExercice } = await import('../src/core/curriculum.js');
+  const { heriterMarches } = await import('../src/core/progression.js');
+  const { PREREQUIS } = await import('../src/core/parcours.js');
+  for (let k = 0; k < 60; k++) {
+    let e = genererMarche('mul-direct');
+    let [x, y, c] = [Math.floor(e.a / 10), e.a % 10, e.b];
+    assert.ok(x * c >= 10 && y * c >= 10 && ((x * c) % 10) + Math.floor((y * c) / 10) <= 9, `${e.a} × ${e.b}`);
+    e = genererMarche('mul-retenue');
+    [x, y, c] = [Math.floor(e.a / 10), e.a % 10, e.b];
+    assert.ok(((x * c) % 10) + Math.floor((y * c) / 10) >= 10, `${e.a} × ${e.b}`);
+    e = genererMarche('mul-court');
+    assert.ok(Math.floor(e.a / 10) * e.b < 10 || (e.a % 10) * e.b < 10);
+    e = genererMarche('mul-zero');
+    assert.ok((Math.floor(e.a / 10) * e.b) % 10 === 0 || ((e.a % 10) * e.b) % 10 === 0);
+    e = genererMarche('div-court');
+    assert.ok(e.a === e.b * e.resultat && e.resultat >= 11 && e.resultat <= 99 && Math.floor(e.resultat / 10) * e.b < 10 && (e.resultat % 10) * e.b < 10);
+    e = genererMarche('div-emprunt');
+    assert.ok(e.a === e.b * e.resultat && Math.floor(e.a / 10) % 10 < (Math.floor(e.resultat / 10) * e.b) % 10, `${e.a} ÷ ${e.b}`);
+    e = genererMarche('div-zero');
+    assert.ok(e.a % 10 === 0 && e.a === e.b * e.resultat);
+  }
+  // Les leçons existent, précèdent leur leçon d'arrivée, et sont exigées par les grades.
+  const ordre = (id) => sousPalier(id).ordre;
+  for (const id of ['p6-1a', 'p6-1b', 'p6-1c', 'p6-1d']) { assert.ok(ordre(id) < ordre('p6-1') && ordre(id) > ordre('p6-0')); assert.ok(PREREQUIS[10].includes(id)); assert.equal(genererExercice(sousPalier(id)).type, 'mul'); }
+  for (const id of ['p7-2a', 'p7-2b', 'p7-2c', 'p7-2d']) { assert.ok(ordre(id) < ordre('p7-2') && ordre(id) > ordre('p7-1')); assert.ok(PREREQUIS[8].includes(id)); assert.equal(genererExercice(sousPalier(id)).type, 'div'); }
+  // Élève qui a déjà validé « 2 chiffres × 1 chiffre » : ses marches sont acquises, pas la division.
+  const d = heriterMarches({ paliers: { 'p6-1': { valide: '2026-02-01' } } });
+  assert.equal(d.paliers['p6-1a'].valide, '2026-02-01');
+  assert.equal(d.paliers['p6-1d'].herite, true);
+  assert.equal(d.paliers['p7-2a'], undefined);
+});
+
+test('pyramide et part de soustractions des planches ; profils de vitesse', async () => {
+  const { paliersPyramide } = await import('../src/core/planche.js');
+  const { periodesProfil } = await import('../src/ui/cadence.js');
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 5, lignes: 8, colonnes: 10 }), [{ chiffres: 3, lignes: 8, colonnes: 3 }, { chiffres: 4, lignes: 8, colonnes: 3 }, { chiffres: 5, lignes: 8, colonnes: 4 }]);
+  assert.deepEqual(paliersPyramide('lignes', { chiffres: 2, lignes: 10, colonnes: 9 }).map((p) => p.lignes), [5, 8, 10]);
+  assert.equal(paliersPyramide('non', { chiffres: 5, lignes: 8, colonnes: 10 }), null);
+  assert.equal(paliersPyramide('chiffres', { chiffres: 1, lignes: 8, colonnes: 10 }), null);
+  for (const [part, pures] of [[0, 10], [0.4, 6], [1, 0]]) {
+    const p = genererPlancheSpeciale({ genre: 'examen', chiffres: 3, lignes: 5, colonnes: 10, partMoins: part }, 5);
+    assert.equal(p.colonnes.filter((c) => c.lignes.every((l) => l.op === '+')).length, pures);
+  }
+  // Profils : même durée totale, répartie autrement.
+  for (const profil of ['constant', 'accelere', 'brusque', 'cloche']) {
+    const t = periodesProfil(profil, 10, 1000);
+    assert.ok(Math.abs(t.reduce((s, x) => s + x, 0) - 10000) < 1e-6, profil);
+  }
+  const acc = periodesProfil('accelere', 10, 1000);
+  assert.ok(acc[0] > acc[9] && acc.every((x, i) => i === 0 || x <= acc[i - 1]));
+  const cl = periodesProfil('cloche', 11, 1000);
+  assert.ok(cl[5] < cl[0] && cl[5] < cl[10]);
+});

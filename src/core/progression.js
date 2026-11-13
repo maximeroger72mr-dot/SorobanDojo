@@ -123,6 +123,19 @@ function rattraperLecons(d) {
 const completer = (lu) => rattraperLecons({ ...vide(), ...lu, reglages: { ...vide().reglages, ...lu.reglages } });
 
 /**
+ * Marches ajoutées APRÈS coup devant une leçon (« 2 × 1 : sans retenue » devant « 2 chiffres × 1
+ * chiffre ») : si la leçon d'arrivée est déjà validée, ses marches le sont aussi, à la même date.
+ * Un élève avancé ne se retrouve pas renvoyé en arrière, ni bloqué pour la leçon suivante.
+ */
+export function heriterMarches(d) {
+  for (const sp of SOUS_PALIERS) {
+    const cible = sp.marcheDe && d.paliers?.[sp.marcheDe]?.valide;
+    if (cible && !d.paliers[sp.id]?.valide) d.paliers[sp.id] = { reps: 0, hist: [], ...(d.paliers[sp.id] ?? {}), valide: cible, herite: true };
+  }
+  return d;
+}
+
+/**
  * À appeler une fois au démarrage. Ne lève jamais : en cas de problème, l'état du stockage
  * (stockage()) le dit, et rien n'est écrasé.
  */
@@ -155,6 +168,7 @@ export async function chargerProgression() {
   if (comparerVersions(donnees.appli, VERSION_APPLI) > 0) {
     changerEtat({ etat: 'ancienne-copie', appli: donnees.appli });
   }
+  heriterMarches(donnees);
   // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
   for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
   if (lu && lu.version < VERSION) await sauver();
@@ -193,7 +207,7 @@ async function sauver() {
 export function rechargerDepuis(texte) {
   try {
     const lu = JSON.parse(texte);
-    if (lu && lu.version === VERSION) donnees = completer(lu);
+    if (lu && lu.version === VERSION) donnees = heriterMarches(completer(lu));
     return true;
   } catch {
     return false;
@@ -777,6 +791,7 @@ export async function importerDonnees(texte, mode) {
   if (d.version > VERSION) throw new Error('Cette sauvegarde vient d\'une version plus récente de l\'application : mettez-la à jour d\'abord.');
   const complet = rattraperLecons({ ...vide(), ...d, reglages: { ...vide().reglages, ...d.reglages } });
   donnees = mode === 'fusionner' ? fusionner(donnees, complet) : complet;
+  heriterMarches(donnees);
   donnees.reglages = mode === 'fusionner' ? donnees.reglages : complet.reglages;
   await sauver();
 }

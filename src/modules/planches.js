@@ -9,8 +9,8 @@
 
 import { ErreurGeneration, avecDelai } from '../core/generateur.js';
 import { libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
-import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLANCHE } from '../core/planche.js';
-import { graineAleatoire } from '../core/hasard.js';
+import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLANCHE, paliersPyramide } from '../core/planche.js';
+import { graineAleatoire, codeDepuisGraine } from '../core/hasard.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris, ancrageDuJour } from '../core/parcours.js';
@@ -24,7 +24,7 @@ import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 /** Temps accordé à la création d'une planche avant de se replier (l'écran ne doit jamais se figer). */
 const DELAI_PLANCHE_MS = 1000;
 
-const reglages = { genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
+const reglages = { pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
@@ -228,6 +228,8 @@ export default {
         h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes'], [30, '30 colonnes']], Number),
+        (() => { const x = select('pyramide', [['non', 'Taille fixe'], ['chiffres', 'Pyramide : de plus en plus de chiffres'], ['lignes', 'Pyramide : de plus en plus de lignes']], String); x.title = 'La planche monte en trois paliers jusqu\'au réglage choisi : on commence court, on finit long.'; return x; })(),
+        (() => { const x = select('partMoins', [[0, 'aucune colonne avec soustractions'], [0.2, '1 colonne sur 5 avec soustractions'], [0.4, '2 colonnes sur 5 avec soustractions'], [0.7, '7 colonnes sur 10 avec soustractions'], [1, 'toutes avec soustractions']], Number); x.dataset.role = 'part-moins'; return x; })(),
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
           ['choix', 'Choisir sur la carte (plusieurs gestes)…'],
@@ -256,17 +258,21 @@ export default {
       if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
       let planche = rejeu;
       const mode = r.mode === 'famille' ? 'famille' : 'seul';
-      if (!planche) {
-        const graine = graineAleatoire();
+      /**
+       * Fabrique une planche pour des réglages donnés (nombre de chiffres, de lignes, de colonnes).
+       * Rend { planche, c } ou null. Sert telle quelle, ou palier par palier pour une pyramide.
+       */
+      const fabriquer = (r, c, graine) => {
+        let planche = null;
         // Genres d'examen (longueurs mêlées, négatifs, décimaux…) : pas de planificateur de gestes.
         if (GENRES_PLANCHE[r.genre]) {
           try {
-            planche = genererPlancheSpeciale({ genre: r.genre, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes }, graine);
+            planche = genererPlancheSpeciale({ genre: r.genre, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, partMoins: r.partMoins }, graine);
             c = { cibles: [], libelle: GENRES_PLANCHE[r.genre] };
           } catch (e) {
             if (!(e instanceof ErreurGeneration)) throw e;
             zone.append(h('p', { class: 'retour erreur' }, 'Impossible de créer cette planche : choisissez plus de chiffres ou moins de colonnes.'));
-            return;
+            return null;
           }
         }
         // Additions seules : seuls les gestes d'addition sont visés, aucune ligne à soustraire.
@@ -314,6 +320,22 @@ export default {
             }
           }
         }
+        return planche ? { planche, c } : null;
+      };
+      if (!planche) {
+        const graine = graineAleatoire();
+        const paliers = paliersPyramide(r.pyramide, r);
+        if (paliers) {
+          // Pyramide : la planche monte par paliers (chiffres ou lignes), du court au long.
+          const morceaux = paliers.map((t, n) => fabriquer({ ...r, ...t }, c, (graine + 7919 * n) >>> 0));
+          if (morceaux.every(Boolean)) {
+            planche = { graine, code: codeDepuisGraine(graine), colonnes: morceaux.flatMap((m) => m.planche.colonnes), bilan: null, speciale: !!morceaux[0].planche.speciale };
+            c = { ...morceaux.at(-1).c, libelle: `${morceaux.at(-1).c.libelle} · pyramide de ${r.pyramide}` };
+          }
+        } else {
+          const f = fabriquer(r, c, graine);
+          if (f) ({ planche, c } = f);
+        }
         if (!planche) { zone.append(h('p', { class: 'retour erreur' }, 'Cette planche ne peut pas être créée avec ces réglages : choisissez moins de chiffres ou de lignes, ou davantage de gestes.')); return; }
         Object.assign(planche, { reglages: r, cibles: c.cibles, libelle: c.libelle });
         memoriserPlanche(planche);
@@ -326,9 +348,10 @@ export default {
       }
       zone.append(resumePlanche(planche, !!rejeu));
       const suffixe = planche.parRoles ? `-${mode}` : '';
-      const genre = r.genre && r.genre !== 'gestes' ? r.genre : r.cible;
+      const genre = `${r.genre && r.genre !== 'gestes' ? r.genre : r.cible}${r.pyramide && r.pyramide !== 'non' ? `-pyr-${r.pyramide}` : ''}`;
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${genre}${suffixe}`;
-      const titre = `${c.libelle} · ${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.lignes} lignes`;
+      const jusqua = r.pyramide && r.pyramide !== 'non' ? 'jusqu\'à ' : '';
+      const titre = `${c.libelle} · ${r.pyramide === 'chiffres' ? jusqua : ''}${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.pyramide === 'lignes' ? jusqua : ''}${r.lignes} lignes`;
       feuille = creerFeuille(zone, {
         doigte: !!r.doigte,
         reprises: 3, // colonnes fausses dont l'erreur est identifiée : reprise proposée, 3 au plus
@@ -381,6 +404,8 @@ export default {
     const majGenre = () => {
       const special = !!GENRES_PLANCHE[reglages.genre];
       selCible.style.display = special ? 'none' : '';
+      // La part de colonnes avec soustractions ne concerne que le format d'examen.
+      el.querySelector('select[data-role="part-moins"]').style.display = reglages.genre === 'examen' ? '' : 'none';
       caseZeros.style.display = special ? 'none' : '';
       if (special) { choixMode.style.display = 'none'; zoneChoix.style.display = 'none'; } else { majMode(); majChoix(); }
       // Additions seules : pas de planche « par rôles » (elle contient des soustractions).

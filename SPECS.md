@@ -761,3 +761,19 @@ Les pages n'ont pas pu être ouvertes depuis la session d'audit (hôtes bloqués
 | Acharnement : les 4 produits et leur résultat affichés 5 secondes avant le départ | Fait |
 | Distracteurs visuels : « mouches » (petites formes discrètes qui se promènent) à la place des éclats lumineux | Fait |
 | Franchissement raté plus une autre erreur : hypothèse à deux causes, donnée seulement si elle est unique et que rien d'autre n'explique l'écart | Fait |
+
+## Version 0.26.0
+
+Idées reprises du site ishizaki88-training.net (lecture des pages de réglages uniquement).
+
+| Changement | État |
+|---|---|
+| Multiplication : 4 marches devant « 2 chiffres × 1 chiffre » (`p6-1a` à `p6-1d` : sans retenue, avec retenue, produit à un chiffre, produit finissant par 0) | Fait |
+| Division : 4 marches devant « ÷ 1 chiffre, quotient 2 et 3 chiffres » (`p7-2a` à `p7-2d` : petits produits, produits à deux chiffres, emprunt, dividende finissant par 0) | Fait |
+| Marches héritées : validées d'office si la leçon d'arrivée l'est déjà (`heriterMarches`) | Fait |
+| Planches : pyramide de chiffres ou de lignes (3 paliers) ; part de colonnes avec soustractions au format d'examen | Fait |
+| Feuilles × et ÷ : part de calculs avec zéro, part de calculs à arrondir, rang de l'arrondi | Fait |
+| Flash et tapis roulant : profils de vitesse (constante, qui accélère, départ rapide, accélère puis ralentit), durée totale inchangée | Fait |
+| Vitesse automatique à chaque réponse (5 % plus vite si juste, 10 % moins vite si faux), gardée par réglage | Fait |
+| Après une erreur en flash : refaire le même calcul, à la même vitesse ou plus lentement (2 reprises), sans recompter | Fait (pas en passage de grade) |
+| Non fait : part de divisions avec reste sur les feuilles (la réponse demanderait deux cases : quotient et reste) | À faire |

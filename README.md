@@ -200,6 +200,12 @@ Une erreur n'est attribuée à un geste que si le résultat le prouve (écart de
 - **Parcours** : chaque kyū n'exige que les leçons de son épreuve ; décimaux après le palier 5e-4e kyū ; palier « Vers le 1er kyū » (7 à 10 chiffres, × 6 × 5, ÷ 5 × 5, arrondi à l'unité, résultats négatifs) ; leçon de stratégie d'examen ; mini-tests où chaque geste de la leçon est posé.
 - **Anzan** : leçons de multiplication et de division de tête, dictée anzan par paliers, épreuves d'anzan.
 
+## Nouveautés de la version 0.26
+
+- **Leçons par petites marches** : quatre marches avant « 2 chiffres × 1 chiffre » et quatre avant la division à quotient de 2 chiffres, une difficulté à la fois.
+- **Planches en pyramide** : de plus en plus de chiffres, ou de plus en plus de lignes. Parts réglables de soustractions, de zéros et d'arrondis.
+- **Flash et tapis roulant** : profils de vitesse, vitesse qui monte tant que les réponses sont justes, et reprise du même calcul (au besoin plus lentement) après une erreur.
+
 ## Nouveautés de la version 0.25
 
 - **Tables** : criblage des 36 produits en une minute, et acharnement sur vos 4 pires produits jusqu'à 3 réussites rapides de suite.

@@ -34,8 +34,7 @@ import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
 import {
   genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
-  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale,
-} from './multiplication.js';
+  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale, genererMarche } from './multiplication.js';
 
 const DIRECT = famille('direct');
 const PETIT = famille('petit');
@@ -227,6 +226,18 @@ export const PALIERS = [
       { id: 'p6-0', titre: 'Où poser le premier produit ?', type: 'placement', op: 'mul', repetitions: 40,
         pourquoi: 'Avant de multiplier, il faut savoir OÙ commencer, sans réfléchir. Règle : comptez les chiffres des deux nombres (37 × 85 : 2 + 2 = 4). La dizaine du premier produit se pose sur la 4e tige en comptant la tige des unités comme la 1re. Cliquez la bonne tige le plus vite possible : ce réflexe doit devenir automatique, c\'est lui qui évite les résultats décalés. L\'index gauche se pose ensuite sur cette tige et la marque pendant tout le calcul.',
         demos: [] },
+      { id: 'p6-1a', titre: '2 × 1 : deux produits, sans retenue', type: 'mul', m: 2, n: 1, marche: 'mul-direct', marcheDe: 'p6-1', repetitions: 20,
+        pourquoi: 'On ne pose ni le multiplicande ni le multiplicateur : on les lit sur la feuille, et l\'on ne pose que les produits de la table, chacun sur DEUX tiges. Pour 46 × 3 : 4 × 3 = 12 d\'abord, puis 6 × 3 = 18 une tige plus à droite. Dans cette première marche, les deux produits ont deux chiffres et s\'ajoutent sans aucune retenue : toute votre attention va à la place des produits. On avancera par petites marches, une difficulté à la fois.',
+        demos: [{ a: 46, b: 3 }] },
+      { id: 'p6-1b', titre: '2 × 1 : deux produits, avec retenue', type: 'mul', m: 2, n: 1, marche: 'mul-retenue', marcheDe: 'p6-1', repetitions: 20,
+        pourquoi: 'Même placement, mais le second produit fait maintenant une retenue en s\'ajoutant au premier. Pour 67 × 8 : 48, puis 56 une tige à droite ; le 5 s\'ajoute au 8 et la retenue remonte sur la tige de gauche. C\'est un grand ami ordinaire : le geste est connu, il se fait simplement au milieu d\'une multiplication.',
+        demos: [{ a: 67, b: 8 }] },
+      { id: 'p6-1c', titre: '2 × 1 : un produit à un seul chiffre (« 06 »)', type: 'mul', m: 2, n: 1, marche: 'mul-court', marcheDe: 'p6-1', repetitions: 20,
+        pourquoi: 'Quand un produit n\'a qu\'un chiffre (2 × 4 = 8), il occupe quand même deux tiges : « 08 ». Sa tige des dizaines reste vide, et le chiffre se pose sur la suivante. C\'est l\'erreur de placement la plus fréquente : on pose le 8 une tige trop à gauche. Pour 72 × 4 : 28, puis « 08 » : le 8 tombe sur la tige des unités.',
+        demos: [{ a: 72, b: 4 }, { a: 23, b: 3 }] },
+      { id: 'p6-1d', titre: '2 × 1 : un produit qui finit par 0', type: 'mul', m: 2, n: 1, marche: 'mul-zero', marcheDe: 'p6-1', repetitions: 20,
+        pourquoi: 'Un produit comme 5 × 6 = 30 ne pose rien sur sa seconde tige. Il faut pourtant la compter : la main passe dessus sans rien toucher. Pour 45 × 6 : 24, puis 30 une tige à droite ; le 3 s\'ajoute au 4, et les unités restent à 0. Résultat 270.',
+        demos: [{ a: 45, b: 6 }] },
       { id: 'p6-1', titre: '2 chiffres × 1 chiffre', type: 'mul', m: 2, n: 1, repetitions: 30,
         pourquoi: 'Méthode japonaise actuelle, 両落とし (« les deux tombent ») : on ne pose ni le multiplicande ni le multiplicateur, on les lit sur la feuille. On ne pose que les produits de la table, chacun sur DEUX tiges (dizaine, unité ; 2 × 3 s\'écrit « 06 »). On commence à gauche. Position du premier produit : 2 + 1 = 3 chiffres au total, donc sa dizaine va sur la 3e tige en partant des unités. Chaque produit suivant se décale d\'une tige vers la droite.',
         demos: [{ a: 37, b: 8 }, { a: 23, b: 3 }] },
@@ -250,6 +261,18 @@ export const PALIERS = [
       { id: 'p7-1', titre: '÷ 1 chiffre, quotient 1 chiffre', type: 'div', nd: 1, nq: 1, repetitions: 30,
         pourquoi: 'Méthode 片落とし : on pose seulement le dividende ; le diviseur se lit sur la feuille. On compare le début du dividende au diviseur : plus grand ou égal → le chiffre du quotient se pose DEUX tiges à gauche (une tige libre) ; plus petit → JUSTE à gauche. Puis on retire le produit (quotient × diviseur, sur deux tiges) juste à droite du quotient.',
         demos: [{ a: 14, b: 2 }, { a: 72, b: 8 }] },
+      { id: 'p7-2a', titre: 'Quotient à 2 chiffres : deux petits produits', type: 'div', nd: 1, nq: 2, marche: 'div-court', marcheDe: 'p7-2', repetitions: 20,
+        pourquoi: 'On répète le geste de la leçon précédente pour chaque chiffre du quotient. Pour 84 ÷ 4 : 8 ÷ 4 = 2, on retire 2 × 4 = 8 ; puis 4 ÷ 4 = 1, on retire 4. Dans cette première marche, les produits à retirer n\'ont qu\'un chiffre : toute votre attention va à la place des chiffres du quotient.',
+        demos: [{ a: 84, b: 4 }] },
+      { id: 'p7-2b', titre: 'Quotient à 2 chiffres : produits à deux chiffres', type: 'div', nd: 1, nq: 2, marche: 'div-direct', marcheDe: 'p7-2', repetitions: 20,
+        pourquoi: 'Les produits à retirer ont maintenant deux chiffres, mais se retirent sans emprunt. Pour 252 ÷ 7 : 25 ÷ 7 = 3, on retire 21, il reste 4 ; puis 42 ÷ 7 = 6, on retire 42. Le reste du premier pas devient le début du second : c\'est lui qu\'il faut lire sur le soroban, pas sur la feuille.',
+        demos: [{ a: 252, b: 7 }] },
+      { id: 'p7-2c', titre: 'Quotient à 2 chiffres : retirer avec un emprunt', type: 'div', nd: 1, nq: 2, marche: 'div-emprunt', marcheDe: 'p7-2', repetitions: 20,
+        pourquoi: 'Le produit se retire cette fois avec un emprunt. Pour 216 ÷ 8 : 21 ÷ 8 = 2, on retire 16 de 21 : le 6 ne se retire pas du 1, on emprunte une dizaine (grand ami). Il reste 5, donc 56 ÷ 8 = 7. Le geste est connu : il se fait simplement au milieu d\'une division.',
+        demos: [{ a: 216, b: 8 }] },
+      { id: 'p7-2d', titre: 'Quotient à 2 chiffres : dividende finissant par 0', type: 'div', nd: 1, nq: 2, marche: 'div-zero', marcheDe: 'p7-2', repetitions: 20,
+        pourquoi: 'Quand le dividende finit par 0, le dernier produit finit par 0 lui aussi (5 × 6 = 30) : on ne retire rien sur la dernière tige. Pour 150 ÷ 6 : 15 ÷ 6 = 2, on retire 12, il reste 3 ; puis 30 ÷ 6 = 5, on retire 30. Ne cherchez pas un chiffre de plus au quotient : le calcul est fini quand le dividende est vide.',
+        demos: [{ a: 150, b: 6 }] },
       { id: 'p7-2', titre: '÷ 1 chiffre, quotient 2 et 3 chiffres', type: 'div', nd: 1, nq: 2, repetitions: 30,
         pourquoi: 'On répète pour chaque chiffre du quotient, avec le reste. L\'unité du quotient se trouve 2 tiges à gauche de l\'unité du dividende (1 chiffre au diviseur + 1).',
         demos: [{ a: 156, b: 4 }] },
@@ -580,6 +603,8 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   if (sp.mental && (sp.type === 'mul' || sp.type === 'div')) {
     return { ...(sp.type === 'mul' ? genererMultiplication(sp.m, sp.n) : genererDivision(sp.nd, alterner(sp.nq))), mental: true };
   }
+  // Marches : une seule difficulté à la fois (voir multiplication.MARCHES_MUL / MARCHES_DIV).
+  if (sp.marche) return genererMarche(sp.marche);
   if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
     if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);
