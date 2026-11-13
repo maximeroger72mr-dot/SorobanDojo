@@ -3,14 +3,14 @@
  * Méthodes japonaises standard : 両落とし pour la multiplication, 片落とし pour la division.
  */
 
-import { genererMultiplication, genererDivision, genererMultiplicationDecimale, genererDivisionDecimale } from '../core/multiplication.js';
+import { genererMultiplication, genererDivision, genererMultiplicationDecimale, genererDivisionDecimale, genererDivisionReste } from '../core/multiplication.js';
 import { enregistrerSession, traiterErreurOperation } from '../core/progression.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, rang: 'millieme' };
+const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, partRestes: 0, rang: 'millieme' };
 
 export default {
   id: 'muldiv',
@@ -28,8 +28,10 @@ export default {
       remplir(sel, ...Array.from({ length: max }, (_, i) => h('option', { value: i + 1 }, `${i + 1} chiffre${i ? 's' : ''}`)));
       sel.value = String(Math.min(val, max));
     };
+    let restesSel = null; // créé plus bas, avec les autres fréquences
     const majLibelles = () => {
       const mul = reglages.type === 'mul';
+      if (restesSel) restesSel.style.display = !mul && reglages.mode === 'feuille' ? '' : 'none';
       remplir(etiquettes, mul ? 'Multiplicande' : 'Diviseur', ' ', selX, ' ', mul ? 'Multiplicateur' : 'Quotient', ' ', selY);
       options(selX, mul ? 6 : 4, reglages.x);
       options(selY, mul ? 4 : 5, reglages.y);
@@ -37,7 +39,7 @@ export default {
     const typeSel = h('select', { onchange: (e) => { reglages.type = e.target.value; majLibelles(); } },
       h('option', { value: 'mul' }, 'Multiplication (両落とし)'), h('option', { value: 'div' }, 'Division (片落とし)'));
     typeSel.value = reglages.type;
-    const modeSel = h('select', { onchange: (e) => { reglages.mode = e.target.value; } },
+    const modeSel = h('select', { onchange: (e) => { reglages.mode = e.target.value; majLibelles(); } },
       h('option', { value: 'une' }, 'Une par une'), h('option', { value: 'feuille' }, 'Feuille (imprimable)'));
     modeSel.value = reglages.mode;
     const nbSel = h('select', { onchange: (e) => { reglages.nombre = Number(e.target.value); } }, [10, 20].map((n) => h('option', { value: n }, `${n} calculs`)));
@@ -52,11 +54,14 @@ export default {
     const zerosSel = choix('partZeros', 'zéros : ', PARTS, 'Part des calculs qui contiennent un zéro à l\'intérieur (406 × 7, quotient 304)');
     const arrondisSel = choix('partArrondis', 'arrondis : ', PARTS, 'Part des calculs en décimaux, à arrondir comme à l\'examen');
     const rangSel = choix('rang', 'arrondi ', [['millieme', 'au millième'], ['unite', 'à l\'unité'], ['deux', 'au millième ou à l\'unité']], 'Rang de l\'arrondi demandé');
+    restesSel = choix('partRestes', 'restes : ', PARTS, 'Part des divisions qui ne tombent pas juste : on répond le quotient ET le reste (feuille seulement)');
     majLibelles();
 
     /** Un calcul : entier, avec un zéro intérieur, ou à arrondir, selon les fréquences choisies. */
     const generer = () => {
       const { type, x, y } = reglages;
+      // Divisions avec reste : en feuille seulement (deux cases : quotient et reste).
+      if (type === 'div' && reglages.mode === 'feuille' && Math.random() < reglages.partRestes) return genererDivisionReste(x, y);
       if (Math.random() < reglages.partArrondis) {
         const d = reglages.rang === 'unite' || (reglages.rang === 'deux' && Math.random() < 0.5) ? 0 : 3;
         return type === 'mul' ? genererMultiplicationDecimale(Math.max(2, x), Math.max(2, y), d) : genererDivisionDecimale(Math.max(2, x), Math.max(2, y), d);
@@ -71,7 +76,7 @@ export default {
         h('ul', {},
           h('li', {}, h('strong', {}, 'Multiplication 両落とし : '), 'aucun facteur n\'est posé. On pose les produits de table sur deux tiges chacun (6 = « 06 »), en commençant par le chiffre de gauche du multiplicande multiplié par chaque chiffre du multiplicateur. Premier produit : sa dizaine sur la (m+n)-ième tige depuis les unités ; chaque produit suivant une tige plus à droite.'),
           h('li', {}, h('strong', {}, 'Division 片落とし : '), 'seul le dividende est posé. Début du dividende ≥ diviseur : chiffre du quotient deux tiges à gauche ; sinon juste à gauche. On retire ensuite quotient × chaque chiffre du diviseur, sur deux tiges, juste à droite du quotient. Unité du quotient : (chiffres du diviseur + 1) tiges à gauche de l\'unité du dividende.'))),
-      h('div', { class: 'reglages' }, typeSel, etiquettes, zerosSel, arrondisSel, rangSel, nbSel, modeSel,
+      h('div', { class: 'reglages' }, typeSel, etiquettes, zerosSel, arrondisSel, rangSel, restesSel, nbSel, modeSel,
         h('button', { class: 'btn', onclick: () => ouvrirExplication(generer()) }, 'Voir un exemple'),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer')),
       zone);

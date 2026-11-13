@@ -268,6 +268,8 @@ export function creerSerie(conteneur, o) {
     const vueImage = sorobanImage ? new SorobanVue(zoneImage, sorobanImage, { interactif: false }) : null;
     const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
     const interrompu = () => ex !== exo || phase === 'fin';
+    // Anzan sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
+    if (exo.type !== 'photo' && exo.type !== 'tenir' && opacite === 0) ecran.classList.add('plein');
     await decompteFlash(ecran, 350);
     if (exo.type === 'photo') {
       // L'image seule, sans le nombre : on la « photographie ».
@@ -311,6 +313,7 @@ export function creerSerie(conteneur, o) {
       vueImage?.detruire();
       remplir(zoneEnonce, ecran);
     }
+    ecran.classList.remove('plein');
     if (interrompu()) return;
     ecran.textContent = '?';
     flashEnCours = false;

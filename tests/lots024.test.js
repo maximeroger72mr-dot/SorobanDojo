@@ -266,3 +266,57 @@ test('pyramide et part de soustractions des planches ; profils de vitesse', asyn
   const cl = periodesProfil('cloche', 11, 1000);
   assert.ok(cl[5] < cl[0] && cl[5] < cl[10]);
 });
+
+test('marches 2 × 2 et division par 2 chiffres ; divisions avec reste ; pyramide à départ réglable', async () => {
+  const { genererMarche, retenuesMultiplication, aideDivision, genererDivisionReste } = await import('../src/core/multiplication.js');
+  const { paliersPyramide } = await import('../src/core/planche.js');
+  const { PREREQUIS } = await import('../src/core/parcours.js');
+  const justes = (e) => aideDivision(e.a, e.b).etapes.every((x) => x.essais.length === 1);
+  for (let k = 0; k < 40; k++) {
+    let e = genererMarche('mul22-direct');
+    assert.ok(e.a >= 11 && e.a <= 99 && e.b >= 11 && e.b <= 99 && !retenuesMultiplication(e.a, e.b).retenue, `${e.a} × ${e.b}`);
+    e = genererMarche('mul22-retenue');
+    assert.ok(retenuesMultiplication(e.a, e.b).retenue && !retenuesMultiplication(e.a, e.b).deborde, `${e.a} × ${e.b}`);
+    e = genererMarche('mul22-deborde');
+    assert.ok(retenuesMultiplication(e.a, e.b).deborde, `${e.a} × ${e.b}`);
+    e = genererMarche('div21-direct');
+    assert.ok(e.b >= 11 && e.resultat <= 9 && e.a === e.b * e.resultat && justes(e), `${e.a} ÷ ${e.b}`);
+    e = genererMarche('div22-direct');
+    assert.ok(e.resultat >= 11 && justes(e), `${e.a} ÷ ${e.b}`);
+    e = genererMarche('div22-corrige');
+    assert.ok(e.resultat >= 11 && !justes(e), `${e.a} ÷ ${e.b}`);
+    const r = genererDivisionReste(2, 2);
+    assert.ok(r.reste >= 1 && r.reste < r.b && r.a === r.b * r.resultat + r.reste);
+  }
+  assert.deepEqual(retenuesMultiplication(24, 12), { retenue: false, deborde: false });
+  assert.equal(retenuesMultiplication(37, 85).deborde, true);
+  const ordre = (id) => sousPalier(id).ordre;
+  for (const id of ['p6-3a', 'p6-3b', 'p6-3c']) { assert.ok(ordre(id) < ordre('p6-3') && ordre(id) > ordre('p6-2')); assert.ok(PREREQUIS[7].includes(id)); }
+  assert.ok(ordre('p7-ea') < ordre('p7-e') && ordre('p7-4a') < ordre('p7-4b') && ordre('p7-4b') < ordre('p7-4'));
+  for (const id of ['p7-ea', 'p7-4a', 'p7-4b']) assert.ok(PREREQUIS[6].includes(id));
+  // Aucune leçon de × ou ÷ sur le soroban sous 30 répétitions.
+  for (const sp of SOUS_PALIERS.filter((s) => !s.mental && (s.type === 'mul' || s.type === 'div'))) assert.ok(sp.repetitions >= 30, sp.id);
+  // Pyramide : départ réglable, toujours sous le réglage.
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 6, lignes: 5, colonnes: 10, depart: 3 }).map((p) => p.chiffres), [3, 4, 5, 6]);
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 4, lignes: 5, colonnes: 10, depart: 9 }).map((p) => p.chiffres), [3, 4]);
+  assert.deepEqual(paliersPyramide('lignes', { chiffres: 2, lignes: 10, colonnes: 10, depart: 5 }).map((p) => p.lignes), [5, 6, 8, 9, 10]);
+});
+
+test('prof : des gestes passés en or ailleurs valent une avant-dernière leçon confirmée', async () => {
+  const { decisionDuJour: decision, niveauLecon } = await import('../src/core/prof.js');
+  const h = (t, n = 20) => Array.from({ length: n }, () => ({ ok: 1, t }));
+  const prochain = sousPalier('p2-3');
+  const d = {
+    sessions: [{ date: '2026-03-03', total: 10, justes: 10 }],
+    paliers: { 'p2-1': { valide: '2026-03-01', hist: h(2.5) }, 'p2-2': { valide: '2026-03-02', hist: h(2.5) } },
+    motifs: {},
+  };
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'ancrage'); // leçon au niveau débutant seulement
+  // Les deux gestes de « +4 et +3 » sont confirmés sur la carte de maîtrise : la leçon suivante s'ouvre.
+  for (const c of sousPalier('p2-1').cibles) d.motifs[c] = { hist: h(1.2) };
+  assert.equal(niveauLecon(d, sousPalier('p2-1')).index, 3);
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'lecon');
+  // Un seul des deux gestes en or ne suffit pas.
+  d.motifs[sousPalier('p2-1').cibles[0]] = { hist: h(2.5) };
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'ancrage');
+});

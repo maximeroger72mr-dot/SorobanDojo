@@ -24,7 +24,7 @@ import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 /** Temps accordé à la création d'une planche avant de se replier (l'écran ne doit jamais se figer). */
 const DELAI_PLANCHE_MS = 1000;
 
-const reglages = { pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
+const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
@@ -229,6 +229,7 @@ export default {
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes'], [30, '30 colonnes']], Number),
         (() => { const x = select('pyramide', [['non', 'Taille fixe'], ['chiffres', 'Pyramide : de plus en plus de chiffres'], ['lignes', 'Pyramide : de plus en plus de lignes']], String); x.title = 'La planche monte en trois paliers jusqu\'au réglage choisi : on commence court, on finit long.'; return x; })(),
+        (() => { const x = select('pyramideDepart', [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `pyramide : départ à ${n}`]), Number); x.dataset.role = 'pyramide-depart'; x.title = 'Premier palier de la pyramide : nombre de chiffres (ou de lignes, 3 au moins) des premières colonnes.'; return x; })(),
         (() => { const x = select('partMoins', [[0, 'aucune colonne avec soustractions'], [0.2, '1 colonne sur 5 avec soustractions'], [0.4, '2 colonnes sur 5 avec soustractions'], [0.7, '7 colonnes sur 10 avec soustractions'], [1, 'toutes avec soustractions']], Number); x.dataset.role = 'part-moins'; return x; })(),
         select('cible', [
           ['appris', 'Tout ce que j\'ai appris'],
@@ -324,7 +325,7 @@ export default {
       };
       if (!planche) {
         const graine = graineAleatoire();
-        const paliers = paliersPyramide(r.pyramide, r);
+        const paliers = paliersPyramide(r.pyramide, { ...r, depart: r.pyramideDepart });
         if (paliers) {
           // Pyramide : la planche monte par paliers (chiffres ou lignes), du court au long.
           const morceaux = paliers.map((t, n) => fabriquer({ ...r, ...t }, c, (graine + 7919 * n) >>> 0));
@@ -359,7 +360,7 @@ export default {
         titre: `${titre} · planche ${planche.code}`,
         // Pyramide : un titre par palier (« 3 chiffres », « 4 chiffres »…), pour voir la montée.
         sections: (() => {
-          const paliers = paliersPyramide(r.pyramide, { chiffres: r.chiffres, lignes: r.lignes, colonnes: problemes.length });
+          const paliers = paliersPyramide(r.pyramide, { chiffres: r.chiffres, lignes: r.lignes, colonnes: problemes.length, depart: r.pyramideDepart });
           if (!paliers) return [{ problemes }];
           let debut = 0;
           return paliers.map((t) => {
@@ -415,6 +416,7 @@ export default {
     const majGenre = () => {
       const special = !!GENRES_PLANCHE[reglages.genre];
       selCible.style.display = special ? 'none' : '';
+      el.querySelector('select[data-role="pyramide-depart"]').style.display = reglages.pyramide !== 'non' ? '' : 'none';
       // La part de colonnes avec soustractions ne concerne que le format d'examen.
       el.querySelector('select[data-role="part-moins"]').style.display = reglages.genre === 'examen' ? '' : 'none';
       caseZeros.style.display = special ? 'none' : '';
@@ -423,6 +425,7 @@ export default {
       if (reglages.genre === 'additions') choixMode.style.display = 'none';
     };
     selGenre.addEventListener('change', majGenre);
+    el.querySelector('.reglages select:has(option[value="lignes"])')?.addEventListener('change', majGenre);
     selCible.addEventListener('change', majGenre);
     majGenre();
     if (params.auto) lancer();

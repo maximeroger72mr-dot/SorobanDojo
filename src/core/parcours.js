@@ -56,10 +56,10 @@ const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
 const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1a', 'p6-1b', 'p6-1c', 'p6-1d', 'p6-1'];
 const K9 = [...K10]; // même contenu que le 10e kyū (avec soustractions), seuil plus haut
 const K8 = [...K9, 'p6-2', 'p7-0', 'p7-1', 'p7-2a', 'p7-2b', 'p7-2c', 'p7-2d', 'p7-2']; // 3 × 1, ÷ 1 chiffre
-const K7 = [...K8, 'p6-3']; // 2 × 2
+const K7 = [...K8, 'p6-3a', 'p6-3b', 'p6-3c', 'p6-3']; // 2 × 2
 // 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
 // était exigé dès le 6e kyū, décimaux et division par 3 chiffres compris).
-const K6 = [...K7, 'p6-4', 'p7-e', 'p7-3', 'p7-4', 'p8-t1']; // 3 × 2, ÷ 2 chiffres
+const K6 = [...K7, 'p6-4', 'p7-ea', 'p7-e', 'p7-3', 'p7-4a', 'p7-4b', 'p7-4', 'p8-t1']; // 3 × 2, ÷ 2 chiffres
 const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6'];
 const K4 = [...K5, 'p8-3', 'p8-5', 'p8-7'];
 const K3 = [...K4, ...idsPaliers('pd')];

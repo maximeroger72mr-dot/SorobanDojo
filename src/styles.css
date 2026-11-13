@@ -597,3 +597,14 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .rappel-acharnement { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 14px 0; }
 .rappel-acharnement span { border: 1px solid var(--ligne); padding: 12px; text-align: center; font-size: 1.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .rappel-acharnement strong { color: var(--accent); }
+
+/* Division avec reste : deux cases côte à côte, le quotient puis le reste. */
+.cases-reste { display: flex; gap: 6px; width: 100%; }
+.cases-reste input { min-width: 0; flex: 2; }
+.cases-reste input.case-reste { flex: 1; }
+@media print { .cases-reste input { border: none; border-bottom: 1px solid #333; } }
+
+/* Pendant le défilement (sans image d'aide), l'écran du flash couvre toute la fenêtre : le nombre
+   est au centre exact de l'écran, entouré de blanc, quel que soit le reste de la page. */
+.flash-ecran.plein { position: fixed !important; inset: 0; z-index: 20; height: 100vh !important; min-height: 100vh !important; width: 100vw; margin: 0 !important; background: var(--fond) !important; border: none !important; border-radius: 0 !important; display: flex; align-items: center; justify-content: center !important; }
+.distracteurs { z-index: 25; }

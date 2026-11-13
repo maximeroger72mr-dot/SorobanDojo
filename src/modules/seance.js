@@ -75,7 +75,13 @@ function plan(d, debut, seance = null) {
 
   // 1. Échauffement (3 min). Pendant les étapes petits amis et grands amis : Complément éclair,
   //    pour que les paires qui font 5 ou 10 viennent sans réfléchir ; sinon le prochain drill à valider.
-  const cibleComplement = sp?.palier?.id === 'p2' ? 5 : sp?.palier?.id === 'p3' || sp?.palier?.id === 'p4' ? 10 : null;
+  //    Un jour sur deux seulement, et plus du tout une fois le réflexe installé (record de 25
+  //    bonnes réponses en 60 s) : sinon le même échauffement revient tous les jours.
+  const complementVoulu = sp?.palier?.id === 'p2' ? 5 : sp?.palier?.id === 'p3' || sp?.palier?.id === 'p4' ? 10 : null;
+  const complementAcquis = complementVoulu && (d.records[`jeu-complement-${complementVoulu}`]?.points ?? 0) >= 25;
+  const jourPair = Math.floor(new Date(`${date}T12:00`).getTime() / 86400000) % 2 === 0;
+  const complementFait = complementVoulu && fait((s) => s.module === 'jeux' && s.mode === `complement-${complementVoulu}`);
+  const cibleComplement = complementVoulu && (complementFait || (!complementAcquis && jourPair)) ? complementVoulu : null;
   const drill = cibleComplement ? null : drillEchauffement(d);
   if (cibleComplement) {
     essentiel.push({ titre: 'Échauffement', detail: `Complément éclair à ${cibleComplement} (60 s)`, minutes: 2,
@@ -142,9 +148,9 @@ function plan(d, debut, seance = null) {
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
-  // La séance se PARTAGE : une part de leçon (un tiers de l'objectif, 5 min au moins), puis de
+  // La séance se PARTAGE : une part de leçon (la moitié de l'objectif, 5 min au moins), puis de
   // l'ancrage. Une leçon plus longue se poursuit le lendemain.
-  const partLecon = Math.max(5, Math.round(reglagesUtilisateur().objectifMinutes / 3));
+  const partLecon = Math.max(5, Math.round(reglagesUtilisateur().objectifMinutes / 2));
   const dureeLecon = dureeDecision(d, decision, parExo);
   const leconCoupee = decision.type === 'lecon' && dureeLecon > partLecon;
   if (!examEssentiel || decisionFaite(decision)) {

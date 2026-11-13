@@ -224,18 +224,21 @@ export function genererPlancheSpeciale(spec, graine) {
  * Pyramide : la planche monte par paliers jusqu'au réglage choisi, en chiffres ou en lignes (on
  * commence court, on finit long). En chiffres, on part de 1 chiffre quand il y a assez de
  * colonnes : 5 chiffres sur 10 colonnes donnent 1, 1, 2, 2, 3, 3, 4, 4, 5, 5. Au plus 5 paliers,
- * et au moins 2 colonnes par palier. null : pas de pyramide, ou réglage trop petit pour monter.
+ * et au moins 2 colonnes par palier. `depart` fixe le premier palier (de 3 à 6 chiffres, par exemple). null : pas de pyramide, ou réglage trop petit pour monter.
  * @param {'non'|'chiffres'|'lignes'} sorte
  * @returns {Array<{ chiffres:number, lignes:number, colonnes:number }> | null}
  */
-export function paliersPyramide(sorte, { chiffres, lignes, colonnes }) {
+export function paliersPyramide(sorte, { chiffres, lignes, colonnes, depart = 1 }) {
   if (sorte !== 'chiffres' && sorte !== 'lignes') return null;
   const max = sorte === 'chiffres' ? chiffres : lignes;
-  const min = sorte === 'chiffres' ? 1 : 3;
+  // `depart` : premier palier voulu (1 chiffre, ou 3 lignes, par défaut), toujours sous le réglage.
+  const base = sorte === 'chiffres' ? 1 : 3;
+  const min = Math.max(base, Math.min(max - 1, depart));
+  if (min >= max) return null; // rien à monter (1 chiffre, ou 3 lignes)
   const nb = Math.min(5, Math.floor(colonnes / 2), max - min + 1);
   if (nb < 2) return null;
   // Marches régulières de min à max ; la dernière est toujours le réglage choisi.
   const marches = Array.from({ length: nb }, (_, i) => Math.round(min + ((max - min) * i) / (nb - 1)));
-  const base = Math.floor(colonnes / nb);
-  return marches.map((m, i) => ({ chiffres: sorte === 'chiffres' ? m : chiffres, lignes: sorte === 'lignes' ? m : lignes, colonnes: base + (i >= nb - (colonnes - base * nb) ? 1 : 0) }));
+  const part = Math.floor(colonnes / nb);
+  return marches.map((m, i) => ({ chiffres: sorte === 'chiffres' ? m : chiffres, lignes: sorte === 'lignes' ? m : lignes, colonnes: part + (i >= nb - (colonnes - part * nb) ? 1 : 0) }));
 }

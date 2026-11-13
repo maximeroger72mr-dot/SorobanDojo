@@ -241,7 +241,9 @@ export default {
         remplir(retour);
         if (!reprise) { question = colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
         zone.classList.add('flash-en-cours');
-        ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
+        // Sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
+        if (r.mode !== 'image') ecran.classList.add('plein');
+        else ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
         await decompteFlash(ecran, 400, arrete);
         if (arrete()) return;
         distraire(true);
@@ -251,7 +253,7 @@ export default {
           taire();
           if (!fini) return;
           zone.classList.remove('flash-en-cours');
-          ecran.classList.remove('colonne-efface');
+          ecran.classList.remove('colonne-efface', 'plein');
           ecran.textContent = '?';
           etat = 'reponse';
           saisie.style.display = '';
@@ -279,6 +281,7 @@ export default {
         taire();
         if (!fini) return;
         zone.classList.remove('flash-en-cours');
+        ecran.classList.remove('plein');
         ecran.textContent = '?';
         etat = 'reponse';
         saisie.style.display = '';
@@ -443,7 +446,7 @@ export default {
       majBouton('Commencer');
       const sansRaccourcis = raccourcis({ Enter: () => { if (etat !== 'flash') action(); } });
       if (params.auto) action();
-      return () => { vivant = false; distraire(false); taire(); sansRaccourcis(); vue?.detruire(); };
+      return () => { vivant = false; ecran.classList.remove('plein'); distraire(false); taire(); sansRaccourcis(); vue?.detruire(); };
     }
 
     afficherReglages();

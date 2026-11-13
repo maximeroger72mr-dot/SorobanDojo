@@ -53,14 +53,18 @@ export function creerFeuille(conteneur, o) {
       style: sec.problemes[0]?.type === 'addsub' ? `grid-template-columns: repeat(auto-fill, minmax(${Math.max(130, 17 * Math.max(...sec.problemes.flatMap((ex) => (ex.lignes ?? []).map((l) => formaterNombre(l.n).length + 2))) + 44)}px, 1fr))` : null },
       sec.problemes.map((ex) => {
         numero += 1;
-        const input = h('input', { type: 'text', inputmode: ex.decimales ? 'decimal' : 'numeric', autocomplete: 'off', 'aria-label': `Réponse ${numero}` });
-        const carte = h('div', { class: 'probleme' }, h('div', { class: 'num-probleme' }, numero), rendreEnonce(ex, { compact: true, doigte: !!o.doigte }), input);
-        cases.push({ ex, input, carte, section: si });
+        const avecReste = ex.reste !== undefined;
+        const input = h('input', { type: 'text', inputmode: ex.decimales ? 'decimal' : 'numeric', autocomplete: 'off', 'aria-label': avecReste ? `Quotient ${numero}` : `Réponse ${numero}`, placeholder: avecReste ? 'quotient' : '' });
+        // Division avec reste : deux cases, le quotient puis le reste.
+        const inputReste = avecReste ? h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', class: 'case-reste', 'aria-label': `Reste ${numero}`, placeholder: 'reste' }) : null;
+        const carte = h('div', { class: 'probleme' }, h('div', { class: 'num-probleme' }, numero), rendreEnonce(ex, { compact: true, doigte: !!o.doigte }),
+          avecReste ? h('div', { class: 'cases-reste' }, input, inputReste) : input);
+        cases.push({ ex, input, inputReste, carte, section: si });
         return carte;
       }))));
 
   const corrige = h('div', { class: 'corrige-impression' }, h('h2', {}, `Corrigé · ${o.titre}`),
-    h('ol', {}, cases.map((c) => h('li', {}, formaterNombre(c.ex.resultat)))));
+    h('ol', {}, cases.map((c) => h('li', {}, formaterNombre(c.ex.resultat), c.ex.reste !== undefined ? `, reste ${formaterNombre(c.ex.reste)}` : ''))));
 
   const racine = h('div', { class: 'feuille' },
     h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), o.allure && limiteMs ? allure : null, chrono, btnImprimer, btnCorriger),
@@ -70,7 +74,14 @@ export function creerFeuille(conteneur, o) {
 
   // Entrée passe à la case suivante (comme sur une feuille, on enchaîne) ; sur la DERNIÈRE case,
   // Entrée corrige la feuille et arrête le chrono tout de suite.
-  cases.forEach((c, i) => c.input.addEventListener('keydown', (e) => {
+  // (division avec reste : Entrée dans le quotient passe au reste, puis au problème suivant)
+  cases.forEach((c) => c.inputReste && c.input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    c.inputReste.focus();
+  }));
+  cases.forEach((c, i) => (c.inputReste ?? c.input).addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     e.stopPropagation();
@@ -92,7 +103,7 @@ export function creerFeuille(conteneur, o) {
   let fini = false;
   /** Épreuves chronométrées séparément : on ferme la section en cours et on ouvre la suivante. */
   function activerEpreuve() {
-    cases.forEach((c) => { c.input.disabled = c.section !== courante; });
+    cases.forEach((c) => { c.input.disabled = c.section !== courante; if (c.inputReste) c.inputReste.disabled = c.section !== courante; });
     sectionsEl.forEach((s, i) => s.classList.toggle('epreuve-inactive', i !== courante));
     limiteMs = o.sections[courante].minutes * 60000;
     debutEpreuve = performance.now();
@@ -136,9 +147,12 @@ export function creerFeuille(conteneur, o) {
     const causes = reponse === null ? [] : diagnostiquer(c.ex, reponse);
     c.carte.append(h('div', { class: 'correction' },
       enTete,
-      h('div', {}, 'Résultat : ', h('strong', {}, formaterNombre(c.ex.resultat))),
+      h('div', {}, 'Résultat : ', h('strong', {}, formaterNombre(c.ex.resultat)), c.ex.reste !== undefined ? [', reste ', h('strong', {}, formaterNombre(c.ex.reste))] : null),
+      // Le reste seul est faux : on le dit, le quotient était bon.
+      c.ex.reste !== undefined && reponse === c.ex.resultat ? h('div', { class: 'discret' }, 'Le quotient est juste ; c\'est le reste qui ne l\'est pas : relisez ce qui reste sur le soroban à la fin.') : null,
       causes[0] ? h('div', { class: 'discret' }, causes[0]) : null,
-      h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex) }, 'Expliquer')));
+      // (avec un reste : la démonstration montre la division exacte, le reste étant mis de côté)
+      h('button', { class: 'lien', onclick: () => ouvrirExplication(c.ex.reste !== undefined ? { type: 'div', a: c.ex.a - c.ex.reste, b: c.ex.b, resultat: c.ex.resultat } : c.ex) }, c.ex.reste !== undefined ? `Expliquer (${formaterNombre(c.ex.a - c.ex.reste)} ÷ ${formaterNombre(c.ex.b)}, puis il reste ${formaterNombre(c.ex.reste)})` : 'Expliquer')));
   }
 
   /**
@@ -187,7 +201,10 @@ export function creerFeuille(conteneur, o) {
     allure.remove();
     const resultats = cases.map((c) => {
       const reponse = lireReponse(c.input.value, c.ex.decimales ?? 0);
-      const bonNombre = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0);
+      // Division avec reste : le quotient ET le reste doivent être justes (un reste laissé vide vaut 0).
+      const resteRepondu = c.inputReste ? (lireReponse(c.inputReste.value, 0) ?? 0) : null;
+      const bonNombre = egal(reponse, c.ex.resultat, c.ex.decimales ?? 0) && (!c.inputReste || resteRepondu === c.ex.reste);
+      if (c.inputReste) c.inputReste.disabled = true;
       // Examen pur, 1er au 3e kyū : sans séparateurs de milliers, la réponse est comptée fausse.
       const sansMilliers = !!o.milliers && bonNombre && !milliersCorrects(c.input.value);
       const juste = bonNombre && !sansMilliers;

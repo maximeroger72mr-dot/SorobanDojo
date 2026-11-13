@@ -786,3 +786,19 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Tapis roulant : vitesse de traversée calculée pour que deux nombres ne se chevauchent jamais (0,3 s, profil qui accélère) | Corrigé |
 | Leçons : bouton « Un autre exemple (au hasard) », tiré dans les calculs de la leçon et joué pas à pas | Fait |
 | Leçons de × et ÷ des paliers 6 et 7 : 50 répétitions (30 pour « deux petits produits », qui n'a que 34 cas) ; placement et table inchangés | Fait |
+
+## Version 0.27.0
+
+| Changement | État |
+|---|---|
+| Marches 2 × 2 (`p6-3a` à `p6-3c` : sans retenue, avec retenues, retenue qui déborde) ; division par 2 chiffres (`p7-ea` : estimation juste ; `p7-4a`, `p7-4b` : quotient à 2 chiffres, estimations justes puis à corriger) | Fait |
+| Leçons de × et ÷ : 30 répétitions au moins partout (leçons longues des paliers 8 et 9 montées de 20 à 30) | Fait |
+| Leçons : « Un exemple à faire moi-même » (énoncé seul, puis résultat et démonstration sur demande) | Fait |
+| Planches : départ de la pyramide réglable | Fait |
+| Feuilles de division : part de divisions avec reste, deux cases (quotient, reste) | Fait (feuille seulement, pas en « une par une ») |
+| Séance : la leçon prend la moitié de l'objectif du jour (un tiers avant) | Fait |
+| Prof : une leçon de colonnes compte comme « confirmée » (ou « débutant ») si tous ses gestes le sont sur la carte de maîtrise, même sans avoir refait la leçon | Corrigé |
+| Échauffement « complément éclair » : un jour sur deux, et plus du tout après un record de 25 | Corrigé |
+| Anzan des leçons : case « sans le petit soroban d'aide » (réglage gardé) | Fait |
+| Flash sans image : plein écran pendant le défilement, nombre au centre exact de la fenêtre | Corrigé |
+| Icône du `.exe` (`build/icon.png`) | Fait |

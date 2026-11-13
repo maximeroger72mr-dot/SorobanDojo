@@ -1,6 +1,6 @@
 {
   "name": "soroban-apprendre",
-  "version": "0.26.1",
+  "version": "0.27.0",
   "description": "Apprendre le soroban (boulier japonais)",
   "main": "main.cjs",
   "scripts": {
@@ -34,7 +34,8 @@
       "src/**/*"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "build/icon.png"
     },
     "portable": {
       "artifactName": "Soroban-${version}-Windows.exe"

@@ -88,6 +88,17 @@ export function genererDivision(nd, nq, zeros = false) {
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };
 }
 
+/**
+ * Division AVEC RESTE : diviseur de `nd` chiffres, quotient de `nq` chiffres, reste de 1 à
+ * diviseur − 1. La réponse a deux parties : le quotient (`resultat`) et le reste (`reste`).
+ */
+export function genererDivisionReste(nd, nq) {
+  const diviseur = Math.max(2, facteurNet(nd));
+  const quotient = facteurNet(nq);
+  const reste = entier(1, diviseur - 1);
+  return { type: 'div', a: diviseur * quotient + reste, b: diviseur, resultat: quotient, reste };
+}
+
 // ------------------------------------------------------------------ marches (micro-étapes)
 
 /**
@@ -120,9 +131,52 @@ export const MARCHES_DIV = {
   'div-zero': (b, u, v) => (v * b) % 10 === 0,
 };
 
+/** Retenues d'une multiplication : y en a-t-il, et l'une d'elles déborde-t-elle à gauche du produit ? */
+export function retenuesMultiplication(a, b) {
+  const somme = (x) => String(x).split('').reduce((t, c) => t + Number(c), 0);
+  let valeur = 0;
+  let retenue = false;
+  let deborde = false;
+  for (const m of etapesMultiplication(a, b).macros) {
+    // Une addition sans retenue conserve la somme des chiffres.
+    if (somme(valeur) + somme(m.valeur) !== somme(valeur + m.valeur)) retenue = true;
+    if (m.deborde) deborde = true;
+    valeur += m.valeur;
+  }
+  return { retenue, deborde };
+}
+
+/**
+ * Marches tirées au hasard (trop de cas pour les énumérer) : on tire un calcul du bon format
+ * jusqu'à ce qu'il réponde à la marche.
+ *  - mul22-direct  : 2 × 2 chiffres, quatre produits qui s'ajoutent sans aucune retenue ;
+ *  - mul22-retenue : des retenues, mais aucune ne sort des deux tiges du produit ;
+ *  - mul22-deborde : une retenue déborde à gauche des deux tiges du produit ;
+ *  - div21-direct  : ÷ 2 chiffres, quotient 1 chiffre, l'estimation tombe juste du premier coup ;
+ *  - div22-direct  : ÷ 2 chiffres, quotient 2 chiffres, les deux estimations tombent juste ;
+ *  - div22-corrige : ÷ 2 chiffres, quotient 2 chiffres, une estimation au moins est à corriger.
+ */
+const estimationsJustes = (ex) => aideDivision(ex.a, ex.b).etapes.every((e) => e.essais.length === 1);
+export const MARCHES_TIRAGE = {
+  'mul22-direct': { tirer: () => genererMultiplication(2, 2), ok: (ex) => !retenuesMultiplication(ex.a, ex.b).retenue },
+  'mul22-retenue': { tirer: () => genererMultiplication(2, 2), ok: (ex) => { const r = retenuesMultiplication(ex.a, ex.b); return r.retenue && !r.deborde; } },
+  'mul22-deborde': { tirer: () => genererMultiplication(2, 2), ok: (ex) => retenuesMultiplication(ex.a, ex.b).deborde },
+  'div21-direct': { tirer: () => genererDivision(2, 1), ok: estimationsJustes },
+  'div22-direct': { tirer: () => genererDivision(2, 2), ok: estimationsJustes },
+  'div22-corrige': { tirer: () => genererDivision(2, 2), ok: (ex) => !estimationsJustes(ex) },
+};
+
 /** Un exercice d'une marche (tous les cas possibles, tirés au hasard ; jamais deux fois de suite le même). */
 const dernierMarche = {};
 export function genererMarche(marche) {
+  const tirage = MARCHES_TIRAGE[marche];
+  if (tirage) {
+    let ex = tirage.tirer();
+    // 2 000 essais au plus : au-delà (jamais vu), on rend le dernier calcul plutôt que de boucler.
+    for (let e = 0; e < 2000 && (!tirage.ok(ex) || `${ex.a}|${ex.b}` === dernierMarche[marche]); e++) ex = tirage.tirer();
+    dernierMarche[marche] = `${ex.a}|${ex.b}`;
+    return ex;
+  }
   const mul = MARCHES_MUL[marche];
   const div = MARCHES_DIV[marche];
   if (!mul && !div) return null;

@@ -56,6 +56,22 @@ export function joursDepuisDerniereLecon(d, date) {
   return new Set(d.sessions.map((s) => s.date).filter((x) => x > v && x < date)).size;
 }
 
+/**
+ * Niveau atteint sur une leçon (index de maitrise.NIVEAUX) : le meilleur de deux mesures.
+ *  - l'historique de la leçon elle-même (ses exercices) ;
+ *  - pour une leçon de colonnes, le niveau de TOUS ses gestes sur la carte de maîtrise : des
+ *    gestes passés en or ailleurs (planches, marathon, lièvre) valent une leçon confirmée, même
+ *    si l'on n'a pas refait la leçon depuis.
+ * @returns {{ index:number, essais:number, manque:string[] }}
+ */
+export function niveauLecon(d, sp) {
+  const ev = evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp));
+  const cibles = (sp.type ?? 'addsub') === 'addsub' ? (sp.cibles ?? []).filter((c) => !c.endsWith(':direct')) : [];
+  if (!cibles.length) return ev;
+  const gestes = Math.min(...cibles.map((c) => evaluer(d.motifs?.[c]?.hist ?? [], 'addsub').index));
+  return gestes > ev.index ? { ...ev, index: gestes, essais: Math.max(ev.essais, 8), manque: [] } : ev;
+}
+
 /** Exercice d'ancrage d'une leçon : marathon sur ses gestes, ou entraînement de la leçon. */
 function ancrage(sp) {
   return sp.type === 'addsub'
@@ -79,7 +95,7 @@ export function decisionDuJour(d, date, prochain) {
     return { type: 'ancrage', titre: 'Reprise en douceur', ...a, raison: `${absence} jours sans soroban : pas de nouvelle leçon aujourd'hui, on réveille les gestes de « ${derniere.titre} ».`, minutes: 10, sp: derniere };
   }
   if (derniere) {
-    const ev = evaluer(d.paliers[derniere.id].hist ?? [], familleLecon(derniere));
+    const ev = niveauLecon(d, derniere);
     if (ev.essais >= 8 && ev.index < 2) {
       const a = ancrage(derniere);
       return { type: 'ancrage', titre: 'Ancrage', ...a, raison: `Pas de nouvelle leçon aujourd'hui : « ${derniere.titre} » n'est pas encore acquise (${ev.manque.join(', ')}). Mieux vaut drill qu'empiler.`, minutes: 10, sp: derniere };
@@ -89,7 +105,7 @@ export function decisionDuJour(d, date, prochain) {
   // pas plus de JOURS_ANCRAGE_MAX jours de pratique : au-delà, on avance (débutant est acquis).
   const avant = avantDerniereLecon(d);
   if (prochain && avant) {
-    const ev = evaluer(d.paliers[avant.id].hist ?? [], familleLecon(avant));
+    const ev = niveauLecon(d, avant);
     const jours = joursDepuisDerniereLecon(d, date);
     if (ev.essais >= 8 && ev.index < 3 && jours < JOURS_ANCRAGE_MAX) {
       const a = ancrage(avant);

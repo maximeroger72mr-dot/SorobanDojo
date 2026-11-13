@@ -40,7 +40,7 @@ import { rendreEnonce } from '../ui/enonce.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { creerPlacement } from '../ui/placement.js';
 import { conseilsVitesse, GENERAUX, ANZAN } from '../core/conseils.js';
-import { h, formaterDuree, formaterPourcent, remplir, raccourcis } from '../ui/dom.js';
+import { h, formaterDuree, formaterPourcent, remplir, raccourcis, formaterNombre } from '../ui/dom.js';
 
 /** Leçon précédente sur la même piste (soroban ou anzan). */
 export const precedente = (sp) => SOUS_PALIERS.slice(0, sp.ordre).reverse().find((x) => x.mental === sp.mental) ?? null;
@@ -315,6 +315,7 @@ export default {
             h('ul', {},
               h('li', {}, `Les nombres s'affichent un par un (${sp.duree.toLocaleString('fr-FR')} s chacun), à ${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}. Le signe − annonce une soustraction.`),
               h('li', {}, `La chaîne commence à ${Math.min(sp.lignesDepart ?? 2, sp.lignes)} nombres : 3 réussites de suite en ajoutent un (jusqu'à ${sp.lignes}), une erreur en retire un. Le mini-test se fait à ${sp.lignes} nombres.`),
+              sp.image ? h('li', {}, h('label', { title: 'Le petit soroban reste dans le champ de vision : si vous le lisez au lieu de l\'imaginer, retirez-le.' }, h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().anzanSansImage, onchange: (e) => modifierReglages({ anzanSansImage: e.target.checked }) }), ' Sans le petit soroban d\'aide (je veux l\'imaginer moi-même)')) : null,
               sp.image ? h('li', {}, 'Un petit soroban montre le TOTAL qui évolue : suivez-le des yeux, puis dans la tête. Il s\'estompe à mesure que vous réussissez (nette, estompée, légère, puis plus d\'image). Le mini-test se fait sans image.') : null,
               h('li', {}, 'Posez la main comme sur le soroban et faites les gestes dans l\'air : le pouce monte, l\'index descend.'),
               h('li', {}, 'Gardez l\'image du total, pas le nombre lu : à la fin, on LIT le soroban imaginaire.'),
@@ -354,15 +355,28 @@ export default {
         sp.demos.forEach((d, i) => choix.append(h('button', { class: 'btn', onclick: () => panneau.jouer(demoDe(sp, d), 'manuel') }, `Exemple ${i + 1} : ${libelleDemo(sp, d)}`)));
         // Un autre exemple, tiré au hasard dans les calculs de CETTE leçon : on peut en refaire
         // autant qu'on veut, jusqu'à être sûr d'avoir compris.
+        // D'abord à VOUS : l'énoncé seul, à faire sur votre soroban. Le résultat et la
+        // démonstration ne s'affichent que sur demande, pour vérifier.
+        const aVous = h('div', { class: 'carte exemple-a-vous', style: 'display:none' });
         const autre = () => {
           const ex = genererExercice(sp);
           const entier = Number.isInteger(ex.a) && Number.isInteger(ex.b);
-          if (ex.type === 'mul' && entier) panneau.jouer(demoMultiplication(ex.a, ex.b), 'manuel');
-          else if (ex.type === 'div' && entier) panneau.jouer(demoDivision(ex.a, ex.b), 'manuel');
-          else if (ex.type === 'addsub' && ex.lignes && !ex.decimales && !ex.negatif) panneau.jouer(demoColonne(ex), 'manuel');
-          else ouvrirExplication(ex);
+          const demo = ex.type === 'mul' && entier ? demoMultiplication(ex.a, ex.b)
+            : ex.type === 'div' && entier ? demoDivision(ex.a, ex.b)
+              : ex.type === 'addsub' && ex.lignes && !ex.decimales && !ex.negatif ? demoColonne(ex) : null;
+          const resultat = h('span', {});
+          aVous.style.display = '';
+          remplir(aVous, h('div', {}, h('strong', {}, 'À vous : '), 'faites ce calcul sur votre soroban, puis vérifiez.'),
+            rendreEnonce(ex, { compact: true }),
+            h('div', { class: 'ligne' },
+              h('button', { class: 'btn', onclick: () => { resultat.textContent = `Résultat : ${formaterNombre(ex.resultat)}`; } }, 'Voir le résultat'),
+              h('button', { class: 'btn', onclick: () => (demo ? panneau.jouer(demo, 'manuel') : ouvrirExplication(ex)) }, 'Voir la démonstration pas à pas'),
+              h('button', { class: 'btn principal', onclick: autre }, 'Un autre exemple'),
+              resultat));
+          aVous.scrollIntoView({ block: 'nearest', behavior: 'instant' });
         };
-        if (!['table', 'theorie'].includes(sp.type)) choix.append(h('button', { class: 'btn', title: 'Un nouvel exemple à chaque clic, pris dans les calculs de cette leçon', onclick: autre }, 'Un autre exemple (au hasard)'));
+        choix.after(aVous);
+        if (!['table', 'theorie'].includes(sp.type)) choix.append(h('button', { class: 'btn', title: 'Un nouvel exemple à chaque clic, pris dans les calculs de cette leçon', onclick: autre }, 'Un exemple à faire moi-même'));
         choix.append(h('span', { style: 'flex:1' }), h('button', { class: 'btn principal', onclick: () => versEntrainement() }, 'Passer à l\'entraînement →'));
         panneau.jouer(demoDe(sp, sp.demos[0]), 'manuel');
         return () => panneau.detruire();
@@ -459,7 +473,8 @@ export default {
         // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
         // Photo du soroban : durée d'affichage qui raccourcit avec les réussites.
         const photo = sp.type === 'photo' ? dureePhoto(sp, etatPalier(sp.id).dureePhoto) : null;
-        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: imageAnzan(sp, etatPalier(sp.id).justes).opacite }
+        // Image d'aide : on peut la refuser (réglage gardé) ; elle est alors absente dès le début.
+        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: reglagesUtilisateur().anzanSansImage ? 0 : imageAnzan(sp, etatPalier(sp.id).justes).opacite }
           : photo ? { duree: photo.secondes } : sp.type === 'lire' ? { rang: etatPalier(sp.id).reps } : {});
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -468,7 +483,7 @@ export default {
             h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
-            sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${imageAnzan(sp, et.justes).nom}`) : null,
+            sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${reglagesUtilisateur().anzanSansImage ? 'sans image d\'aide' : imageAnzan(sp, et.justes).nom}`) : null,
             photo ? h('span', { class: 'discret' }, `· image visible ${photo.secondes.toLocaleString('fr-FR')} s (elle raccourcit quand vous enchaînez les bonnes réponses)`) : null,
             (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null,
           ].filter(Boolean));
