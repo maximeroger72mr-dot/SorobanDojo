@@ -357,7 +357,18 @@ export default {
         reprises: 3, // colonnes fausses dont l'erreur est identifiée : reprise proposée, 3 au plus
         historique: { cle: `planche-${r.chiffres}-${r.lignes}-${genre}${suffixe}`, libelle: titre },
         titre: `${titre} · planche ${planche.code}`,
-        sections: [{ problemes }],
+        // Pyramide : un titre par palier (« 3 chiffres », « 4 chiffres »…), pour voir la montée.
+        sections: (() => {
+          const paliers = paliersPyramide(r.pyramide, { chiffres: r.chiffres, lignes: r.lignes, colonnes: problemes.length });
+          if (!paliers) return [{ problemes }];
+          let debut = 0;
+          return paliers.map((t) => {
+            const n = r.pyramide === 'chiffres' ? t.chiffres : t.lignes;
+            const sec = { titre: `${n} ${r.pyramide === 'chiffres' ? `chiffre${n > 1 ? 's' : ''}` : 'lignes'}`, problemes: problemes.slice(debut, debut + t.colonnes) };
+            debut += t.colonnes;
+            return sec;
+          });
+        })(),
         surFin: (b) => {
           (async () => {
             const dureeMoyenne = b.dureeMs / b.total;

@@ -777,3 +777,12 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Vitesse automatique à chaque réponse (5 % plus vite si juste, 10 % moins vite si faux), gardée par réglage | Fait |
 | Après une erreur en flash : refaire le même calcul, à la même vitesse ou plus lentement (2 reprises), sans recompter | Fait (pas en passage de grade) |
 | Non fait : part de divisions avec reste sur les feuilles (la réponse demanderait deux cases : quotient et reste) | À faire |
+
+## Version 0.26.1
+
+| Changement | État |
+|---|---|
+| Pyramide : jusqu'à 5 paliers en partant de 1 chiffre (ou 3 lignes), 2 colonnes au moins par palier, un titre par palier sur la feuille | Fait |
+| Tapis roulant : vitesse de traversée calculée pour que deux nombres ne se chevauchent jamais (0,3 s, profil qui accélère) | Corrigé |
+| Leçons : bouton « Un autre exemple (au hasard) », tiré dans les calculs de la leçon et joué pas à pas | Fait |
+| Leçons de × et ÷ des paliers 6 et 7 : 50 répétitions (30 pour « deux petits produits », qui n'a que 34 cas) ; placement et table inchangés | Fait |

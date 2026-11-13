@@ -294,9 +294,16 @@ export default {
        */
       async function tapis() {
         remplir(ecran);
-        const traversee = Math.max(1.8, dureeCourante() * 2.6); // secondes pour traverser l'écran
+        // Deux nombres ne doivent jamais se chevaucher : entre deux apparitions, le premier doit
+        // avoir monté d'au moins sa propre hauteur. La traversée est donc d'autant plus rapide que
+        // l'écart le plus court (profil qui accélère, 0,3 s par nombre…) est petit.
+        const durees = periodes();
+        const hauteurEcran = ecran.clientHeight || 520;
+        const hauteurNombre = parseFloat(getComputedStyle(ecran).fontSize) * 1.3;
+        const sansChevauchement = (1.25 * hauteurEcran * (Math.min(...durees) / 1000)) / hauteurNombre;
+        const traversee = Math.max(0.5, Math.min(Math.max(1.8, dureeCourante() * 2.6), sansChevauchement)); // secondes pour traverser l'écran
         const { fini } = await cadencer({
-          periodesMs: periodes(),
+          periodesMs: durees,
           partVisible: 1,
           interrompu: arrete,
           surAfficher: (k) => {
@@ -313,7 +320,7 @@ export default {
           surMasquer: () => {},
         });
         if (!fini) return false;
-        await attendre(Math.max(0, (traversee - dureeCourante()) * 1000)); // le dernier nombre finit de sortir
+        await attendre(Math.max(0, traversee * 1000 - durees.at(-1))); // le dernier nombre finit de sortir
         remplir(ecran);
         return !arrete();
       }

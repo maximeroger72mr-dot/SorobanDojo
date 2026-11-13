@@ -221,18 +221,21 @@ export function genererPlancheSpeciale(spec, graine) {
 }
 
 /**
- * Pyramide : la planche monte en trois paliers jusqu'au réglage choisi, en chiffres ou en lignes
- * (on commence court, on finit long). null : pas de pyramide, ou réglage trop petit pour monter.
+ * Pyramide : la planche monte par paliers jusqu'au réglage choisi, en chiffres ou en lignes (on
+ * commence court, on finit long). En chiffres, on part de 1 chiffre quand il y a assez de
+ * colonnes : 5 chiffres sur 10 colonnes donnent 1, 1, 2, 2, 3, 3, 4, 4, 5, 5. Au plus 5 paliers,
+ * et au moins 2 colonnes par palier. null : pas de pyramide, ou réglage trop petit pour monter.
  * @param {'non'|'chiffres'|'lignes'} sorte
  * @returns {Array<{ chiffres:number, lignes:number, colonnes:number }> | null}
  */
 export function paliersPyramide(sorte, { chiffres, lignes, colonnes }) {
   if (sorte !== 'chiffres' && sorte !== 'lignes') return null;
-  const tiers = Math.floor(colonnes / 3);
-  const parts = [tiers, tiers, colonnes - 2 * tiers];
-  const marches = sorte === 'chiffres'
-    ? [Math.max(1, chiffres - 2), Math.max(1, chiffres - 1), chiffres]
-    : [Math.max(3, Math.round(lignes * 0.5)), Math.max(3, Math.round(lignes * 0.75)), lignes];
-  if (marches[0] === marches[2]) return null;
-  return marches.map((m, i) => ({ chiffres: sorte === 'chiffres' ? m : chiffres, lignes: sorte === 'lignes' ? m : lignes, colonnes: parts[i] })).filter((p) => p.colonnes > 0);
+  const max = sorte === 'chiffres' ? chiffres : lignes;
+  const min = sorte === 'chiffres' ? 1 : 3;
+  const nb = Math.min(5, Math.floor(colonnes / 2), max - min + 1);
+  if (nb < 2) return null;
+  // Marches régulières de min à max ; la dernière est toujours le réglage choisi.
+  const marches = Array.from({ length: nb }, (_, i) => Math.round(min + ((max - min) * i) / (nb - 1)));
+  const base = Math.floor(colonnes / nb);
+  return marches.map((m, i) => ({ chiffres: sorte === 'chiffres' ? m : chiffres, lignes: sorte === 'lignes' ? m : lignes, colonnes: base + (i >= nb - (colonnes - base * nb) ? 1 : 0) }));
 }

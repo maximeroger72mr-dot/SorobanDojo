@@ -577,7 +577,8 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .flash-en-cours .pastilles, .flash-en-cours .retour, .flash-en-cours .discret { visibility: hidden; }
 /* Tapis roulant : chaque nombre monte du bas vers le haut. */
 .flash-ecran.tapis { position: relative; overflow: hidden; }
-.tapis-nombre { position: absolute; left: 0; right: 0; top: 100%; text-align: center; }
+.flash-ecran.tapis { font-size: 4.5rem; }
+.tapis-nombre { position: absolute; left: 0; right: 0; top: 100%; text-align: center; line-height: 1.3; white-space: nowrap; }
 /* Colonne qui s'efface, ligne à ligne. */
 .flash-ecran.colonne-efface { height: auto; min-height: 0; padding: 12px 0; }
 .pile-efface { line-height: 1.25; }

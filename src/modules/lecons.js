@@ -34,7 +34,7 @@ import { localiserErreur } from '../core/diagnostic.js';
 import { verdictMiniTest, testMin, exigeVitesse } from '../core/minitest.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
-import { demoMultiplication, demoDivision } from '../ui/explication.js';
+import { demoMultiplication, demoDivision, demoColonne } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -342,7 +342,7 @@ export default {
         if (!sp.demos.length) {
           // Pas d'exemple prédéfini (décimaux) : un exemple tiré au hasard, expliqué pas à pas.
           zone.append(h('div', { class: 'ligne' },
-            h('button', { class: 'btn', onclick: () => ouvrirExplication(genererExercice(sp)) }, 'Voir un exemple expliqué'),
+            h('button', { class: 'btn', title: 'Un nouvel exemple à chaque clic', onclick: () => ouvrirExplication(genererExercice(sp)) }, 'Voir un exemple expliqué (un nouveau à chaque clic)'),
             h('button', { class: 'btn principal', onclick: () => versEntrainement() }, 'Passer à l\'entraînement →')));
           return null;
         }
@@ -352,6 +352,17 @@ export default {
         zone.append(choix);
         const panneau = new PanneauDemo(zone);
         sp.demos.forEach((d, i) => choix.append(h('button', { class: 'btn', onclick: () => panneau.jouer(demoDe(sp, d), 'manuel') }, `Exemple ${i + 1} : ${libelleDemo(sp, d)}`)));
+        // Un autre exemple, tiré au hasard dans les calculs de CETTE leçon : on peut en refaire
+        // autant qu'on veut, jusqu'à être sûr d'avoir compris.
+        const autre = () => {
+          const ex = genererExercice(sp);
+          const entier = Number.isInteger(ex.a) && Number.isInteger(ex.b);
+          if (ex.type === 'mul' && entier) panneau.jouer(demoMultiplication(ex.a, ex.b), 'manuel');
+          else if (ex.type === 'div' && entier) panneau.jouer(demoDivision(ex.a, ex.b), 'manuel');
+          else if (ex.type === 'addsub' && ex.lignes && !ex.decimales && !ex.negatif) panneau.jouer(demoColonne(ex), 'manuel');
+          else ouvrirExplication(ex);
+        };
+        if (!['table', 'theorie'].includes(sp.type)) choix.append(h('button', { class: 'btn', title: 'Un nouvel exemple à chaque clic, pris dans les calculs de cette leçon', onclick: autre }, 'Un autre exemple (au hasard)'));
         choix.append(h('span', { style: 'flex:1' }), h('button', { class: 'btn principal', onclick: () => versEntrainement() }, 'Passer à l\'entraînement →'));
         panneau.jouer(demoDe(sp, sp.demos[0]), 'manuel');
         return () => panneau.detruire();

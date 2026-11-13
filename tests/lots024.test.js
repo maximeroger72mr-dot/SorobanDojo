@@ -245,8 +245,11 @@ test('marches de multiplication et de division : une difficulté à la fois, hé
 test('pyramide et part de soustractions des planches ; profils de vitesse', async () => {
   const { paliersPyramide } = await import('../src/core/planche.js');
   const { periodesProfil } = await import('../src/ui/cadence.js');
-  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 5, lignes: 8, colonnes: 10 }), [{ chiffres: 3, lignes: 8, colonnes: 3 }, { chiffres: 4, lignes: 8, colonnes: 3 }, { chiffres: 5, lignes: 8, colonnes: 4 }]);
-  assert.deepEqual(paliersPyramide('lignes', { chiffres: 2, lignes: 10, colonnes: 9 }).map((p) => p.lignes), [5, 8, 10]);
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 5, lignes: 8, colonnes: 10 }).map((p) => [p.chiffres, p.colonnes]), [[1, 2], [2, 2], [3, 2], [4, 2], [5, 2]]);
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 10, lignes: 8, colonnes: 10 }).map((p) => p.chiffres), [1, 3, 6, 8, 10]);
+  assert.deepEqual(paliersPyramide('chiffres', { chiffres: 5, lignes: 8, colonnes: 5 }).map((p) => [p.chiffres, p.colonnes]), [[1, 2], [5, 3]]);
+  assert.deepEqual(paliersPyramide('lignes', { chiffres: 2, lignes: 10, colonnes: 10 }).map((p) => p.lignes), [3, 5, 7, 8, 10]);
+  for (const c of [5, 10, 20, 30]) assert.equal(paliersPyramide('chiffres', { chiffres: 4, lignes: 5, colonnes: c }).reduce((t, p) => t + p.colonnes, 0), c);
   assert.equal(paliersPyramide('non', { chiffres: 5, lignes: 8, colonnes: 10 }), null);
   assert.equal(paliersPyramide('chiffres', { chiffres: 1, lignes: 8, colonnes: 10 }), null);
   for (const [part, pures] of [[0, 10], [0.4, 6], [1, 0]]) {
