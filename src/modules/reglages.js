@@ -16,6 +16,7 @@ import { VERSION_APPLI } from '../core/version.js';
 import { selecteursTheme } from '../ui/theme.js';
 import { ouvrirDialogue } from '../ui/panneauDemo.js';
 import { h } from '../ui/dom.js';
+import { SYSTEMES } from '../core/epreuves.js';
 
 /** Comment ça marche : les 5 points à connaître (aussi pour qui revient après une absence). */
 export const COMMENT_CA_MARCHE = [
@@ -106,6 +107,13 @@ export default {
       sectionApparence(),
       h('h2', {}, 'Parcours'),
       h('div', { class: 'carte' }, decouverte,
+        h('p', {}, h('label', {}, 'Système de grades : ', (() => {
+          const sel = h('select', { onchange: async (ev) => { await modifierReglages({ systemeGrades: ev.target.value }); } },
+            h('option', { value: 'nissho' }, `${SYSTEMES.nissho.nom} (par défaut : un temps global, une note globale)`),
+            h('option', { value: 'zenkoren' }, `${SYSTEMES.zenkoren.nom} (plus exigeant : 7 minutes par épreuve, réussite dans chacune)`));
+          sel.value = reglagesUtilisateur().systemeGrades ?? 'nissho';
+          return sel;
+        })())),
         h('p', { style: 'margin-bottom:0' }, 'Vous avez déjà pratiqué ? ',
           h('button', { class: 'lien', onclick: () => app.aller('positionnement') }, 'Tester mon niveau'),
           ' : 4 paliers de 8 colonnes, et les leçons maîtrisées sont validées.')),

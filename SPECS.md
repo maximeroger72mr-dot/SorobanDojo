@@ -817,3 +817,14 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Planches proposées : ciblée et mélangée en alternance ; la cible de vitesse est toujours au-dessus de la vitesse actuelle | Corrigé |
 | Mot du prof : thème du jour, constats tirés des données (distance à l'or, écart de vitesse, progrès, erreur qui revient, régularité, anzan), conseil lié à la leçon | Fait |
 | Apprendre : frise du parcours (où j'en suis, ce qui vient) ; Progression : courbes anzan (chaîne tenue, vitesse d'affichage) | Fait |
+
+## Version 0.30.0
+
+| Changement | État |
+|---|---|
+| Grille Nisshō corrigée d'après le récapitulatif fourni : 10 lignes au mitorizan dès le 10e kyū (1 à 2 chiffres aux 10e et 9e, 2 au 8e), 10e kyū = même épreuve que le 9e (seuil 60 / 200), 3e kyū 60 chiffres, 1er kyū 100 chiffres, un résultat négatif dès le 3e kyū | Corrigé (à confirmer sur les sujets officiels) |
+| Système Zenkoren (`GRADES_ZENKOREN`) : 7 minutes par épreuve sans report, 15 problèmes à 10 points, 10 / 15 exigés dans CHAQUE épreuve ; ordre ×, ÷, additions ; 10e kyū : additions A et B ; 9e : × et additions | Fait |
+| Zenkoren, nombres de chiffres : ceux du même grade Nisshō (le format officiel n'est pas connu) ; colonnes raccourcies (`LIGNES_ZENKOREN`) pour exiger 1,4 à 1,6 fois la cadence Nisshō en colonnes, la même en × et ÷ | Fait (format indicatif) |
+| Choix du système de grades (Nisshō par défaut) : Épreuves officielles et Réglages ; chaque système garde ses records ; grade, frise, objectif daté et succès suivent le système choisi | Fait |
+| Examen blanc en alternance d'une semaine à l'autre : un sujet de 20 minutes, puis deux sprints de 7 minutes (70 % dans chacun) ; l'autre format reste disponible | Fait |
+| Options Zenkoren du 1er au 3e kyū (calcul mental, denpyōzan, calcul appliqué) | À faire |

@@ -107,6 +107,45 @@ export function sectionsExamen(d, g) {
   return sections;
 }
 
+/**
+ * Examen blanc, en ALTERNANCE d'une semaine à l'autre : un sujet long de 20 minutes
+ * (concentration longue, un seul chrono pour tout), puis, la semaine suivante, deux sprints de
+ * 7 minutes, chacun avec son chrono et son verdict (rythme rapide, sans compensation : il faut
+ * 70 % dans chacun). Le contenu est celui de l'examen du niveau (mêmes colonnes, mêmes × et ÷).
+ */
+export const MINUTES_BLANC_LONG = 20;
+export const MINUTES_BLANC_SPRINT = 7;
+export const formatBlanc = (date) => (semaineISO(date).semaine % 2 === 0 ? 'long' : 'sprints');
+export const minutesBlanc = (format) => (format === 'long' ? MINUTES_BLANC_LONG : 2 * MINUTES_BLANC_SPRINT);
+/** Secondes « d'examen » d'une colonne et d'une opération (mêmes bases que minutesExamen). */
+const secColonne = (g) => g.chiffres * g.lignes * 2.5 + 3;
+const secOperation = (sp) => 5 * ((sp.m ?? sp.nd ?? 2) * (sp.n ?? sp.nq ?? 1)) + 3;
+export function sectionsBlanc(d, g, format) {
+  const colonnes = (n) => sujetExamen(d, { ...g, colonnes: n });
+  const operations = (n, minutes) => {
+    const s = [];
+    if (g.mul) s.push({ titre: 'Multiplications', problemes: Array.from({ length: g.div ? Math.ceil(n / 2) : n }, () => genererExercice(g.mul)) });
+    if (g.div) s.push({ titre: 'Divisions', problemes: Array.from({ length: g.mul ? Math.floor(n / 2) : n }, () => genererExercice(g.div)) });
+    return minutes ? s.map((x) => ({ ...x, minutes })) : s;
+  };
+  const ops = !!(g.mul || g.div);
+  const secOp = ops ? (g.mul && g.div ? (secOperation(g.mul) + secOperation(g.div)) / 2 : secOperation(g.mul ?? g.div)) : 0;
+  if (format === 'long') {
+    // 20 minutes : un tiers d'opérations quand le niveau en a, le reste en colonnes.
+    const tOps = ops ? MINUTES_BLANC_LONG * 60 / 3 : 0;
+    const n = Math.max(COLONNES, Math.round((MINUTES_BLANC_LONG * 60 - tOps) / secColonne(g)));
+    return [{ titre: ops ? 'Colonnes' : undefined, problemes: colonnes(n) }, ...(ops ? operations(Math.max(6, Math.round(tOps / secOp))) : [])];
+  }
+  // Deux sprints de 7 minutes : colonnes, puis × et ÷ (ou un second sprint de colonnes).
+  const m = MINUTES_BLANC_SPRINT;
+  const nCol = Math.max(10, Math.round((m * 60) / secColonne(g)));
+  const premier = { titre: 'Sprint 1 · colonnes', minutes: m, problemes: colonnes(nCol) };
+  if (!ops) return [premier, { titre: 'Sprint 2 · colonnes', minutes: m, problemes: colonnes(nCol) }];
+  const n = Math.max(6, Math.round((m * 60) / secOp));
+  const sous = operations(n);
+  return [premier, { titre: `Sprint 2 · ${sous.map((x) => x.titre.toLowerCase()).join(' et ')}`, minutes: m, problemes: sous.flatMap((x) => x.problemes) }];
+}
+
 /** Clé et meilleur résultat des passages de cette semaine (pour le rendez-vous hebdomadaire du prof). */
 export const cleSemaine = (date) => `kyu-semaine-${semaineISO(date).cle}`;
 export const resultatSemaine = (d, date) => d.records[cleSemaine(date)] ?? null;
@@ -125,7 +164,8 @@ export function joursRestants(date) {
 export function libelleGrade(d) {
   const g = grade(d);
   const prep = meilleurPrekyu(d);
-  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : prep ? prep.nom : 'aucun pour l\'instant';
+  const sys = g.obtenu?.systeme === 'zenkoren' ? ' · Zenkoren' : '';
+  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})${sys}` : prep ? prep.nom : 'aucun pour l\'instant';
   let officiel;
   if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
   else if (g.pret) {

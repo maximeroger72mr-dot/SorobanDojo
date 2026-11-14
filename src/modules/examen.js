@@ -4,7 +4,7 @@
  * ne retire rien. Le ton est volontairement calme : un échec à un examen est normal.
  */
 
-import { examenDeLaSemaine, sectionsExamen, minutesExamen, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, COLONNES, SEUIL } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, SEUIL, formatBlanc, minutesBlanc, sectionsBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { progression, aujourdhui, enregistrerSession, proposerMeilleurScore } from '../core/progression.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { listeErreurs } from '../ui/serie.js';
@@ -25,20 +25,24 @@ export default {
       const g = examenDeLaSemaine(d);
       const r = resultatSemaine(d, aujourdhui());
       el.append(h('h1', {}, 'Passage de kyū'),
-        h('p', { class: 'discret' }, `L'examen de votre niveau, sur tout ce que vous avez appris : ${COLONNES} colonnes, un temps fixe, ${Math.round(SEUIL * 100)} % de justes pour réussir. Il est ouvert en permanence : passez-le quand vous vous sentez prêt, autant de fois que vous voulez. La séance du jour vous le rappelle chaque semaine.`));
+        h('p', { class: 'discret' }, `L'examen de votre niveau, sur tout ce que vous avez appris, ${Math.round(SEUIL * 100)} % de justes pour réussir. Deux formats, en alternance d'une semaine à l'autre : un sujet de 20 minutes (tenir la concentration longtemps), puis deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son chrono et son verdict (aller vite, sans compensation). Ouvert en permanence ; la séance du jour le propose du vendredi au dimanche.`));
       if (!g) {
         el.append(h('div', { class: 'carte' }, h('p', {}, 'Le premier examen (20e kyū prép.) s\'ouvre dès que les leçons « Ajouter 1 à 4 », « Retirer 1 à 4 » et « Le 5 et la pincée » sont validées.'),
           h('button', { class: 'btn principal', onclick: () => app.aller('lecons') }, 'Aller aux leçons')));
       } else {
-        const min = minutesExamen(g);
+        const format = formatBlanc(aujourdhui());
+        const autre = format === 'long' ? 'sprints' : 'long';
+        const decrire = (f) => (f === 'long' ? 'un sujet de 20 minutes' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes`);
         const obtenu = g.id !== 'hebdo' && prekyuObtenu(d, g);
         el.append(h('div', { class: 'carte' },
           h('h2', { style: 'margin-top:0' }, `${g.nom} · ${g.theme}`),
-          h('p', {}, `${g.colonnes ?? COLONNES} colonnes de ${g.lignes} lignes à ${g.chiffres} chiffre${g.chiffres > 1 ? 's' : ''}${g.mul ? `, 5 multiplications (${g.mul.titre})` : ''}${g.div ? `, 5 divisions (${g.div.titre})` : ''}, en ${min} minutes. Il faut ${Math.ceil(COLONNES * SEUIL)} réponses justes.`),
+          h('p', {}, `Cette semaine : ${decrire(format)}. Colonnes de ${g.lignes} lignes à ${g.chiffres} chiffre${g.chiffres > 1 ? 's' : ''}${g.mul ? `, multiplications (${g.mul.titre})` : ''}${g.div ? `, divisions (${g.div.titre})` : ''}. Il faut ${Math.round(SEUIL * 100)} % de réponses justes${format === 'sprints' ? ' dans CHAQUE sprint' : ''}.`),
           obtenu ? h('p', { class: 'retour ok' }, `Grade obtenu. Le suivant s'ouvrira avec les prochaines leçons ; en attendant, repassez celui-ci quand vous voulez pour garder le rythme d'examen.`)
             : r ? h('p', {}, `Meilleur passage cette semaine : ${r.points} / ${r.total}. Pas encore, et c'est normal : retentez quand vous voulez.`)
               : h('p', {}, 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il vous donne le grade ; raté, il ne vous retire rien.'),
-          h('button', { class: 'btn principal', onclick: () => lancer(g) }, r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen')));
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn principal', onclick: () => lancer(g, format) }, `${r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen'} · ${decrire(format)}`),
+            h('button', { class: 'btn', onclick: () => lancer(g, autre) }, `L'autre format : ${decrire(autre)}`))));
       }
       el.append(h('h2', {}, 'Les grades préparatoires'),
         h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
@@ -51,15 +55,20 @@ export default {
         })));
     }
 
-    function lancer(g) {
+    function lancer(g, format = formatBlanc(aujourdhui())) {
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Passage de kyū'));
+      const sections = sectionsBlanc(progression(), g, format);
+      const sprints = format === 'sprints';
+      if (sprints) el.append(h('p', { class: 'consigne' }, `Deux sprints de ${MINUTES_BLANC_SPRINT} minutes, l'un après l'autre : à la fin du temps, on passe au suivant. ${Math.round(SEUIL * 100)} % de justes dans chacun.`));
       feuille = creerFeuille(el, {
-        titre: `${g.nom} · ${COLONNES} problèmes · ${minutesExamen(g)} minutes`,
-        sections: sectionsExamen(progression(), g),
-        minutes: minutesExamen(g),
+        titre: `${g.nom} · ${sprints ? `2 sprints de ${MINUTES_BLANC_SPRINT} minutes` : `${sections.reduce((t, x) => t + x.problemes.length, 0)} problèmes · ${minutesBlanc(format)} minutes`}`,
+        sections,
+        minutes: minutesBlanc(format),
+        parEpreuve: sprints,
         surFin: (b) => {
-          const reussi = b.justes >= Math.ceil(b.total * SEUIL);
-          enregistrerSession({ module: 'examen', mode: 'kyu', reglages: { grade: g.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          const okSprint = (x) => x.justes >= Math.ceil(x.total * SEUIL);
+          const reussi = sprints ? b.parSection.every(okSprint) : b.justes >= Math.ceil(b.total * SEUIL);
+          enregistrerSession({ module: 'examen', mode: 'kyu', reglages: { grade: g.id, format }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const info = h('p', {});
           proposerMeilleurScore(cleSemaine(aujourdhui()), b.justes, { total: b.total, grade: g.id, reussi, dureeMs: b.dureeMs }).then(async () => {
             // Réussir un grade accorde aussi les grades préparatoires d'avant.
@@ -68,15 +77,16 @@ export default {
             }
             app.majBadges?.();
           });
-          const manque = Math.ceil(b.total * SEUIL) - b.justes;
-          info.textContent = reussi
+          const manque = sprints ? Math.max(...b.parSection.map((x) => Math.ceil(x.total * SEUIL) - x.justes)) : Math.ceil(b.total * SEUIL) - b.justes;
+          const parSprint = sprints ? ` ${b.parSection.map((x, i) => `Sprint ${i + 1} : ${x.justes} / ${x.total}${okSprint(x) ? ' ✓' : ''}`).join(' · ')}.` : '';
+          info.textContent = (reussi
             ? `${g.nom} réussi ! Bravo.`
-            : `Pas encore${manque <= 3 ? ` : il manquait ${manque} réponse${manque > 1 ? 's' : ''} juste${manque > 1 ? 's' : ''}, c'est tout près` : ''}. C'est normal : un examen se réussit rarement du premier coup, et cet échec ne vous retire rien. Regardez vos erreurs ci-dessous, retravaillez-les tranquillement, et retentez quand vous voulez.`;
+            : `Pas encore${manque <= 3 ? ` : il manquait ${manque} réponse${manque > 1 ? 's' : ''} juste${manque > 1 ? 's' : ''}, c'est tout près` : ''}. C'est normal : un examen se réussit rarement du premier coup, et cet échec ne vous retire rien. Regardez vos erreurs ci-dessous, retravaillez-les tranquillement, et retentez quand vous voulez.`) + parSprint;
           // Colonnes répondues mais fausses (les cases vides : le temps a manqué).
           const erreurs = listeErreurs(b.resultats.filter((x) => x.reponse !== null));
           return h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
-            h('p', {}, `Temps : ${formaterDuree(b.dureeMs)} sur ${minutesExamen(g)} min`),
+            h('p', {}, `Temps : ${formaterDuree(b.dureeMs)} sur ${minutesBlanc(format)} min`),
             info,
             erreurs ?? null,
             h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'));

@@ -48,14 +48,16 @@ test('grille officielle : seuils, formes et résultat négatif', () => {
   for (const id of ['3', '2', '1']) assert.equal(g(id).seuil * totalPoints(g(id)), 240);
   assert.equal(g('10').div, undefined);
   assert.equal(g('9').div, undefined);
-  assert.equal(g('10').mitori.pures, 10);
-  // 2e et 1er kyū : exactement un résultat négatif, dans la seconde moitié.
-  for (const id of ['2', '1']) for (let k = 0; k < 5; k++) assert.equal(genererSujet(g(id)).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
+  // 10e kyū : la même épreuve que le 9e (10 lignes de 1 à 2 chiffres, avec soustractions), seul le seuil change.
+  assert.deepEqual(g('10').mitori, g('9').mitori);
+  assert.equal(g('8').mitori.lignes, 10);
+  // Dès le 3e kyū : exactement un résultat négatif, dans la seconde moitié.
+  for (const id of ['3', '2', '1']) for (let k = 0; k < 5; k++) assert.equal(genererSujet(g(id)).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
   assert.deepEqual(GRADES.filter((x) => x.milliers).map((x) => x.id), ['3', '2', '1']);
 });
 
 test('mitorizan : total de chiffres par problème fixé par le grade (字数), longueurs imposées', () => {
-  const totaux = { 6: 35, 5: 45, 4: 55, 3: 65, 2: 75, 1: 90 };
+  const totaux = { 6: 35, 5: 45, 4: 55, 3: 60, 2: 75, 1: 100 };
   for (const [id, total] of Object.entries(totaux)) {
     const g = GRADES.find((x) => x.id === id);
     assert.equal(g.mitori.longueurs.reduce((t, x) => t + x, 0), total, id);

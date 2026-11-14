@@ -6,7 +6,7 @@
 
 import { manquantesEpreuve } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
-import { GRADES, genererSujet, totalPoints } from '../core/epreuves.js';
+import { GRADES, genererSujet, totalPoints, SYSTEMES, systemeChoisi, MINUTES_EPREUVE_ZENKOREN, JUSTES_EPREUVE_ZENKOREN } from '../core/epreuves.js';
 import { enregistrerSession, progression, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
 import { verdictAllure, allureGrade } from '../core/allure.js';
 import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreuvesAnzan.js';
@@ -53,12 +53,22 @@ function rapport(app, resultats) {
 }
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
-const NOMS_SECTIONS = { mitori: 'Mitorizan', mul: 'Multiplication', div: 'Division' };
+const NOMS_SECTIONS = { mitori: 'Mitorizan', mitoriA: 'Additions A', mul: 'Multiplication', div: 'Division' };
 /** Épreuve isolée (« sprint ») : 10 minutes, 7/10 exigés, comme dans le format par épreuve. */
 const MINUTES_SPRINT = 10;
 const SEUIL_SPRINT = 0.7;
 
 function resume(g) {
+  if (g.systeme === 'zenkoren') {
+    const m = g.mitori;
+    const lignes = `${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres`;
+    const p = [];
+    if (g.mul) p.push(`multiplication 15 × (${g.mul.formes ? g.mul.formes.map(([x, y]) => `${x} × ${y}`).join(' ou ') : `${g.mul.total} chiffres au total`})`);
+    if (g.div) p.push(`division 15 × (${g.div.formes ? g.div.formes.map(([x, y]) => `÷ ${x}, quotient ${y}`).join(' ou ') : `diviseur + quotient : ${g.div.total} chiffres`})`);
+    if (g.mitoriA) p.push(`additions A 15 × (${lignes}, additions seules)`);
+    p.push(`${g.mitoriA ? 'additions-soustractions B' : 'additions-soustractions'} 15 × (${lignes})`);
+    return p.join(' · ');
+  }
   const m = g.mitori;
   const melange = m.pures >= m.nb ? ', additions seules' : m.pures ? ` (${m.pures} d'additions seules, ${m.nb - m.pures} avec soustractions${m.negatifs?.[0] ? ', dont un résultat négatif' : ''})` : ', additions et soustractions';
   const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.longueurs ? ` (${m.longueurs.reduce((t, x) => t + x, 0)} chiffres par problème)` : ''}${melange}`];
@@ -88,29 +98,39 @@ export default {
   parent: 'grades',
   monter(el, app) {
     let feuille = null;
-    const meilleur = (g) => progression().records[`epreuve-${g.id}`];
+    const cleRecord = (g, section = null) => `${g.systeme === 'zenkoren' ? 'zenkoren' : 'epreuve'}-${g.id}${section ? `-${section}` : ''}`;
+    const meilleur = (g) => progression().records[cleRecord(g)];
 
     function liste() {
       feuille?.detruire();
       feuille = null;
+      const sys = systemeChoisi(progression());
+      const zen = sys.id === 'zenkoren';
+      // Le système suivi pour VOTRE grade : chacun garde ses propres résultats.
+      const choix = h('div', { class: 'segments', role: 'group', 'aria-label': 'Système de grades' }, Object.values(SYSTEMES).map((x) =>
+        h('button', { class: x.id === sys.id ? 'actif' : '', onclick: async () => { await modifierReglages({ systemeGrades: x.id }); liste(); } }, x.id === 'nissho' ? 'Nisshō (par défaut)' : 'Zenkoren (plus exigeant sur le temps)')));
       remplir(el, h('h1', {}, 'Épreuves officielles'),
-        h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban (珠算検定 : Nihon Shuzan Renmei, et Chambre de commerce du Japon pour les 1er-3e kyū). Comme à l\'examen : tout sur votre soroban, dans le temps imparti, dans l\'ordre de votre choix.'),
-        h('div', { class: 'carte', style: 'margin-bottom:12px' }, h('strong', {}, 'À savoir. '),
-          'Du 6e au 1er kyū : 300 points, réussite à 210 (4e au 6e) puis 240 (1er au 3e) ; dès le 3e kyū, toutes les multiplications et divisions s\'arrondissent. Du 10e au 7e kyū : 200 points, réussite à 120 (60 au 10e kyū). En mitorizan, 6 problèmes d\'additions seules puis 4 avec soustractions. Les séparateurs de milliers (« 1 234 567 ») ne sont exigés qu\'en examen pur, du 1er au 3e kyū, comme à l\'examen où une réponse sans séparateurs est comptée fausse.'),
+        h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban. Comme à l\'examen : tout sur votre soroban, dans le temps imparti. Choisissez le système qui compte pour votre grade ; les résultats de chacun sont gardés.'),
+        choix,
+        h('div', { class: 'carte', style: 'margin:12px 0' }, h('strong', {}, 'À savoir. '), zen
+          ? `Zenkoren (全国珠算教育連盟) : chaque épreuve a son propre chrono de ${MINUTES_EPREUVE_ZENKOREN} minutes, sans report de temps : multiplication, division, puis additions-soustractions (au 10e kyū, deux épreuves d'additions, A et B ; au 9e, pas de division). 15 problèmes à 10 points par épreuve, et il faut ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans CHACUNE : une seule épreuve en dessous, et l'examen est raté. Les nombres de chiffres sont ceux du même grade Nisshō (format officiel non connu ici) ; les colonnes sont plus courtes, mais il faut aller environ 1,5 fois plus vite. Un kyū Zenkoren n'est jamais plus facile que le kyū Nisshō du même rang.`
+          : 'Nisshō (Chambre de commerce du Japon, 1er au 3e kyū) et Nihon Shuzan Renmei : un seul temps pour tout le sujet, une note globale. Du 6e au 1er kyū : 300 points, réussite à 210 (4e au 6e) puis 240 (1er au 3e) ; dès le 3e kyū, multiplications et divisions s\'arrondissent, et un problème d\'additions a un résultat négatif. Du 10e au 7e kyū : 200 points, réussite à 120 (60 au 10e kyū). En mitorizan, 10 lignes ; 6 problèmes d\'additions seules puis 4 avec soustractions. Les séparateurs de milliers ne sont exigés qu\'en examen pur, du 1er au 3e kyū.'),
         optionsExamen(),
-        h('div', { class: 'liste-grades' }, GRADES.map((g) => h('div', { class: 'carte grade' },
+        h('div', { class: 'liste-grades' }, sys.grades.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${meilleur(g)?.reussi ? 'fait' : 'ouvert'}` }, meilleur(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
-            h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * totalPoints(g))} / ${totalPoints(g)}${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
+            h('span', { class: 'discret' }, g.parEpreuve ? `réussite : ${JUSTES_EPREUVE_ZENKOREN} / 15 dans chaque épreuve${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}${meilleur(g).reussi ? ' ✓' : ''}` : ''}`
+              : `réussite ≥ ${Math.round(g.seuil * totalPoints(g))} / ${totalPoints(g)}${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
           h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.verifie ? '' : ' · format indicatif'),
           ligneAllure(g),
           (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
           h('div', { class: 'ligne' },
-            h('button', { class: 'btn principal', onclick: () => lancer(g) }, `Épreuve complète · ${g.minutes} min`),
-            ['mitori', 'mul', 'div'].filter((k) => g[k]).map((k) => {
-              const r = progression().records[`epreuve-${g.id}-${k}`];
-              return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${NOMS_SECTIONS[k]} seule · ${MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
+            h('button', { class: 'btn principal', onclick: () => lancer(g) }, g.parEpreuve ? `Examen complet · ${g.minutes / g.minutesEpreuve} × ${g.minutesEpreuve} min` : `Épreuve complète · ${g.minutes} min`),
+            (g.parEpreuve ? ['mul', 'div', 'mitoriA', 'mitori'] : ['mitori', 'mul', 'div']).filter((k) => g[k]).map((k) => {
+              const r = progression().records[cleRecord(g, k)];
+              const nom = k === 'mitori' && g.mitoriA ? 'Additions B' : NOMS_SECTIONS[k];
+              return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${nom} seule · ${g.parEpreuve ? g.minutesEpreuve : MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
             }))))),
         listeAnzan());
     }
@@ -196,27 +216,35 @@ export default {
       const sujet = genererSujet(g);
       const sections = section ? sujet.sections.filter((x) => x.cle === section) : sujet.sections;
       const max = sections.reduce((t, x) => t + x.problemes.length * x.points, 0);
-      const seuil = section ? Math.max(SEUIL_SPRINT, g.seuil) : g.seuil;
+      const zen = !!g.parEpreuve;
+      const seuil = zen ? g.seuil : section ? Math.max(SEUIL_SPRINT, g.seuil) : g.seuil;
       const milliers = !section && !!g.milliers && !!reglagesUtilisateur().examenPur;
       if (milliers) el.append(h('p', { class: 'consigne' }, 'Examen pur : écrivez les séparateurs de milliers (« 1 234 567 », ou « 12 345,678 »). Sans eux, une réponse juste est comptée fausse, comme à l\'examen.'));
-      const minutes = section ? MINUTES_SPRINT : g.minutes;
+      const minutes = zen ? (section ? g.minutesEpreuve : g.minutes) : section ? MINUTES_SPRINT : g.minutes;
+      if (zen) el.append(h('p', { class: 'consigne' }, section ? `${g.minutesEpreuve} minutes, ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 pour réussir.` : `${sections.length} épreuves de ${g.minutesEpreuve} minutes, l'une après l'autre, sans revenir en arrière : à la fin du temps, on passe à la suivante. ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans CHACUNE.`));
       feuille = creerFeuille(el, {
-        titre: `${g.nom} (${g.japonais})${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes${!section && reglagesUtilisateur().examenPur ? ' · examen pur' : ''}`,
+        titre: `${g.nom} (${g.japonais})${zen ? ' · Zenkoren' : ''}${section ? ` · ${NOMS_SECTIONS[section]} seule` : ''} · ${minutes} minutes${!section && reglagesUtilisateur().examenPur ? ' · examen pur' : ''}`,
         minutes,
         sections,
+        parEpreuve: zen && !section,
         milliers,
         // Allure : en option, épreuve complète seulement, jamais en examen pur.
-        allure: !section && reglagesUtilisateur().allureExamen && !reglagesUtilisateur().examenPur ? { part: allureGrade(g).part } : null,
+        allure: !zen && !section && reglagesUtilisateur().allureExamen && !reglagesUtilisateur().examenPur ? { part: allureGrade(g).part } : null,
         surFin: (b) => {
-          const reussi = b.points >= seuil * max;
-          enregistrerSession({ module: 'epreuves', mode: section ? `${g.id}-${section}` : g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          // Zenkoren : 10 justes sur 15 dans CHAQUE épreuve ; Nisshō : la note globale.
+          const okSection = (x) => x.justes >= JUSTES_EPREUVE_ZENKOREN;
+          const reussi = zen ? b.parSection.every(okSection) : b.points >= seuil * max;
+          enregistrerSession({ module: 'epreuves', mode: `${zen ? 'z' : ''}${g.id}${section ? `-${section}` : ''}`, reglages: { systeme: zen ? 'zenkoren' : 'nissho', grade: g.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           // Seule l'épreuve complète compte pour le grade ; les sprints gardent leur propre record.
-          proposerMeilleurScore(section ? `epreuve-${g.id}-${section}` : `epreuve-${g.id}`, b.points, { reussi, dureeMs: b.dureeMs });
+          proposerMeilleurScore(cleRecord(g, section), b.points, { reussi, dureeMs: b.dureeMs });
+          const echecs = zen ? b.parSection.filter((x) => !okSection(x)) : [];
           return h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, `${b.points} / ${max} points`),
-            h('p', { class: reussi ? 'retour ok' : 'retour erreur' }, reussi ? `Réussi (seuil ${Math.round(seuil * max)} points).` : `Pas encore : il faut ${Math.round(seuil * max)} points.`),
+            h('p', { class: reussi ? 'retour ok' : 'retour erreur' }, zen
+              ? (reussi ? `Réussi : au moins ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans chaque épreuve.` : `Pas encore : ${echecs.map((x) => x.titre.split(' (')[0]).join(', ')} sous ${JUSTES_EPREUVE_ZENKOREN} justes sur 15. Une seule épreuve en dessous suffit à rater, quel que soit le total.`)
+              : reussi ? `Réussi (seuil ${Math.round(seuil * max)} points).` : `Pas encore : il faut ${Math.round(seuil * max)} points.`),
             h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points'].map((x) => h('th', {}, x))),
-              b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
+              b.parSection.map((s) => h('tr', { class: zen && !okSection(s) ? 'a-retravailler' : '' }, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
             rapport(app, b.resultats),
             h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));

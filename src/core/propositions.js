@@ -19,7 +19,7 @@ import { nomMotif } from './motifs.js';
 import { libellesModes } from './colonneGeste.js';
 import { gestesLents, chiffresAppris, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
 import { catalogueDrills, tempsClassement, CLASSEMENT } from './drills.js';
-import { examenDeLaSemaine, minutesExamen } from './examen.js';
+import { examenDeLaSemaine, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from './examen.js';
 import { semaineISO } from './hasard.js';
 import { produitsARetravailler } from './tables.js';
 
@@ -158,8 +158,9 @@ export function drillAPortee(d, date) {
 export function examenBlanc(d, date) {
   const g = examenDeLaSemaine(d);
   if (!g || sessionsDu(d, date).some((s) => s.module === 'examen')) return null;
-  return { type: 'examen', titre: `Examen blanc · ${g.nom}`, but: 'Conditions d\'examen', minutes: minutesExamen(g),
-    detail: '20 colonnes chronométrées, comme le jour J : un échec ne coûte rien.', aller: ['examen', {}] };
+  const f = formatBlanc(date);
+  return { type: 'examen', titre: `Examen blanc · ${g.nom}`, but: 'Conditions d\'examen', minutes: minutesBlanc(f),
+    detail: `${f === 'long' ? 'un sujet de 20 minutes' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes`}, chronométré, comme le jour J : un échec ne coûte rien.`, aller: ['examen', {}] };
 }
 
 /** Tables : vos produits à retravailler (une fois la multiplication commencée). */

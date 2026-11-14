@@ -30,7 +30,7 @@ import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
 import { sorobanNombre } from '../ui/perles.js';
-import { examenDeLaSemaine, resultatSemaine, minutesExamen, libelleGrade } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Secondes par exercice de leçon, d'après les dernières séries (25 s par défaut). */
@@ -134,9 +134,12 @@ function plan(d, debut, seance = null) {
   const minutesAnzan = Math.max(2, Math.min(6, Math.round(objectif * 0.1)));
   const exclus = [];
   if (examEssentiel) {
-    essentiel.push({ titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesExamen(exam), aller: ['examen', {}], examen: true, fait: !!examFait && passeAujourdhui,
-      detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', réussi' : ', pas encore : retentez la semaine prochaine'}` : `20 problèmes en ${minutesExamen(exam)} min, sur tout ce que vous savez, en conditions d'examen`,
-      pourquoi: 'Du vendredi au dimanche, l\'examen blanc prend la place de la leçon : on se mesure, chronométré, sans aide.' });
+    const format = formatBlanc(date);
+    essentiel.push({ titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesBlanc(format), aller: ['examen', {}], examen: true, fait: !!examFait && passeAujourdhui,
+      detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', réussi' : ', pas encore : retentez la semaine prochaine'}`
+        : format === 'long' ? 'cette semaine, un sujet de 20 minutes sur tout ce que vous savez, en conditions d\'examen' : `cette semaine, deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son verdict`,
+      pourquoi: format === 'long' ? 'Du vendredi au dimanche, l\'examen blanc prend la place de la leçon. Une semaine sur deux, 20 minutes d\'affilée : tenir la concentration longtemps.'
+        : `Du vendredi au dimanche, l'examen blanc prend la place de la leçon. Une semaine sur deux, deux sprints de ${MINUTES_BLANC_SPRINT} minutes : aller vite, et réussir chaque partie, sans compensation.` });
   } else if (decision.type === 'lecon') {
     const dureeLecon = dureeDecision(d, decision, parExo);
     const coupee = dureeLecon > partLecon;

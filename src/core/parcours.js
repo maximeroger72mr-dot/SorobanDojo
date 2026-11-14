@@ -8,7 +8,7 @@
  */
 
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
-import { GRADES } from './epreuves.js';
+import { GRADES, systemeChoisi } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
 import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
@@ -73,9 +73,11 @@ const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental
  * @returns {{ obtenu: object|null, prochain: object|null, manquantes: object[], pret: boolean }}
  */
 export function grade(d) {
+  // Le système de grades choisi (Nisshō par défaut, ou Zenkoren) : ses grades et ses records.
+  const sys = systemeChoisi(d);
   let obtenu = null;
-  for (const g of GRADES) if (d.records[`epreuve-${g.id}`]?.reussi) obtenu = g; // GRADES va du 10e au 1er
-  const prochain = obtenu ? GRADES[GRADES.indexOf(obtenu) + 1] ?? null : GRADES[0];
+  for (const g of sys.grades) if (d.records[sys.record(g.id)]?.reussi) obtenu = g; // du 10e au 1er
+  const prochain = obtenu ? sys.grades[sys.grades.indexOf(obtenu) + 1] ?? null : sys.grades[0];
   const manquantes = prochain ? prerequis(prochain).filter((id) => !estValide(d, id)).map((id) => SOUS_PALIERS.find((s) => s.id === id)) : [];
   return { obtenu, prochain, manquantes, pret: !!prochain && manquantes.length === 0 };
 }
@@ -424,7 +426,8 @@ const ajouterMois = (date, mois) => { const x = new Date(`${date}T12:00`); x.set
 
 /** Où en est l'élève, en « mois de pratique » sur l'échelle des repères. */
 export function moisAcquis(d) {
-  const obtenu = [...GRADES].reverse().find((g) => d.records[`epreuve-${g.id}`]?.reussi);
+  const sys = systemeChoisi(d);
+  const obtenu = [...sys.grades].reverse().find((g) => d.records[sys.record(g.id)]?.reussi);
   const base = obtenu ? MOIS_REPERE[obtenu.id] : 0;
   // Avant le 10e kyū : la part des leçons du 10e kyū déjà validées.
   if (!obtenu) {
@@ -443,10 +446,11 @@ export function moisAcquis(d) {
  * @param {string} dateCible, date  AAAA-MM-JJ
  */
 export function planObjectif(d, gradeId, dateCible, date) {
-  const g = GRADES.find((x) => x.id === gradeId);
+  const sys = systemeChoisi(d);
+  const g = sys.grades.find((x) => x.id === gradeId);
   if (!g) return null;
   const jour = (x) => new Date(`${x}T12:00`).getTime();
-  const reussi = !!d.records[`epreuve-${g.id}`]?.reussi;
+  const reussi = !!d.records[sys.record(g.id)]?.reussi;
   const manquantes = prerequis(g).filter((id) => !estValide(d, id)).length;
   const jours = Math.round((jour(dateCible) - jour(date)) / 86400000);
   const semaines = Math.max(1 / 7, jours / 7);
@@ -467,7 +471,7 @@ export function planObjectif(d, gradeId, dateCible, date) {
   const minutesJour = Math.min(60, Math.max(15, Math.round((20 * (moisRestants / Math.max(moisDispo, 0.1))) / 5) * 5));
   // Date réaliste, et le grade qu'on peut viser à la date choisie.
   const dateRealiste = ajouterMois(date, moisRestants);
-  const atteignable = [...GRADES].reverse().find((x) => MOIS_REPERE[x.id] <= acquis + moisDispo) ?? null;
+  const atteignable = [...sys.grades].reverse().find((x) => MOIS_REPERE[x.id] <= acquis + moisDispo) ?? null;
   return {
     grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, verdict, realiste: verdict === 'realiste',
     moisRestants, dateRealiste, atteignable: atteignable && atteignable !== g ? atteignable : null,

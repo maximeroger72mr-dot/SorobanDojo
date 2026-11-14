@@ -14,7 +14,7 @@ import { famille } from './motifs.js';
 const palierValide = (ctx, idPalier) => PALIERS.find((p) => p.id === idPalier).sousPaliers.every((s) => s.optionnel || ctx.valides.has(s.id));
 const record = (ctx, cle) => ctx.records[cle];
 const recordSous = (ctx, cle, ms) => record(ctx, cle) && record(ctx, cle).dureeMs <= ms;
-const reussiGrade = (ctx, id) => !!record(ctx, `epreuve-${id}`)?.reussi;
+const reussiGrade = (ctx, id) => !!record(ctx, `epreuve-${id}`)?.reussi || !!record(ctx, `zenkoren-${id}`)?.reussi;
 const gestesAuMoins = (ctx, index) => Object.values(ctx.niveauxGestes).filter((i) => i >= index).length;
 const anzanParfait = (ctx, duree, chiffres = 1) => ctx.sessions.some((s) => s.module === 'anzan' && s.total >= 10 && s.justes === s.total && s.reglages?.duree <= duree && s.reglages?.chiffres >= chiffres);
 
@@ -50,7 +50,7 @@ export const SUCCES = [
     id: `drill-123-${ms}`, theme: 'Drills', nom: `123456789 en ${t}`, description: `123 456 789 × 9 en moins de ${t}.`, test: (c) => recordSous(c, 'drill-123-9', ms),
   })),
   // Épreuves
-  { id: 'kyu-premier', theme: 'Épreuves', nom: 'Premier kyū', description: 'Réussir une épreuve de kyū.', test: (c) => Object.entries(c.records).some(([k, r]) => /^epreuve-\d+$/.test(k) && r.reussi) },
+  { id: 'kyu-premier', theme: 'Épreuves', nom: 'Premier kyū', description: 'Réussir une épreuve de kyū.', test: (c) => Object.entries(c.records).some(([k, r]) => /^(epreuve|zenkoren)-\d+$/.test(k) && r.reussi) },
   ...[['7', '7e kyū'], ['5', '5e kyū'], ['3', '3e kyū'], ['1', '1er kyū']].map(([g, nom]) => ({
     id: `kyu-${g}`, theme: 'Épreuves', nom, description: `Réussir l'épreuve du ${nom}.`, test: (c) => reussiGrade(c, g),
   })),

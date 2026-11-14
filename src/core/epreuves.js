@@ -7,10 +7,12 @@
  *    300 points ; réussite à 240 (1er au 3e) ou 210 (4e au 6e).
  *  - Mitorizan : 10 lignes dont le TOTAL de chiffres est fixé par le règlement (字数) :
  *    35 au 6e kyū (5 nombres de 3 chiffres, 5 de 4), 45 au 5e (4 et 5), 55 au 4e (5 et 6),
- *    65 au 3e (5 à 7 chiffres), 75 au 2e (6 à 9, surtout 7 et 8), 90 au 1er (7 à 10, surtout 9
- *    et 10). `longueurs` donne les longueurs des 10 lignes ; leur ordre est tiré au hasard ;
+ *    60 au 3e (5 à 7 chiffres), 75 au 2e (6 à 9, surtout 7 et 8), 100 au 1er (10 lignes de 10
+ *    chiffres). `longueurs` donne les longueurs des 10 lignes ; leur ordre est tiré au hasard ;
  *    6 problèmes d'addition pure, puis 4 qui mêlent additions et soustractions.
- *    Aux 1er et 2e kyū, un problème de la seconde moitié a un résultat négatif.
+ *    Dès le 3e kyū, un problème de la seconde moitié a un résultat négatif.
+ *  - 10e au 8e kyū : 10 lignes (1 à 2 chiffres aux 10e et 9e, 2 au 8e) ; le 10e kyū a la même
+ *    épreuve que le 9e, seul le seuil change (60 / 200).
  *  - Multiplication : « chiffres des deux facteurs au total » ; division : « chiffres du diviseur
  *    et du quotient au total ».
  *  - 1er au 3e kyū : la première moitié des × et des ÷ s'arrondit au millième (nombres sans
@@ -18,7 +20,7 @@
  *  - `formes` : découpage imposé des chiffres ([facteur, facteur] ou [diviseur, quotient]) :
  *    2 × 1 aux 10e et 9e kyū, 3 × 1 et ÷ 1 chiffre au 8e, 2 × 2 au 7e, 3 × 2 ou 2 × 3 et 2 ÷ 2 au 6e.
  *  - 10e au 7e kyū : 20 minutes, 200 points ; réussite à 60 points au 10e kyū, 120 ensuite.
- *    Le 10e kyū n'a que des additions, les 10e et 9e n'ont pas de division.
+ *    Les 10e et 9e n'ont pas de division.
  *  - `milliers` (1er au 3e kyū) : à l'examen, une réponse sans séparateurs de milliers est
  *    comptée fausse. L'application ne l'exige qu'en « examen pur ».
  *
@@ -37,13 +39,13 @@ import { facteur, facteurNet, genererMultiplicationDecimale, genererDivisionDeci
  */
 export const GRADES = [
   { id: '10', nom: '10e kyū', japonais: '10級', minutes: 20, seuil: 0.3, confirme: false, verifie: false,
-    mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, pures: 10, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 1, max: 2, soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 3, formes: [[2, 1]], points: 5 } },
   { id: '9', nom: '9e kyū', japonais: '9級', minutes: 20, seuil: 0.6, confirme: false, verifie: false,
-    mitori: { nb: 10, lignes: 5, min: 2, max: 2, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 1, max: 2, soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 3, formes: [[2, 1]], points: 5 } },
   { id: '8', nom: '8e kyū', japonais: '8級', minutes: 20, seuil: 0.6, confirme: false, verifie: false,
-    mitori: { nb: 10, lignes: 8, min: 2, max: 2, soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 2, max: 2, soustractions: true, pures: 6, points: 10 },
     mul: { nb: 10, total: 4, formes: [[3, 1]], points: 5 }, div: { nb: 10, total: 3, formes: [[1, 2]], points: 5 } },
   { id: '7', nom: '7e kyū', japonais: '7級', minutes: 20, seuil: 0.6, confirme: false, verifie: false,
     mitori: { nb: 10, lignes: 10, min: 2, max: 2, soustractions: true, pures: 6, points: 10 },
@@ -58,17 +60,65 @@ export const GRADES = [
     mitori: { nb: 10, lignes: 10, min: 5, max: 6, longueurs: [5, 5, 5, 5, 5, 6, 6, 6, 6, 6], soustractions: true, pures: 6, points: 10 },
     mul: { nb: 20, total: 7, points: 5 }, div: { nb: 20, total: 6, points: 5 } },
   { id: '3', nom: '3e kyū', japonais: '3級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
-    mitori: { nb: 10, lignes: 10, min: 5, max: 7, longueurs: [5, 6, 6, 6, 7, 7, 7, 7, 7, 7], soustractions: true, pures: 6, points: 10 },
+    mitori: { nb: 10, lignes: 10, min: 5, max: 7, longueurs: [5, 5, 5, 6, 6, 6, 6, 7, 7, 7], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
     mul: { nb: 20, total: 7, points: 5, decimales: 3 }, div: { nb: 20, total: 6, points: 5, decimales: 3 } },
   { id: '2', nom: '2e kyū', japonais: '2級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
     mitori: { nb: 10, lignes: 10, min: 6, max: 9, longueurs: [6, 7, 7, 7, 7, 8, 8, 8, 8, 9], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
     mul: { nb: 20, total: 9, points: 5, decimales: 3 }, div: { nb: 20, total: 8, points: 5, decimales: 3 } },
   { id: '1', nom: '1er kyū', japonais: '1級', minutes: 30, seuil: 0.8, confirme: true, verifie: false, milliers: true,
-    mitori: { nb: 10, lignes: 10, min: 7, max: 10, longueurs: [7, 8, 9, 9, 9, 9, 9, 10, 10, 10], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
+    mitori: { nb: 10, lignes: 10, min: 7, max: 10, longueurs: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10], soustractions: true, pures: 6, points: 10, negatifs: [1, 1] },
     mul: { nb: 20, total: 11, points: 5, decimales: 3 }, div: { nb: 20, total: 10, points: 5, decimales: 3 } },
 ];
 
-export const totalPoints = (g) => ['mitori', 'mul', 'div'].reduce((s, k) => s + (g[k] ? g[k].nb * g[k].points : 0), 0);
+/**
+ * Zenkoren (全国珠算教育連盟) : plus exigeant sur le TEMPS. Chaque épreuve a son chrono de
+ * 7 minutes, 15 problèmes à 10 points, et il faut 10 justes sur 15 dans CHACUNE (aucune
+ * compensation entre épreuves). Ordre : multiplication, division, additions-soustractions.
+ * 10e kyū : deux épreuves d'additions-soustractions (A : additions seules, B : mêlées) ; 9e :
+ * multiplication et additions-soustractions ; à partir du 8e : les trois.
+ *
+ * Le nombre de chiffres par problème n'est pas connu : on reprend celui du MÊME grade Nisshō.
+ * Un kyū Zenkoren est donc au moins aussi dur que le kyū Nisshō du même rang (mêmes nombres,
+ * 15 problèmes au lieu de 10 ou 20, temps par épreuve, réussite exigée partout), jamais moins.
+ * Les options du 1er au 3e kyū (calcul mental, denpyōzan, calcul appliqué) ne sont pas encore là.
+ */
+export const MINUTES_EPREUVE_ZENKOREN = 7;
+export const JUSTES_EPREUVE_ZENKOREN = 10;
+/**
+ * Lignes par problème d'additions-soustractions : 15 problèmes en 7 minutes, avec 10 lignes,
+ * demanderaient 2 à 3 fois la cadence Nisshō du même grade (179 CPM au 1er kyū). On garde les
+ * mêmes nombres de chiffres par ligne et on raccourcit la colonne pour viser environ 1,4 fois la
+ * cadence Nisshō : plus dur, sans devenir irréaliste (voir tests/zenkoren.test.js).
+ */
+export const LIGNES_ZENKOREN = { 10: 5, 9: 5, 8: 5, 7: 6, 6: 5, 5: 5, 4: 6, 3: 7, 2: 8, 1: 8 };
+/** k longueurs prises régulièrement dans la liste triée (on garde le mélange court / long). */
+const extraire = (l, k) => { const t = [...l].sort((a, b) => a - b); return Array.from({ length: k }, (_, i) => t[Math.floor(((i + 0.5) * t.length) / k)]); };
+function versZenkoren(g) {
+  const q = { nb: 15, points: 10 };
+  const lignes = LIGNES_ZENKOREN[g.id] ?? g.mitori.lignes;
+  const mitori = { ...g.mitori, ...q, lignes, pures: Math.round(15 * (g.mitori.pures / g.mitori.nb)) };
+  if (g.mitori.longueurs) mitori.longueurs = extraire(g.mitori.longueurs, lignes);
+  const z = { id: g.id, nom: g.nom, japonais: g.japonais, systeme: 'zenkoren', parEpreuve: true, confirme: g.confirme, verifie: false, milliers: g.milliers,
+    seuil: JUSTES_EPREUVE_ZENKOREN / 15, minutesEpreuve: MINUTES_EPREUVE_ZENKOREN };
+  if (g.id === '10') Object.assign(z, { mitoriA: { ...mitori, soustractions: false, pures: 15 }, mitori: { ...mitori, pures: 0 } });
+  else {
+    z.mitori = mitori;
+    if (g.mul) z.mul = { ...g.mul, ...q };
+    if (g.div) z.div = { ...g.div, ...q };
+  }
+  z.minutes = MINUTES_EPREUVE_ZENKOREN * ['mitoriA', 'mitori', 'mul', 'div'].filter((k) => z[k]).length;
+  return z;
+}
+export const GRADES_ZENKOREN = GRADES.map(versZenkoren);
+
+/** Les deux systèmes de grades. Nisshō par défaut. */
+export const SYSTEMES = {
+  nissho: { id: 'nissho', nom: 'Nisshō', long: 'Nisshō (Chambre de commerce) et Nihon Shuzan Renmei', grades: GRADES, record: (id) => `epreuve-${id}` },
+  zenkoren: { id: 'zenkoren', nom: 'Zenkoren', long: 'Zenkoren (全国珠算教育連盟)', grades: GRADES_ZENKOREN, record: (id) => `zenkoren-${id}` },
+};
+export const systemeChoisi = (d) => SYSTEMES[d?.reglages?.systemeGrades] ?? SYSTEMES.nissho;
+
+export const totalPoints = (g) => ['mitoriA', 'mitori', 'mul', 'div'].reduce((s, k) => s + (g[k] ? g[k].nb * g[k].points : 0), 0);
 
 /**
  * Un problème de mitorizan. Avec soustractions : 1 ligne négative sur 5 lignes, 1 à 2 sur 8,
@@ -193,6 +243,15 @@ function mitoris(f) {
 /** Sujet complet. */
 export function genererSujet(grade) {
   const sections = [];
+  if (grade.systeme === 'zenkoren') {
+    // Ordre Zenkoren : multiplication, division, additions-soustractions ; 7 minutes chacune.
+    const m = grade.minutesEpreuve;
+    if (grade.mul) sections.push({ cle: 'mul', titre: 'Multiplication (乗算)', points: grade.mul.points, minutes: m, problemes: serie(grade.mul, genererMulGrade) });
+    if (grade.div) sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, minutes: m, problemes: serie(grade.div, genererDivGrade) });
+    if (grade.mitoriA) sections.push({ cle: 'mitoriA', titre: 'Additions A (加算)', points: grade.mitoriA.points, minutes: m, problemes: mitoris(grade.mitoriA) });
+    if (grade.mitori) sections.push({ cle: 'mitori', titre: grade.mitoriA ? 'Additions et soustractions B (見取算)' : 'Additions et soustractions (見取算)', points: grade.mitori.points, minutes: m, problemes: mitoris(grade.mitori) });
+    return { grade, sections };
+  }
   if (grade.mitori) sections.push({ cle: 'mitori', titre: 'Mitorizan (見取算) : additions et soustractions', points: grade.mitori.points, problemes: mitoris(grade.mitori) });
   if (grade.mul) sections.push({ cle: 'mul', titre: 'Multiplication (乗算)', points: grade.mul.points, problemes: serie(grade.mul, genererMulGrade) });
   if (grade.div) sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, problemes: serie(grade.div, genererDivGrade) });

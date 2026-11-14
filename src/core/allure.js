@@ -25,20 +25,24 @@ export const poidsProbleme = (ex) => unites(ex) * (ex.type === 'addsub' ? 1 : RA
 
 const charges = new Map();
 /** Charge d'un sujet type du grade (moyenne de 5 sujets à graine fixe) : chiffres, produits, problèmes. */
-export function chargeGrade(g) {
-  if (!charges.has(g.id)) {
+export function chargeGrade(g, filtre = null) {
+  const cle = `${g.systeme ?? 'nissho'}-${g.id}-${filtre ?? 'tout'}`;
+  if (!charges.has(cle)) {
     let chiffres = 0; let produits = 0; let problemes = 0;
     const N = 5;
     for (let k = 0; k < N; k++) {
       const sujet = avecGraine(1000 + k, () => genererSujet(g));
-      for (const sec of sujet.sections) for (const p of sec.problemes) {
-        problemes += 1;
-        if (sec.cle === 'mitori') chiffres += unites(p); else produits += unites(p);
+      for (const sec of sujet.sections) {
+        if (filtre && sec.cle !== filtre) continue;
+        for (const p of sec.problemes) {
+          problemes += 1;
+          if (sec.cle.startsWith('mitori')) chiffres += unites(p); else produits += unites(p);
+        }
       }
     }
-    charges.set(g.id, { chiffres: chiffres / N, produits: produits / N, problemes: problemes / N });
+    charges.set(cle, { chiffres: chiffres / N, produits: produits / N, problemes: problemes / N });
   }
-  return charges.get(g.id);
+  return charges.get(cle);
 }
 
 /**
@@ -47,6 +51,22 @@ export function chargeGrade(g) {
  *   part : part du sujet à traiter ; parChiffre / parProduit : secondes ; cpm : chiffres par minute
  */
 export function allureGrade(g) {
+  // Zenkoren : chaque épreuve a ses 7 minutes, sans report ; la cadence à tenir est celle de
+  // l'épreuve la plus serrée (colonnes d'un côté, × et ÷ de l'autre).
+  if (g.parEpreuve) {
+    const part = Math.min(1, g.seuil + MARGE);
+    const cles = ['mitoriA', 'mitori', 'mul', 'div'].filter((k) => g[k]);
+    let parChiffre = Infinity;
+    let parProduit = Infinity;
+    for (const k of cles) {
+      const c = chargeGrade(g, k);
+      const dispo = g.minutesEpreuve * 60 - part * c.problemes * SURCOUT_PROBLEME_S;
+      if (k.startsWith('mitori')) parChiffre = Math.min(parChiffre, dispo / (part * c.chiffres));
+      else parProduit = Math.min(parProduit, dispo / (part * c.produits));
+    }
+    if (parProduit === Infinity) parProduit = RATIO_PRODUIT * parChiffre;
+    return { part, parChiffre, parProduit, cpm: cpm(parChiffre), produitsParMinute: Math.round(600 / parProduit) / 10 };
+  }
   const c = chargeGrade(g);
   const part = Math.min(1, g.seuil + MARGE);
   const disponible = g.minutes * 60 - part * c.problemes * SURCOUT_PROBLEME_S;
