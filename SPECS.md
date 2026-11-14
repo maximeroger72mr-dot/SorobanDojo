@@ -828,3 +828,13 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Choix du système de grades (Nisshō par défaut) : Épreuves officielles et Réglages ; chaque système garde ses records ; grade, frise, objectif daté et succès suivent le système choisi | Fait |
 | Examen blanc en alternance d'une semaine à l'autre : un sujet de 20 minutes, puis deux sprints de 7 minutes (70 % dans chacun) ; l'autre format reste disponible | Fait |
 | Options Zenkoren du 1er au 3e kyū (calcul mental, denpyōzan, calcul appliqué) | À faire |
+
+## Version 0.31.0 (contenu prévu « 0.29 » : les cours)
+
+| Changement | État |
+|---|---|
+| Marche « Endurance : 10 lignes de 1 à 2 chiffres » (`p5-e`) avant la multiplication, exigée dès le 10e kyū ; validée d'office pour qui a déjà commencé la multiplication | Fait |
+| Marche « Diviser par 11 à 19 : l'arrondi trompe de 2 crans » (`p7-4c`, au moins 2 corrections par calcul), exigée au 6e kyū ; textes de `p7-e` et `p7-3` : on corrige autant de fois qu'il faut | Fait |
+| Palier p8 réordonné par grade : 6e (`p8-t1`), 5e (`p8-t2, 1, 2, 4, 6`), puis 4e (`p8-3, 5, 7`) ; p9 : bloc du 2e kyū puis du 1er | Fait |
+| Résultats négatifs (`p8-n`) déplacés dans le palier des décimaux, exigés au 3e kyū, avec une marche au format d'examen (`p8-n2`, 8 chiffres) | Fait |
+| Jalons « 🎯 Xe kyū à votre portée » dans la liste des leçons, après la dernière leçon exigée par chaque grade du système choisi | Fait |

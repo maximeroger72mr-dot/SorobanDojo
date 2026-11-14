@@ -110,7 +110,7 @@ function migrer(lu) {
  * Leçons ajoutées après coup (0.21) : déjà validées pour qui a validé la leçon qui les suit
  * (on ne referme pas un parcours déjà fait). Sans révision : ce sont des prérequis.
  */
-const LECONS_AJOUTEES = [['p0-2', 'p1-1'], ['p2-0', 'p2-1'], ['p3-0', 'p3-1']];
+const LECONS_AJOUTEES = [['p0-2', 'p1-1'], ['p2-0', 'p2-1'], ['p3-0', 'p3-1'], ['p5-e', 'p6-a']];
 function rattraperLecons(d) {
   for (const [nouvelle, suivante] of LECONS_AJOUTEES) {
     const v = d.paliers?.[suivante]?.valide;

@@ -22,7 +22,8 @@ import {
 } from '../core/progression.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { aReconnaitre, questionsReconnaitre, NOMS_REGLES, QUESTIONS_RECONNAITRE, MIN_RECONNAITRE } from '../core/reconnaitre.js';
-import { motifsAppris } from '../core/parcours.js';
+import { motifsAppris, PREREQUIS } from '../core/parcours.js';
+import { systemeChoisi } from '../core/epreuves.js';
 import { gesteMotif } from '../core/motifs.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
@@ -73,6 +74,20 @@ export function raisonVerrou(sp) {
   if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return `après « ${sousPalier(sp.apres).titre} » au soroban`;
   const b = sp.mental ? BASE_ANZAN[sp.id] : precedente(sp)?.id;
   return b ? `après « ${sousPalier(b).titre} »` : 'Verrouillé';
+}
+
+/**
+ * Jalons de grade dans la liste des leçons : après la DERNIÈRE leçon (dans l'ordre du parcours)
+ * qu'exige un kyū, « 🎯 6e kyū à votre portée ». Deux grades qui exigent les mêmes leçons (10e et
+ * 9e) partagent le jalon.
+ */
+export function JALONS() {
+  const res = {};
+  for (const g of systemeChoisi(progression()).grades) {
+    const derniere = PREREQUIS[g.id].map((id) => sousPalier(id)).filter(Boolean).sort((a, b) => a.ordre - b.ordre).at(-1);
+    if (derniere) (res[derniere.id] ??= []).push(g);
+  }
+  return res;
 }
 
 /** Premier sous-palier du parcours soroban non validé et accessible (pour les suggestions). */
@@ -141,7 +156,7 @@ export default {
       for (const palier of PALIERS.filter((p) => piste !== 'anzan' || p.mental)) {
         el.append(h('h2', {}, palier.titre));
         if (palier.mental) el.append(h('p', { class: 'discret' }, 'Calcul de tête, à son rythme, en parallèle du soroban : chaque leçon s\'ouvre quand le geste est validé sur le vrai soroban, et ne bloque jamais le parcours. 5 minutes par jour suffisent.'));
-        el.append(h('div', { class: 'liste-paliers' }, palier.sousPaliers.map((brut) => {
+        el.append(h('div', { class: 'liste-paliers' }, palier.sousPaliers.flatMap((brut) => {
           const sp = sousPalier(brut.id);
           const e = etatPalier(sp.id);
           const ouvert = estDebloque(sp);
@@ -153,12 +168,18 @@ export default {
           else if (!ouvert) { icone = '·'; statut = raisonVerrou(sp); }
           else if (e.reps >= sp.repetitions || e.coupeFile) { icone = '●'; statut = e.coupeFile && e.reps < sp.repetitions ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
           else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
-          return h('button', {
+          const ligne = h('button', {
             class: `ligne-palier${e.valide ? ' valide' : ''}`, disabled: !ouvert,
             onclick: () => changer(() => vueSousPalier(sp)),
           }, h('span', { class: `icone etat-${e.valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, icone), h('span', { class: 'titre' }, sp.titre),
           e.reps ? badgeNiveau(evaluerPalier(sp.id, famille(sp))) : null,
           h('span', { class: 'statut' }, statut));
+          const jalon = JALONS()[sp.id];
+          if (!jalon) return [ligne];
+          const pret = jalon.every((g) => PREREQUIS[g.id].every((id) => etatPalier(id).valide));
+          const noms = jalon.map((g) => g.nom).join(' et ');
+          return [ligne, h('button', { class: `jalon-kyu${pret ? ' atteint' : ''}`, onclick: () => app.aller('epreuves') },
+            `🎯 ${noms} (${systemeChoisi(progression()).nom}) ${pret ? `à votre portée : toutes ${jalon.length > 1 ? 'leurs' : 'ses'} leçons sont validées. Tentez l'épreuve →` : 'à votre portée après cette leçon'}`)];
         })));
       }
       el.append(h('p', { class: 'discret', style: 'margin-top:24px' }, reglagesUtilisateur().decouverte ? 'Mode découverte activé : toutes les leçons sont ouvertes. ' : 'Déjà pratiqué ? ',

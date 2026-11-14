@@ -52,3 +52,26 @@ test('examen blanc : un sujet de 20 minutes et deux sprints de 7, en alternance'
   assert.ok(sprints.every((x) => x.minutes === 7 && x.problemes.length >= 10));
   assert.ok(sectionsBlanc(d, g, 'long')[0].problemes.length >= 20);
 });
+
+import { sousPalier, genererExercice } from '../src/core/curriculum.js';
+import { PREREQUIS } from '../src/core/parcours.js';
+import { aideDivision } from '../src/core/multiplication.js';
+
+test('0.29 : marches et ordre du parcours par grade', () => {
+  // 10 lignes avant la multiplication, exigé dès le 10e kyū.
+  assert.ok(PREREQUIS[10].includes('p5-e'));
+  const e = genererExercice(sousPalier('p5-e'));
+  assert.equal(e.lignes.length, 10);
+  // Diviser par 11 à 19 : au moins 2 corrections dans le calcul.
+  for (let k = 0; k < 20; k++) {
+    const x = genererExercice(sousPalier('p7-4c'));
+    assert.ok(x.b >= 11 && x.b <= 19 && aideDivision(x.a, x.b).etapes.some((s) => s.essais.length >= 3));
+  }
+  // Négatifs avant le 3e kyū, au format d'examen.
+  assert.ok(PREREQUIS[3].includes('p8-n') && PREREQUIS[3].includes('p8-n2'));
+  assert.ok(sousPalier('p8-n').ordre < sousPalier('p9-1').ordre);
+  assert.equal(String(Math.abs(genererExercice(sousPalier('p8-n2')).lignes[0].n)).length, 8);
+  // p8 : tout le 5e kyū avant ce qui n'est que du 4e.
+  const o = (id) => sousPalier(id).ordre;
+  assert.ok(Math.max(...['p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6'].map(o)) < Math.min(...['p8-3', 'p8-5', 'p8-7'].map(o)));
+});
