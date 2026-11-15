@@ -15,6 +15,7 @@ import { motifsAppris, chiffresAppris } from '../core/parcours.js';
 import { progression, enregistrerSession, noterReponse, modifierReglages, reglagesUtilisateur } from '../core/progression.js';
 import { PALIERS_DICTEE, DICTEES_PAR_SERIE, palierSuivant, libellePalier, paliersSoroban } from '../core/dicteeAnzan.js';
 import { lireReponse } from '../core/nombres.js';
+import { nombreEnMots } from '../core/motsNombre.js';
 import { chargerVoix, parler, taire, voixDisponible, meilleureVoix } from '../ui/voix.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { ouvrirExplication } from '../ui/explication.js';
@@ -52,6 +53,8 @@ export default {
       s.value = String(reglages[cle]);
       return s;
     };
+    // Dizaines régulières par défaut ; décocher pour « soixante-dix, quatre-vingts, quatre-vingt-dix ».
+    const caseDizaines = h('input', { type: 'checkbox', checked: !reglagesUtilisateur().dizainesClassiques, onchange: (e) => modifierReglages({ dizainesClassiques: !e.target.checked }) });
     const selVoix = h('select', { onchange: (e) => { reglages.voix = e.target.value; } }, h('option', { value: '' }, 'Meilleure voix installée'));
     chargerVoix().then((voix) => {
       selVoix.append(...voix.map((v) => h('option', { value: v.name }, v.name)));
@@ -98,6 +101,7 @@ export default {
         libre(h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']]))),
         libre(select('soustractions', [['true', 'avec soustractions'], ['false', 'additions seules']], (v) => v === 'true')),
         selVoix,
+        h('label', { title: 'Septante, huitante, nonante : la dizaine s\'entend tout de suite, on pose le chiffre sans attendre la fin du mot.' }, caseDizaines, ' septante, huitante, nonante'),
         libre(select('questions', [[5, '5 dictées'], [10, '10 dictées']]))),
       avertissement, h('div', { class: 'ligne' }, progres), indicateur,
       h('div', { class: 'ligne' }, saisie, btn, btnReecouter), retour);
@@ -126,7 +130,7 @@ export default {
         if (!actif || etat !== 'lecture') return;
         const l = ex.lignes[i];
         indicateur.textContent = `${i + 1} / ${ex.lignes.length}`;
-        await parler(`${l.op === '-' ? 'moins ' : ''}${l.n}`, o);
+        await parler(`${l.op === '-' ? 'moins ' : ''}${reglagesUtilisateur().dizainesClassiques ? l.n : nombreEnMots(l.n)}`, o);
         await attendre(r.pause * 1000);
       }
       if (!actif) return;

@@ -43,18 +43,17 @@ test('séparateurs de milliers', () => {
   for (const x of ['1234', '12345,6', '1 2345', '12 34']) assert.equal(milliersCorrects(x), false, x);
 });
 
-test('grades de flash : 20 marches, chacune au moins aussi haute que la précédente', () => {
-  assert.equal(GRADES_FLASH.length, 20);
+test('grades de flash : 40 grades du barème japonais, dans l\'ordre', () => {
+  assert.equal(GRADES_FLASH.length, 40); // 20e kyū → 20e dan (barème de l'association japonaise)
   GRADES_FLASH.forEach((g, i) => {
-    if (!i) return;
     const p = GRADES_FLASH[i - 1];
-    assert.ok(g.chiffres >= p.chiffres, g.id);
-    if (g.chiffres === p.chiffres) assert.ok(debitGrade(g) > debitGrade(p), g.id);
+    // À format égal (chiffres, forme), le débit ne baisse jamais d'un grade au suivant.
+    if (p && g.chiffres === p.chiffres && g.forme === p.forme && g.nombres === p.nombres) assert.ok(debitGrade(g) >= debitGrade(p), g.id);
   });
-  assert.equal(prochainGradeFlash({ records: {} }).id, 'k10');
-  const d = { records: { 'flash-grade-k10': { reussi: true }, 'flash-grade-k9': { reussi: true } } };
-  assert.equal(meilleurGradeFlash(d).id, 'k9');
-  assert.equal(prochainGradeFlash(d).id, 'k8');
+  assert.equal(prochainGradeFlash({ records: {} }).id, 'fk20');
+  const d = { records: { 'flash-kentei-fk20': { reussi: true }, 'flash-kentei-fk19': { reussi: true } } };
+  assert.equal(meilleurGradeFlash(d).id, 'fk19');
+  assert.equal(prochainGradeFlash(d).id, 'fk18');
 });
 
 test('planches : additions seules, format d\'examen, négatifs, décimaux, 10 chiffres', () => {

@@ -53,6 +53,7 @@ function ecartChiffres(lu, attendu) {
 /**
  * @param {HTMLElement} conteneur
  * @param {object} d  drill (voir core/drills.js)
+ * (o.tousLes : sous-total affiché d'office toutes les N opérations, comme sur les feuilles japonaises)
  * @param {{ record?: {dureeMs:number}|null, surFin?: (r:{juste:boolean, dureeMs:number}) => any }} o
  */
 export function creerDrill(conteneur, d, o = {}) {
@@ -103,7 +104,7 @@ export function creerDrill(conteneur, d, o = {}) {
     remplir(tableau, ...d.operations.map((op, i) => h('div', { class: 'drill-op', title: 'Cliquer pour voir ce geste en animation', onclick: () => montrer(i) },
       h('div', { class: 'drill-op-ligne' },
         h('span', { class: 'num' }, i + 1), h('span', {}, `${signe(op.op)} ${formaterNombre(op.n)}`),
-        h('span', { class: 'sous-total' }, voirControles ? `= ${formaterNombre(ctrl[i])}` : '')),
+        h('span', { class: 'sous-total' }, voirControles || (o.tousLes > 0 && (i + 1) % o.tousLes === 0) ? `= ${formaterNombre(ctrl[i])}` : '')),
       voirDoigte ? h('div', { class: 'doigte' }, doigte(i === 0 ? 0 : ctrl[i - 1], op.op, op.n).map((g) => h('div', {}, g))) : null)));
   }
 

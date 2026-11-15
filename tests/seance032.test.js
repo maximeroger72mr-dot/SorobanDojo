@@ -139,3 +139,54 @@ test('0.33 : défi de la semaine jusqu\'à 6 chiffres, 3 × 2 et division par 2 
   p.paliers['p6-0'].hist = h(0.5, 30);
   assert.equal(placementDuJour(p, '2026-11-10', sousPalier('p6-1')), null);
 });
+
+test('0.34 : barème du flash anzan, nombres en mots, drill sur mesure', async () => {
+  const { GRADES_FLASH, questionFlash, verdictFlash, gradeFlashOuvert, libelleGradeFlash } = await import('../src/core/flashGrades.js');
+  const { nombreEnMots } = await import('../src/core/motsNombre.js');
+  const { drillPerso, controles } = await import('../src/core/drills.js');
+  // Grille officielle : quelques lignes relevées telles quelles.
+  const de = (id) => GRADES_FLASH.find((x) => x.id === id);
+  assert.deepEqual([de('fk20').nombres, de('fk20').secondes], [3, 5]);
+  assert.deepEqual([de('fk13').chiffres, de('fk13').nombres, de('fk13').secondes], [1, 20, 15]);
+  assert.deepEqual([de('fk1').chiffres, de('fk1').nombres, de('fk1').secondes], [2, 15, 13]);
+  assert.deepEqual([de('fd1').chiffres, de('fd1').nombres, de('fd1').secondes], [2, 15, 10]);
+  assert.deepEqual([de('fd10').chiffres, de('fd10').nombres, de('fd10').secondes], [3, 15, 3]);
+  assert.equal(de('fd20').secondes, 1.5);
+  assert.deepEqual([4, 5, 6, 7, 10].map(verdictFlash), ['non', 'presque', 'presque', 'reussi', 'reussi']);
+  // Pas de saut de grade.
+  assert.ok(gradeFlashOuvert({ records: {} }, de('fk20')) && !gradeFlashOuvert({ records: {} }, de('fk19')));
+  assert.match(libelleGradeFlash(de('fk13')), /sans retenue/);
+  // Questions : sans retenue, chaque tige reste entre 0 et 9 ; ensuite, additions seules.
+  for (let k = 0; k < 30; k++) {
+    for (const id of ['fk13', 'fk12', 'fk11']) {
+      const q = questionFlash(de(id));
+      const pas = id === 'fk12' ? 10 : id === 'fk11' ? 11 : 1;
+      let t = 0;
+      assert.equal(q.lignes.length, de(id).nombres);
+      for (const l of q.lignes) { assert.equal(l.n % pas, 0); t += l.op === '+' ? l.n : -l.n; assert.ok(t >= 0 && t <= 9 * pas, `${id} ${t}`); }
+      assert.equal(q.resultat, t);
+    }
+    const q = questionFlash(de('fd2'));
+    assert.ok(q.lignes.every((l) => l.op === '+' && l.n >= 100 && l.n <= 999) && q.lignes.length === 4);
+    assert.equal(q.resultat, q.lignes.reduce((s, l) => s + l.n, 0));
+  }
+  // Septante, huitante, nonante.
+  assert.equal(nombreEnMots(71), 'septante et un');
+  assert.equal(nombreEnMots(80), 'huitante');
+  assert.equal(nombreEnMots(93), 'nonante-trois');
+  assert.equal(nombreEnMots(17), 'dix-sept');
+  assert.equal(nombreEnMots(1975), 'mille neuf cent septante-cinq');
+  assert.equal(nombreEnMots(200), 'deux cent');
+  assert.equal(nombreEnMots(2080090), 'deux millions huitante mille nonante');
+  assert.equal(nombreEnMots(0), 'zéro');
+  // Drill sur mesure : aller-retour à 0, ou additions continues ; longueur du pas respectée.
+  const ar = drillPerso({ chiffres: 4, varie: true, etapes: 9, retour: true });
+  assert.equal(ar.operations.length, 18);
+  assert.equal(ar.resultat, 0);
+  assert.ok(ar.operations.every((o) => String(o.n).length === 4));
+  assert.ok(controles(ar.operations).every((v) => v >= 0));
+  const meme = drillPerso({ chiffres: 3, varie: false, etapes: 30, retour: false });
+  assert.equal(new Set(meme.operations.map((o) => o.n)).size, 1);
+  assert.equal(meme.resultat, 30 * meme.operations[0].n);
+  assert.ok(drillPerso({ chiffres: 0, varie: true, etapes: 20, retour: false }).operations.every((o) => { const c = String(o.n).length; return c >= 3 && c <= 9; }));
+});

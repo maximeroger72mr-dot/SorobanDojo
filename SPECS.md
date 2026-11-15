@@ -908,3 +908,23 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
 - **Anzan avec le petit soroban d'aide :** le soroban est en bas à droite de l'écran, hors de l'axe du
   regard, pâle et flou (opacité plafonnée à 0,45, jamais net) ; plus de trait au-dessus du
   nombre ; la réponse se tape au centre.
+
+## Version 0.34.0
+
+- **Drill sur mesure** (Drills de gestes) : longueur du pas (1 à 9 chiffres, ou au hasard de 3 à
+  9), le même nombre à chaque ligne ou un nombre différent, 5 à 50 additions, avec ou sans
+  retour à 0, et un sous-total affiché toutes les 3, 5 ou 10 lignes (`drills.drillPerso`,
+  option `tousLes` de `ui/drill.js`). Médaille à l'allure ; ni record ni validation.
+- **Voix de la dictée :** les nombres sont dits en toutes lettres avec septante, huitante,
+  nonante (`core/motsNombre.js`) ; case à décocher dans la dictée pour revenir à la lecture
+  classique. La voix parasite de l'anzan suit la même règle.
+- **Dictée dans la séance :** le mardi et le jeudi, dès « Gestes directs à 2 et 3 chiffres »,
+  quand une voix est disponible.
+- **Test de grade de flash anzan :** barème de la 日本フラッシュ暗算検定協会 (40 grades, 20e kyū
+  au 20e dan ; grille relevée sur kentei.soroban-soft.com/about_test.cgi et
+  flash-anzan.jp/school). 10 questions : 7 justes = réussi, 5 ou 6 = presque (on repasse le même
+  grade), pas de saut de grade. Du 20e au 11e kyū, « sans retenue » est rendu par des additions
+  et soustractions mêlées, chaque tige restant entre 0 et 9 (interprétation : la grille ne
+  précise pas le tirage). Records `flash-kentei-<id>` (l'ancienne échelle indicative est abandonnée).
+- **Test de flash dans la séance :** le mercredi, une semaine sur deux, sur le grade qui suit le
+  meilleur obtenu ; il prend la place de l'anzan du jour.

@@ -29,6 +29,9 @@ import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
 import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
+import { prochainGradeFlash, meilleurGradeFlash, libelleGradeFlash, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH } from '../core/flashGrades.js';
+import { semaineISO } from '../core/hasard.js';
+import { voixDisponible } from '../ui/voix.js';
 import { sorobanNombre } from '../ui/perles.js';
 import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { bilanHebdo } from '../core/bilan.js';
@@ -214,6 +217,14 @@ function plan(d, debut, seance = null) {
       pourquoi: 'La même erreur revient : ce n\'est plus de l\'inattention, c\'est un point à travailler à part, quelques minutes.',
       fait: suivi, aller });
   }
+  // Dictée (yomiage) : deux fois par semaine (mardi et jeudi), dès les gestes directs à 2 chiffres.
+  // Calculer à l'oreille, sur le soroban, oblige à poser sans relire : un autre canal que l'œil.
+  const dicteeFaite = fait((s) => s.module === 'dictee');
+  if (dicteeFaite || (estValide(d, 'p1-4') && [2, 4].includes(jourSemaine) && voixDisponible())) {
+    essentiel.push({ titre: 'Dictée (yomiage)', detail: '5 colonnes lues à voix haute, à calculer sur le soroban, à votre niveau', minutes: 4,
+      pourquoi: 'À l\'oreille, on ne peut pas relire : chaque nombre se pose tout de suite. Deux fois par semaine, la dictée entraîne ce que les feuilles n\'entraînent pas.',
+      fait: dicteeFaite, aller: ['dictee', { support: 'niveau' }] });
+  }
   const placement = placementDuJour(d, date, sp);
   if (placement && placement.id !== sp?.id) {
     essentiel.push({ titre: 'Placement (réflexe)', detail: `${placement.titre} : 10 clics le plus vite possible`, minutes: 2, pourquoi: 'Poser le premier chiffre sur la bonne tige doit devenir immédiat.',
@@ -225,7 +236,16 @@ function plan(d, debut, seance = null) {
   if (estValide(d, 'p1-4')) {
     const leconAnzan = prochainAnzan();
     const a = anzanAdapte(d, minutesAnzan);
-    itemAnzan = leconAnzan
+    // Une semaine sur deux, le mercredi : le test de grade de flash (barème japonais), sur le
+    // grade qui suit le meilleur obtenu ; il prend la place de l'anzan du jour.
+    const gradeFlash = prochainGradeFlash(d);
+    const testFlashFait = fait((s) => s.module === 'anzan' && s.mode === 'grade');
+    const jourTestFlash = jourSemaine === 3 && semaineISO(date).semaine % 2 === 1 && meilleurGradeFlash(d) !== gradeFlash;
+    itemAnzan = testFlashFait || jourTestFlash
+      ? { titre: 'Anzan · test de grade de flash', detail: libelleGradeFlash(gradeFlash), minutes: Math.max(2, Math.ceil((QUESTIONS_GRADE_FLASH * (gradeFlash.secondes + 8)) / 60)),
+        pourquoi: `Une semaine sur deux, on se mesure : ${QUESTIONS_GRADE_FLASH} calculs en flash, ${JUSTES_GRADE_FLASH} justes pour obtenir le grade. Raté, il ne retire rien : on le repasse dans deux semaines.`,
+        fait: testFlashFait, aller: ['anzan', { mode: 'grade', grade: gradeFlash.id, auto: true }] }
+      : leconAnzan
       ? { titre: 'Anzan', detail: leconAnzan.titre, minutes: minutesAnzan, pourquoi: 'Quelques minutes de calcul de tête par jour : l\'image du soroban se construit par petites touches régulières.',
         fait: fait((s) => (s.module === 'lecons' && s.reglages?.sousPalier === leconAnzan.id) || (s.module === 'anzan' && s.reglages?.palierAnzan != null)), aller: ['lecons', { sousPalier: leconAnzan.id }] }
       : { titre: 'Anzan', detail: `${a.questions} calculs de tête de ${a.termes} nombres à ${a.chiffres} chiffre${a.chiffres > 1 ? 's' : ''}${a.mode === 'image' ? ', avec l\'image' : ''} · ${a.raison}`, minutes: minutesAnzan,

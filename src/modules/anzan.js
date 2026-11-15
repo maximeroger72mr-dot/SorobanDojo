@@ -27,7 +27,8 @@ import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
-import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, periodeGrade, libelleGradeFlash, meilleurGradeFlash, prochainGradeFlash } from '../core/flashGrades.js';
+import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, JUSTES_PRESQUE_FLASH, periodeGrade, libelleGradeFlash, meilleurGradeFlash, prochainGradeFlash, gradeFlashOuvert, cleGradeFlash, questionFlash, verdictFlash } from '../core/flashGrades.js';
+import { nombreEnMots } from '../core/motsNombre.js';
 import { cadencer, afficherNombreFlash, decompteFlash, PROFILS_VITESSE, periodesProfil } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
@@ -67,6 +68,7 @@ export default {
     for (const k of ['chiffres', 'termes', 'questions']) if (params[k]) reglages[k] = params[k];
     if (params.duree) reglages.duree = DUREES.reduce((a, b) => (Math.abs(b - params.duree) < Math.abs(a - params.duree) ? b : a));
     if (params.mode) reglages.mode = params.mode;
+    if (params.grade) reglages.grade = params.grade;
     // Marche de l'anzan du jour (séance) : gardée dans la série, pour monter ou redescendre.
     reglages.palierAnzan = params.palierAnzan ?? null;
     let actif = true;
@@ -86,14 +88,16 @@ export default {
       zoneReglages, zone);
 
     function afficherReglages() {
-      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['tapis', 'Tapis roulant (les nombres défilent)'], ['efface', 'Colonne qui s\'efface ligne à ligne'], ['grade', 'Grade de flash (temps total)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
+      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['tapis', 'Tapis roulant (les nombres défilent)'], ['efface', 'Colonne qui s\'efface ligne à ligne'], ['grade', 'Test de grade de flash (barème japonais)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
       const elements = [mode];
       if (reglages.mode === 'grade') {
-        reglages.grade ??= prochainGradeFlash(progression()).id;
+        // Pas de saut de grade : on ne peut choisir que les grades obtenus et le suivant.
+        const ouverts = GRADES_FLASH.filter((x) => gradeFlashOuvert(progression(), x));
+        if (!ouverts.some((x) => x.id === reglages.grade)) reglages.grade = prochainGradeFlash(progression()).id;
         const obtenu = meilleurGradeFlash(progression());
-        elements.push(select('grade', GRADES_FLASH.map((x) => [x.id, `${progression().records[`flash-grade-${x.id}`]?.reussi ? '✓ ' : ''}${libelleGradeFlash(x)}`]), String),
+        elements.push(select('grade', ouverts.map((x) => [x.id, `${progression().records[cleGradeFlash(x)]?.reussi ? '✓ ' : ''}${libelleGradeFlash(x)}`]), String),
           h('button', { class: 'btn principal', onclick: () => lancer() }, 'Passer ce grade ', h('kbd', {}, 'Entrée')),
-          h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, `${QUESTIONS_GRADE_FLASH} questions, ${JUSTES_GRADE_FLASH} justes pour obtenir le grade. ${obtenu ? `Votre meilleur grade : ${obtenu.nom}.` : 'Aucun grade obtenu pour l\'instant.'} Échelle indicative, du 10e kyū au 10e dan : ce n'est pas la grille d'un examen.`));
+          h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, `${QUESTIONS_GRADE_FLASH} questions : ${JUSTES_GRADE_FLASH} justes pour obtenir le grade, ${JUSTES_PRESQUE_FLASH} ou ${JUSTES_GRADE_FLASH - 1} : presque (on repasse le même). Les grades se passent dans l'ordre, sans saut, du 20e kyū au 20e dan. ${obtenu ? `Votre meilleur grade : ${obtenu.nom}.` : 'Aucun grade obtenu pour l\'instant.'} Barème de l'association japonaise de flash anzan (日本フラッシュ暗算検定協会).`));
         remplir(zoneReglages, elements);
         return;
       }
@@ -152,7 +156,7 @@ export default {
       }
       if (r.mode === 'grade') {
         const x = GRADES_FLASH.find((y) => y.id === r.grade) ?? GRADES_FLASH[0];
-        Object.assign(r, { gradeFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: periodeGrade(x), questions: QUESTIONS_GRADE_FLASH, soustractions: false });
+        Object.assign(r, { gradeFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: periodeGrade(x), questions: QUESTIONS_GRADE_FLASH, soustractions: !!x.forme });
       }
       // Vitesse automatique : on reprend la vitesse atteinte la dernière fois sur ce réglage.
       if (r.mode !== 'grade' && r.auto) {
@@ -223,7 +227,7 @@ export default {
         let x = n;
         while (x === n) x = Math.floor(Math.random() * (10 ** r.chiffres - 1)) + 1;
         taire();
-        parler(String(x), { debit: Math.min(1.6, Math.max(0.9, 1.3 / r.duree)) });
+        parler(nombreEnMots(x), { debit: Math.min(1.6, Math.max(0.9, 1.3 / r.duree)) });
       };
       zone.append(h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), info), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour, eclats);
       // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.
@@ -241,7 +245,7 @@ export default {
         majBouton('');
         saisie.style.display = 'none';
         remplir(retour);
-        if (!reprise) { question = colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
+        if (!reprise) { question = r.gradeFlash ? questionFlash(r.gradeFlash) : colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
         zone.classList.add('flash-en-cours');
         // Sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
         if (r.mode !== 'image') ecran.classList.add('plein');
@@ -425,10 +429,13 @@ export default {
           ecran.textContent = `${serie.justes} / ${serie.index}`;
           retour.className = 'retour';
           if (r.gradeFlash) {
-            const reussi = serie.justes >= JUSTES_GRADE_FLASH;
-            await proposerMeilleurScore(`flash-grade-${r.gradeFlash.id}`, serie.justes, { reussi });
+            const verdict = verdictFlash(serie.justes);
+            const reussi = verdict === 'reussi';
+            await proposerMeilleurScore(cleGradeFlash(r.gradeFlash), serie.justes, { reussi });
             const suivant = GRADES_FLASH[GRADES_FLASH.indexOf(r.gradeFlash) + 1];
-            remplir(retour, reussi ? `${r.gradeFlash.nom} de flash obtenu. ${suivant ? `Le suivant : ${libelleGradeFlash(suivant)}.` : 'C\'est le plus haut grade.'}` : `Pas encore : il faut ${JUSTES_GRADE_FLASH} justes sur ${QUESTIONS_GRADE_FLASH}. Retentez quand vous voulez.`);
+            remplir(retour, reussi ? `${r.gradeFlash.nom} de flash obtenu (${serie.justes} / ${QUESTIONS_GRADE_FLASH}). ${suivant ? `Le suivant : ${libelleGradeFlash(suivant)}.` : 'C\'est le plus haut grade.'}`
+              : verdict === 'presque' ? `Presque (${serie.justes} / ${QUESTIONS_GRADE_FLASH}) : il en faut ${JUSTES_GRADE_FLASH}. Vous y êtes presque : repassez ce grade quand vous voulez.`
+                : `Pas encore (${serie.justes} / ${QUESTIONS_GRADE_FLASH}) : il faut ${JUSTES_GRADE_FLASH} justes. Entraînez-vous en « Flash » à cette vitesse, puis retentez.`);
             if (reussi && suivant) reglages.grade = suivant.id;
             afficherReglages();
             majBouton('Recommencer');

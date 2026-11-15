@@ -39,6 +39,27 @@ export function drillRepetition(n, fois, allerRetour) {
     ops);
 }
 
+/**
+ * Drill sur mesure (générateur) : un pas de `chiffres` chiffres (ou d'une longueur tirée au
+ * hasard entre 3 et 9 : chiffres = 0), le même à chaque ligne ou différent à chaque ligne,
+ * ajouté `etapes` fois ; avec `retour`, on le retire ensuite dans l'ordre inverse jusqu'à 0.
+ * @param {{ chiffres: number, varie: boolean, etapes: number, retour: boolean }} o
+ * @param {() => number} [hasard]  source de hasard (tests)
+ */
+export function drillPerso({ chiffres = 3, varie = false, etapes = 9, retour = true }, hasard = Math.random) {
+  const tirer = () => {
+    const c = chiffres > 0 ? chiffres : 3 + Math.floor(hasard() * 7);
+    const min = c === 1 ? 1 : 10 ** (c - 1);
+    return min + Math.floor(hasard() * (10 ** c - min));
+  };
+  const fixe = tirer();
+  const pas = Array.from({ length: etapes }, () => (varie ? tirer() : fixe));
+  const ops = [...pas.map((n) => ({ op: '+', n })), ...(retour ? [...pas].reverse().map((n) => ({ op: '-', n })) : [])];
+  const longueur = chiffres > 0 ? `${chiffres} chiffre${chiffres > 1 ? 's' : ''}` : '3 à 9 chiffres';
+  return { ...drill('perso', `Drill sur mesure : ${varie ? `${etapes} nombres de ${longueur}` : `${fixe.toLocaleString('fr-FR')} ajouté ${etapes} fois`}${retour ? ', puis retour à 0' : ''}`,
+    'Sur mesure', varie ? 'Un nombre différent à chaque ligne : toutes les situations se succèdent, sans rien pouvoir anticiper.' : 'Le même nombre en boucle : chaque tige passe par tous les cas de ses chiffres.', ops), perso: true };
+}
+
 /** 1 + 2 + … + n (et retour éventuel). */
 export function drillSuite(n, allerRetour) {
   const aller = Array.from({ length: n }, (_, i) => ({ op: '+', n: i + 1 }));

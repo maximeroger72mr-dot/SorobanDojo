@@ -3,7 +3,7 @@
  * Tout se fait sur son soroban ; seul le chronomètre compte (voir ui/drill.js).
  */
 
-import { catalogueDrills, drillRepetition, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill } from '../core/drills.js';
+import { catalogueDrills, drillRepetition, drillPerso, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill } from '../core/drills.js';
 import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, etatDrill, noterDrill } from '../core/progression.js';
 import { drillOuvert, prerequisDrill, drillValide, estValide } from '../core/parcours.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
@@ -11,7 +11,7 @@ import { creerDrill } from '../ui/drill.js';
 import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler, serieCriblage, piresProduits, creerAcharnement, CRIBLAGE_S, ACHARNEMENT } from '../core/tables.js';
-import { noterProduit, statsTables, reglagesUtilisateur, noterVolume } from '../core/progression.js';
+import { noterProduit, statsTables, reglagesUtilisateur, noterVolume, modifierReglages } from '../core/progression.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
 import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
 
@@ -109,6 +109,18 @@ export default {
       choixN.value = '7';
       const choixFois = h('select', {}, [10, 20, 30].map((n) => h('option', { value: n }, `${n} fois`)));
       const ar = h('input', { type: 'checkbox', checked: true });
+      // Générateur : un drill sur mesure (longueur du pas, nombre d'étapes, sous-totaux).
+      const gen = reglagesUtilisateur().drillPerso ?? { chiffres: 3, varie: false, etapes: 9, retour: true, tousLes: 3 };
+      const sel = (cle, options, conv = Number) => { const x = h('select', { onchange: (e) => { gen[cle] = conv(e.target.value); } }, options.map(([v, t]) => h('option', { value: v }, t))); x.value = String(gen[cle]); return x; };
+      el.append(h('h2', {}, 'Drill sur mesure'),
+        h('p', { class: 'discret' }, 'Composez votre drill : la longueur du nombre ajouté, le nombre d\'étapes, et des sous-totaux de contrôle à intervalles réguliers (comme sur les feuilles japonaises).'),
+        h('div', { class: 'ligne reglages' },
+          h('label', {}, 'Pas ', sel('chiffres', [[0, 'longueur au hasard (3 à 9 chiffres)'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`])])),
+          sel('varie', [['false', 'le même nombre à chaque ligne'], ['true', 'un nombre différent à chaque ligne']], (v) => v === 'true'),
+          h('label', {}, 'Étapes ', sel('etapes', [5, 9, 10, 15, 20, 30, 50].map((n) => [n, `${n} additions`]))),
+          sel('retour', [['true', 'puis autant de soustractions (retour à 0)'], ['false', 'additions continues']], (v) => v === 'true'),
+          h('label', {}, 'Sous-totaux ', sel('tousLes', [[0, 'aucun'], [3, 'toutes les 3 lignes'], [5, 'toutes les 5 lignes'], [10, 'toutes les 10 lignes']])),
+          h('button', { class: 'btn principal', onclick: async () => { await modifierReglages({ drillPerso: { ...gen } }); changer(() => ecran(drillPerso(gen), { tousLes: gen.tousLes, reglages: { ...gen } })); } }, 'Générer et commencer')));
       el.append(h('h2', {}, 'Même nombre répété'),
         h('p', { class: 'discret' }, 'Ajouter le même nombre en boucle fait passer chaque tige par tous les cas : le meilleur exercice pour ancrer les amis d\'un chiffre.'),
         h('div', { class: 'ligne' }, 'Ajouter', choixN, choixFois, h('label', {}, ar, ' puis revenir à 0'),
@@ -116,15 +128,27 @@ export default {
     }
 
     /** Écran d'un drill ; `retour` permet de revenir ailleurs (ex. séance du jour). */
-    function ecran(d) {
+    function ecran(d, o = {}) {
       el.append(h('button', { class: 'lien', onclick: () => changer(catalogue) }, '← Tous les drills'),
         h('h1', {}, d.titre), h('p', {}, d.description),
         h('p', { class: 'classement-objectifs' }, CLASSEMENT.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(tempsClassement(d, c.id))}`)),
-          h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)));
+          d.perso ? h('span', { class: 'discret' }, o.tousLes ? ` · sous-total affiché toutes les ${o.tousLes} lignes` : '')
+            : h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)));
       const drill = creerDrill(el, d, {
-        record: record(d.id),
+        record: d.perso ? undefined : record(d.id),
+        tousLes: o.tousLes ?? 0,
         surFin: async ({ juste, dureeMs }) => {
           noterVolume(chiffresDrill(d));
+          if (d.perso) {
+            // Drill sur mesure : pas de record ni de validation (les nombres changent à chaque fois).
+            await enregistrerSession({ module: 'drills', mode: 'perso', reglages: { ...o.reglages }, total: 1, justes: juste ? 1 : 0, dureeMs });
+            const cl = juste ? classement(d, dureeMs) : null;
+            return h('div', { class: 'ligne', style: 'margin-top:8px' },
+              cl ? badgeClassement(cl.id, cl.nom) : null,
+              h('span', {}, !juste ? 'Résultat faux : reprenez en suivant les sous-totaux.' : cl ? `${cl.nom} à cette allure.` : `Juste, au-dessus du temps bronze (${formaterDuree(tempsClassement(d, 'bronze'))}).`),
+              h('button', { class: 'btn principal', onclick: () => changer(() => ecran(drillPerso(o.reglages), o)) }, 'Un autre, même réglage'),
+              h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'));
+          }
           await enregistrerSession({ module: 'drills', mode: d.id, reglages: { priorite: !!params.priorite }, total: 1, justes: juste ? 1 : 0, dureeMs });
           const nouveau = juste && await proposerRecord(`drill-${d.id}`, dureeMs);
           const cl = juste ? classement(d, dureeMs) : null;
