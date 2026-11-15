@@ -19,7 +19,7 @@
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { famille } from './motifs.js';
 import { motifsAppris, estValide, grade, chiffresAppris, gradeAccessible, PREREQUIS } from './parcours.js';
-import { systemeChoisi } from './epreuves.js';
+import { systemeChoisi, SYSTEMES } from './epreuves.js';
 import { SOUS_PALIERS, genererExercice } from './curriculum.js';
 import { verdictAllure } from './allure.js';
 import { cpm } from './maitrise.js';
@@ -106,6 +106,23 @@ export function examenDeLaSemaine(d) {
   // Tout le préparatoire est validé et obtenu : examen hebdomadaire au format avancé.
   if (dernier === PREKYU.at(-1) && prekyuObtenu(d, dernier)) return formatHebdo(d);
   return dernier;
+}
+
+/**
+ * Un kyū réussi vaut un test de niveau : toutes les leçons que ce grade exige (et les leçons
+ * de prise en main) sont acquises. Renvoie celles qui ne sont pas encore validées, pour le plus
+ * haut grade réussi (épreuve officielle ou examen blanc, tous systèmes ; grades préparatoires).
+ */
+export function leconsParEquivalence(d) {
+  const ids = new Set();
+  for (const sys of Object.values(SYSTEMES)) {
+    const haut = [...sys.grades].reverse().find((g) => d.records?.[sys.record(g.id)]?.reussi || d.records?.[cleBlanc(sys, g.id)]?.reussi);
+    for (const id of (haut ? PREREQUIS[haut.id] ?? [] : [])) ids.add(id);
+  }
+  const prep = PREKYU.findLastIndex((g) => d.records?.[`prekyu-${g.id}`]?.reussi);
+  for (const g of PREKYU.slice(0, prep + 1)) for (const id of g.lecons) ids.add(id);
+  if (ids.size) for (const sp of SOUS_PALIERS) if (sp.palier.id === 'p0') ids.add(sp.id);
+  return SOUS_PALIERS.filter((sp) => ids.has(sp.id) && !estValide(d, sp.id)).map((sp) => sp.id);
 }
 
 /**

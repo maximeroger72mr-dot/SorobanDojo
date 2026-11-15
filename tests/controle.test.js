@@ -304,10 +304,10 @@ test('0.21 : tables, produits à retravailler jusqu\'à 2,5 s', async () => {
 test('0.21 : positionnement, doigté et grades', async () => {
   const { PALIERS_TEST, leconsReussies, colonneTest } = await import('../src/core/positionnement.js');
   const { questionDe } = await import('../src/core/doigte.js');
-  assert.equal(PALIERS_TEST.length, 4);
+  assert.equal(PALIERS_TEST.length, 6);
   assert.ok(leconsReussies(1).includes('p1-4') && leconsReussies(1).includes('p0-2') && !leconsReussies(1).includes('p2-1'));
   assert.ok(leconsReussies(3).includes('p4-5') && leconsReussies(3).includes('p3-0'));
-  for (const p of PALIERS_TEST) assert.ok(colonneTest(p).lignes.length >= 4);
+  for (const p of PALIERS_TEST) { const ex = colonneTest(p); assert.ok(ex.lignes ? ex.lignes.length >= 4 : ex.resultat !== undefined); }
   assert.match(questionDe(sousPalier('p1-1')).texte, /POUCE/);
   assert.match(questionDe(sousPalier('p2-3')).texte, /Petit ami/);
   assert.match(questionDe(sousPalier('p6-1')).texte, /index gauche/);

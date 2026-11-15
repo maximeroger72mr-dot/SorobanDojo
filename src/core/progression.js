@@ -407,6 +407,32 @@ export async function validerParTest(ids) {
   await sauver();
 }
 
+/**
+ * Leçons acquises PAR ÉQUIVALENCE (un kyū réussi vaut un test de niveau, voir
+ * examen.leconsParEquivalence) : validées sans niveau mesuré ; leurs révisions sont étalées sur
+ * un mois, pour ne pas toutes tomber le même jour.
+ * @returns {number} nombre de leçons validées
+ */
+export async function validerParEquivalence(ids) {
+  const j = aujourdhui();
+  let n = 0;
+  for (const id of ids) {
+    const e = palier(id);
+    if (e.valide) continue;
+    const sp = SOUS_PALIERS.find((x) => x.id === id);
+    e.valide = j;
+    e.parEquivalence = true;
+    if (sp) e.reps = Math.max(e.reps ?? 0, sp.repetitions ?? 0);
+    if (!(sp?.type === 'theorie' || sp?.sansRevision)) e.carte = { boite: 3, echeance: ajouterJours(j, 7 + (n % 24)) };
+    n += 1;
+  }
+  if (n) {
+    (donnees.avis ??= []).push(`Votre grade vaut un test de niveau : ${n} leçon${n > 1 ? 's' : ''} du parcours ${n > 1 ? 'sont validées' : 'est validée'} par équivalence. Le parcours reprend après elles ; leurs révisions arriveront peu à peu.`);
+    await sauver();
+  }
+  return n;
+}
+
 /** Étape « Reconnaître » d'une leçon réussie (9 sur 10). */
 export async function noterReconnu(id) {
   palier(id).reconnu = aujourdhui();

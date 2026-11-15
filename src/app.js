@@ -9,7 +9,8 @@
  */
 
 import { h, remplir } from './ui/dom.js';
-import { chargerProgression, surSucces, surChangement, stockage, surStockage, versionNavigateur, rechargerDepuis, CLE_STOCKAGE, aujourdhui } from './core/progression.js';
+import { leconsParEquivalence } from './core/examen.js';
+import { progression, validerParEquivalence, chargerProgression, surSucces, surChangement, stockage, surStockage, versionNavigateur, rechargerDepuis, CLE_STOCKAGE, aujourdhui } from './core/progression.js';
 import { VERSION_APPLI } from './core/version.js';
 import { telechargerExport, telechargerTexte } from './ui/exporter.js';
 import { pictogramme } from './ui/perles.js';
@@ -218,6 +219,11 @@ function replierReglages(zoneEcran) {
 document.addEventListener('soroban:aller', (e) => app.aller(...e.detail));
 
 await chargerProgression();
+// Un kyū réussi vaut un test de niveau : ses leçons sont validées (au lancement, pour les grades
+// déjà obtenus, puis dès qu'un nouveau grade est réussi).
+const appliquerEquivalences = () => { const ids = leconsParEquivalence(progression()); return ids.length ? validerParEquivalence(ids) : null; };
+await appliquerEquivalences();
+surChangement(() => { appliquerEquivalences(); });
 appliquerTheme();
 surSucces((s) => notifier(`Succès : ${s.nom}`, s.description));
 majBandeau(stockage());

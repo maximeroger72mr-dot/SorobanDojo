@@ -6,7 +6,6 @@ import { SOUS_PALIERS, sousPalier } from '../src/core/curriculum.js';
 import { PREREQUIS, verificationVitesse, placementDuJour } from '../src/core/parcours.js';
 import { exercicesBloc, MAX_ISOLES } from '../src/core/blocs.js';
 import { planchesPossibles, plafonner, minutesPlanche, MINUTES_PLANCHE_MAX } from '../src/core/propositions.js';
-import { FAITS_SOUSTRACTION, sprintSoustraction, soustractionsDuJour, CLASSEMENT_SOUSTRACTION } from '../src/core/soustractions.js';
 import { bilanHebdo } from '../src/core/bilan.js';
 import { frise } from '../src/modules/grades.js';
 
@@ -84,20 +83,6 @@ test('bloc : deux exercices au plus sur le geste seul, le suivant est mélangé 
   assert.ok(e.every((x) => x.aller[0] === 'rythme'));
 });
 
-test('table des grands amis en soustraction : 36 faits, quelques jours par semaine', () => {
-  assert.equal(FAITS_SOUSTRACTION.length, 36);
-  assert.ok(FAITS_SOUSTRACTION.every((x) => x.a > 10 && x.q >= 2 && x.q <= 9 && x.a % 10 < x.b));
-  const s = sprintSoustraction();
-  assert.equal(new Set(s.map((x) => `${x.a}-${x.b}`)).size, 36);
-  const d = valide(['p4-4']);
-  assert.equal(soustractionsDuJour(valide(['p4-1']), 1, false), false);
-  const jours = (dd, mul) => [0, 1, 2, 3, 4, 5, 6].filter((j) => soustractionsDuJour(dd, j, mul));
-  assert.deepEqual(jours(d, false), [1, 3]);
-  assert.deepEqual(jours(d, true), [1, 3, 4]);
-  d.records['sprint-soustraction'] = { dureeMs: CLASSEMENT_SOUSTRACTION[2].s * 36 * 1000 - 1 };
-  assert.deepEqual(jours(d, true), [3]); // l'or atteint : entretien une fois par semaine
-});
-
 test('placement réflexe : s\'éteint une fois le parcours terminé', () => {
   const d = valide(TOUT);
   assert.equal(placementDuJour(d, '2026-11-10', null), null);
@@ -123,4 +108,34 @@ test('bilan hebdomadaire : pratique, gestes passés en or, leçons validées', (
   assert.equal(b.enOr.length, 1);
   assert.equal(b.validees.length, 1);
   assert.deepEqual(b.stagne, ['+1 (petit ami)']);
+});
+
+test('0.33 : un kyū réussi valide ses leçons ; le test de niveau part du niveau déclaré', async () => {
+  const { leconsParEquivalence } = await import('../src/core/examen.js');
+  const { suiteTest, PALIERS_TEST, colonneTest } = await import('../src/core/positionnement.js');
+  // 7e kyū réussi en épreuve, aucune leçon validée : toutes les leçons du 7e kyū (et la prise en main).
+  const ids = leconsParEquivalence(valide([], { records: { 'epreuve-7': { reussi: true } } }));
+  assert.ok(PREREQUIS[7].every((id) => ids.includes(id)) && ids.includes('p0-1') && !ids.includes('p6-4'));
+  assert.deepEqual(leconsParEquivalence(valide(ids, { records: { 'epreuve-7': { reussi: true } } })), []);
+  assert.deepEqual(leconsParEquivalence(valide([])), []);
+  // Le test : réussi, on monte ; raté, on redescend ; on ne remonte pas vers un palier déjà raté.
+  assert.deepEqual(suiteTest(2, true), { suivant: 3, valides: 3 });
+  assert.deepEqual(suiteTest(2, false), { suivant: 1, valides: 0 });
+  assert.deepEqual(suiteTest(1, true, { rate: 2 }), { suivant: null, valides: 2 });
+  assert.deepEqual(suiteTest(0, false), { suivant: null, valides: 0 });
+  assert.deepEqual(suiteTest(PALIERS_TEST.length - 1, true), { suivant: null, valides: PALIERS_TEST.length });
+  for (const p of PALIERS_TEST) assert.ok(colonneTest(p).resultat !== undefined);
+});
+
+test('0.33 : défi de la semaine jusqu\'à 6 chiffres, 3 × 2 et division par 2 chiffres ; placement éteint en Expert', async () => {
+  const { defiSemaine } = await import('../src/core/parcours.js');
+  const d = valide(TOUT);
+  const defi = defiSemaine(d, '2026-11-16');
+  assert.match(defi.description, /^[56] chiffres.*3 × 2.*par 2 chiffres/);
+  const mul = defi.sections.find((x) => x.titre === 'Multiplications').problemes[0];
+  assert.ok(String(mul.a).length === 3 && String(mul.b).length === 2, `${mul.a} × ${mul.b}`);
+  assert.match(defiSemaine(valide(['p1-1', 'p1-2', 'p1-3']), '2026-11-16').description, /^1 chiffre/);
+  const p = valide(['p6-a', 'p6-0']);
+  p.paliers['p6-0'].hist = h(0.5, 30);
+  assert.equal(placementDuJour(p, '2026-11-10', sousPalier('p6-1')), null);
 });

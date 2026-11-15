@@ -85,9 +85,9 @@ export function creerFeuille(conteneur, o) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     e.stopPropagation();
-    if (cases[i + 1] && parEpreuve && cases[i + 1].section !== c.section) passerEpreuve();
+    if (cases[i + 1] && parEpreuve && cases[i + 1].section !== c.section) demanderFin(c.inputReste ?? c.input, passerEpreuve, c.section);
     else if (cases[i + 1]) cases[i + 1].input.focus();
-    else corriger();
+    else demanderFin(c.inputReste ?? c.input);
   }));
   cases[0]?.input.focus({ preventScroll: true });
   // La feuille se cale d'elle-même en haut de l'écran : on ne voit que la barre (titre, temps) et
@@ -112,6 +112,8 @@ export function creerFeuille(conteneur, o) {
   }
   function passerEpreuve() {
     if (fini) return;
+    demande?.remove();
+    demande = null;
     if (courante >= o.sections.length - 1) { corriger(); return; }
     courante += 1;
     activerEpreuve();
@@ -190,8 +192,28 @@ export function creerFeuille(conteneur, o) {
     c.carte.append(bloc);
   }
 
+  /**
+   * Entrée sur la DERNIÈRE case ne termine pas tout de suite : on demande confirmation (on peut
+   * vouloir revenir sur une réponse). Entrée de nouveau confirme, Échap retourne à la case.
+   */
+  let demande = null;
+  function demanderFin(depuis, action = corriger, section = null) {
+    if (fini || demande) return;
+    const vides = cases.filter((c) => (section === null || c.section === section) && c.input.value.trim() === '').length;
+    const fermer = () => { demande?.remove(); demande = null; };
+    const oui = h('button', { class: 'btn principal', onclick: () => { fermer(); action(); } }, section === null ? 'Oui, corriger ' : 'Oui, épreuve suivante ', h('kbd', {}, 'Entrée'));
+    const non = h('button', { class: 'btn', onclick: () => { fermer(); depuis.focus(); } }, 'Non, je continue ', h('kbd', {}, 'Échap'));
+    demande = h('div', { class: 'carte avis confirmation-fin', role: 'alertdialog', 'aria-label': 'Terminer la feuille ?' },
+      h('strong', {}, section === null ? 'Avez-vous terminé ? ' : 'Avez-vous terminé cette épreuve ? (on ne revient pas en arrière) '), vides ? `${vides} réponse${vides > 1 ? 's' : ''} vide${vides > 1 ? 's' : ''}. ` : 'Toutes les réponses sont remplies. ',
+      limiteMs ? 'Le chrono continue. ' : '', h('div', { class: 'ligne', style: 'margin-top:8px' }, oui, non));
+    demande.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); depuis.focus(); } });
+    depuis.closest('.probleme')?.after(demande) ?? racine.append(demande);
+    oui.focus();
+  }
+
   function corriger() {
     if (fini) return;
+    demande?.remove();
     fini = true;
     delete racine.dataset.enCours;
     clearInterval(minuterie);

@@ -7,7 +7,7 @@
  * Fonctions pures : elles reçoivent les données de progression (voir progression.js).
  */
 
-import { SOUS_PALIERS, PALIERS } from './curriculum.js';
+import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
 import { GRADES, systemeChoisi } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
@@ -181,7 +181,8 @@ export function formatSemaine(d) {
   const appris = motifsAppris(d);
   const amis = [...appris].filter((c) => !c.endsWith(':direct'));
   const n = niveauAddsub(d);
-  return { appris, amis, chiffres: n < 0.4 ? 1 : n < 0.8 ? 2 : 3 };
+  // Une fois les additions-soustractions terminées, la taille suit les leçons validées (jusqu'à 6 chiffres).
+  return { appris, amis, chiffres: n < 0.4 ? 1 : n < 0.8 ? 2 : n < 1 ? 3 : Math.min(6, Math.max(3, chiffresAppris(d))) };
 }
 
 export function defiSemaine(d, date) {
@@ -189,16 +190,19 @@ export function defiSemaine(d, date) {
   const { appris, amis, chiffres } = formatSemaine(d);
   const mul = estValide(d, 'p6-1');
   const div = estValide(d, 'p7-1');
-  const palier = `${chiffres}${mul ? 'm' : ''}${div ? 'd' : ''}${amis.length}`;
+  // × et ÷ suivent les chapitres validés : jusqu'à 3 × 2 et la division par 2 chiffres.
+  const fMul = estValide(d, 'p6-4') ? [3, 2] : estValide(d, 'p6-3') ? [2, 2] : [2, 1];
+  const fDiv = estValide(d, 'p7-4') ? [2, 2] : estValide(d, 'p7-2') ? [1, 3] : [1, 2];
+  const palier = `${chiffres}${mul ? `m${fMul.join('')}` : ''}${div ? `d${fDiv.join('')}` : ''}${amis.length}`;
   const graine = [...`${semaine}-${palier}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const sections = avecGraine(graine, () => {
     const memoire = creerMemoire(10);
     const s = [{ titre: 'Colonnes', problemes: Array.from({ length: mul || div ? 6 : 10 }, () => genererColonneVariee({ chiffres, lignes: 5, autorises: appris, cibles: amis.length ? amis : DIRECT }, memoire)) }];
-    if (mul) s.push({ titre: 'Multiplications', problemes: Array.from({ length: 2 }, () => genererMultiplication(2, estValide(d, 'p6-3') ? 2 : 1)) });
-    if (div) s.push({ titre: 'Divisions', problemes: Array.from({ length: 2 }, () => genererDivision(1, 2)) });
+    if (mul) s.push({ titre: 'Multiplications', problemes: Array.from({ length: 2 }, () => genererMultiplication(...fMul)) });
+    if (div) s.push({ titre: 'Divisions', problemes: Array.from({ length: 2 }, () => genererDivision(...fDiv)) });
     return s;
   });
-  return { cle: `defi-semaine-${semaine}-${palier}`, semaine, sections, description: `${chiffres} chiffre${chiffres > 1 ? 's' : ''}, gestes appris${mul ? ', multiplications' : ''}${div ? ', divisions' : ''}` };
+  return { cle: `defi-semaine-${semaine}-${palier}`, semaine, sections, description: `${chiffres} chiffre${chiffres > 1 ? 's' : ''}, gestes appris${mul ? `, multiplications ${fMul[0]} × ${fMul[1]}` : ''}${div ? `, divisions par ${fDiv[0]} chiffre${fDiv[0] > 1 ? 's' : ''}` : ''}` };
 }
 
 /**
@@ -274,6 +278,9 @@ export function placementDuJour(d, aujourdhuiDate, prochain) {
   const mul = SOUS_PALIERS.find((s) => s.id === 'p6-0');
   // Division dès qu'on a atteint ce cours, sinon multiplication.
   const lecon = prochain && prochain.ordre >= div.ordre ? div : mul;
+  // Maîtrisé en Expert : le réflexe est installé, on n'y revient plus (une erreur de placement
+  // qui se répète le ramène par « Erreur qui se répète »).
+  if (evaluer(d.paliers[lecon.id]?.hist ?? [], familleLecon(lecon)).index >= 4) return null;
   // Le réflexe s'éteint : parcours terminé, ou placement de la division validé depuis plus de
   // 14 jours une fois l'étape de la division dépassée.
   if (!prochain) return null;

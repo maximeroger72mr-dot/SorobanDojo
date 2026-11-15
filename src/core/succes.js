@@ -33,7 +33,7 @@ export const SUCCES = [
   })),
   // Parcours
   { id: 'lecon-1', theme: 'Parcours', nom: 'Premier pas', description: 'Valider une première leçon.', test: (c) => c.valides.size >= 1 },
-  ...[['p1', 'Gestes directs'], ['p2', 'Petits amis'], ['p3', 'Grands amis (addition)'], ['p4', 'Grands amis (soustraction)'], ['p5', 'Combinaisons'], ['p6', 'Multiplication'], ['p7', 'Division'], ['pd', 'Décimaux et arrondis'], ['p8', 'Vers le 5e et le 4e kyū'], ['pa', 'Anzan et visualisation']].map(([p, nom]) => ({
+  ...[['p1', 'Gestes directs'], ['p2', 'Petits amis'], ['p3', 'Grands amis (addition)'], ['p4', 'Grands amis (soustraction)'], ['p5', 'Combinaisons'], ['p6', 'Multiplication'], ['p7', 'Division'], ['pd', 'Décimaux, arrondis et négatifs'], ['p8', 'Vers le 6e, le 5e et le 4e kyū'], ['pa', 'Anzan et visualisation']].map(([p, nom]) => ({
     id: `palier-${p}`, theme: 'Parcours', nom, description: `Valider toutes les leçons « ${nom} ».`, test: (c) => palierValide(c, p),
   })),
   // Maîtrise (juste ET rapide)

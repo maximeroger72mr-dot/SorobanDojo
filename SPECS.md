@@ -866,10 +866,7 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
 - **Réflexes qui s'éteignent :** le placement disparaît une fois le parcours terminé (ou 14 jours
   après l'étape de la division) ; les tables ne reviennent que deux fois par semaine quand il
   n'y a plus de produit à retravailler.
-- **Table des grands amis en soustraction** (`core/soustractions.js`, Drills › Tables) : les 36
-  soustractions de 11 − 2 à 18 − 9, une touche par réponse, médailles. Dans la séance dès les
-  grands amis en soustraction validés : lundi et mercredi, plus le jeudi pendant × et ÷ ; une
-  fois l'or atteint, le mercredi seulement.
+- (La table des grands amis en soustraction, ajoutée ici, a été retirée en 0.33.)
 - **Séance en 5 blocs visibles :** une barre de temps (répartition des blocs) et chaque bloc
   repliable ; un bloc terminé se referme. Un seul bouton « Continuer ».
 - **Bilan de la semaine** (replié, sous la séance) : pratique des 7 derniers jours, gestes passés
@@ -877,3 +874,27 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
 - **Frise du parcours :** le dernier grade obtenu et le PROCHAIN seulement, sur l'étape où ils
   se gagnent, avec les leçons restantes et une estimation en jours si elle est à moins de 60
   jours (`examen.prochainJalon`). Jamais d'objectif lointain.
+
+## Version 0.33.0
+
+- **Un kyū réussi vaut un test de niveau :** épreuve officielle, examen blanc ou grade
+  préparatoire réussi valide toutes les leçons que ce grade exige (`examen.leconsParEquivalence`,
+  `progression.validerParEquivalence`), au lancement pour les grades déjà obtenus, puis dès
+  qu'un grade est réussi. Leçons marquées `parEquivalence`, sans niveau mesuré ; révisions
+  étalées sur un mois.
+- **Test de niveau :** on choisit d'abord ce que l'on sait faire ; le test commence à ce niveau
+  (6 paliers, multiplication et division comprises). Réussi : ce palier et ceux d'en dessous sont
+  validés, on peut tenter le suivant. Raté : on redescend d'un palier (`positionnement.suiteTest`).
+- **Feuilles et examens :** Entrée sur la dernière case demande « Avez-vous terminé ? » (Entrée
+  confirme, Échap revient à la case) au lieu de corriger tout de suite.
+- **Tables de multiplication avant la multiplication :** diagnostic des 81 produits à l'ouverture
+  de « Grands amis en soustraction », puis tables une séance sur deux pendant cette étape et
+  « Combinaisons ». Pendant × et ÷ : chaque jour tant qu'il reste des produits à retravailler.
+- **Estimation du quotient :** une séance sur deux dès la première leçon de division par 1
+  chiffre (au lieu d'attendre « estimer et corriger »), en alternance avec les tables.
+- **Placement (réflexe) :** s'éteint dès qu'il est maîtrisé en Expert.
+- **Défi de la semaine :** jusqu'à 5-6 chiffres une fois les additions-soustractions terminées ;
+  multiplications jusqu'à 3 × 2, divisions par 2 chiffres, selon les leçons validées.
+- **Table des 36 soustractions :** retirée (Drills › Tables et séance).
+- **Succès :** noms des chapitres mis à jour (« Décimaux, arrondis et négatifs », « Vers le 6e,
+  le 5e et le 4e kyū »).

@@ -29,7 +29,6 @@ import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
 import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
-import { soustractionsDuJour, FAITS_SOUSTRACTION } from '../core/soustractions.js';
 import { sorobanNombre } from '../ui/perles.js';
 import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { bilanHebdo } from '../core/bilan.js';
@@ -94,7 +93,7 @@ function plan(d, debut, seance = null) {
       fait: fait((s) => s.module === 'jeux' && s.mode === `complement-${cibleComplement}`), aller: ['jeux', { jeu: 'complement', cible: cibleComplement }] });
   } else if (drill) {
     essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.ceil((tempsClassement(drill, 'bronze') * 1.3) / 60000)), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
-      fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables') && !['quotient', 'soustraction'].includes(s.mode)), aller: ['drills', { drill: drill.id }] });
+      fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables') && s.mode !== 'quotient'), aller: ['drills', { drill: drill.id }] });
   }
   const objectif = reglagesUtilisateur().objectifMinutes;
   // ---- 2. Révision : les colonnes ratées la dernière fois, puis 10 calculs qui MÉLANGENT les
@@ -175,21 +174,31 @@ function plan(d, debut, seance = null) {
   // Multiplication / division : tables et placement deviennent des réflexes quotidiens.
   //    En ouvrant l'étape : le diagnostic des 81 produits (les trous dans les tables, repérés AVANT
   //    qu'on les attribue au placement).
-  if (coursMultiplicationAtteint(d, sp) && !diagnosticTablesFait(d.tables ?? {})) {
+  // Les tables commencent AVANT la multiplication : dès l'étape « Grands amis en soustraction »
+  // (et pendant « Combinaisons »), une séance sur deux, pour qu'elles soient automatiques en
+  // ouvrant la multiplication : toute l'attention ira alors au placement et au geste.
+  const multAtteinte = coursMultiplicationAtteint(d, sp);
+  const avantMult = !multAtteinte && !!sp && ['p4', 'p5'].includes(sp.palier.id);
+  const tablesFaites = fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables'));
+  const quotientFait = fait((s) => s.module === 'drills' && s.mode === 'quotient');
+  const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
+  if ((multAtteinte || avantMult) && !diagnosticTablesFait(d.tables ?? {})) {
     essentiel.push({ titre: 'Diagnostic des tables', detail: 'les 81 produits, une fois chacun', minutes: 4,
-      pourquoi: 'Un produit hésitant bloque toute la multiplication. Les produits faux ou plus lents que 2,5 s seront ensuite travaillés chaque jour, jusqu\'à ce qu\'ils passent.',
+      pourquoi: avantMult ? 'La multiplication approche : on repère dès maintenant les produits hésitants. Les produits faux ou plus lents que 2,5 s seront travaillés une séance sur deux, pour être automatiques le jour où elle commence.'
+        : 'Un produit hésitant bloque toute la multiplication. Les produits faux ou plus lents que 2,5 s seront ensuite travaillés chaque jour, jusqu\'à ce qu\'ils passent.',
       fait: fait((s) => s.module === 'drills' && s.mode === 'tables-81'), aller: ['drills', { tables: '81' }] });
-  } else if (coursMultiplicationAtteint(d, sp) && d.paliers['p7-e']?.valide && jourSemaine % 2 === 1) {
-    // Un jour sur deux, une fois la division par 2 chiffres abordée : l'estimation du quotient.
+  } else if (multAtteinte && d.paliers['p7-1']?.valide && (quotientFait || (vitesse && !tablesFaites))) {
+    // Une séance sur deux, dès la première leçon de division : l'estimation du quotient, pour
+    // qu'elle soit un réflexe en arrivant à la division par 2 chiffres. Les tables, l'autre séance.
     essentiel.push({ titre: 'Estimation du quotient (réflexe)', detail: '20 divisions, une touche par réponse', minutes: 3,
-      pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fait la vitesse des divisions par 2 chiffres.',
-      fait: fait((s) => s.module === 'drills' && s.mode === 'quotient'), aller: ['drills', { quotient: true }] });
-  } else if (coursMultiplicationAtteint(d, sp) && (produitsARetravailler(d.tables ?? {}).length || [2, 6].includes(jourSemaine) || fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')))) {
-    // Tant qu'il reste des produits faux ou lents : chaque jour. Ensuite, le réflexe s'entretient
-    // deux fois par semaine seulement.
-    const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
-    essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
-      fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
+      pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fera la vitesse des divisions par 2 chiffres.',
+      fait: quotientFait, aller: ['drills', { quotient: true }] });
+  } else if (avantMult ? (tablesFaites || !vitesse) : multAtteinte && (aRetravailler || [2, 6].includes(jourSemaine) || tablesFaites)) {
+    // Avant la multiplication : une séance sur deux. Ensuite : chaque jour tant qu'il reste des
+    // produits faux ou lents, puis deux fois par semaine en entretien.
+    essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3,
+      pourquoi: avantMult ? 'Les tables doivent sortir sans hésiter AVANT la multiplication : le jour venu, il ne restera que le placement à apprendre.' : 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
+      fait: tablesFaites, aller: ['drills', { tables: 'lents', auto: true }] });
   }
   // Erreurs de multiplication ou de division qui se RÉPÈTENT (placement, zéro, quotient,
   // arrondi, produit) : l'entraînement qui correspond, comme pour un geste faible.
@@ -204,14 +213,6 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Erreur qui se répète (× et ÷)', detail: `${e.nom}, ${repetee.nombre} fois ces derniers jours : ${e.remede.toLowerCase()}`, minutes: 3,
       pourquoi: 'La même erreur revient : ce n\'est plus de l\'inattention, c\'est un point à travailler à part, quelques minutes.',
       fait: suivi, aller });
-  }
-  // Table des grands amis en soustraction : quelques jours par semaine, dès l'étape validée ;
-  // elle prépare la multiplication et la division, où ces soustractions reviennent sans cesse.
-  const soustractionFaite = fait((s) => s.module === 'drills' && s.mode === 'soustraction');
-  if (soustractionFaite || soustractionsDuJour(d, jourSemaine, coursMultiplicationAtteint(d, sp))) {
-    essentiel.push({ titre: 'Grands amis en soustraction (réflexe)', detail: `les ${FAITS_SOUSTRACTION.length} soustractions qui franchissent la dizaine, une touche par réponse`, minutes: 2,
-      pourquoi: 'De 11 − 2 à 18 − 9 : en multiplication et en division, ces soustractions reviennent à chaque produit. Elles doivent sortir sans réfléchir.',
-      fait: soustractionFaite, aller: ['drills', { soustraction: true }] });
   }
   const placement = placementDuJour(d, date, sp);
   if (placement && placement.id !== sp?.id) {

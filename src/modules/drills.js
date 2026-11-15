@@ -12,7 +12,6 @@ import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler, serieCriblage, piresProduits, creerAcharnement, CRIBLAGE_S, ACHARNEMENT } from '../core/tables.js';
 import { noterProduit, statsTables, reglagesUtilisateur, noterVolume } from '../core/progression.js';
-import { sprintSoustraction, gesteSoustraction, classementSoustraction, CLASSEMENT_SOUSTRACTION, FAITS_SOUSTRACTION } from '../core/soustractions.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
 import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
 
@@ -24,15 +23,15 @@ const SECONDES_RAPPEL = 5;
 export default {
   id: 'drills',
   titre: 'Drills',
-  paramsRetour: (p = {}) => ({ section: p.section === 'tables' || p.tables || p.quotient || p.soustraction ? 'tables' : 'gestes' }),
-  titreDe: (p = {}) => (p.section === 'tables' || p.tables || p.quotient || p.soustraction ? 'Tables (九九)' : 'Drills de gestes'),
+  paramsRetour: (p = {}) => ({ section: p.section === 'tables' || p.tables || p.quotient ? 'tables' : 'gestes' }),
+  titreDe: (p = {}) => (p.section === 'tables' || p.tables || p.quotient ? 'Tables (九九)' : 'Drills de gestes'),
   monter(el, app, params = {}) {
     let nettoyer = null;
     const changer = (f) => { nettoyer?.(); remplir(el); nettoyer = f() ?? null; };
     const record = (id) => progression().records[`drill-${id}`] ?? null;
 
     // Deux pages : les drills de gestes (additions et soustractions) et les tables (× et ÷).
-    let section = params.section ?? (params.tables || params.quotient || params.soustraction ? 'tables' : 'gestes');
+    let section = params.section ?? (params.tables || params.quotient ? 'tables' : 'gestes');
 
     function catalogueTables() {
       section = 'tables';
@@ -64,18 +63,9 @@ export default {
         h('h3', {}, 'Mes tables, mélangées'),
         choixTable,
         h('button', { class: 'btn', onclick: () => { const t = tablesChoisies(); if (t.length) changer(() => ecranTables(t)); } }, 'Commencer avec ces tables'));
-      // Table des grands amis en soustraction : ouverte avec les grands amis en soustraction.
-      if (estValide(progression(), 'p4-1') || reglagesUtilisateur().decouverte) {
-        const recS = progression().records['sprint-soustraction'];
-        const clS = recS ? classementSoustraction(recS.dureeMs) : null;
-        el.append(h('h2', {}, 'Grands amis en soustraction (table)'),
-          h('p', { class: 'discret' }, `Les ${FAITS_SOUSTRACTION.length} soustractions qui franchissent la dizaine (11 − 2 à 18 − 9) : tapez le résultat d'UNE touche. En multiplication et en division, elles reviennent à chaque produit : elles doivent sortir sans réfléchir.`),
-          h('p', { class: 'classement-objectifs' }, CLASSEMENT_SOUSTRACTION.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(c.s * FAITS_SOUSTRACTION.length * 1000)}`))),
-          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranSoustraction) }, `Sprint : ${FAITS_SOUSTRACTION.length} soustractions`),
-            recS ? h('span', { class: 'discret' }, `Record : ${formaterDuree(recS.dureeMs)}`, clS ? [' · ', badgeClassement(clS.id, clS.nom)] : '') : null));
-      }
-      // Sprint d'estimation du quotient : ouvert après la leçon « estimer et corriger ».
-      if (estValide(progression(), 'p7-e') || reglagesUtilisateur().decouverte) {
+      // Sprint d'estimation du quotient : ouvert dès la première leçon de division (par 1 chiffre),
+      // pour que l'estimation soit un réflexe en arrivant à la division par 2 chiffres.
+      if (estValide(progression(), 'p7-1') || reglagesUtilisateur().decouverte) {
         const recQ = progression().records['sprint-quotient'];
         const clQ = recQ ? classementQuotient(recQ.dureeMs) : null;
         el.append(h('h2', {}, 'Estimation du quotient (商)'),
@@ -378,12 +368,9 @@ export default {
     const ecranQuotient = () => ecranSprint({ couples: sprintQuotient, titre: 'Estimation du quotient', mode: 'quotient', record: 'sprint-quotient',
       consigne: 'Tapez le chiffre du quotient (une touche). Le chrono part au premier couple.',
       enonce: (c) => `${c.a} ÷ ${c.b}`, explication: (c) => raisonnement(c.a, c.b), classement: classementQuotient, bronzeMs: CLASSEMENT_QUOTIENT[0].s * COUPLES_SPRINT * 1000 });
-    const ecranSoustraction = () => ecranSprint({ couples: sprintSoustraction, titre: 'Grands amis en soustraction', mode: 'soustraction', record: 'sprint-soustraction',
-      consigne: 'Tapez le résultat (une touche). Le chrono part à la première soustraction.',
-      enonce: (c) => `${c.a} − ${c.b}`, explication: (c) => gesteSoustraction(c.a, c.b), classement: classementSoustraction, bronzeMs: CLASSEMENT_SOUSTRACTION[0].s * FAITS_SOUSTRACTION.length * 1000 });
 
     const direct = params.drill ? catalogueDrills().find((d) => d.id === params.drill) : null;
-    changer(params.soustraction ? ecranSoustraction : params.quotient ? ecranQuotient : params.tables === 'criblage' || params.tables === 'acharnement' ? () => ecranRapide(params.tables) : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
+    changer(params.quotient ? ecranQuotient : params.tables === 'criblage' || params.tables === 'acharnement' ? () => ecranRapide(params.tables) : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
     return () => nettoyer?.();
   },
 };
