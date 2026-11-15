@@ -35,6 +35,16 @@ export function secondesParChiffre(d) {
 /** Durée d'une planche : le calcul, plus l'écriture des réponses (5 s par colonne). */
 export const minutesPlanche = (d, p) => Math.max(2, Math.round((p.colonnes * (p.lignes * p.chiffres * secondesParChiffre(d) + 5)) / 60));
 
+/** Durée maximale d'une planche proposée (minutes) : au-delà, on retire des colonnes, puis des lignes. */
+export const MINUTES_PLANCHE_MAX = 10;
+export function plafonner(d, p, max = MINUTES_PLANCHE_MAX) {
+  let { colonnes, lignes } = p;
+  const m = () => minutesPlanche(d, { ...p, colonnes, lignes });
+  while (m() > max && colonnes > 4) colonnes -= 1;
+  while (m() > max && lignes > 4) lignes -= 1;
+  return { ...p, colonnes, lignes };
+}
+
 /**
  * Les planches possibles, dans l'ordre de priorité pédagogique ; chacune a un id stable, pour
  * savoir si elle a été faite aujourd'hui (session « planches » avec reglages.proposition).
@@ -47,7 +57,7 @@ export function planchesPossibles(d, difficiles = [], date = null) {
   const faible = difficiles.find((m) => !m.cle.endsWith(':direct'));
   if (faible) {
     liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
-      objectif: `Renforcer un geste qui se trompe : 10 colonnes justes sur 10, sans chercher la vitesse.` });
+      objectif: `Renforcer un geste qui se trompe : toutes les colonnes justes, sans chercher la vitesse.` });
   }
   const lents = gestesLents(d, 2);
   for (const [k, lent] of lents.entries()) {
@@ -81,7 +91,7 @@ export function planchesPossibles(d, difficiles = [], date = null) {
   const [a, b] = jourNum(date ?? '2026-01-01') % 2 ? [autres, ciblees] : [ciblees, autres];
   const alterne = [];
   for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) alterne.push(a[i]); if (b[i]) alterne.push(b[i]); }
-  return alterne.map((p) => ({ ...p, minutes: minutesPlanche(d, p) }));
+  return alterne.map((p) => plafonner(d, p)).map((p) => ({ ...p, minutes: minutesPlanche(d, p) }));
 }
 
 const planchesFaites = (d, date) => new Set(sessionsDu(d, date).filter((s) => s.module === 'planches').map((s) => s.reglages?.proposition).filter(Boolean));

@@ -72,6 +72,9 @@ const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
  * @returns {{ obtenu: object|null, prochain: object|null, manquantes: object[], pret: boolean }}
  */
+/** Toutes les leçons qu'un grade officiel demande sont-elles validées ? */
+export const gradeAccessible = (d, g) => prerequis(g).every((id) => estValide(d, id));
+
 export function grade(d) {
   // Le système de grades choisi (Nisshō par défaut, ou Zenkoren) : ses grades et ses records.
   const sys = systemeChoisi(d);
@@ -271,8 +274,12 @@ export function placementDuJour(d, aujourdhuiDate, prochain) {
   const mul = SOUS_PALIERS.find((s) => s.id === 'p6-0');
   // Division dès qu'on a atteint ce cours, sinon multiplication.
   const lecon = prochain && prochain.ordre >= div.ordre ? div : mul;
+  // Le réflexe s'éteint : parcours terminé, ou placement de la division validé depuis plus de
+  // 14 jours une fois l'étape de la division dépassée.
+  if (!prochain) return null;
   const valideLe = d.paliers['p7-0']?.valide;
-  if (valideLe && prochain && prochain.palier.id === 'p8') {
+  const finDivision = Math.max(...SOUS_PALIERS.filter((s) => s.palier?.id === 'p7').map((s) => s.ordre));
+  if (valideLe && prochain.ordre > finDivision) {
     const [a, m, j] = valideLe.split('-').map(Number);
     const ecart = (new Date(`${aujourdhuiDate}T12:00`) - new Date(a, m - 1, j, 12)) / 86400000;
     if (ecart > 14) return null;
@@ -375,6 +382,7 @@ const familleDe = (c) => (c.startsWith('cascade') ? 'cascade' : c.split(':')[1])
  *  3. la famille isolée reste lente → c'est la famille entière qu'il faut accélérer.
  * @returns {{ titre, detail, pourquoi, aller, cle }|null}
  */
+export const MARGE_VERIFICATION = 1.1;
 export function verificationVitesse(d) {
   const appris = motifsAppris(d);
   const situation = {};
@@ -388,7 +396,8 @@ export function verificationVitesse(d) {
   for (let i = 0; i < ORDRE_FAMILLES.length - 1; i++) {
     const fam = ORDRE_FAMILLES[i];
     const suivante = ORDRE_FAMILLES.slice(i + 1).find((x) => medFam(x) !== null);
-    if (!suivante || medFam(fam) === null || medFam(fam) < medFam(suivante)) continue;
+    // Marge de 10 % : à vitesse égale (ou presque), rien d'incohérent, on ne vérifie pas.
+    if (!suivante || medFam(fam) === null || medFam(fam) <= medFam(suivante) * MARGE_VERIFICATION) continue;
     const nom = NOMS_FAMILLES[fam];
     const constat = `Vos ${nom} (${formaterVitesse(medFam(fam))}) paraissent plus lents que vos ${NOMS_FAMILLES[suivante]} (${formaterVitesse(medFam(suivante))}).`;
     const isoles = d.vitesseFamilles?.[fam] ?? [];

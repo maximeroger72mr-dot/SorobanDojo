@@ -4,8 +4,9 @@
  * ne retire rien. Le ton est volontairement calme : un échec à un examen est normal.
  */
 
-import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, SEUIL, formatBlanc, minutesBlanc, sectionsBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, cleBlanc, SEUIL, formatBlanc, minutesBlanc, sectionsBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { progression, aujourdhui, enregistrerSession, proposerMeilleurScore } from '../core/progression.js';
+import { SYSTEMES } from '../core/epreuves.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
@@ -33,13 +34,13 @@ export default {
         const format = formatBlanc(aujourdhui());
         const autre = format === 'long' ? 'sprints' : 'long';
         const decrire = (f) => (f === 'long' ? 'un sujet de 20 minutes' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes`);
-        const obtenu = g.id !== 'hebdo' && prekyuObtenu(d, g);
+        const obtenu = g.id !== 'hebdo' && !g.officiel && prekyuObtenu(d, g);
         el.append(h('div', { class: 'carte' },
           h('h2', { style: 'margin-top:0' }, `${g.nom} · ${g.theme}`),
           h('p', {}, `Cette semaine : ${decrire(format)}. Colonnes de ${g.lignes} lignes à ${g.chiffres} chiffre${g.chiffres > 1 ? 's' : ''}${g.mul ? `, multiplications (${g.mul.titre})` : ''}${g.div ? `, divisions (${g.div.titre})` : ''}. Il faut ${Math.round(SEUIL * 100)} % de réponses justes${format === 'sprints' ? ' dans CHAQUE sprint' : ''}.`),
           obtenu ? h('p', { class: 'retour ok' }, `Grade obtenu. Le suivant s'ouvrira avec les prochaines leçons ; en attendant, repassez celui-ci quand vous voulez pour garder le rythme d'examen.`)
             : r ? h('p', {}, `Meilleur passage cette semaine : ${r.points} / ${r.total}. Pas encore, et c'est normal : retentez quand vous voulez.`)
-              : h('p', {}, 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il vous donne le grade ; raté, il ne vous retire rien.'),
+              : h('p', {}, g.officiel ? 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il valide ce niveau et tous les grades d\'en dessous, par équivalence (le kyū officiel se passe ensuite en « Épreuve officielle ») ; raté, il ne vous retire rien.' : 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il vous donne le grade ; raté, il ne vous retire rien.'),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn principal', onclick: () => lancer(g, format) }, `${r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen'} · ${decrire(format)}`),
             h('button', { class: 'btn', onclick: () => lancer(g, autre) }, `L'autre format : ${decrire(autre)}`))));
@@ -51,7 +52,7 @@ export default {
           const ouvert = prekyuAccessible(d, x);
           return h('div', { class: `ligne-palier${obtenu ? ' valide' : ''}` },
             h('span', { class: `icone etat-${obtenu ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, obtenu ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, `${x.nom} · ${x.theme}`),
-            h('span', { class: 'statut' }, obtenu ? `obtenu le ${new Date(`${d.records[`prekyu-${x.id}`].date}T12:00`).toLocaleDateString('fr-FR')}` : ouvert ? 'accessible' : 'leçons à valider'));
+            h('span', { class: 'statut' }, obtenu ? (d.records[`prekyu-${x.id}`]?.date ? `obtenu le ${new Date(`${d.records[`prekyu-${x.id}`].date}T12:00`).toLocaleDateString('fr-FR')}` : 'obtenu par équivalence') : ouvert ? 'accessible' : 'leçons à valider'));
         })));
     }
 
@@ -72,7 +73,9 @@ export default {
           const info = h('p', {});
           proposerMeilleurScore(cleSemaine(aujourdhui()), b.justes, { total: b.total, grade: g.id, reussi, dureeMs: b.dureeMs }).then(async () => {
             // Réussir un grade accorde aussi les grades préparatoires d'avant.
-            if (reussi && g.id !== 'hebdo') {
+            // Un kyū officiel réussi en examen blanc : les grades d'en dessous suivent par équivalence.
+            if (reussi && g.officiel) await proposerMeilleurScore(cleBlanc(SYSTEMES[g.systeme], g.officiel), b.justes, { reussi: true, total: b.total });
+            else if (reussi && g.id !== 'hebdo') {
               for (const x of PREKYU.slice(0, PREKYU.indexOf(g) + 1)) if (!prekyuObtenu(progression(), x)) await proposerMeilleurScore(`prekyu-${x.id}`, b.justes, { reussi: true });
             }
             app.majBadges?.();
@@ -80,7 +83,7 @@ export default {
           const manque = sprints ? Math.max(...b.parSection.map((x) => Math.ceil(x.total * SEUIL) - x.justes)) : Math.ceil(b.total * SEUIL) - b.justes;
           const parSprint = sprints ? ` ${b.parSection.map((x, i) => `Sprint ${i + 1} : ${x.justes} / ${x.total}${okSprint(x) ? ' ✓' : ''}`).join(' · ')}.` : '';
           info.textContent = (reussi
-            ? `${g.nom} réussi ! Bravo.`
+            ? `${g.nom} réussi ! Bravo.${g.officiel ? ' Les grades d\'en dessous sont acquis par équivalence. Le kyū officiel, lui, se passe en « Épreuve officielle » (page Grades), au format japonais.' : ''}`
             : `Pas encore${manque <= 3 ? ` : il manquait ${manque} réponse${manque > 1 ? 's' : ''} juste${manque > 1 ? 's' : ''}, c'est tout près` : ''}. C'est normal : un examen se réussit rarement du premier coup, et cet échec ne vous retire rien. Regardez vos erreurs ci-dessous, retravaillez-les tranquillement, et retentez quand vous voulez.`) + parSprint;
           // Colonnes répondues mais fausses (les cases vides : le temps a manqué).
           const erreurs = listeErreurs(b.resultats.filter((x) => x.reponse !== null));

@@ -12,6 +12,7 @@ import { badgeClassement } from '../ui/perles.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler, serieCriblage, piresProduits, creerAcharnement, CRIBLAGE_S, ACHARNEMENT } from '../core/tables.js';
 import { noterProduit, statsTables, reglagesUtilisateur, noterVolume } from '../core/progression.js';
+import { sprintSoustraction, gesteSoustraction, classementSoustraction, CLASSEMENT_SOUSTRACTION, FAITS_SOUSTRACTION } from '../core/soustractions.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
 import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
 
@@ -23,15 +24,15 @@ const SECONDES_RAPPEL = 5;
 export default {
   id: 'drills',
   titre: 'Drills',
-  paramsRetour: (p = {}) => ({ section: p.section === 'tables' || p.tables || p.quotient ? 'tables' : 'gestes' }),
-  titreDe: (p = {}) => (p.section === 'tables' || p.tables || p.quotient ? 'Tables (九九)' : 'Drills de gestes'),
+  paramsRetour: (p = {}) => ({ section: p.section === 'tables' || p.tables || p.quotient || p.soustraction ? 'tables' : 'gestes' }),
+  titreDe: (p = {}) => (p.section === 'tables' || p.tables || p.quotient || p.soustraction ? 'Tables (九九)' : 'Drills de gestes'),
   monter(el, app, params = {}) {
     let nettoyer = null;
     const changer = (f) => { nettoyer?.(); remplir(el); nettoyer = f() ?? null; };
     const record = (id) => progression().records[`drill-${id}`] ?? null;
 
     // Deux pages : les drills de gestes (additions et soustractions) et les tables (× et ÷).
-    let section = params.section ?? (params.tables || params.quotient ? 'tables' : 'gestes');
+    let section = params.section ?? (params.tables || params.quotient || params.soustraction ? 'tables' : 'gestes');
 
     function catalogueTables() {
       section = 'tables';
@@ -63,6 +64,16 @@ export default {
         h('h3', {}, 'Mes tables, mélangées'),
         choixTable,
         h('button', { class: 'btn', onclick: () => { const t = tablesChoisies(); if (t.length) changer(() => ecranTables(t)); } }, 'Commencer avec ces tables'));
+      // Table des grands amis en soustraction : ouverte avec les grands amis en soustraction.
+      if (estValide(progression(), 'p4-1') || reglagesUtilisateur().decouverte) {
+        const recS = progression().records['sprint-soustraction'];
+        const clS = recS ? classementSoustraction(recS.dureeMs) : null;
+        el.append(h('h2', {}, 'Grands amis en soustraction (table)'),
+          h('p', { class: 'discret' }, `Les ${FAITS_SOUSTRACTION.length} soustractions qui franchissent la dizaine (11 − 2 à 18 − 9) : tapez le résultat d'UNE touche. En multiplication et en division, elles reviennent à chaque produit : elles doivent sortir sans réfléchir.`),
+          h('p', { class: 'classement-objectifs' }, CLASSEMENT_SOUSTRACTION.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(c.s * FAITS_SOUSTRACTION.length * 1000)}`))),
+          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranSoustraction) }, `Sprint : ${FAITS_SOUSTRACTION.length} soustractions`),
+            recS ? h('span', { class: 'discret' }, `Record : ${formaterDuree(recS.dureeMs)}`, clS ? [' · ', badgeClassement(clS.id, clS.nom)] : '') : null));
+      }
       // Sprint d'estimation du quotient : ouvert après la leçon « estimer et corriger ».
       if (estValide(progression(), 'p7-e') || reglagesUtilisateur().decouverte) {
         const recQ = progression().records['sprint-quotient'];
@@ -302,8 +313,8 @@ export default {
      * Sprint d'estimation : une touche (1 à 9) valide aussitôt. Juste : couple suivant. Faux : le
      * raisonnement s'affiche (arrondi, vérification, correction), Entrée pour continuer.
      */
-    function ecranQuotient() {
-      const couples = sprintQuotient();
+    function ecranSprint(cfg) {
+      const couples = cfg.couples();
       let i = 0;
       let erreurs = [];
       let debut = null;
@@ -313,12 +324,12 @@ export default {
       const chrono = h('span', { class: 'compteur chrono' }, '0,0 s');
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
       const touches = h('div', { class: 'ligne touches-quotient' }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('button', { class: 'btn', onclick: () => repondre(n) }, String(n))));
-      el.append(h('button', { class: 'lien', onclick: () => changer(catalogueTables) }, '← Tables'), h('h1', {}, 'Estimation du quotient'),
-        h('p', { class: 'discret' }, 'Tapez le chiffre du quotient (une touche). Le chrono part au premier couple.'),
+      el.append(h('button', { class: 'lien', onclick: () => changer(catalogueTables) }, '← Tables'), h('h1', {}, cfg.titre),
+        h('p', { class: 'discret' }, cfg.consigne),
         h('div', { class: 'ligne' }, h('span', { style: 'flex:1' }), chrono, compteur), enonce, touches, retour);
       const montrer = () => {
         const c = couples[i];
-        remplir(enonce, `${c.a} ÷ ${c.b}`);
+        remplir(enonce, cfg.enonce(c));
         compteur.textContent = `${i + 1} / ${couples.length}`;
         debut ??= performance.now();
       };
@@ -337,8 +348,8 @@ export default {
         erreurs.push({ ...c, reponse: n });
         attente = true;
         retour.className = 'retour erreur';
-        remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` ${c.a} ÷ ${c.b} → `, h('strong', {}, String(c.q)), ` (et non ${n})`),
-          h('div', { class: 'detail' }, raisonnement(c.a, c.b)),
+        remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ` ${cfg.enonce(c)} → `, h('strong', {}, String(c.q)), ` (et non ${n})`),
+          h('div', { class: 'detail' }, cfg.explication(c)),
           h('button', { class: 'btn principal', onclick: suivant }, 'Suivant ', h('kbd', {}, 'Entrée')));
       }
       async function fin() {
@@ -346,17 +357,17 @@ export default {
         const dureeMs = performance.now() - debut;
         const score = dureeMs + erreurs.length * PENALITE_MS;
         const justes = couples.length - erreurs.length;
-        await enregistrerSession({ module: 'drills', mode: 'quotient', total: couples.length, justes, dureeMs });
-        const nouveau = await proposerRecord('sprint-quotient', score);
-        const cl = classementQuotient(score);
+        await enregistrerSession({ module: 'drills', mode: cfg.mode, total: couples.length, justes, dureeMs });
+        const nouveau = await proposerRecord(cfg.record, score);
+        const cl = cfg.classement(score);
         remplir(enonce);
         touches.remove();
         el.append(h('div', { class: 'carte bilan' },
           h('div', { class: 'grand' }, `${justes} / ${couples.length}`),
           h('p', {}, `Temps ${formaterDuree(dureeMs)} · score ${formaterDuree(score)} (3 s par erreur)${nouveau ? ' · nouveau record !' : ''}`),
-          cl ? h('p', {}, badgeClassement(cl.id, cl.nom)) : h('p', { class: 'discret' }, `Bronze à ${formaterDuree(CLASSEMENT_QUOTIENT[0].s * COUPLES_SPRINT * 1000)}.`),
-          erreurs.length ? h('div', {}, h('h3', {}, 'À revoir'), h('ul', {}, erreurs.map((e) => h('li', {}, `${e.a} ÷ ${e.b} → ${e.q} : ${raisonnement(e.a, e.b)}`)))) : null,
-          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(ecranQuotient) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))));
+          cl ? h('p', {}, badgeClassement(cl.id, cl.nom)) : h('p', { class: 'discret' }, `Bronze à ${formaterDuree(cfg.bronzeMs)}.`),
+          erreurs.length ? h('div', {}, h('h3', {}, 'À revoir'), h('ul', {}, erreurs.map((e) => h('li', {}, `${cfg.enonce(e)} → ${e.q} : ${cfg.explication(e)}`)))) : null,
+          h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => changer(() => ecranSprint(cfg)) }, 'Recommencer'), h('button', { class: 'btn', onclick: () => changer(catalogueTables) }, 'Toutes les tables'))));
       }
       const table = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [String(n), () => repondre(n)]));
       const sans = raccourcis({ ...table, Enter: () => (attente && retour.classList.contains('erreur') ? suivant() : false) });
@@ -364,8 +375,15 @@ export default {
       return () => { clearInterval(minuterie); sans(); };
     }
 
+    const ecranQuotient = () => ecranSprint({ couples: sprintQuotient, titre: 'Estimation du quotient', mode: 'quotient', record: 'sprint-quotient',
+      consigne: 'Tapez le chiffre du quotient (une touche). Le chrono part au premier couple.',
+      enonce: (c) => `${c.a} ÷ ${c.b}`, explication: (c) => raisonnement(c.a, c.b), classement: classementQuotient, bronzeMs: CLASSEMENT_QUOTIENT[0].s * COUPLES_SPRINT * 1000 });
+    const ecranSoustraction = () => ecranSprint({ couples: sprintSoustraction, titre: 'Grands amis en soustraction', mode: 'soustraction', record: 'sprint-soustraction',
+      consigne: 'Tapez le résultat (une touche). Le chrono part à la première soustraction.',
+      enonce: (c) => `${c.a} − ${c.b}`, explication: (c) => gesteSoustraction(c.a, c.b), classement: classementSoustraction, bronzeMs: CLASSEMENT_SOUSTRACTION[0].s * FAITS_SOUSTRACTION.length * 1000 });
+
     const direct = params.drill ? catalogueDrills().find((d) => d.id === params.drill) : null;
-    changer(params.quotient ? ecranQuotient : params.tables === 'criblage' || params.tables === 'acharnement' ? () => ecranRapide(params.tables) : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
+    changer(params.soustraction ? ecranSoustraction : params.quotient ? ecranQuotient : params.tables === 'criblage' || params.tables === 'acharnement' ? () => ecranRapide(params.tables) : params.tables ? () => ecranTables(params.tables) : direct ? () => ecran(direct) : catalogue);
     return () => nettoyer?.();
   },
 };

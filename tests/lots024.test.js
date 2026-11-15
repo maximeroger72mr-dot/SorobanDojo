@@ -71,24 +71,32 @@ test('planches : additions seules, format d\'examen, négatifs, décimaux, 10 ch
 /** Historique de `n` essais justes à `t` secondes par chiffre. */
 const hist = (t, n = 20) => Array.from({ length: n }, () => ({ ok: 1, t }));
 
-test('prof : la dernière leçon doit être en or ; en argent on automatise, 10 jours de pratique au plus', () => {
+test('prof : argent pour passer à la leçon suivante, or pour passer à l\'étape suivante (10 jours au plus)', () => {
+  const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-03-${String(3 + i).padStart(2, '0')}`, total: 10, justes: 10 }));
+  // --- À l'intérieur d'une étape : l'argent suffit.
   const prochain = sousPalier('p2-3');
   const base = (tDerniere, sessions) => ({
     sessions,
     paliers: { 'p2-1': { valide: '2026-03-01', hist: hist(2.5) }, 'p2-2': { valide: '2026-03-02', hist: hist(tDerniere) } },
   });
-  const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-03-${String(3 + i).padStart(2, '0')}`, total: 10, justes: 10 }));
-  // Dernière leçon en or (1,2 s par chiffre) : on avance.
   assert.equal(decisionDuJour(base(1.2, jours(1)), '2026-03-04', prochain).type, 'lecon');
-  // En argent (2,5 s) : on automatise…
-  const d = decisionDuJour(base(2.5, jours(2)), '2026-03-05', prochain);
-  assert.equal(d.type, 'automatiser');
-  assert.equal(d.sp.id, 'p2-2');
-  assert.equal(JOURS_ANCRAGE_MAX, 10);
-  // … mais pas au-delà de 10 jours de pratique : la leçon s'ouvre.
-  assert.equal(decisionDuJour(base(2.5, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain).type, 'lecon');
+  assert.equal(decisionDuJour(base(2.5, jours(2)), '2026-03-05', prochain).type, 'lecon');
   // Sous l'argent, la leçon suivante attend toujours.
-  assert.equal(decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain).type, 'automatiser');
+  const lent = decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain);
+  assert.equal(lent.type, 'automatiser');
+  assert.equal(lent.cible, 'argent');
+  // --- En fin d'étape : toutes les leçons de l'étape passent en or avant la suivante.
+  const etape = sousPalier('p2-1').palier.sousPaliers.map((x) => x.id);
+  const fin = (tFaible, sessions) => ({ sessions, paliers: Object.fromEntries(etape.map((id, k) => [id, { valide: k === etape.length - 1 ? '2026-03-02' : '2026-03-01', hist: hist(id === 'p2-2' ? tFaible : 1.2) }])) });
+  const suivante = sousPalier('p3-1');
+  const d = decisionDuJour(fin(2.5, jours(2)), '2026-03-05', suivante);
+  assert.equal(d.type, 'automatiser');
+  assert.equal(d.sp.id, 'p2-2'); // la leçon de l'étape la moins avancée
+  assert.equal(d.cible, 'or');
+  assert.equal(JOURS_ANCRAGE_MAX, 10);
+  // Tout en or : l'étape suivante s'ouvre ; au-delà de 10 jours de pratique, elle s'ouvre aussi.
+  assert.equal(decisionDuJour(fin(1.2, jours(2)), '2026-03-05', suivante).type, 'lecon');
+  assert.equal(decisionDuJour(fin(2.5, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', suivante).type, 'lecon');
 });
 
 test('examen de la semaine adapté au niveau', () => {
@@ -304,14 +312,16 @@ test('marches 2 × 2 et division par 2 chiffres ; divisions avec reste ; pyramid
 test('prof : des gestes passés en or ailleurs valent une leçon en or', async () => {
   const { decisionDuJour: decision, niveauLecon } = await import('../src/core/prof.js');
   const h = (t, n = 20) => Array.from({ length: n }, () => ({ ok: 1, t }));
-  const prochain = sousPalier('p2-3');
+  // Fin de l'étape des petits amis : une leçon est restée en argent.
+  const prochain = sousPalier('p3-1');
+  const etape = sousPalier('p2-1').palier.sousPaliers.map((x) => x.id);
   const d = {
     sessions: [{ date: '2026-03-03', total: 10, justes: 10 }],
-    paliers: { 'p2-1': { valide: '2026-03-01', hist: h(1) }, 'p2-2': { valide: '2026-03-02', hist: h(2.5) } },
+    paliers: Object.fromEntries(etape.map((id) => [id, { valide: id === 'p2-2' ? '2026-03-02' : '2026-03-01', hist: h(id === 'p2-2' ? 2.5 : 1) }])),
     motifs: {},
   };
-  assert.equal(decision(d, '2026-03-04', prochain).type, 'automatiser'); // dernière leçon en argent seulement
-  // Les gestes de la dernière leçon sont confirmés sur la carte de maîtrise : la leçon suivante s'ouvre.
+  assert.equal(decision(d, '2026-03-04', prochain).type, 'automatiser'); // une leçon de l'étape en argent seulement
+  // Ses gestes sont confirmés sur la carte de maîtrise : l'étape suivante s'ouvre.
   for (const c of sousPalier('p2-2').cibles) d.motifs[c] = { hist: h(1.2) };
   assert.equal(niveauLecon(d, sousPalier('p2-2')).index, 3);
   assert.equal(decision(d, '2026-03-04', prochain).type, 'lecon');

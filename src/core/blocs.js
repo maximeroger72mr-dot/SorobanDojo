@@ -19,8 +19,8 @@
 import { nomMotif } from './motifs.js';
 import { evaluer } from './maitrise.js';
 import { libellesModes, gesteTravaillable } from './colonneGeste.js';
-import { minutesPlanche, secondesParChiffre } from './propositions.js';
-import { chiffresAppris, ancrageDuJour, plateaux, SURCHARGE } from './parcours.js';
+import { minutesPlanche, secondesParChiffre, plafonner } from './propositions.js';
+import { chiffresAppris, ancrageDuJour, plateaux, SURCHARGE, estValide } from './parcours.js';
 
 const avant = (d, date) => d.sessions.filter((s) => s.date < date);
 const du = (d, date) => d.sessions.filter((s) => s.date === date);
@@ -50,19 +50,24 @@ const lignesMarathon = (d, minutes) => Math.max(20, Math.min(60, Math.round((min
 function variantes(d, genre, c) {
   const { g, mix, chiffres } = c;
   const nom = g ? nomMotif(g) : null;
-  const planche = (id, titre, detail, p, pourquoi) => ({ id, titre, detail, pourquoi, minutes: Math.min(8, minutesPlanche(d, { colonnes: p.colonnes ?? 10, lignes: p.lignes ?? 6, chiffres: p.chiffres ?? chiffres })),
-    aller: ['planches', { ...p, proposition: id, auto: true }], fait: (s) => s.module === 'planches' && s.reglages?.proposition === id });
+  // Une planche du bloc dure 8 minutes au plus : on retire des colonnes plutôt que d'afficher
+  // une durée fausse. `detail` reçoit le nombre de colonnes réellement proposé.
+  const planche = (id, titre, detail, p0, pourquoi) => {
+    const p = plafonner(d, { colonnes: 10, lignes: 6, chiffres, ...p0 }, 8);
+    return { id, titre, detail: detail(p.colonnes), pourquoi, minutes: minutesPlanche(d, p),
+      aller: ['planches', { ...p, proposition: id, auto: true }], fait: (s) => s.module === 'planches' && s.reglages?.proposition === id };
+  };
   const rythme = (id, jeu, cibles, titre, detail, p, minutes, pourquoi) => ({ id, titre, detail, pourquoi, minutes,
     aller: ['rythme', { jeu, cibles, auto: true, ...p }], fait: (s) => s.module === 'rythme' && s.mode === (p.surcharge ? 'surcharge' : jeu) && (s.reglages?.cibles ?? []).includes(cibles[0]) && (cibles.length > 1) === ((s.reglages?.cibles ?? []).length > 1) });
   const v = [];
   if (genre === 'volume-isole' && g) {
     const lignes = lignesMarathon(d, 4);
     v.push(rythme(`marathon:${g}`, 'marathon', [g], `Volume · ${nom}`, `${lignes} lignes de marathon sur ${nom}, sans remettre à zéro`, { lignes }, 4, 'Le volume sur un seul geste installe le mouvement jusqu\'au réflexe.'));
-    if (gesteTravaillable(g)) v.push(planche(`bloc-seul:${g}`, `Planche · ${libellesModes(g).seul}`, `10 colonnes : le geste 2 fois par colonne, des gestes directs et un piège`, { cible: g, mode: 'seul', chiffres, lignes: 6, colonnes: 10 }, 'Le geste répété, mais jamais à l\'aveugle : le piège oblige à regarder la tige.'));
+    if (c.planches && gesteTravaillable(g)) v.push(planche(`bloc-seul:${g}`, `Planche · ${libellesModes(g).seul}`, (n) => `${n} colonnes : le geste 2 fois par colonne, des gestes directs et un piège`, { cible: g, mode: 'seul', chiffres, lignes: 6, colonnes: 10 }, 'Le geste répété, mais jamais à l\'aveugle : le piège oblige à regarder la tige.'));
   }
   if (genre === 'volume-melange') {
-    if (g && gesteTravaillable(g)) v.push(planche(`bloc-famille:${g}`, `Planche · ${libellesModes(g).famille}`, `10 colonnes : ${nom} au milieu de ses voisins, il faut choisir le bon geste à chaque ligne`, { cible: g, mode: 'famille', chiffres, lignes: 6, colonnes: 10 }, 'Bien faire le geste seul ne suffit pas : il faut le refaire au milieu des autres.'));
-    v.push({ id: 'ancrage', titre: 'Planche mélangée · ancrage', detail: 'vos dernières leçons et vos gestes faibles, mélangés (10 colonnes)', minutes: Math.min(8, minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres })),
+    if (c.planches && g && gesteTravaillable(g)) v.push(planche(`bloc-famille:${g}`, `Planche · ${libellesModes(g).famille}`, (n) => `${n} colonnes : ${nom} au milieu de ses voisins, il faut choisir le bon geste à chaque ligne`, { cible: g, mode: 'famille', chiffres, lignes: 6, colonnes: 10 }, 'Bien faire le geste seul ne suffit pas : il faut le refaire au milieu des autres.'));
+    if (c.planches) v.push({ id: 'ancrage', titre: 'Planche mélangée · ancrage', detail: 'vos dernières leçons et vos gestes faibles, mélangés (10 colonnes)', minutes: Math.min(8, minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres })),
       pourquoi: 'Mélangé, le geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       aller: ['planches', { ancrage: true, auto: true }], fait: (s) => s.module === 'planches' && s.mode === 'ancrage' });
     if (mix.length > 1) {
@@ -80,7 +85,7 @@ function variantes(d, genre, c) {
   }
   if (genre === 'vitesse-melange') {
     if (mix.length) v.push(rythme('lievre-mix', 'lievre', mix, 'Vitesse mélangée · lièvre', 'le lièvre accélère sur vos derniers gestes mélangés', { chiffres: 1, accelere: true }, 3, 'La vitesse qui compte est celle qu\'on garde au milieu des autres gestes.'));
-    v.push(planche('bloc-rapide', 'Vitesse mélangée · planche courte', `10 colonnes courtes à ${Math.max(1, chiffres - 1)} chiffre${chiffres > 2 ? 's' : ''}, le plus vite possible sans erreur`, { cible: 'appris', chiffres: Math.max(1, chiffres - 1), lignes: 4, colonnes: 10 }, 'Des colonnes courtes laissent toute la place à la cadence.'));
+    if (c.planches) v.push(planche('bloc-rapide', 'Vitesse mélangée · planche courte', (n) => `${n} colonnes courtes à ${Math.max(1, chiffres - 1)} chiffre${chiffres > 2 ? 's' : ''}, le plus vite possible sans erreur`, { cible: 'appris', chiffres: Math.max(1, chiffres - 1), lignes: 4, colonnes: 10 }, 'Des colonnes courtes laissent toute la place à la cadence.'));
   }
   return v;
 }
@@ -92,17 +97,23 @@ function moinsRecente(d, date, liste) {
   return [...liste].sort((a, b) => (derniere(a) < derniere(b) ? -1 : derniere(a) > derniere(b) ? 1 : 0));
 }
 
+/** Exercices sur le geste seul, au plus, dans une séance. */
+export const MAX_ISOLES = 2;
+
 /**
  * Exercices du jour pour un bloc : une suite de genres (ex. isolé puis mélangé), chacun dans sa
  * variante la moins récente ; on remplit jusqu'à `minutes`, sans répéter une variante.
  * @param {string[]} genres  ordre des genres à alterner
  * @returns {Array<{ id, titre, detail, minutes, aller, fait: boolean, pourquoi, genre }>}
  */
-export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [] }) {
+export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [], isolesDeja = 0 }) {
   const g = gesteDuJour(d, cibles, difficiles);
   const a = ancrageDuJour(d);
   const mix = [...new Set([...(a?.cibles ?? []), ...difficiles.map((m) => m.cle)])].filter((x) => !x.endsWith(':direct'));
-  const ctx = { g, mix: mix.length ? mix : cibles.filter((x) => !x.endsWith(':direct')), chiffres: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
+  // Sans « ami » appris (étape des gestes directs) : le mélange se fait sur les gestes directs.
+  const amis = cibles.filter((x) => !x.endsWith(':direct'));
+  // Les planches s'ouvrent avec « Le 5 et la pincée » ; avant, le bloc se fait au marathon et au lièvre.
+  const ctx = { g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, chiffres: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
   const aujourdhui = du(d, date);
   const pris = new Set(exclure);
   const parGenre = Object.fromEntries([...new Set(genres)].map((x) => [x, moinsRecente(d, date, variantes(d, x, ctx))]));
@@ -110,15 +121,20 @@ export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minute
   let total = 0;
   // On remplit en alternant les genres ; une variante doit tenir dans le temps restant (une
   // minute de marge), sauf la toute première, pour ne jamais laisser le bloc vide.
+  // Deux exercices AU PLUS sur le geste seul (bloc « automatiser » compris) : au-delà, on passe
+  // obligatoirement au mélangé, pour apprendre à reconnaître le geste parmi les autres.
+  let isoles = isolesDeja;
   let avance = true;
   while (avance && total < minutes - 1) {
     avance = false;
     for (const genre of genres) {
       const reste = minutes - total;
       if (reste < 2 && res.length) break;
+      if (genre.endsWith('-isole') && isoles >= MAX_ISOLES) continue;
       const libres = parGenre[genre].filter((y) => !pris.has(y.id));
       const x = libres.find((y) => y.minutes <= reste + 1) ?? (res.length ? null : libres[0]);
       if (!x) continue;
+      if (genre.endsWith('-isole')) isoles += 1;
       pris.add(x.id);
       res.push({ id: x.id, titre: x.titre, detail: x.detail, minutes: x.minutes, aller: x.aller, fait: aujourdhui.some(x.fait), pourquoi: x.pourquoi, genre });
       total += x.minutes;

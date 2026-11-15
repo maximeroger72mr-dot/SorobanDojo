@@ -84,6 +84,13 @@ export function gestesLecon(sp) {
   return amis.length ? amis : (sp.cibles ?? []);
 }
 
+/** Leçons d'une étape validées mais pas encore en or (mesurées), la moins avancée d'abord. */
+export function leconsADorer(d, palier) {
+  return palier.sousPaliers.map((x) => SOUS_PALIERS.find((sp) => sp.id === x.id)).filter((sp) => sp && LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide)
+    .map((sp) => ({ sp, n: niveauLecon(d, sp) })).filter((x) => x.n.essais >= 8 && x.n.index < 3)
+    .sort((a, b) => a.n.index - b.n.index || a.sp.ordre - b.sp.ordre).map((x) => x.sp);
+}
+
 /** Exercice d'automatisation d'une leçon : marathon sur ses gestes, ou entraînement de la leçon. */
 function ancrage(sp) {
   return sp.type === 'addsub'
@@ -94,9 +101,10 @@ function ancrage(sp) {
 /**
  * Avancer ou automatiser ?
  *  - une leçon commencée se termine (on peut n'en faire qu'une partie par jour) ;
- *  - la dernière leçon validée doit être en OR (acquis confirmé) pour ouvrir la suivante :
- *    tant qu'elle est en argent, on l'AUTOMATISE (volume, vitesse, mélangé) ; au-delà de
- *    JOURS_AUTOMATISATION_MAX jours de pratique, on avance quand même ;
+ *  - à l'intérieur d'une étape, la dernière leçon validée doit être en ARGENT pour ouvrir la
+ *    suivante ; sinon on l'AUTOMATISE (volume, vitesse, mélangé) ;
+ *  - en fin d'étape (petits amis, grands amis…), toutes ses leçons passent en OR avant l'étape
+ *    suivante ; au-delà de JOURS_AUTOMATISATION_MAX jours de pratique, on avance quand même ;
  *  - après 3 jours d'absence, on reprend en douceur.
  * @param {object|null} prochain  prochain sous-palier du parcours soroban (lecons.prochainSousPalier)
  * @returns {{ type: 'lecon'|'automatiser'|'revision', titre, detail, raison, aller, minutes, sp?, cibles? }}
@@ -115,18 +123,27 @@ export function decisionDuJour(d, date, prochain) {
     const ev = niveauLecon(d, derniere);
     const jours = joursDepuisDerniereLecon(d, date);
     // Sous l'argent : on ne peut pas avancer (la leçon n'est pas vraiment acquise).
-    const bloque = ev.essais >= 8 && ev.index < 2;
-    if (ev.essais >= 8 && ev.index < 3 && (bloque || jours < JOURS_AUTOMATISATION_MAX)) {
-      const a = ancrage(derniere);
-      const reste = JOURS_AUTOMATISATION_MAX - jours;
-      const niveau = bloque ? 'pas encore en argent' : 'en argent';
-      return { type: 'automatiser', titre: 'Automatiser', ...a, sp: derniere, minutes: 10,
+    if (ev.essais >= 8 && ev.index < 2) {
+      return { type: 'automatiser', titre: 'Automatiser', ...ancrage(derniere), sp: derniere, minutes: 10, cible: 'argent',
         detail: `« ${derniere.titre} »`,
-        raison: `« ${derniere.titre} » est validée mais ${niveau} : on l'automatise avant d'empiler. ${bloque ? 'La leçon suivante attend l\'argent.' : `La leçon suivante s'ouvre dès l'or, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.`}` };
+        raison: `« ${derniere.titre} » est validée mais pas encore en argent : on l'automatise avant d'empiler. La leçon suivante attend l'argent.` };
+    }
+    // Fin d'étape : avant d'ouvrir l'étape suivante, toutes ses leçons passent en or (la moins
+    // avancée d'abord), pendant JOURS_AUTOMATISATION_MAX jours de pratique au plus. À l'intérieur
+    // d'une étape, l'argent suffit pour passer à la leçon suivante.
+    if (prochain.palier.id !== derniere.palier.id && jours < JOURS_AUTOMATISATION_MAX) {
+      const aDorer = leconsADorer(d, derniere.palier);
+      if (aDorer.length) {
+        const sp = aDorer[0];
+        const reste = JOURS_AUTOMATISATION_MAX - jours;
+        return { type: 'automatiser', titre: 'Automatiser', ...ancrage(sp), sp, minutes: 10, cible: 'or', finEtape: true,
+          detail: `« ${sp.titre} »`,
+          raison: `L'étape « ${derniere.palier.titre} » est terminée : avant la suivante, on passe ses leçons en or (${aDorer.length} restante${aDorer.length > 1 ? 's' : ''}). L'étape suivante s'ouvre dès l'or partout, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.` };
+      }
     }
   }
   if (prochain) {
-    return { type: 'lecon', titre: 'Nouvelle leçon', detail: prochain.titre, raison: derniere ? `« ${derniere.titre} » est en or : on avance.` : 'On commence le parcours.', aller: ['lecons', { sousPalier: prochain.id }], minutes: 15, sp: prochain };
+    return { type: 'lecon', titre: 'Nouvelle leçon', detail: prochain.titre, raison: derniere ? `« ${derniere.titre} » est acquise : on avance.` : 'On commence le parcours.', aller: ['lecons', { sousPalier: prochain.id }], minutes: 15, sp: prochain };
   }
   return { type: 'revision', titre: 'Entretien', detail: '30 lignes de marathon sur tous vos gestes', raison: 'Le parcours est terminé : on entretient la vitesse.', aller: ['rythme', { jeu: 'marathon', lignes: 30, auto: true }], minutes: 10 };
 }
@@ -176,7 +193,7 @@ function bilanDuJour(d, date) {
  * @param {{ theme?: string, difficiles?: object[], vitesse?: boolean }} o
  */
 export function motDuProf(d, date, decision, o = {}) {
-  const { theme = null, difficiles = [] } = typeof o === 'object' && o ? o : {};
+  const { theme = null, difficiles = [], examenHorsSeance = false } = typeof o === 'object' && o ? o : {};
   const phrases = [];
   const absence = joursAbsence(d, date);
   const v = (cle, liste) => variante(date, cle, liste);
@@ -228,6 +245,7 @@ export function motDuProf(d, date, decision, o = {}) {
     const r = resultatSemaine(d, date);
     if (r?.reussi) phrases.push(`${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.`);
     else if (r) phrases.push(`Examen blanc : ${r.points} / ${r.total} cette semaine. Regardez vos erreurs : elles disent quoi travailler la semaine prochaine.`);
+    else if ([5, 6, 0].includes(jourSemaine) && examenHorsSeance) phrases.push(`L'examen blanc (${g.nom}) est ouvert jusqu'à dimanche, dans « Pour compléter » : il est plus long que votre objectif du jour, à vous de voir.`);
     else if ([5, 6, 0].includes(jourSemaine)) phrases.push(v('kyu', [`L'examen blanc (${g.nom}) est ouvert jusqu'à dimanche : chronométré, sans aide. Raté, il ne vous retire rien.`,
       `Ce week-end, l'examen blanc remplace la leçon : ${g.nom}, en conditions réelles.`]));
   } else if (!meilleurPrekyu(d)) {
@@ -256,13 +274,14 @@ export function constatsDuJour(d, date, decision, difficiles = []) {
   // Distance à l'or de la leçon qu'on automatise.
   if (decision.type === 'automatiser' && decision.sp && !decision.reprise) {
     const n = niveauLecon(d, decision.sp);
-    const or = NIVEAUX[3];
+    const or = NIVEAUX[decision.cible === 'argent' ? 2 : 3];
+    const nomCible = decision.cible === 'argent' ? 'l\'argent' : 'l\'or';
     const fam = familleLecon(decision.sp);
     if (n.temps != null) {
       const manque = [];
       if (n.reussite < or.reussite) manque.push(`${Math.round(n.reussite * 100)} % de justes au lieu de ${Math.round(or.reussite * 100)} %`);
       if (n.temps > or.temps[fam]) manque.push(fam === 'addsub' ? `${cpmDe(n.temps)} CPM au lieu de ${cpmDe(or.temps.addsub)}` : `${nf(n.temps)} s au lieu de ${nf(or.temps[fam])} s`);
-      if (manque.length) res.push({ prioritaire: true, texte: `Pour l'or sur « ${decision.sp.titre} » : ${manque.join(', et ')}. Les exercices du jour visent exactement ça.` });
+      if (manque.length) res.push({ prioritaire: true, texte: `Pour ${nomCible} sur « ${decision.sp.titre} » : ${manque.join(', et ')}. Les exercices du jour visent exactement ça.` });
     }
   }
   // L'écart de vitesse qui freine : le geste le plus lent face aux gestes directs.

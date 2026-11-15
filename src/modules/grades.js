@@ -17,7 +17,7 @@ export function frise(d) {
   const g = grade(d);
   const prep = PREKYU.map((x) => ({ id: `p${x.id}`, court: `${x.id}e`, nom: x.nom, officiel: false, obtenu: prekyuObtenu(d, x) }));
   const sys = systemeChoisi(d);
-  const off = sys.grades.map((x) => ({ id: `o${x.id}`, court: x.id === '1' ? '1er' : `${x.id}e`, nom: `${x.nom} (${sys.nom})`, officiel: true, obtenu: !!d.records[sys.record(x.id)]?.reussi }));
+  const off = sys.grades.map((x) => ({ id: `o${x.id}`, court: x.id === '1' ? '1er' : `${x.id}e`, nom: `${x.nom} (${sys.nom})`, officiel: true, obtenu: sys.grades.slice(sys.grades.indexOf(x)).some((y) => !!d.records[sys.record(y.id)]?.reussi) }));
   const marches = [...prep, ...off];
   // Le grade « actuel » est le plus haut obtenu, toutes échelles confondues.
   let actuel = -1;

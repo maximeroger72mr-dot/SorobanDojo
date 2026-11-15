@@ -18,6 +18,7 @@ import { h } from '../ui/dom.js';
 import { manquantesActivite, PREREQUIS_ACTIVITES } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
 import { frisePiste } from '../ui/frise.js';
+import { prochainJalon } from '../core/examen.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
 
 const bits = (m) => [1, 2, 4].filter((b) => m & b).length;
@@ -82,7 +83,7 @@ function page(id, titre, intro, badge = null) {
         const d = progression();
         const prochain = prochainSousPalier();
         const apres = prochain ? SOUS_PALIERS.filter((sp) => !sp.mental && sp.ordre > prochain.ordre && sp.type !== 'theorie' && !d.paliers[sp.id]?.valide).slice(0, 2) : [];
-        el.append(frisePiste(d, { prochain, anzan: prochainAnzan(), apres }));
+        el.append(frisePiste(d, { prochain, anzan: prochainAnzan(), apres, jalon: prochainJalon(d, aujourdhui()) }));
       }
       el.append(
         // Cartes groupées par section (titre de groupe) quand elles en ont une.

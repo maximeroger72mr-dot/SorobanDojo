@@ -54,9 +54,10 @@ test('le prof : on termine une leçon commencée, on ancre ce qui n\'est pas acq
   assert.ok(jeuDuJour(d, '2026-11-04').titre);
   const mot = motDuProf(d, '2026-11-04', decisionDuJour(d, '2026-11-04', prochain), {});
   assert.ok(mot.some((p) => p.includes('90 %')) && mot.some((p) => p.startsWith('Le conseil du jour')), mot.join(' | '));
-  // Leçon en argent : le prof dit ce qui manque pour l'or.
+  // Fin d'étape, une leçon restée en argent : le prof dit ce qui manque pour l'or.
+  for (const x of sousPalier('p2-1').palier.sousPaliers) d.paliers[x.id] = { valide: d.paliers['p2-1'].valide, hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 1 })) };
   d.paliers['p2-1'].hist = Array.from({ length: 20 }, () => ({ ok: 1, t: 2.5 }));
-  const auto = decisionDuJour(d, '2026-11-04', prochain);
+  const auto = decisionDuJour(d, '2026-11-04', sousPalier('p3-1'));
   assert.equal(auto.type, 'automatiser');
   assert.ok(motDuProf(d, '2026-11-04', auto, {}).some((p) => p.includes('Pour l\'or') && p.includes('24 CPM au lieu de 40')));
 });

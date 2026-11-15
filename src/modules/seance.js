@@ -29,8 +29,11 @@ import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
 import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
+import { soustractionsDuJour, FAITS_SOUSTRACTION } from '../core/soustractions.js';
 import { sorobanNombre } from '../ui/perles.js';
 import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
+import { bilanHebdo } from '../core/bilan.js';
+import { plateaux } from '../core/parcours.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Secondes par exercice de leçon, d'après les dernières séries (25 s par défaut). */
@@ -91,7 +94,7 @@ function plan(d, debut, seance = null) {
       fait: fait((s) => s.module === 'jeux' && s.mode === `complement-${cibleComplement}`), aller: ['jeux', { jeu: 'complement', cible: cibleComplement }] });
   } else if (drill) {
     essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.ceil((tempsClassement(drill, 'bronze') * 1.3) / 60000)), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
-      fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables')), aller: ['drills', { drill: drill.id }] });
+      fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables') && !['quotient', 'soustraction'].includes(s.mode)), aller: ['drills', { drill: drill.id }] });
   }
   const objectif = reglagesUtilisateur().objectifMinutes;
   // ---- 2. Révision : les colonnes ratées la dernière fois, puis 10 calculs qui MÉLANGENT les
@@ -122,7 +125,9 @@ function plan(d, debut, seance = null) {
   const passeAujourdhui = fait((s) => s.module === 'examen');
   const jourSemaine = new Date(`${date}T12:00`).getDay();
   const fenetreExamen = [5, 6, 0].includes(jourSemaine);
-  const examEssentiel = exam && (passeAujourdhui || (fenetreExamen && !examFait));
+  // Avec un objectif de moins de 10 minutes, l'examen (14 à 20 min) reste proposé « pour
+  // compléter » : la leçon garde sa place.
+  const examEssentiel = exam && (passeAujourdhui || (fenetreExamen && !examFait && objectif >= 10));
   const vitesse = jourVitesse(d, date);
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
@@ -133,6 +138,7 @@ function plan(d, debut, seance = null) {
   const partLecon = Math.max(5, Math.min(10, Math.round(objectif * 0.35)));
   const minutesAnzan = Math.max(2, Math.min(6, Math.round(objectif * 0.1)));
   const exclus = [];
+  let isolesBloc3 = 0;
   if (examEssentiel) {
     const format = formatBlanc(date);
     essentiel.push({ titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesBlanc(format), aller: ['examen', {}], examen: true, fait: !!examFait && passeAujourdhui,
@@ -145,13 +151,14 @@ function plan(d, debut, seance = null) {
     const coupee = dureeLecon > partLecon;
     const tempsLecon = depuis.filter((s) => s.module === 'lecons' && s.reglages?.sousPalier === decision.aller[1].sousPalier).reduce((t, s) => t + (s.dureeMs ?? 0), 0);
     essentiel.push({ titre: decision.titre, detail: coupee ? `${decision.detail} (${partLecon} min aujourd'hui, une partie seulement : la suite demain)` : decision.detail, detailCourt: decision.detail, minutes: coupee ? partLecon : dureeLecon, aller: decision.aller, decision: true,
-      pourquoi: decision.raison, fait: decisionFaite(decision) && (!coupee || tempsLecon >= partLecon * 60000 || !!d.paliers[decision.sp.id]?.valide) });
+      dureeEntiere: dureeLecon, tempsLecon, commencee: decisionFaite(decision), pourquoi: decision.raison, fait: decisionFaite(decision) && (!coupee || tempsLecon >= partLecon * 60000 || !!d.paliers[decision.sp.id]?.valide) });
   } else if (decision.type === 'automatiser') {
     const cibles = gestesLecon(decision.sp);
     const items = cibles.length
       ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon })
       : [];
     if (!items.length) items.push({ id: 'lecon', titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, fait: decisionFaite(decision) });
+    isolesBloc3 = items.filter((it) => it.genre?.endsWith('-isole')).length;
     items.forEach((it, i) => { exclus.push(it.id); essentiel.push({ ...it, titre: i ? it.titre : `${decision.titre} · ${it.titre}`, decision: i === 0, pourquoi: i ? it.pourquoi : `${decision.raison} ${it.pourquoi ?? ''}`.trim() }); });
   } else {
     essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, decision: true, pourquoi: decision.raison, fait: decisionFaite(decision) });
@@ -177,7 +184,9 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Estimation du quotient (réflexe)', detail: '20 divisions, une touche par réponse', minutes: 3,
       pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fait la vitesse des divisions par 2 chiffres.',
       fait: fait((s) => s.module === 'drills' && s.mode === 'quotient'), aller: ['drills', { quotient: true }] });
-  } else if (coursMultiplicationAtteint(d, sp)) {
+  } else if (coursMultiplicationAtteint(d, sp) && (produitsARetravailler(d.tables ?? {}).length || [2, 6].includes(jourSemaine) || fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')))) {
+    // Tant qu'il reste des produits faux ou lents : chaque jour. Ensuite, le réflexe s'entretient
+    // deux fois par semaine seulement.
     const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
     essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3, pourquoi: 'En multiplication, chaque hésitation sur un produit se paie à chaque chiffre.',
       fait: fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables')), aller: ['drills', { tables: 'lents', auto: true }] });
@@ -195,6 +204,14 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Erreur qui se répète (× et ÷)', detail: `${e.nom}, ${repetee.nombre} fois ces derniers jours : ${e.remede.toLowerCase()}`, minutes: 3,
       pourquoi: 'La même erreur revient : ce n\'est plus de l\'inattention, c\'est un point à travailler à part, quelques minutes.',
       fait: suivi, aller });
+  }
+  // Table des grands amis en soustraction : quelques jours par semaine, dès l'étape validée ;
+  // elle prépare la multiplication et la division, où ces soustractions reviennent sans cesse.
+  const soustractionFaite = fait((s) => s.module === 'drills' && s.mode === 'soustraction');
+  if (soustractionFaite || soustractionsDuJour(d, jourSemaine, coursMultiplicationAtteint(d, sp))) {
+    essentiel.push({ titre: 'Grands amis en soustraction (réflexe)', detail: `les ${FAITS_SOUSTRACTION.length} soustractions qui franchissent la dizaine, une touche par réponse`, minutes: 2,
+      pourquoi: 'De 11 − 2 à 18 − 9 : en multiplication et en division, ces soustractions reviennent à chaque produit. Elles doivent sortir sans réfléchir.',
+      fait: soustractionFaite, aller: ['drills', { soustraction: true }] });
   }
   const placement = placementDuJour(d, date, sp);
   if (placement && placement.id !== sp?.id) {
@@ -219,14 +236,18 @@ function plan(d, debut, seance = null) {
   //         isolé ET mélangé ; il remplit le temps qui reste jusqu'à l'objectif.
   const prevu = essentiel.reduce((t, it) => t + it.minutes, 0) + (itemAnzan?.minutes ?? 0);
   const derniere = derniereLecon(d);
-  const ciblesBloc = decision.type === 'automatiser' ? gestesLecon(decision.sp)
+  let ciblesBloc = decision.type === 'automatiser' ? gestesLecon(decision.sp)
     : [...new Set([...gestesLecon(derniere), ...difficiles.map((m) => m.cle)])];
+  // Dernière leçon sans geste de colonne (× ÷, décimaux, parcours terminé) : le bloc travaille
+  // les gestes les plus lents, à défaut ceux des dernières leçons de colonnes.
+  if (!ciblesBloc.length) ciblesBloc = gestesLents(d, 2).map((x) => x.cle);
+  if (!ciblesBloc.length) ciblesBloc = (ancrageDuJour(d)?.cibles ?? []).filter((c) => !c.endsWith(':direct'));
   const genres = decision.type === 'automatiser'
     ? (vitesse ? ['vitesse-melange', 'volume-melange', 'vitesse-isole', 'volume-isole'] : ['volume-melange', 'vitesse-isole', 'volume-isole', 'vitesse-melange'])
     : (vitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
   const resteBloc = objectif - prevu;
-  if (estValide(d, 'p1-3') && ciblesBloc.length && resteBloc >= 2) {
-    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus })) {
+  if (ciblesBloc.length && resteBloc >= 2) {
+    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus, isolesDeja: isolesBloc3 })) {
       essentiel.push({ ...it, titre: it.titre, bloc: vitesse ? 'vitesse' : 'volume' });
     }
   }
@@ -241,7 +262,10 @@ function plan(d, debut, seance = null) {
   const reserve = itemAnzan && !itemAnzan.fait ? itemAnzan.minutes : 0;
   for (const [i, it] of essentiel.entries()) {
     const reste = objectif - cumul - (it === itemAnzan ? 0 : reserve);
-    if (it.fait || i === 0 || it === itemAnzan || it.minutes <= reste) { garde.push(it); cumul += it.fait ? 0 : it.minutes; continue; }
+    // L'examen blanc garde TOUJOURS sa place (c'est lui, la séance du jour), même s'il dépasse
+    // l'objectif ; l'anzan lui cède alors la sienne.
+    const anzanGarde = it === itemAnzan && !(examEssentiel && cumul >= objectif);
+    if (it.fait || i === 0 || anzanGarde || it.examen || it.minutes <= reste) { garde.push(it); cumul += it.fait ? 0 : it.minutes; continue; }
     if (it.decision && reste >= 3) {
       garde.push({ ...it, minutes: reste, detail: `${it.detailCourt ?? it.detail} (${reste} min aujourd'hui, la suite demain si besoin)` });
       cumul += reste;
@@ -249,15 +273,34 @@ function plan(d, debut, seance = null) {
     }
     reportes.push(it);
   }
+  // Il reste de la place (rien d'autre à proposer à ce niveau) : la leçon coupée la reprend.
+  const libre = objectif - garde.reduce((t, it) => t + it.minutes, 0);
+  const lecon = garde.find((it) => it.decision && it.dureeEntiere > it.minutes && !it.fait);
+  if (lecon && libre >= 2) {
+    const m = Math.min(lecon.dureeEntiere, lecon.minutes + libre);
+    const entiere = m >= lecon.dureeEntiere;
+    garde[garde.indexOf(lecon)] = { ...lecon, minutes: m, detail: entiere ? lecon.detailCourt : `${lecon.detailCourt} (${m} min aujourd'hui, une partie seulement : la suite demain)`,
+      fait: entiere ? lecon.commencee : lecon.tempsLecon >= m * 60000 };
+  }
+  // Les 5 blocs de la séance : chaque point appartient à l'un d'eux (dans cet ordre).
+  for (const it of garde) {
+    it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
+      : it.examen || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
+  }
+  garde.sort((a, b) => ORDRE_BLOCS.indexOf(a.blocSeance) - ORDRE_BLOCS.indexOf(b.blocSeance));
   const minutes = garde.reduce((t, it) => t + it.minutes, 0);
   const theme = themeDuJour(decision, examEssentiel ? exam : null, vitesse, gesteDuJour(d, ciblesBloc, difficiles));
-  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse });
+  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: !!exam && !examEssentiel });
   // Pour compléter (une fois l'objectif atteint) : ce qui n'a pas tenu, puis une planche, un flash
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
   const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme };
 }
+
+/** Les 5 blocs de la séance, dans l'ordre, et leur nom. */
+export const ORDRE_BLOCS = ['echauffement', 'revision', 'lecon', 'volume', 'anzan'];
+const NOMS_BLOCS = { echauffement: 'Échauffement', revision: 'Révision', lecon: 'Leçon', volume: 'Volume, vitesse, réflexes', anzan: 'Anzan' };
 
 /** Une leçon se révise-t-elle dans une série mélangée ? (pas les placements ni les lectures) */
 const melangeable = (sp) => !['placement', 'lire', 'complement', 'theorie', 'photo', 'tenir'].includes(sp.type);
@@ -268,7 +311,7 @@ function themeDuJour(decision, exam, vitesse, g) {
   const bloc = vitesse ? `de la vitesse${geste ? ` sur ${geste}` : ''}, seul puis mélangé` : `du volume${geste ? ` sur ${geste}` : ''}, seul puis mélangé`;
   if (exam) return `Aujourd'hui : l'examen blanc, sur tout ce que vous savez, puis ${bloc}.`;
   if (decision.type === 'lecon') return `Aujourd'hui : ${decision.titre === 'Nouvelle leçon' ? 'une nouvelle leçon' : 'la suite de la leçon'}, « ${decision.detail} », puis ${bloc}.`;
-  if (decision.type === 'automatiser') return `Aujourd'hui : automatiser « ${decision.sp.titre} » jusqu'à l'or : ${bloc}.`;
+  if (decision.type === 'automatiser') return `Aujourd'hui : ${decision.reprise ? 'réveiller' : 'automatiser'} « ${decision.sp.titre} »${decision.reprise ? '' : ` jusqu'à ${decision.cible === 'argent' ? 'l\'argent' : 'l\'or'}`} : ${bloc}.`;
   return `Aujourd'hui : ${bloc}.`;
 }
 
@@ -347,6 +390,33 @@ export function etatSeance() {
   const p = plan(progression(), seance.debut, seance);
   const restants = p.essentiel.filter((it) => !it.fait);
   return { faits: p.essentiel.length - restants.length, total: p.essentiel.length, prochaine: restants[0] ?? null, ensuite: restants[1] ?? null };
+}
+
+/**
+ * Bilan de la semaine (replié) : la pratique des 7 derniers jours, ce qui est passé en or, ce
+ * qui stagne, et le grade à portée (le prochain seulement : pas d'objectif lointain).
+ */
+function carteHebdo(d) {
+  const date = aujourdhui();
+  const b = bilanHebdo(d, date, plateaux(d, date).slice(0, 3));
+  if (!b.semaine.jours && !b.precedente.jours) return null;
+  const s = b.semaine;
+  const ecart = s.minutes - b.precedente.minutes;
+  const exam = examenDeLaSemaine(d);
+  const r = resultatSemaine(d, date);
+  const portee = exam && exam.id !== 'hebdo'
+    ? (r?.reussi ? `${exam.nom} réussi cette semaine.` : `${exam.nom} : toutes ses leçons sont validées, l'examen blanc est ouvert${r ? ` (meilleur essai : ${r.points} / ${r.total})` : ''}.`)
+    : libelleGrade(d).detail;
+  return h('details', { class: 'carte bilan-hebdo' },
+    h('summary', {}, h('strong', {}, 'Bilan de la semaine'),
+      h('span', { class: 'discret' }, ` · ${s.jours} jour${s.jours > 1 ? 's' : ''} sur 7 · ${s.minutes} min${b.enOr.length ? ` · ${b.enOr.length} geste${b.enOr.length > 1 ? 's' : ''} en or` : ''}`)),
+    h('ul', {},
+      h('li', {}, h('strong', {}, 'Pratique : '), `${s.jours} jour${s.jours > 1 ? 's' : ''}, ${s.minutes} min, ${s.exercices} exercice${s.exercices > 1 ? 's' : ''}${s.exercices ? `, ${formaterPourcent(s.justes, s.exercices)} de justes` : ''}`,
+        b.precedente.jours ? h('span', { class: 'discret' }, ` (${ecart >= 0 ? '+' : '−'}${Math.abs(ecart)} min par rapport aux 7 jours d'avant)`) : null),
+      h('li', {}, h('strong', {}, 'Passé en or : '), b.enOr.length ? `${b.enOr.slice(0, 6).join(', ')}${b.enOr.length > 6 ? ` et ${b.enOr.length - 6} autre${b.enOr.length > 7 ? 's' : ''}` : ''}` : h('span', { class: 'discret' }, 'aucun geste cette semaine : l\'or vient avec le volume.')),
+      b.validees.length ? h('li', {}, h('strong', {}, `Leçon${b.validees.length > 1 ? 's' : ''} validée${b.validees.length > 1 ? 's' : ''} : `), b.validees.map((t) => `« ${t} »`).join(', ')) : null,
+      h('li', {}, h('strong', {}, 'Ce qui stagne : '), b.stagne.length ? `${b.stagne.join(', ')} : le prof y revient dans les prochaines séances.` : h('span', { class: 'discret' }, 'rien, tout avance.')),
+      h('li', {}, h('strong', {}, 'À portée : '), portee)));
 }
 
 /** Carte « Séance terminée » : chiffres, progrès, records, succès, et la suite pour demain. */
@@ -451,7 +521,8 @@ export default {
           // Le plan du jour, enroulé : on peut refaire un point.
           h('details', { class: 'carte plan-enroule' },
             h('summary', {}, h('strong', {}, `Séance du jour ✓`), h('span', { class: 'discret' }, ' : cliquez pour refaire un point')),
-            h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i)))));
+            h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i)))),
+          carteHebdo(d));
         return;
       }
 
@@ -479,12 +550,26 @@ export default {
       const entete = h('div', { class: 'ligne' },
         h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · ${faits} / ${p.essentiel.length}` : 'Votre séance'),
         seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir maintenant et voir le bilan') : null);
+      // Les 5 blocs : une barre de temps (la répartition d'un coup d'œil), puis chaque bloc
+      // repliable ; un bloc terminé se referme, le bloc en cours reste ouvert.
+      const blocs = ORDRE_BLOCS.map((id) => ({ id, nom: NOMS_BLOCS[id], points: p.essentiel.filter((it) => it.blocSeance === id) })).filter((b) => b.points.length)
+        .map((b) => ({ ...b, minutes: b.points.reduce((t, it) => t + it.minutes, 0), fait: b.points.every((it) => it.fait) }));
+      const enCours = blocs.find((b) => !b.fait);
+      const nomBloc = (b) => (b.id === 'lecon' ? (b.points.some((it) => it.examen) ? 'Examen blanc' : p.decision.type === 'automatiser' ? 'Automatiser' : 'Leçon') : b.nom);
+      const barre = h('div', { class: 'barre-blocs', role: 'img', 'aria-label': `Répartition de la séance : ${blocs.map((b) => `${nomBloc(b)} ${b.minutes} min`).join(', ')}` },
+        blocs.map((b) => h('span', { class: `segment bloc-${b.id}${b.fait ? ' fait' : ''}${b === enCours ? ' en-cours' : ''}`, style: `flex:${Math.max(1.5, b.minutes)} 1 0`, title: `${nomBloc(b)} : ${b.minutes} min` },
+          h('span', { class: 'segment-nom' }, `${b.fait ? '✓ ' : ''}${nomBloc(b)}`), h('span', { class: 'segment-min' }, `${b.minutes} min`))));
+      let numero = 0;
+      const sections = blocs.map((b) => h('details', { class: `bloc-seance bloc-${b.id}${b.fait ? ' fait' : ''}`, open: b === enCours || (!seance && !b.fait) ? '' : null },
+        h('summary', {}, h('span', { class: 'pastille' }), h('strong', {}, nomBloc(b)), h('span', { class: 'discret' }, b.fait ? ' · fait' : ` · ${b.minutes} min · ${b.points.length} point${b.points.length > 1 ? 's' : ''}`)),
+        h('div', { class: 'liste-paliers' }, b.points.map((it) => ligne(it, numero++)))));
       el.append(h('div', { class: 'carte' }, entete,
-        h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : dans cet ordre, chaque point prépare le suivant')),
-        h('div', { class: 'liste-paliers' }, p.essentiel.map((it, i) => ligne(it, i))),
+        h('h3', { class: 'titre-plan' }, `L'essentiel · environ ${p.minutes} min`, h('span', { class: 'discret' }, ' : dans cet ordre, chaque bloc prépare le suivant')),
+        barre, sections,
         h('h3', { class: 'titre-plan' }, 'Pour compléter', h('span', { class: 'discret' }, resteMin > p.minutes ? ` : il vous reste du temps, piochez ici (une nouvelle planche remplace celle qui est faite)` : ' : si vous avez encore du temps')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
-        h('p', { class: 'discret' }, `La séance se termine quand les ${p.essentiel.length} points de l'essentiel sont faits ET que votre objectif de ${objectif} min est atteint (${Math.floor(minutes)} min aujourd'hui). Le bilan s'affiche alors tout seul.`)));
+        h('p', { class: 'discret' }, `La séance se termine quand les ${p.essentiel.length} points de l'essentiel sont faits ET que votre objectif de ${objectif} min est atteint (${Math.floor(minutes)} min aujourd'hui). Le bilan s'affiche alors tout seul.`)),
+        carteHebdo(d));
     }
     afficher();
   },

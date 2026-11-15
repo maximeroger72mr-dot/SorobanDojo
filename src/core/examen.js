@@ -18,7 +18,8 @@
 
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { famille } from './motifs.js';
-import { motifsAppris, estValide, grade, chiffresAppris } from './parcours.js';
+import { motifsAppris, estValide, grade, chiffresAppris, gradeAccessible, PREREQUIS } from './parcours.js';
+import { systemeChoisi } from './epreuves.js';
 import { SOUS_PALIERS, genererExercice } from './curriculum.js';
 import { verdictAllure } from './allure.js';
 import { cpm } from './maitrise.js';
@@ -64,21 +65,78 @@ export function prekyuAccessible(d, g) {
   const i = PREKYU.indexOf(g);
   return PREKYU.slice(0, i + 1).every((x) => x.lecons.every((id) => estValide(d, id)));
 }
-export const prekyuObtenu = (d, g) => !!d.records[`prekyu-${g.id}`]?.reussi;
+/** Un kyū officiel réussi (en épreuve, ou en examen blanc), tous systèmes confondus. */
+const unKyuReussi = (d) => Object.entries(d.records ?? {}).some(([k, r]) => /^(epreuve|zenkoren)-\d+$|^blanc-/.test(k) && r?.reussi);
+/**
+ * Grade préparatoire obtenu : réussi lui-même, ou PAR ÉQUIVALENCE (un grade plus élevé réussi,
+ * préparatoire ou officiel, vaut tous ceux d'en dessous).
+ */
+export const prekyuObtenu = (d, g) => PREKYU.slice(PREKYU.indexOf(g)).some((x) => !!d.records[`prekyu-${x.id}`]?.reussi) || unKyuReussi(d);
 /** Meilleur grade préparatoire obtenu (ou null). */
 export const meilleurPrekyu = (d) => [...PREKYU].reverse().find((g) => prekyuObtenu(d, g)) ?? null;
 
+/** Clé du record d'un examen blanc de kyū officiel. */
+export const cleBlanc = (sys, id) => `blanc-${sys.id}-${id}`;
 /**
- * Examen de la semaine : le plus haut grade accessible (on est examiné sur tout ce qu'on sait).
- * Pas encore de grade accessible (gestes directs pas finis) : null.
+ * Kyū officiel « passé » : réussi en épreuve officielle ou en examen blanc, lui-même ou un grade
+ * plus élevé (équivalence vers le bas).
+ */
+export function kyuPasse(d, sys, g) {
+  return sys.grades.slice(sys.grades.indexOf(g)).some((x) => !!d.records[sys.record(x.id)]?.reussi || !!d.records[cleBlanc(sys, x.id)]?.reussi);
+}
+/** Plus haut kyū officiel réussi en examen blanc (ou null). */
+export const meilleurBlanc = (d) => { const sys = systemeChoisi(d); return [...sys.grades].reverse().find((g) => !!d.records[cleBlanc(sys, g.id)]?.reussi) ?? null; };
+
+/**
+ * Examen blanc de la semaine : le grade LE PLUS ÉLEVÉ dont toutes les leçons sont validées et
+ * qui n'est pas encore réussi (préparatoire, puis kyū officiel du système choisi). On ne repasse
+ * pas les grades d'en dessous : en réussir un les donne tous, par équivalence. Tout est réussi :
+ * examen d'entretien au format avancé. Gestes directs pas finis : null.
  */
 export function examenDeLaSemaine(d) {
   const accessibles = PREKYU.filter((g) => prekyuAccessible(d, g));
   if (!accessibles.length) return null;
+  const sys = systemeChoisi(d);
+  const haut = sys.grades.filter((g) => gradeAccessible(d, g)).at(-1);
+  if (haut) {
+    if (kyuPasse(d, sys, haut)) return formatHebdo(d);
+    return { ...formatHebdo(d), id: `k${haut.id}`, nom: `${haut.nom} (blanc)`, officiel: haut.id, systeme: sys.id };
+  }
   const dernier = accessibles.at(-1);
   // Tout le préparatoire est validé et obtenu : examen hebdomadaire au format avancé.
   if (dernier === PREKYU.at(-1) && prekyuObtenu(d, dernier)) return formatHebdo(d);
   return dernier;
+}
+
+/**
+ * Le PROCHAIN grade seulement (jamais un objectif lointain) : le premier, du 20e kyū prép. au
+ * 1er kyū, qui n'est pas encore réussi ; avec les leçons qui lui manquent, l'étape du parcours où
+ * il se gagne, et une estimation en jours au rythme des 28 derniers jours (null si trop peu de
+ * leçons validées récemment pour estimer, ou si c'est à plus de 60 jours).
+ * @returns {{ nom, court, palier, restantes: number, jours: number|null, dernier: {court, palier}|null }|null}
+ */
+export function prochainJalon(d, date) {
+  const sys = systemeChoisi(d);
+  const court = (id) => (id === '1' ? '1er' : `${id}e`);
+  const chaine = [
+    ...PREKYU.map((g, i) => ({ nom: g.nom, court: court(g.id), lecons: PREKYU.slice(0, i + 1).flatMap((x) => x.lecons), obtenu: prekyuObtenu(d, g) })),
+    ...sys.grades.map((g) => ({ nom: g.nom, court: court(g.id), lecons: PREREQUIS[g.id] ?? [], obtenu: kyuPasse(d, sys, g) })),
+  ];
+  const palierDe = (x) => x.lecons.map((id) => SOUS_PALIERS.find((sp) => sp.id === id)).filter(Boolean).sort((a, b) => a.ordre - b.ordre).at(-1)?.palier.id ?? null;
+  const manque = (x) => x.lecons.filter((id) => !estValide(d, id)).length;
+  // Comme l'examen blanc : le plus haut grade déjà à portée (leçons validées, pas encore réussi) ;
+  // sinon le premier grade qui reste à préparer.
+  let i = chaine.findLastIndex((x) => !x.obtenu && !manque(x));
+  if (i < 0) i = chaine.findIndex((x) => !x.obtenu);
+  if (i < 0) return null;
+  const x = chaine[i];
+  const restantes = manque(x);
+  const il28 = new Date(`${date}T12:00`); il28.setDate(il28.getDate() - 28);
+  const depuis = `${il28.getFullYear()}-${String(il28.getMonth() + 1).padStart(2, '0')}-${String(il28.getDate()).padStart(2, '0')}`;
+  const recentes = SOUS_PALIERS.filter((sp) => !sp.mental && (d.paliers[sp.id]?.valide ?? '') > depuis).length;
+  const estime = restantes && recentes >= 2 ? Math.ceil(restantes / (recentes / 28)) : null;
+  const dernier = chaine.findLast((y) => y.obtenu) ?? null;
+  return { nom: x.nom, court: x.court, palier: palierDe(x), restantes, jours: estime !== null && estime <= 60 ? estime : null, dernier: dernier ? { court: dernier.court, palier: palierDe(dernier) } : null };
 }
 
 /** Temps fixe : 2,5 s par chiffre + 3 s de lecture et d'écriture par colonne, arrondi à la minute. */
@@ -165,7 +223,8 @@ export function libelleGrade(d) {
   const g = grade(d);
   const prep = meilleurPrekyu(d);
   const sys = g.obtenu?.systeme === 'zenkoren' ? ' · Zenkoren' : '';
-  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})${sys}` : prep ? prep.nom : 'aucun pour l\'instant';
+  const blanc = meilleurBlanc(d);
+  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})${sys}` : blanc ? `${blanc.nom} en examen blanc` : prep ? prep.nom : 'aucun pour l\'instant';
   let officiel;
   if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
   else if (g.pret) {

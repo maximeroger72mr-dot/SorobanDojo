@@ -838,3 +838,42 @@ Idées reprises du site ishizaki88-training.net (lecture des pages de réglages 
 | Palier p8 réordonné par grade : 6e (`p8-t1`), 5e (`p8-t2, 1, 2, 4, 6`), puis 4e (`p8-3, 5, 7`) ; p9 : bloc du 2e kyū puis du 1er | Fait |
 | Résultats négatifs (`p8-n`) déplacés dans le palier des décimaux, exigés au 3e kyū, avec une marche au format d'examen (`p8-n2`, 8 chiffres) | Fait |
 | Jalons « 🎯 Xe kyū à votre portée » dans la liste des leçons, après la dernière leçon exigée par chaque grade du système choisi | Fait |
+
+## Version 0.32.0
+
+Corrections de la séance du jour (audit de la 0.31) et organisation.
+
+- **Examen blanc dans la séance :** du vendredi au dimanche, il garde toujours sa place dans
+  l'essentiel, même s'il dépasse l'objectif (l'anzan lui cède alors la sienne). Avec un objectif
+  de moins de 10 minutes, il reste proposé « pour compléter » et la leçon garde sa place.
+- **Séance du débutant :** le bloc volume / vitesse existe dès les gestes directs (lièvre et
+  marathon, isolé puis mélangé ; les planches s'ouvrent avec « Le 5 et la pincée »). Une leçon
+  coupée reprend le temps libre de l'objectif. Sans geste de colonne dans la dernière leçon
+  (× ÷, parcours terminé), le bloc travaille les gestes les plus lents.
+- **Planches proposées :** 10 minutes au plus (8 dans un bloc) ; au-delà, on retire des colonnes
+  puis des lignes (`propositions.plafonner`). La durée affichée est celle de la planche lancée.
+- **« Vérifier mes gestes » :** marge de 10 % (`MARGE_VERIFICATION`) : plus d'alerte à vitesse égale.
+- **Argent entre les leçons, or en fin d'étape :** à l'intérieur d'une étape, l'argent suffit
+  pour ouvrir la leçon suivante. En fin d'étape, les leçons de l'étape passent en or (la moins
+  avancée d'abord, `prof.leconsADorer`), 10 jours de pratique au plus.
+- **Examen blanc d'un élève avancé :** le grade le plus élevé dont toutes les leçons sont
+  validées et qui n'est pas encore réussi, kyū officiels compris (« 6e kyū (blanc) », record
+  `blanc-<système>-<grade>`). Réussir un grade donne par équivalence tous ceux d'en dessous
+  (préparatoires et officiels, lus à l'affichage : `prekyuObtenu`, `kyuPasse`). Le kyū officiel
+  lui-même se passe toujours en « Épreuve officielle ».
+- **Deux exercices au plus sur le geste seul** (`blocs.MAX_ISOLES`, bloc « automatiser »
+  compris) : le suivant est obligatoirement mélangé.
+- **Réflexes qui s'éteignent :** le placement disparaît une fois le parcours terminé (ou 14 jours
+  après l'étape de la division) ; les tables ne reviennent que deux fois par semaine quand il
+  n'y a plus de produit à retravailler.
+- **Table des grands amis en soustraction** (`core/soustractions.js`, Drills › Tables) : les 36
+  soustractions de 11 − 2 à 18 − 9, une touche par réponse, médailles. Dans la séance dès les
+  grands amis en soustraction validés : lundi et mercredi, plus le jeudi pendant × et ÷ ; une
+  fois l'or atteint, le mercredi seulement.
+- **Séance en 5 blocs visibles :** une barre de temps (répartition des blocs) et chaque bloc
+  repliable ; un bloc terminé se referme. Un seul bouton « Continuer ».
+- **Bilan de la semaine** (replié, sous la séance) : pratique des 7 derniers jours, gestes passés
+  en or, leçons validées, ce qui stagne, grade à portée (`bilan.bilanHebdo`).
+- **Frise du parcours :** le dernier grade obtenu et le PROCHAIN seulement, sur l'étape où ils
+  se gagnent, avec les leçons restantes et une estimation en jours si elle est à moins de 60
+  jours (`examen.prochainJalon`). Jamais d'objectif lointain.
