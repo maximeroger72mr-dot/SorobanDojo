@@ -2,7 +2,8 @@
  * Exécution d'un drill sur son propre soroban.
  *
  * Seul le chronomètre compte : on démarre, on enchaîne les opérations sur son soroban, on
- * arrête (Entrée). Puis on TAPE le nombre lu sur son soroban (la frappe ne compte pas dans le
+ * arrête : Espace, ou le premier chiffre du nombre lu (la case reste visible), comme partout
+ * dans l'application. Puis on TAPE le nombre lu sur son soroban (la frappe ne compte pas dans le
  * temps) : l'application le compare au résultat attendu. Validation, médailles et records ne
  * reposent donc que sur un soroban qui affiche vraiment le bon nombre. En cas d'écart, les
  * chiffres qui diffèrent sont signalés, pour retrouver la tige fautive.
@@ -118,8 +119,10 @@ export function creerDrill(conteneur, d, o = {}) {
 
   function majBouton() {
     btn.style.display = etat === 'pret' || etat === 'course' ? '' : 'none';
-    remplir(btn, etat === 'pret' ? 'Démarrer ' : 'J\'ai fini ', h('kbd', {}, 'Entrée'));
-    for (const b of [saisieLue, btnVerifier, btnPerdu]) b.style.display = etat === 'verification' ? '' : 'none';
+    remplir(btn, etat === 'pret' ? 'Démarrer ' : 'J\'ai fini ', h('kbd', {}, etat === 'pret' ? 'Entrée' : 'Espace'));
+    // La case reste visible pendant le drill : y taper le premier chiffre arrête le chrono.
+    saisieLue.style.display = etat === 'course' || etat === 'verification' ? '' : 'none';
+    for (const b of [btnVerifier, btnPerdu]) b.style.display = etat === 'verification' ? '' : 'none';
   }
 
   function action() {
@@ -128,18 +131,29 @@ export function creerDrill(conteneur, d, o = {}) {
       racine.dataset.enCours = '1';
       debut = performance.now();
       if (caseMetronome.checked) metronome.demarrer(Number(choixTempo.value));
-      remplir(retour, h('span', { class: 'discret' }, 'Posez 0 sur votre soroban et enchaînez. Entrée quand vous avez terminé.'));
+      saisieLue.value = '';
+      remplir(retour, h('span', { class: 'discret' }, 'Posez 0 sur votre soroban et enchaînez. Quand vous avez terminé : Espace, ou tapez directement le nombre lu (le chrono et le métronome s\'arrêtent à la première touche).'));
     } else if (etat === 'course') {
-      dureeMs = performance.now() - debut;
-      metronome.arreter();
-      etat = 'verification';
-      chrono.textContent = formaterDuree(dureeMs);
-      retour.className = 'retour';
-      remplir(retour, `Temps : ${formaterDuree(dureeMs)}. Tapez maintenant le nombre que montre votre soroban (la frappe ne compte pas dans le temps).`);
+      arreter();
+      return;
     }
     majBouton();
-    if (etat === 'verification') saisieLue.focus();
+    if (etat === 'course') saisieLue.focus();
   }
+
+  /** Fin du drill : Espace, Entrée, ou le premier chiffre tapé. Le chrono et le métronome s'arrêtent net. */
+  function arreter() {
+    if (etat !== 'course') return;
+    dureeMs = performance.now() - debut;
+    metronome.arreter();
+    etat = 'verification';
+    chrono.textContent = formaterDuree(dureeMs);
+    retour.className = 'retour';
+    remplir(retour, `Temps : ${formaterDuree(dureeMs)}. Tapez le nombre que montre votre soroban, puis Entrée (la frappe ne compte pas dans le temps).`);
+    majBouton();
+    saisieLue.focus();
+  }
+  saisieLue.addEventListener('input', () => { if (etat === 'course' && saisieLue.value.trim()) arreter(); });
 
   /** Compare le nombre lu sur le soroban au résultat attendu. */
   function lireSoroban() {
@@ -187,6 +201,7 @@ export function creerDrill(conteneur, d, o = {}) {
 
   const sansRaccourcis = raccourcis({
     Enter: () => (etat === 'pret' || etat === 'course' ? action() : etat === 'verification' ? lireSoroban() : false),
+    ' ': () => (etat === 'course' ? arreter() : false),
   });
 
   dessiner();

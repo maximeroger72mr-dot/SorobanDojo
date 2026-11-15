@@ -173,14 +173,14 @@ export default {
       let question = null;
       const serie = { index: 0, justes: 0, debut: performance.now() };
       const ecran = h('div', { class: 'flash-ecran' });
-      const zoneImage = h('div', { class: 'flash-image' });
+      const zoneImage = h('div', { class: 'flash-image hors-axe' });
       const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', placeholder: 'Somme', autocomplete: 'off', style: 'display:none' });
       const btn = h('button', { class: 'btn principal', onclick: () => action() });
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
       const pastilles = h('div', { class: 'pastilles' });
       // Mode normal (sans image d'aide) : un grand écran vide, le nombre seul en son centre.
       ecran.classList.add('centre');
-      if (r.mode !== 'image') ecran.classList.add('pur');
+      ecran.classList.add('pur'); // avec l'image d'aide aussi : pas de cadre, le soroban est en bas de l'écran
       if (r.mode === 'tapis') ecran.classList.add('tapis');
       const sec2 = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
       const info = h('p', { class: 'discret', style: 'margin:0' });
@@ -227,7 +227,7 @@ export default {
       };
       zone.append(h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), info), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour, eclats);
       // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.
-      zoneImage.style.opacity = String(r.image);
+      zoneImage.style.opacity = String(Math.min(Number(r.image) || 0, 0.45));
       let vue = null;
       let sorobanImage = null;
       if (r.mode === 'image') {

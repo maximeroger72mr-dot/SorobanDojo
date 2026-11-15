@@ -898,3 +898,13 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
 - **Table des 36 soustractions :** retirée (Drills › Tables et séance).
 - **Succès :** noms des chapitres mis à jour (« Décimaux, arrondis et négatifs », « Vers le 6e,
   le 5e et le 4e kyū »).
+
+## Version 0.33.1
+
+- **Arrêt du chrono uniforme :** dans les séries comme dans les drills, Espace OU le premier
+  chiffre tapé arrête le chrono (et le métronome), toujours, sans réglage. L'option « Mains sur
+  le soroban (Espace) » est supprimée. Dans un drill, la case « Nombre lu » reste visible
+  pendant l'exécution.
+- **Anzan avec le petit soroban d'aide :** le soroban est en bas à droite de l'écran, hors de l'axe du
+  regard, pâle et flou (opacité plafonnée à 0,45, jamais net) ; plus de trait au-dessus du
+  nombre ; la réponse se tape au centre.

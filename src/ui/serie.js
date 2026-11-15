@@ -12,9 +12,11 @@
  * Exercice en flash (anzan) : les nombres s'affichent un par un, puis le chrono démarre ; l'image
  * d'aide montre le total. Photo du soroban et « tenir une image » : exercices de visualisation.
  * Division par 2 chiffres ou plus : bouton « Je suis bloqué » (estimation pas à pas, table du diviseur).
- * Mode « mains sur le soroban » : Espace arrête le chrono et montre le résultat ; l'élève répond
- * O (mon soroban affiche ce nombre) ou N. Compte pour le volume, pas pour le niveau.
+ * Espace arrête aussi le chrono (mains sur le soroban), sans réglage : on tape ensuite le résultat.
  */
+
+/** Opacité maximale du petit soroban d'aide en anzan (jamais net). */
+export const OPACITE_AIDE_MAX = 0.45;
 
 import { diagnostiquer, localiserErreur, motifsDeLigne, typeErreurOperation } from '../core/diagnostic.js';
 import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
@@ -94,11 +96,7 @@ export function creerSerie(conteneur, o) {
   // Chrono discret pendant l'apprentissage ; bien visible dans les défis et les jeux.
   const chronoExo = h('div', { class: `chrono-exercice${opts.defi && !opts.pauseErreur ? ' en-avant' : ''}` });
   const pastilles = h('div', { class: 'pastilles' });
-  const caseEspace = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().modeEspace });
-  caseEspace.addEventListener('change', () => { modifierReglages({ modeEspace: caseEspace.checked }); majModeEspace(); saisie.focus(); });
-  const choixEspace = h('label', { class: 'mode-espace', title: 'Espace arrête le chrono dès que votre soroban est fini ; vous tapez ensuite le résultat (la frappe ne compte pas dans le temps).' },
-    caseEspace, ' Mains sur le soroban (Espace)');
-  // Anzan × et ÷ : option « énoncé masqué » (il disparaît après quelques secondes).
+  // Énoncé masqué après quelques secondes (× et ÷ de tête).
   const caseMasque = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().enonceMasque });
   caseMasque.addEventListener('change', () => { modifierReglages({ enonceMasque: caseMasque.checked }); saisie.focus(); });
   const choixMasque = h('label', { class: 'mode-espace', style: 'display:none', title: 'L\'opération s\'affiche quelques secondes, puis disparaît : vous la gardez sur votre soroban imaginaire. Appliqué à partir du calcul suivant.' },
@@ -116,11 +114,11 @@ export function creerSerie(conteneur, o) {
   const racine = h('div', { class: 'serie' },
     // Options repliées : pendant le calcul, seuls la colonne, la saisie et un petit chrono restent.
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }),
-      opts.defi ? null : h('details', { class: 'options-serie' }, h('summary', {}, 'Options'), h('div', { class: 'options-contenu' }, choixDoigte, choixEspace, choixMasque)),
+      opts.defi ? null : h('details', { class: 'options-serie' }, h('summary', {}, 'Options'), h('div', { class: 'options-contenu' }, choixDoigte, choixMasque)),
       fantome, chrono, compteur),
     course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
-    h('div', { class: 'ligne' }, btnSigne, saisie, btnValider, btnBloque),
+    h('div', { class: 'ligne ligne-saisie' }, btnSigne, saisie, btnValider, btnBloque),
     zoneAide, retour, zoneDiag);
   conteneur.append(racine);
   saisie.addEventListener('input', () => {
@@ -149,20 +147,18 @@ export function creerSerie(conteneur, o) {
   const aRevoir = [];
   const blocRythme = [];
   const durees = [];
-  let espaceArrete = false; // mode Espace : chrono arrêté par Espace, on tape maintenant la réponse
   // Exercices de tête (flash, photo, image) : pas de mode Espace, on répond au clavier.
   // De tête aussi pour les × et ÷ d'anzan (ex.mental) : le soroban est rangé.
   const deTete = () => !!(ex?.flash || ex?.mental);
-  const modeEspace = () => caseEspace.checked && !opts.defi && !deTete();
   function majModeEspace() {
-    choixEspace.style.display = deTete() ? 'none' : '';
     choixMasque.style.display = ex?.mental ? '' : 'none';
     choixDoigte.style.display = ex?.type !== 'addsub' || ex?.flash || ex?.decimales || ex?.negatif || opts.doigteMasque?.() ? 'none' : '';
-    const sansSaisie = (modeEspace() && !espaceArrete) || ex?.type === 'tenir';
+    racine.classList.toggle('flash-centre', !!ex?.flash); // de tête : la réponse se tape au centre
+    const sansSaisie = ex?.type === 'tenir';
     saisie.style.display = sansSaisie ? 'none' : '';
     btnSigne.style.display = !sansSaisie && ex?.negatif ? '' : 'none';
     btnValider.style.display = sansSaisie ? 'none' : '';
-    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : ex?.mental ? 'De tête, soroban rangé : voyez les boules bouger, puis tapez le résultat.' : modeEspace() ? 'Calculez sur votre soroban, appuyez sur Espace dès qu\'il est fini, puis tapez le résultat.' : 'Calculez sur votre soroban, tapez le résultat, puis Entrée.'));
+    if (phase === 'question') remplir(retour, h('span', { class: 'discret' }, ex?.flash ? '' : ex?.mental ? 'De tête, soroban rangé : voyez les boules bouger, puis tapez le résultat.' : 'Calculez sur votre soroban, puis Espace ou tapez directement le résultat : le chrono s\'arrête à la première touche.'));
   }
   let zoneLocalisationCourante = null;
   let timer = null;
@@ -241,7 +237,7 @@ export function creerSerie(conteneur, o) {
       }, DUREE_ENONCE_MENTAL_MS);
     }
     if (ex.flash) jouerFlash(ex);
-    else if (!modeEspace()) saisie.focus();
+    else saisie.focus();
   }
 
   /**
@@ -257,12 +253,14 @@ export function creerSerie(conteneur, o) {
     btnValider.disabled = true;
     const opacite = exo.flash.photo ? 1 : Number(exo.flash.image) || 0;
     // Le nombre est toujours centré ; sans image d'aide, il est seul au milieu d'un écran vide.
-    const ecran = h('div', { class: `flash-ecran centre${opacite === 0 && exo.type !== 'tenir' ? ' pur' : ''}` });
-    const zoneImage = h('div', { class: 'flash-image' });
+    const ecran = h('div', { class: `flash-ecran centre${exo.type !== 'tenir' && !exo.flash.photo ? ' pur' : ''}` });
+    // Anzan avec le petit soroban d'aide : en bas de l'écran, hors de l'axe du regard, pâle et
+    // flou (jamais net : on ne doit pas pouvoir le lire à la place de l'image mentale).
+    const zoneImage = h('div', { class: `flash-image${exo.flash.photo ? '' : ' hors-axe'}` });
     // Photo : le soroban s'affiche DANS l'écran (à la place du nombre) ; anzan : sous le nombre.
     if (exo.flash.photo) remplir(zoneEnonce, ecran);
     else remplir(zoneEnonce, ecran, opacite > 0 ? zoneImage : null);
-    zoneImage.style.opacity = String(opacite);
+    zoneImage.style.opacity = String(exo.flash.photo ? 1 : Math.min(opacite, OPACITE_AIDE_MAX));
     const totaux = exo.lignes ? sousTotaux(exo.lignes) : [exo.n];
     const sorobanImage = opacite > 0 ? new Soroban(Math.max(exo.flash.photo ? 2 : 3, String(Math.max(...totaux.map(Math.abs))).length + 1)) : null;
     const vueImage = sorobanImage ? new SorobanVue(zoneImage, sorobanImage, { interactif: false }) : null;
@@ -371,7 +369,6 @@ export function creerSerie(conteneur, o) {
     saisie.disabled = true;
     majChronoExo(dureeMs);
     resultats.push({ ex, reponse, juste, dureeMs, aide: aideUtilisee });
-    espaceArrete = false;
     racine.dataset.enCours = '1'; // une série commencée : on prévient avant de quitter la page
     noterVolume(unites(ex));
     if (!juste && !opts.sansMemoireErreurs) await noterErreurColonne(ex); // à rejouer demain
@@ -466,23 +463,19 @@ export function creerSerie(conteneur, o) {
         h('button', { class: 'btn principal', onclick: () => valider() }, 'Suivant ', h('kbd', {}, 'Entrée'))));
   }
 
-  /** Mode Espace : on arrête le chrono et on montre le résultat ; l'élève compare avec son soroban. */
   /**
-   * Mode Espace : Espace arrête le chrono dès que le soroban est fini ; on tape ensuite ce qu'il
-   * montre, sans voir le résultat (la frappe ne compte pas dans le temps). La réponse est corrigée
-   * comme les autres : elle compte pour le niveau et le diagnostic des gestes.
+   * Espace arrête le chrono dès que le soroban est fini (comme le premier chiffre tapé) ; on tape
+   * ensuite ce qu'il montre : la frappe ne compte pas dans le temps. Les deux façons marchent
+   * toujours, sans réglage.
    */
   function reveler() {
-    if (phase !== 'question' || flashEnCours || espaceArrete) return;
-    dureeCalcul ??= performance.now() - debutExercice;
+    if (phase !== 'question' || flashEnCours || dureeCalcul !== null || ex?.type === 'tenir') return false;
+    dureeCalcul = performance.now() - debutExercice;
     majChronoExo(dureeCalcul);
-    espaceArrete = true;
-    saisie.style.display = '';
-    btnValider.style.display = '';
-    saisie.value = '';
     retour.className = 'retour';
-    remplir(retour, h('strong', {}, 'Chrono arrêté. '), 'Tapez le nombre que montre votre soroban, puis Entrée.');
+    remplir(retour, h('strong', {}, 'Chrono arrêté. '), 'Tapez le résultat, puis Entrée.');
     saisie.focus();
+    return true;
   }
 
   async function autoEvaluer(juste) {
@@ -548,7 +541,7 @@ export function creerSerie(conteneur, o) {
     S: () => (phase === 'corrige' ? basculerSousTotaux() : false),
     e: () => (phase === 'corrige' && explicable(ex) ? ouvrirExplication(ex) : false),
     b: () => (phase === 'question' && btnBloque.style.display !== 'none' && !saisie.value ? aideSuivante() : false),
-    ' ': () => (phase === 'question' && modeEspace() ? reveler() : false),
+    ' ': () => reveler(),
     o: () => (phase === 'auto' ? autoEvaluer(true) : false),
     O: () => (phase === 'auto' ? autoEvaluer(true) : false),
     n: () => (phase === 'auto' ? autoEvaluer(false) : false),

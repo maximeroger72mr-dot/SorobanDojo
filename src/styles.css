@@ -658,3 +658,11 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .confirmation-fin { grid-column: 1 / -1; margin: 6px 0; }
 .liste-choix-niveau { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
 .choix-niveau { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+
+/* Anzan avec le petit soroban d'aide : en bas à droite de l'écran (il ne recouvre pas la saisie), hors de l'axe du regard, jamais net. */
+.flash-image.hors-axe { position: fixed; right: 18px; bottom: 12px; width: 170px; max-width: 170px; margin: 0; filter: blur(1.6px); pointer-events: none; z-index: 5; }
+.flash-image.hors-axe svg.soroban { max-height: 110px; }
+.serie.flash-centre .ligne-saisie { justify-content: center; }
+.serie.flash-centre .disposition-enonce { display: block; max-width: none; position: relative; }
+.serie.flash-centre .disposition-enonce .zone-enonce { width: 100%; }
+.serie.flash-centre .disposition-enonce .chrono-exercice { position: absolute; top: 0; right: 0; }

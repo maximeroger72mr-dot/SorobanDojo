@@ -711,14 +711,16 @@ export function fluxEquilibre(sp, taille, poidsDe = () => ({})) {
 
 /**
  * Image d'aide de l'anzan : elle s'estompe à mesure que les réussites s'accumulent dans la leçon
- * (nette, estompée, légère, puis plus d'image du tout).
+ * (estompée, légère, très légère, puis plus d'image du tout). Elle n'est jamais nette, et
+ * s'affiche en bas de l'écran, hors de l'axe du regard.
  * @returns {{ opacite: number, nom: string }}
  */
 export function imageAnzan(sp, justes) {
   if (!sp.image) return { opacite: 0, nom: 'sans image' };
-  if (justes < 8) return { opacite: 1, nom: 'image nette' };
-  if (justes < 16) return { opacite: 0.5, nom: 'image estompée' };
-  if (justes < 24) return { opacite: 0.2, nom: 'image légère' };
+  // Jamais d'image nette : trop tentant de la lire au lieu de la voir dans sa tête.
+  if (justes < 8) return { opacite: 0.45, nom: 'image estompée' };
+  if (justes < 16) return { opacite: 0.3, nom: 'image légère' };
+  if (justes < 24) return { opacite: 0.15, nom: 'image très légère' };
   return { opacite: 0, nom: 'sans image' };
 }
 

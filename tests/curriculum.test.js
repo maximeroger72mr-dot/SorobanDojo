@@ -86,7 +86,7 @@ test('anzan : piste parallèle qui suit le soroban, chaîne qui s\'allonge, imag
   assert.ok(sousPalier('p3-a').autorises.has('+9:grand'));
   // L'image : nette, estompée, légère, puis absente ; jamais pour une leçon sans image.
   const sp = sousPalier('p1-a');
-  assert.deepEqual([0, 8, 16, 24].map((j) => imageAnzan(sp, j).opacite), [1, 0.5, 0.2, 0]);
+  assert.deepEqual([0, 8, 16, 24].map((j) => imageAnzan(sp, j).opacite), [0.45, 0.3, 0.15, 0]);
   assert.equal(imageAnzan({ image: false }, 0).opacite, 0);
   // La chaîne : 2 nombres au départ, +1 après 3 réussites, −1 après une erreur, bornée.
   const c = chaineAnzan({ id: 'test-chaine', lignes: 4 });
