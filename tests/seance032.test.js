@@ -190,3 +190,30 @@ test('0.34 : barème du flash anzan, nombres en mots, drill sur mesure', async (
   assert.equal(meme.resultat, 30 * meme.operations[0].n);
   assert.ok(drillPerso({ chiffres: 0, varie: true, etapes: 20, retour: false }).operations.every((o) => { const c = String(o.n).length; return c >= 3 && c <= 9; }));
 });
+
+test('0.34.1 : pas répété aux chiffres distincts ou saisi ; descente (soustractions seules)', async () => {
+  const { drillPerso, nombreDistinct, controles, poidsDrill } = await import('../src/core/drills.js');
+  for (let k = 0; k < 200; k++) {
+    const c = 1 + (k % 9);
+    const s = String(nombreDistinct(c));
+    assert.ok(s.length === c && !s.includes('0') && new Set(s).size === c, s);
+    const d = drillPerso({ chiffres: c, varie: false, etapes: 5, forme: 'aller' });
+    const pas = String(d.operations[0].n);
+    assert.ok(!pas.includes('0') && new Set(pas).size === pas.length, pas);
+  }
+  // Nombre saisi : repris tel quel.
+  const d789 = drillPerso({ chiffres: 3, varie: false, etapes: 9, forme: 'retour', nombre: 789 });
+  assert.ok(d789.operations.every((o) => o.n === 789) && d789.resultat === 0 && d789.operations.length === 18);
+  // Descente : on part du total déjà posé, soustractions seules, jusqu'à 0, sans passer sous 0.
+  const desc = drillPerso({ chiffres: 3, varie: false, etapes: 9, forme: 'descente', nombre: 789 });
+  assert.equal(desc.depart, 9 * 789);
+  assert.ok(desc.operations.length === 9 && desc.operations.every((o) => o.op === '-'));
+  assert.equal(desc.resultat, 0);
+  const c = controles(desc.operations, desc.depart);
+  assert.ok(c.every((v) => v >= 0) && c.at(-1) === 0);
+  assert.ok(poidsDrill(desc) > 0);
+  const dv = drillPerso({ chiffres: 4, varie: true, etapes: 10, forme: 'descente' });
+  assert.equal(controles(dv.operations, dv.depart).at(-1), 0);
+  // Ancien réglage (retour: true/false) toujours compris.
+  assert.equal(drillPerso({ chiffres: 2, etapes: 5, retour: false }).operations.length, 5);
+});

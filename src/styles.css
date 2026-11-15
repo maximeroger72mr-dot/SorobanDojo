@@ -666,3 +666,5 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .serie.flash-centre .disposition-enonce { display: block; max-width: none; position: relative; }
 .serie.flash-centre .disposition-enonce .zone-enonce { width: 100%; }
 .serie.flash-centre .disposition-enonce .chrono-exercice { position: absolute; top: 0; right: 0; }
+
+.saisie-pas { width: 9em; font: inherit; padding: 4px 6px; border: 1px solid var(--ligne); border-radius: var(--rayon-petit, 4px); font-variant-numeric: tabular-nums; }

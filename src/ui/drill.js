@@ -57,7 +57,8 @@ function ecartChiffres(lu, attendu) {
  * @param {{ record?: {dureeMs:number}|null, surFin?: (r:{juste:boolean, dureeMs:number}) => any }} o
  */
 export function creerDrill(conteneur, d, o = {}) {
-  const ctrl = controles(d.operations);
+  const depart0 = d.depart ?? 0; // nombre déjà posé au départ (descente : soustractions seules)
+  const ctrl = controles(d.operations, depart0);
   let etat = 'pret'; // pret | course | verification | fini
   let debut = 0;
   let dureeMs = 0;
@@ -105,11 +106,11 @@ export function creerDrill(conteneur, d, o = {}) {
       h('div', { class: 'drill-op-ligne' },
         h('span', { class: 'num' }, i + 1), h('span', {}, `${signe(op.op)} ${formaterNombre(op.n)}`),
         h('span', { class: 'sous-total' }, voirControles || (o.tousLes > 0 && (i + 1) % o.tousLes === 0) ? `= ${formaterNombre(ctrl[i])}` : '')),
-      voirDoigte ? h('div', { class: 'doigte' }, doigte(i === 0 ? 0 : ctrl[i - 1], op.op, op.n).map((g) => h('div', {}, g))) : null)));
+      voirDoigte ? h('div', { class: 'doigte' }, doigte(i === 0 ? depart0 : ctrl[i - 1], op.op, op.n).map((g) => h('div', {}, g))) : null)));
   }
 
   function montrer(i) {
-    const depart = i === 0 ? 0 : ctrl[i - 1];
+    const depart = i === 0 ? depart0 : ctrl[i - 1];
     const op = d.operations[i];
     ouvrirDialogue(`Opération ${i + 1} : ${formaterNombre(depart)} ${signe(op.op)} ${formaterNombre(op.n)}`, null, (corps) => {
       const p = new PanneauDemo(corps);
@@ -133,7 +134,7 @@ export function creerDrill(conteneur, d, o = {}) {
       debut = performance.now();
       if (caseMetronome.checked) metronome.demarrer(Number(choixTempo.value));
       saisieLue.value = '';
-      remplir(retour, h('span', { class: 'discret' }, 'Posez 0 sur votre soroban et enchaînez. Quand vous avez terminé : Espace, ou tapez directement le nombre lu (le chrono et le métronome s\'arrêtent à la première touche).'));
+      remplir(retour, h('span', { class: 'discret' }, `${depart0 ? `${formaterNombre(depart0)} est posé sur votre soroban : enchaînez` : 'Posez 0 sur votre soroban et enchaînez'}. Quand vous avez terminé : Espace, ou tapez directement le nombre lu (le chrono et le métronome s'arrêtent à la première touche).`));
     } else if (etat === 'course') {
       arreter();
       return;
@@ -207,6 +208,7 @@ export function creerDrill(conteneur, d, o = {}) {
 
   dessiner();
   majBouton();
+  if (depart0) remplir(retour, h('strong', {}, `Avant de démarrer, posez ${formaterNombre(depart0)} sur votre soroban. `), 'Le chrono ne part qu\'à « Démarrer ».');
   return {
     detruire() {
       metronome.arreter();

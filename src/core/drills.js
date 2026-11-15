@@ -40,24 +40,50 @@ export function drillRepetition(n, fois, allerRetour) {
 }
 
 /**
+ * Un nombre « de dojo » pour le pas répété : chiffres tous DISTINCTS et sans zéro, pour que
+ * chaque tige travaille et qu'aucune ne répète le geste de sa voisine (450 laisse une tige au
+ * repos, 444 fait trois fois le même mouvement). 1 à 9 chiffres.
+ */
+export function nombreDistinct(chiffres, hasard = Math.random) {
+  const dispo = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  let n = 0;
+  for (let i = 0; i < Math.min(9, Math.max(1, chiffres)); i++) n = n * 10 + dispo.splice(Math.floor(hasard() * dispo.length), 1)[0];
+  return n;
+}
+
+/**
  * Drill sur mesure (générateur) : un pas de `chiffres` chiffres (ou d'une longueur tirée au
- * hasard entre 3 et 9 : chiffres = 0), le même à chaque ligne ou différent à chaque ligne,
- * ajouté `etapes` fois ; avec `retour`, on le retire ensuite dans l'ordre inverse jusqu'à 0.
- * @param {{ chiffres: number, varie: boolean, etapes: number, retour: boolean }} o
+ * hasard entre 3 et 9 : chiffres = 0), le même à chaque ligne ou différent à chaque ligne.
+ *  - le pas répété est SAISI par l'élève (`nombre`, ex. 789 pour cibler les grands amis), ou
+ *    tiré avec des chiffres tous distincts et sans zéro ;
+ *  - forme 'aller' : `etapes` additions ; 'retour' : puis les mêmes en soustraction, dans
+ *    l'ordre inverse, jusqu'à 0 ; 'descente' : soustractions SEULES, depuis le grand nombre déjà
+ *    posé sur le soroban (le total), jusqu'à 0, pour travailler la soustraction à froid.
+ * @param {{ chiffres: number, varie: boolean, etapes: number, forme?: 'aller'|'retour'|'descente', retour?: boolean, nombre?: number|null }} o
  * @param {() => number} [hasard]  source de hasard (tests)
  */
-export function drillPerso({ chiffres = 3, varie = false, etapes = 9, retour = true }, hasard = Math.random) {
+export function drillPerso({ chiffres = 3, varie = false, etapes = 9, forme = null, retour = true, nombre = null }, hasard = Math.random) {
+  forme ??= retour ? 'retour' : 'aller';
+  const longueurTiree = () => (chiffres > 0 ? chiffres : 3 + Math.floor(hasard() * 7));
   const tirer = () => {
-    const c = chiffres > 0 ? chiffres : 3 + Math.floor(hasard() * 7);
+    const c = longueurTiree();
     const min = c === 1 ? 1 : 10 ** (c - 1);
     return min + Math.floor(hasard() * (10 ** c - min));
   };
-  const fixe = tirer();
+  const saisi = !varie && Number.isInteger(nombre) && nombre > 0 && nombre < 1e9 ? nombre : null;
+  const fixe = saisi ?? nombreDistinct(longueurTiree(), hasard);
   const pas = Array.from({ length: etapes }, () => (varie ? tirer() : fixe));
-  const ops = [...pas.map((n) => ({ op: '+', n })), ...(retour ? [...pas].reverse().map((n) => ({ op: '-', n })) : [])];
+  const total = pas.reduce((t, n) => t + n, 0);
+  const moins = [...pas].reverse().map((n) => ({ op: '-', n }));
+  const ops = forme === 'descente' ? moins : [...pas.map((n) => ({ op: '+', n })), ...(forme === 'retour' ? moins : [])];
   const longueur = chiffres > 0 ? `${chiffres} chiffre${chiffres > 1 ? 's' : ''}` : '3 à 9 chiffres';
-  return { ...drill('perso', `Drill sur mesure : ${varie ? `${etapes} nombres de ${longueur}` : `${fixe.toLocaleString('fr-FR')} ajouté ${etapes} fois`}${retour ? ', puis retour à 0' : ''}`,
-    'Sur mesure', varie ? 'Un nombre différent à chaque ligne : toutes les situations se succèdent, sans rien pouvoir anticiper.' : 'Le même nombre en boucle : chaque tige passe par tous les cas de ses chiffres.', ops), perso: true };
+  const quoi = varie ? `${etapes} nombres de ${longueur}` : `${fixe.toLocaleString('fr-FR')}`;
+  const titre = forme === 'descente' ? `Drill sur mesure : de ${total.toLocaleString('fr-FR')} à 0, ${varie ? `en retirant ${quoi}` : `en retirant ${quoi} ${etapes} fois`}`
+    : `Drill sur mesure : ${varie ? quoi : `${quoi} ajouté ${etapes} fois`}${forme === 'retour' ? ', puis retour à 0' : ''}`;
+  const description = forme === 'descente' ? 'La soustraction à froid : le grand nombre est déjà posé, on le réduit pas à pas jusqu\'à zéro, sans la fatigue des additions.'
+    : varie ? 'Un nombre différent à chaque ligne : toutes les situations se succèdent, sans rien pouvoir anticiper.' : 'Le même nombre en boucle : chaque tige passe par tous les cas de ses chiffres.';
+  const d = drill('perso', titre, 'Sur mesure', description, ops);
+  return forme === 'descente' ? { ...d, perso: true, depart: total, resultat: 0 } : { ...d, perso: true };
 }
 
 /** 1 + 2 + … + n (et retour éventuel). */
@@ -142,7 +168,9 @@ const memoPoids = new WeakMap();
 export function poidsDrill(d) {
   if (!memoPoids.has(d)) {
     const famille = (cle) => (cle.startsWith('cascade') ? 'cascade' : cle.split(':')[1]);
-    const w = occurrencesColonne(d.operations).flat().reduce((t, o) => t + (POIDS_GESTE[famille(o.cle)] ?? 1), 0);
+    // Drill qui part d'un nombre déjà posé : on le pose d'abord (sans le compter).
+    const occ = d.depart ? occurrencesColonne([{ op: '+', n: d.depart }, ...d.operations]).slice(1) : occurrencesColonne(d.operations);
+    const w = occ.flat().reduce((t, o) => t + (POIDS_GESTE[famille(o.cle)] ?? 1), 0);
     memoPoids.set(d, w);
   }
   return memoPoids.get(d);
@@ -235,7 +263,7 @@ const ORDRE = [
 ];
 
 /** Sous-totaux après chaque opération (points de contrôle). */
-export function controles(operations) {
-  let v = 0;
+export function controles(operations, depart = 0) {
+  let v = depart;
   return operations.map((o) => (v = o.op === '+' ? v + o.n : v - o.n));
 }

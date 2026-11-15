@@ -110,17 +110,29 @@ export default {
       const choixFois = h('select', {}, [10, 20, 30].map((n) => h('option', { value: n }, `${n} fois`)));
       const ar = h('input', { type: 'checkbox', checked: true });
       // Générateur : un drill sur mesure (longueur du pas, nombre d'étapes, sous-totaux).
-      const gen = reglagesUtilisateur().drillPerso ?? { chiffres: 3, varie: false, etapes: 9, retour: true, tousLes: 3 };
-      const sel = (cle, options, conv = Number) => { const x = h('select', { onchange: (e) => { gen[cle] = conv(e.target.value); } }, options.map(([v, t]) => h('option', { value: v }, t))); x.value = String(gen[cle]); return x; };
+      const gen = { chiffres: 3, varie: false, etapes: 9, forme: 'retour', tousLes: 3, nombre: '', ...(reglagesUtilisateur().drillPerso ?? {}) };
+      gen.forme ??= gen.retour === false ? 'aller' : 'retour';
+      const sel = (cle, options, conv = Number, apres = null) => { const x = h('select', { onchange: (e) => { gen[cle] = conv(e.target.value); apres?.(); } }, options.map(([v, t]) => h('option', { value: v }, t))); x.value = String(gen[cle]); return x; };
+      // Le pas répété peut être saisi (ex. 789 pour cibler les grands amis) ; vide : tiré au
+      // hasard, chiffres tous distincts et sans zéro.
+      const saisiePas = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-pas', placeholder: 'au hasard', value: gen.nombre ?? '', 'aria-label': 'Nombre à répéter (vide : au hasard)', oninput: (e) => { gen.nombre = e.target.value.replace(/\D/g, '').slice(0, 9); e.target.value = gen.nombre; } });
+      const labelPas = h('label', { title: 'Le nombre exact à répéter. Vide : un nombre aux chiffres tous distincts, sans zéro, de la longueur choisie.' }, 'Nombre ', saisiePas);
+      const majPas = () => { labelPas.style.display = gen.varie ? 'none' : ''; };
       el.append(h('h2', {}, 'Drill sur mesure'),
-        h('p', { class: 'discret' }, 'Composez votre drill : la longueur du nombre ajouté, le nombre d\'étapes, et des sous-totaux de contrôle à intervalles réguliers (comme sur les feuilles japonaises).'),
+        h('p', { class: 'discret' }, 'Composez votre drill : le nombre ajouté (saisi, ou tiré avec des chiffres tous distincts), le nombre d\'étapes, la forme (additions, aller-retour, ou descente : soustractions seules depuis un grand nombre déjà posé) et des sous-totaux de contrôle à intervalles réguliers.'),
         h('div', { class: 'ligne reglages' },
-          h('label', {}, 'Pas ', sel('chiffres', [[0, 'longueur au hasard (3 à 9 chiffres)'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`])])),
-          sel('varie', [['false', 'le même nombre à chaque ligne'], ['true', 'un nombre différent à chaque ligne']], (v) => v === 'true'),
-          h('label', {}, 'Étapes ', sel('etapes', [5, 9, 10, 15, 20, 30, 50].map((n) => [n, `${n} additions`]))),
-          sel('retour', [['true', 'puis autant de soustractions (retour à 0)'], ['false', 'additions continues']], (v) => v === 'true'),
+          sel('varie', [['false', 'le même nombre à chaque ligne'], ['true', 'un nombre différent à chaque ligne']], (v) => v === 'true', majPas),
+          labelPas,
+          h('label', {}, 'Longueur ', sel('chiffres', [[0, 'au hasard (3 à 9 chiffres)'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`])])),
+          h('label', {}, 'Étapes ', sel('etapes', [5, 9, 10, 15, 20, 30, 50].map((n) => [n, `${n} lignes`]))),
+          sel('forme', [['retour', 'additions, puis retour à 0'], ['aller', 'additions seules'], ['descente', 'descente : soustractions seules, du total à 0']], String),
           h('label', {}, 'Sous-totaux ', sel('tousLes', [[0, 'aucun'], [3, 'toutes les 3 lignes'], [5, 'toutes les 5 lignes'], [10, 'toutes les 10 lignes']])),
-          h('button', { class: 'btn principal', onclick: async () => { await modifierReglages({ drillPerso: { ...gen } }); changer(() => ecran(drillPerso(gen), { tousLes: gen.tousLes, reglages: { ...gen } })); } }, 'Générer et commencer')));
+          h('button', { class: 'btn principal', onclick: async () => {
+            const reglages = { ...gen, nombre: gen.nombre ? Number(gen.nombre) : null };
+            await modifierReglages({ drillPerso: { ...gen } });
+            changer(() => ecran(drillPerso(reglages), { tousLes: gen.tousLes, reglages }));
+          } }, 'Générer et commencer')));
+      majPas();
       el.append(h('h2', {}, 'Même nombre répété'),
         h('p', { class: 'discret' }, 'Ajouter le même nombre en boucle fait passer chaque tige par tous les cas : le meilleur exercice pour ancrer les amis d\'un chiffre.'),
         h('div', { class: 'ligne' }, 'Ajouter', choixN, choixFois, h('label', {}, ar, ' puis revenir à 0'),

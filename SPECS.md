@@ -928,3 +928,10 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
   précise pas le tirage). Records `flash-kentei-<id>` (l'ancienne échelle indicative est abandonnée).
 - **Test de flash dans la séance :** le mercredi, une semaine sur deux, sur le grade qui suit le
   meilleur obtenu ; il prend la place de l'anzan du jour.
+
+## Version 0.34.1
+
+- **Drill sur mesure, pas répété :** le nombre peut être SAISI (ex. 789) ; sinon il est tiré
+  avec des chiffres tous distincts et sans zéro (`drills.nombreDistinct`).
+- **Descente :** troisième forme du drill sur mesure, soustractions seules depuis le total déjà
+  posé sur le soroban jusqu'à 0 (`depart` du drill ; `controles(ops, depart)`).
