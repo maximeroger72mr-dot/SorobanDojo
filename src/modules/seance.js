@@ -164,7 +164,7 @@ function plan(d, debut, seance = null) {
   } else if (decision.type === 'automatiser') {
     const cibles = gestesLecon(decision.sp);
     const items = cibles.length
-      ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon })
+      ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon, geste: seance?.gesteBloc })
       : [];
     if (!items.length) items.push({ id: 'lecon', titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, fait: decisionFaite(decision) });
     isolesBloc3 = items.filter((it) => it.genre?.endsWith('-isole')).length;
@@ -284,7 +284,7 @@ function plan(d, debut, seance = null) {
     : (vitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
   const resteBloc = objectif - prevu;
   if (ciblesBloc.length && resteBloc >= 2) {
-    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus, isolesDeja: isolesBloc3 })) {
+    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus, isolesDeja: isolesBloc3, geste: seance?.gesteBloc })) {
       essentiel.push({ ...it, titre: it.titre, bloc: vitesse ? 'vitesse' : 'volume' });
     }
   }
@@ -296,13 +296,19 @@ function plan(d, debut, seance = null) {
   let cumul = 0;
   const garde = [];
   // L'anzan (en dernier) garde sa place : son temps est réservé dès le début.
-  const reserve = itemAnzan && !itemAnzan.fait ? itemAnzan.minutes : 0;
+  // Séance en cours : les exercices des blocs « automatiser » et « volume / vitesse » sont ceux
+  // prévus AU DÉBUT, pas un de plus. Sans cela, chaque exercice fait libérait du temps (ou changeait
+  // le geste le plus lent) et un nouvel exercice prenait sa place : la séance ne finissait jamais.
+  if (seance?.blocIds) {
+    for (let i = essentiel.length - 1; i >= 0; i--) if (essentiel[i].id && !seance.blocIds.includes(essentiel[i].id)) essentiel.splice(i, 1);
+  }
+  const reserve = itemAnzan ? itemAnzan.minutes : 0;
   for (const [i, it] of essentiel.entries()) {
     const reste = objectif - cumul - (it === itemAnzan ? 0 : reserve);
     // L'examen blanc garde TOUJOURS sa place (c'est lui, la séance du jour), même s'il dépasse
     // l'objectif ; l'anzan lui cède alors la sienne.
     const anzanGarde = it === itemAnzan && !(examEssentiel && cumul >= objectif);
-    if (it.fait || i === 0 || anzanGarde || it.examen || it.minutes <= reste) { garde.push(it); cumul += it.fait ? 0 : it.minutes; continue; }
+    if (it.fait || i === 0 || anzanGarde || it.examen || it.minutes <= reste) { garde.push(it); cumul += it.minutes; continue; } // un point fait garde son temps : il ne libère pas de place
     if (it.decision && reste >= 3) {
       garde.push({ ...it, minutes: reste, detail: `${it.detailCourt ?? it.detail} (${reste} min aujourd'hui, la suite demain si besoin)` });
       cumul += reste;
@@ -332,7 +338,7 @@ function plan(d, debut, seance = null) {
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
   const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
-  return { essentiel: garde, bonus: complements, mot, minutes, decision, theme };
+  return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id) };
 }
 
 /** Les 5 blocs de la séance, dans l'ordre, et leur nom. */
@@ -508,7 +514,9 @@ export default {
       // Fin de séance : tout l'essentiel est fait ET l'objectif de temps est atteint. Le bilan
       // s'affiche alors de lui-même ; le plan reste disponible, enroulé, pour refaire un point.
       const essentielFait = p.essentiel.length > 0 && p.essentiel.every((it) => it.fait);
-      const tempsFait = minutes >= objectif;
+      // Tout l'essentiel fait : la séance se termine dès 70 % de l'objectif de temps (les durées sont
+      // des estimations ; on ne retient pas quelqu'un qui a tout fait un peu plus vite que prévu).
+      const tempsFait = minutes >= objectif * 0.7;
       if (seance && !bilan && essentielFait && tempsFait) {
         finirSeance().then((b) => afficher(b ?? null));
         return;
@@ -543,7 +551,7 @@ export default {
       }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
       h('span', { class: 'titre' }, h('strong', {}, it.titre), it.but ? h('span', { class: 'but-proposition' }, ` · ${it.but}`) : null, ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
-      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision });
+      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision, gesteBloc: p.gesteBloc, blocIds: p.blocIds });
       if (terminee) {
         el.append(carteBilan(terminee, d));
         const idees = propositions(d, aujourdhui(), motifsEnDifficulte(), 0);
@@ -570,8 +578,9 @@ export default {
       // Où en est-on par rapport aux deux conditions de fin (tout l'essentiel, et l'objectif de temps) ?
       const resteMin = Math.max(0, Math.ceil(objectif - minutes));
       if (seance && essentielFait && !tempsFait) {
-        el.append(h('div', { class: 'carte avis' }, h('strong', {}, 'L\'essentiel est fait. '), `Encore ${resteMin} min pour atteindre votre objectif du jour : choisissez dans « Pour compléter ».`));
-      } else if (seance && tempsFait && !essentielFait) {
+        el.append(h('div', { class: 'carte avis ligne' }, h('span', { style: 'flex:1' }, h('strong', {}, 'L\'essentiel est fait. '), `Vous avez été plus rapide que prévu (${Math.floor(minutes)} min sur ${objectif}). Arrêtez-vous là, ou piochez dans « Pour compléter » si vous voulez continuer.`),
+          h('button', { class: 'btn principal', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Terminer la séance')));
+      } else if (seance && minutes >= objectif && !essentielFait) {
         el.append(h('div', { class: 'carte avis ligne' },
           h('span', { style: 'flex:1' }, h('strong', {}, 'Objectif de temps atteint. '), `Il reste ${p.essentiel.filter((it) => !it.fait).length} point${p.essentiel.filter((it) => !it.fait).length > 1 ? 's' : ''} : continuez si vous le souhaitez, ou arrêtez-vous là (ils passeront à demain).`),
           h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Terminer la séance')));
@@ -605,7 +614,7 @@ export default {
         barre, sections,
         h('h3', { class: 'titre-plan' }, 'Pour compléter', h('span', { class: 'discret' }, resteMin > p.minutes ? ` : il vous reste du temps, piochez ici (une nouvelle planche remplace celle qui est faite)` : ' : si vous avez encore du temps')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
-        h('p', { class: 'discret' }, `La séance se termine quand les ${p.essentiel.length} points de l'essentiel sont faits ET que votre objectif de ${objectif} min est atteint (${Math.floor(minutes)} min aujourd'hui). Le bilan s'affiche alors tout seul.`)),
+        h('p', { class: 'discret' }, `La séance se termine d'elle-même quand les ${p.essentiel.length} points de l'essentiel sont faits (${Math.floor(minutes)} min aujourd'hui, objectif ${objectif} min) : la liste est fixée au début de la séance, aucun exercice ne s'y ajoute en route. « Pour compléter » est facultatif.`)),
         carteHebdo(d));
     }
     afficher();

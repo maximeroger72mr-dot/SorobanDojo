@@ -106,8 +106,10 @@ export const MAX_ISOLES = 2;
  * @param {string[]} genres  ordre des genres à alterner
  * @returns {Array<{ id, titre, detail, minutes, aller, fait: boolean, pourquoi, genre }>}
  */
-export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [], isolesDeja = 0 }) {
-  const g = gesteDuJour(d, cibles, difficiles);
+export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [], isolesDeja = 0, geste = null }) {
+  // `geste` : geste du jour FIGÉ au début de la séance (sinon, une fois travaillé, un autre geste
+  // devient « le plus lent » et de nouveaux exercices apparaissent sans fin).
+  const g = geste && cibles.includes(geste) ? geste : gesteDuJour(d, cibles, difficiles);
   const a = ancrageDuJour(d);
   const mix = [...new Set([...(a?.cibles ?? []), ...difficiles.map((m) => m.cle)])].filter((x) => !x.endsWith(':direct'));
   // Sans « ami » appris (étape des gestes directs) : le mélange se fait sur les gestes directs.

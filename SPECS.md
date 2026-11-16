@@ -956,3 +956,12 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
   disparue, une consigne s'affiche et le calcul suivant rend l'image très légère, une fois.
 - **Décimaux :** exemples déroulés pas à pas dans « Comprendre » (champ `exemples`) pour le
   compte des chiffres, la multiplication et la division de décimaux.
+
+## Version 0.35.1
+
+- **Séance qui ne finissait pas :** les exercices des blocs « automatiser » et « volume /
+  vitesse » sont figés au début de la séance (`seance.blocIds`, `seance.gesteBloc`). Avant, un
+  exercice fait libérait son temps dans le calibrage, et le « geste le plus lent » changeait une
+  fois travaillé : un nouvel exercice prenait la place, sans fin.
+- La séance se termine d'elle-même quand tout l'essentiel est fait et que 70 % de l'objectif de
+  temps est atteint ; en dessous, un bouton « Terminer la séance » est proposé.
