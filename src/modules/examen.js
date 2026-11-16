@@ -4,7 +4,7 @@
  * ne retire rien. Le ton est volontairement calme : un échec à un examen est normal.
  */
 
-import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, cleBlanc, SEUIL, formatBlanc, minutesBlanc, sectionsBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessible, prekyuObtenu, cleBlanc, SOCLE, aSocle, completObtenu, sujetExamen, SEUIL, formatBlanc, minutesBlanc, sectionsBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
 import { progression, aujourdhui, enregistrerSession, proposerMeilleurScore } from '../core/progression.js';
 import { SYSTEMES } from '../core/epreuves.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -41,8 +41,12 @@ export default {
           obtenu ? h('p', { class: 'retour ok' }, `Grade obtenu. Le suivant s'ouvrira avec les prochaines leçons ; en attendant, repassez celui-ci quand vous voulez pour garder le rythme d'examen.`)
             : r ? h('p', {}, `Meilleur passage cette semaine : ${r.points} / ${r.total}. Pas encore, et c'est normal : retentez quand vous voulez.`)
               : h('p', {}, g.officiel ? 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il valide ce niveau et tous les grades d\'en dessous, par équivalence (le kyū officiel se passe ensuite en « Épreuve officielle ») ; raté, il ne vous retire rien.' : 'Installez-vous au calme, soroban prêt, crayon en main. Réussi, il vous donne le grade ; raté, il ne vous retire rien.'),
+          // Trois premiers grades : le socle (sans chrono) donne le grade ; le format complet est facultatif.
+          aSocle(g) ? h('div', { class: 'carte avis' },
+            h('p', { style: 'margin-top:0' }, h('strong', {}, 'Ce grade se passe en deux temps. '), `Phase 1, le socle : ${SOCLE.colonnes} colonnes, SANS chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes : elle donne le grade${obtenu ? ' (réussie ✓)' : ''}. Phase 2, facultative : le format complet, chronométré${completObtenu(d, g) ? ' (réussie ✓)' : ''}.`),
+            h('button', { class: `btn${obtenu ? '' : ' principal'}`, onclick: () => lancerSocle(g) }, `Phase 1 : le socle, sans chrono${obtenu ? ' (refaire)' : ''}`)) : null,
           h('div', { class: 'ligne' },
-            h('button', { class: 'btn principal', onclick: () => lancer(g, format) }, `${r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen'} · ${decrire(format)}`),
+            h('button', { class: `btn${aSocle(g) && !obtenu ? '' : ' principal'}`, onclick: () => lancer(g, format) }, `${aSocle(g) ? 'Phase 2 (facultative) : format complet' : r || obtenu ? 'Passer l\'examen' : 'Commencer l\'examen'} · ${decrire(format)}`),
             h('button', { class: 'btn', onclick: () => lancer(g, autre) }, `L'autre format : ${decrire(autre)}`))));
       }
       el.append(h('h2', {}, 'Les grades préparatoires'),
@@ -54,6 +58,33 @@ export default {
             h('span', { class: `icone etat-${obtenu ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, obtenu ? '✓' : ouvert ? '○' : '·'), h('span', { class: 'titre' }, `${x.nom} · ${x.theme}`),
             h('span', { class: 'statut' }, obtenu ? (d.records[`prekyu-${x.id}`]?.date ? `obtenu le ${new Date(`${d.records[`prekyu-${x.id}`].date}T12:00`).toLocaleDateString('fr-FR')}` : 'obtenu par équivalence') : ouvert ? 'accessible' : 'leçons à valider'));
         })));
+    }
+
+    /** Phase 1 des premiers grades : le socle, 10 colonnes sans chrono, 80 % : il donne le grade. */
+    function lancerSocle(g) {
+      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Passage de kyū'),
+        h('p', { class: 'consigne' }, `Le socle du ${g.nom} : ${SOCLE.colonnes} colonnes, sans chrono. Prenez le temps qu'il faut : seule la justesse compte (${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes sur ${SOCLE.colonnes}).`));
+      feuille = creerFeuille(el, {
+        titre: `${g.nom} · le socle · ${SOCLE.colonnes} colonnes, sans chrono`,
+        sections: [{ problemes: sujetExamen(progression(), { ...g, colonnes: SOCLE.colonnes }) }],
+        surFin: (b) => {
+          const reussi = b.justes >= Math.ceil(b.total * SOCLE.seuil);
+          enregistrerSession({ module: 'examen', mode: 'socle', reglages: { grade: g.id, format: 'socle' }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          proposerMeilleurScore(cleSemaine(aujourdhui()), b.justes, { total: b.total, grade: g.id, reussi, dureeMs: b.dureeMs, socle: true }).then(async () => {
+            if (reussi) for (const x of PREKYU.slice(0, PREKYU.indexOf(g) + 1)) if (!prekyuObtenu(progression(), x)) await proposerMeilleurScore(`prekyu-${x.id}`, b.justes, { reussi: true, socle: true });
+            app.majBadges?.();
+          });
+          const erreurs = listeErreurs(b.resultats.filter((x) => x.reponse !== null));
+          return h('div', { class: 'carte bilan' },
+            h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
+            h('p', {}, reussi ? `${g.nom} obtenu : le socle est là. Quand vous voudrez, tentez la phase 2 : le même contenu, en format complet et chronométré. Elle est facultative.`
+              : `Pas encore : il faut ${Math.ceil(b.total * SOCLE.seuil)} justes. Rien de grave, et rien de perdu : regardez vos erreurs ci-dessous, puis retentez quand vous voulez.`),
+            erreurs ?? null,
+            h('div', { class: 'ligne' },
+              reussi ? h('button', { class: 'btn', onclick: () => lancer(g) }, 'Phase 2 : format complet, chronométré') : h('button', { class: 'btn principal', onclick: () => lancerSocle(g) }, 'Retenter le socle'),
+              h('button', { class: 'btn', onclick: () => accueil() }, 'Retour')));
+        },
+      });
     }
 
     function lancer(g, format = formatBlanc(aujourdhui())) {
@@ -76,6 +107,7 @@ export default {
             // Un kyū officiel réussi en examen blanc : les grades d'en dessous suivent par équivalence.
             if (reussi && g.officiel) await proposerMeilleurScore(cleBlanc(SYSTEMES[g.systeme], g.officiel), b.justes, { reussi: true, total: b.total });
             else if (reussi && g.id !== 'hebdo') {
+              if (aSocle(g)) await proposerMeilleurScore(`prekyu-${g.id}-complet`, b.justes, { reussi: true });
               for (const x of PREKYU.slice(0, PREKYU.indexOf(g) + 1)) if (!prekyuObtenu(progression(), x)) await proposerMeilleurScore(`prekyu-${x.id}`, b.justes, { reussi: true });
             }
             app.majBadges?.();
@@ -99,7 +131,7 @@ export default {
 
     if (params.auto) {
       const g = examenDeLaSemaine(progression());
-      if (g) lancer(g); else accueil();
+      if (g && aSocle(g) && !prekyuObtenu(progression(), g)) lancerSocle(g); else if (g) lancer(g); else accueil();
     } else accueil();
     return () => feuille?.detruire();
   },

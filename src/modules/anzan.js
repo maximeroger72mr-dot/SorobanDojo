@@ -41,10 +41,16 @@ const DUREE_MAX = 4;
 const REPRISES_MAX = 2;
 const RALENTI = 1.4;
 
-const reglages = { profil: 'constant', auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 1 };
+const reglages = { profil: 'constant', auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 0.45, gradeEntr: null, allure: 1.25 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
-const IMAGES = [[1, 'image nette'], [0.5, 'image estompée'], [0.2, 'image légère']];
+const IMAGES = [[0.45, 'image estompée'], [0.3, 'image légère'], [0.15, 'image très légère']];
+/** Mode « instantané » : durée d'affichage de l'image du total (ms), de 1,2 s à 0,3 s. */
+const INSTANT_MAX = 1200;
+const INSTANT_MIN = 300;
+const INSTANT_PAS = 100;
+/** Entraînement au grade : allures proposées (part du temps officiel du grade). */
+const ALLURES_GRADE = [[1.5, 'lent : 150 % du temps du grade'], [1.25, 'posé : 125 %'], [1, 'le temps du grade'], [0.9, 'un peu plus vite : 90 %'], [0.8, 'plus vite : 80 %']];
 
 /** Colonne d'anzan : gestes appris seulement, soustractions en option. */
 function colonne(chiffres, termes, soustractions) {
@@ -88,7 +94,7 @@ export default {
       zoneReglages, zone);
 
     function afficherReglages() {
-      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['flash', 'Flash'], ['tapis', 'Tapis roulant (les nombres défilent)'], ['efface', 'Colonne qui s\'efface ligne à ligne'], ['grade', 'Test de grade de flash (barème japonais)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
+      const mode = select('mode', [['photo', 'Photo du soroban'], ['tenir', 'Tenir une image'], ['image', 'Flash avec image'], ['instantane', 'Flash avec instantané du total'], ['flash', 'Flash'], ['tapis', 'Tapis roulant (les nombres défilent)'], ['efface', 'Colonne qui s\'efface ligne à ligne'], ['gradeEntr', 'Entraînement au grade de flash'], ['grade', 'Test de grade de flash (barème japonais)'], ['mitori', 'Mitori-anzan (colonne fixe)'], ['mul', 'Multiplication de tête']], String);
       const elements = [mode];
       if (reglages.mode === 'grade') {
         // Pas de saut de grade : on ne peut choisir que les grades obtenus et le suivant.
@@ -98,6 +104,22 @@ export default {
         elements.push(select('grade', ouverts.map((x) => [x.id, `${progression().records[cleGradeFlash(x)]?.reussi ? '✓ ' : ''}${libelleGradeFlash(x)}`]), String),
           h('button', { class: 'btn principal', onclick: () => lancer() }, 'Passer ce grade ', h('kbd', {}, 'Entrée')),
           h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, `${QUESTIONS_GRADE_FLASH} questions : ${JUSTES_GRADE_FLASH} justes pour obtenir le grade, ${JUSTES_PRESQUE_FLASH} ou ${JUSTES_GRADE_FLASH - 1} : presque (on repasse le même). Les grades se passent dans l'ordre, sans saut, du 20e kyū au 20e dan. ${obtenu ? `Votre meilleur grade : ${obtenu.nom}.` : 'Aucun grade obtenu pour l\'instant.'} Barème de l'association japonaise de flash anzan (日本フラッシュ暗算検定協会).`));
+        remplir(zoneReglages, elements);
+        return;
+      }
+      if (reglages.mode === 'gradeEntr') {
+        // Entraînement au grade : le format exact d'un grade (n'importe lequel), mais avec des
+        // options : allure, nombre de questions, reprise après erreur, vitesse automatique, distracteurs.
+        reglages.gradeEntr ??= prochainGradeFlash(progression()).id;
+        const coche = (cle, texte, titre) => h('label', { title: titre }, h('input', { type: 'checkbox', checked: reglages[cle], onchange: (e) => { reglages[cle] = e.target.checked; } }), ` ${texte}`);
+        elements.push(select('gradeEntr', GRADES_FLASH.map((x) => [x.id, `${progression().records[cleGradeFlash(x)]?.reussi ? '✓ ' : ''}${libelleGradeFlash(x)}`]), String),
+          select('allure', ALLURES_GRADE),
+          select('questions', [[5, '5 questions'], [10, '10 questions'], [20, '20 questions']]),
+          coche('auto', 'vitesse automatique', 'On part de l\'allure choisie ; chaque réponse juste accélère un peu le calcul suivant, une erreur le ralentit.'),
+          coche('distractVisuel', 'distracteurs visuels', 'De petites formes discrètes se promènent sur l\'écran pendant le calcul.'),
+          coche('distractVoix', 'voix parasite', 'Une voix lit d\'autres nombres, au rythme du flash : à ne pas écouter.'),
+          h('button', { class: 'btn principal', onclick: () => lancer() }, 'S\'entraîner ', h('kbd', {}, 'Entrée')),
+          h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, 'Le même format que le test, sans enjeu : tous les grades sont ouverts, on peut ralentir ou accélérer, et après une erreur le même calcul est reproposé. Quand vous tenez 7 sur 10 au temps du grade, passez le test.'));
         remplir(zoneReglages, elements);
         return;
       }
@@ -117,6 +139,7 @@ export default {
             coche('distractVoix', 'voix parasite', 'Une voix lit d\'autres nombres, au rythme du flash : à ne pas écouter.'));
         }
         if (reglages.mode === 'image') elements.push(select('image', IMAGES));
+        if (reglages.mode === 'instantane') elements.push(h('span', { class: 'discret', style: 'flex-basis:100%' }, `Après chaque nombre, l'image FIXE du total s'affiche un instant (${(Math.min(INSTANT_MAX, Math.max(INSTANT_MIN, reglagesUtilisateur().instantaneMs ?? INSTANT_MAX)) / 1000).toLocaleString('fr-FR')} s pour l'instant ; de 1,2 s à 0,3 s, plus court à chaque réussite) : on la reconnaît d'un coup d'œil, sans la lire boule à boule. Entraînement seulement : jamais dans un test.`));
         elements.push(h('label', {}, h('input', { type: 'checkbox', checked: reglages.soustractions, onchange: (e) => { reglages.soustractions = e.target.checked; } }), ' avec soustractions'));
       }
       elements.push(select('questions', [[5, '5 questions'], [10, '10 questions']]),
@@ -154,15 +177,22 @@ export default {
         nettoyerMode = () => serie.detruire();
         return;
       }
+      if (r.mode === 'gradeEntr') {
+        const x = GRADES_FLASH.find((y) => y.id === r.gradeEntr) ?? GRADES_FLASH[0];
+        // Un flash ordinaire (reprise après erreur, vitesse automatique) sur les questions du grade.
+        Object.assign(r, { mode: 'flash', formatFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: Math.round(periodeGrade(x) * r.allure * 100) / 100, soustractions: !!x.forme, profil: 'constant', entrainementGrade: x.id });
+      }
+      if (r.mode === 'instantane') r.instantMs = Math.min(INSTANT_MAX, Math.max(INSTANT_MIN, reglagesUtilisateur().instantaneMs ?? INSTANT_MAX));
       if (r.mode === 'grade') {
         const x = GRADES_FLASH.find((y) => y.id === r.grade) ?? GRADES_FLASH[0];
         Object.assign(r, { gradeFlash: x, chiffres: x.chiffres, termes: x.nombres, duree: periodeGrade(x), questions: QUESTIONS_GRADE_FLASH, soustractions: !!x.forme });
       }
       // Vitesse automatique : on reprend la vitesse atteinte la dernière fois sur ce réglage.
       if (r.mode !== 'grade' && r.auto) {
-        r.cleVitesse = `${r.mode}-${r.chiffres}-${r.termes}`;
+        r.cleVitesse = r.entrainementGrade ? `grade-${r.entrainementGrade}` : `${r.mode}-${r.chiffres}-${r.termes}`;
         const gardee = reglagesUtilisateur().flashDurees?.[r.cleVitesse];
-        if (gardee >= DUREE_MIN && gardee <= DUREE_MAX) r.duree = gardee;
+        // Entraînement au grade : on repart toujours de l'allure choisie.
+        if (!r.entrainementGrade && gardee >= DUREE_MIN && gardee <= DUREE_MAX) r.duree = gardee;
       }
       nettoyerMode = flash(r);
     }
@@ -245,7 +275,7 @@ export default {
         majBouton('');
         saisie.style.display = 'none';
         remplir(retour);
-        if (!reprise) { question = r.gradeFlash ? questionFlash(r.gradeFlash) : colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
+        if (!reprise) { question = r.gradeFlash || r.formatFlash ? questionFlash(r.gradeFlash ?? r.formatFlash) : colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
         zone.classList.add('flash-en-cours');
         // Sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
         if (r.mode !== 'image') ecran.classList.add('plein');
@@ -253,8 +283,8 @@ export default {
         await decompteFlash(ecran, 400, arrete);
         if (arrete()) return;
         distraire(true);
-        if (r.mode === 'tapis' || r.mode === 'efface') {
-          const fini = r.mode === 'tapis' ? await tapis() : await effacement();
+        if (r.mode === 'tapis' || r.mode === 'efface' || r.mode === 'instantane') {
+          const fini = r.mode === 'tapis' ? await tapis() : r.mode === 'efface' ? await effacement() : await instantane();
           distraire(false);
           taire();
           if (!fini) return;
@@ -338,6 +368,37 @@ export default {
        * Colonne qui s'efface : tout est affiché, puis les lignes disparaissent une à une, par le
        * haut. Il faut lire en avance, et ne jamais s'arrêter sur une ligne.
        */
+      /**
+       * Instantané (méthode des « photos ») : chaque nombre, puis l'image FIXE du total pendant un
+       * instant (1,2 s au début, jusqu'à 0,3 s). Pas de boules qui bougent : on reconnaît la forme
+       * du total d'un seul coup d'œil, comme une photo, et on la garde pour le nombre suivant.
+       */
+      async function instantane() {
+        const totaux = sousTotaux(question.lignes);
+        const cadre = h('div', { class: 'flash-image instantane' });
+        const sor = new Soroban(Math.max(3, String(Math.max(...totaux.map(Math.abs))).length + 1));
+        const vueInst = new SorobanVue(cadre, sor, { interactif: false });
+        const pause = async (ms) => { const fin = performance.now() + ms; while (performance.now() < fin) { if (arrete()) return false; await attendre(Math.min(40, fin - performance.now())); } return !arrete(); };
+        let ok = true;
+        for (let k = 0; ok && k < question.lignes.length; k++) {
+          const l = question.lignes[k];
+          afficherNombreFlash(ecran, formaterNombre(l.n), l.op === '-');
+          parasite(l.n);
+          ok = await pause(dureeCourante() * 1000 * 0.85);
+          if (!ok) break;
+          ecran.textContent = '';
+          ok = await pause(dureeCourante() * 1000 * 0.15);
+          if (!ok) break;
+          sor.definirValeur(Math.max(0, totaux[k]));
+          remplir(ecran, cadre);
+          ok = await pause(r.instantMs);
+          remplir(ecran);
+          if (ok) ok = await pause(120);
+        }
+        vueInst.detruire();
+        return ok;
+      }
+
       async function effacement() {
         ecran.classList.add('colonne-efface');
         const lignes = question.lignes.map((l) => { const e = h('div', { class: 'ligne-efface' }); afficherNombreFlash(e, formaterNombre(l.n), l.op === '-'); return e; });
@@ -416,6 +477,11 @@ export default {
           await noterReponse(juste);
           pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
           if (!r.gradeFlash) ajusterVitesse(juste);
+          if (r.mode === 'instantane') {
+            // L'instantané raccourcit à chaque réussite (jusqu'à 0,3 s), rallonge après une erreur.
+            r.instantMs = Math.min(INSTANT_MAX, Math.max(INSTANT_MIN, r.instantMs + (juste ? -INSTANT_PAS : INSTANT_PAS)));
+            modifierReglages({ instantaneMs: r.instantMs });
+          }
           // Juste : le corrigé. Faux : d'abord la possibilité de refaire le même calcul (hors grade).
           if (juste || r.gradeFlash) montrerCorrige(juste, rep);
           else { retour.className = 'retour erreur'; ecran.textContent = '✗'; proposerReprise(rep); }

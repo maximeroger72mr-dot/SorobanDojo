@@ -668,3 +668,7 @@ button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted
 .serie.flash-centre .disposition-enonce .chrono-exercice { position: absolute; top: 0; right: 0; }
 
 .saisie-pas { width: 9em; font: inherit; padding: 4px 6px; border: 1px solid var(--ligne); border-radius: var(--rayon-petit, 4px); font-variant-numeric: tabular-nums; }
+
+/* Anzan « instantané » : l'image fixe du total, au centre, à la place du nombre. */
+.flash-ecran .flash-image.instantane { width: min(46vw, 420px); max-width: none; margin: 0 auto; }
+.flash-ecran .flash-image.instantane svg.soroban { max-height: min(46vh, 320px); }

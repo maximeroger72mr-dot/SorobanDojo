@@ -11,6 +11,7 @@
  */
 
 import { etapesRattrapage } from '../core/multiplication.js';
+import { PONTS_ANZAN } from '../core/conseils.js';
 import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
@@ -285,6 +286,15 @@ export default {
       // 1. Comprendre ------------------------------------------------
       function comprendre() {
         zone.append(h('div', { class: 'carte pourquoi' }, h('strong', {}, 'Pourquoi ce geste ? '), ...avecTermes(sp.pourquoi)));
+        // Exemples déroulés pas à pas (leçons où la règle seule ressemblerait à une formule).
+        if (sp.exemples) {
+          zone.append(h('div', { class: 'carte' }, h('strong', {}, 'Pas à pas'),
+            sp.exemples.map(([titre, etapes]) => h('div', { class: 'exemple-pas' }, h('h4', { style: 'margin:12px 0 4px' }, titre), h('ol', { style: 'margin:0;padding-left:22px;line-height:1.6' }, etapes.map((e) => h('li', {}, e)))))));
+        }
+        if (sp.type === 'anzan' && sp.image) {
+          zone.append(h('details', { class: 'carte' }, h('summary', {}, h('strong', {}, 'Quand l\'image disparaît : quatre façons de la reconstruire')),
+            PONTS_ANZAN.map(([titre, texte]) => h('p', { style: 'margin:8px 0 0' }, h('strong', {}, `${titre} : `), texte))));
+        }
         if (sp.type === 'addsub') {
           zone.append(h('p', { class: 'discret' }, sp.cumul && sp.cibles.length > 12 ? 'Tous les gestes vus jusqu\'ici.' : `Gestes travaillés : ${sp.cibles.map(nomMotif).join(' · ')}. ${sp.cumul ? '' : 'Les exercices ne contiennent que ces gestes et des gestes directs.'}`));
         }
@@ -355,7 +365,7 @@ export default {
               h('li', {}, `Les nombres s'affichent un par un (${sp.duree.toLocaleString('fr-FR')} s chacun), à ${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}. Le signe − annonce une soustraction.`),
               h('li', {}, `La chaîne commence à ${Math.min(sp.lignesDepart ?? 2, sp.lignes)} nombres : 3 réussites de suite en ajoutent un (jusqu'à ${sp.lignes}), une erreur en retire un. Le mini-test se fait à ${sp.lignes} nombres.`),
               sp.image ? h('li', {}, h('label', { title: 'Le petit soroban reste dans le champ de vision : si vous le lisez au lieu de l\'imaginer, retirez-le.' }, h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().anzanSansImage, onchange: (e) => modifierReglages({ anzanSansImage: e.target.checked }) }), ' Sans le petit soroban d\'aide (je veux l\'imaginer moi-même)')) : null,
-              sp.image ? h('li', {}, 'Un petit soroban montre le TOTAL qui évolue : suivez-le des yeux, puis dans la tête. Il s\'estompe à mesure que vous réussissez (nette, estompée, légère, puis plus d\'image). Le mini-test se fait sans image.') : null,
+              sp.image ? h('li', {}, 'Un petit soroban, pâle et en bas de l\'écran, montre le TOTAL qui évolue. Il s\'estompe à mesure que vous réussissez (estompée, légère, très légère, puis plus d\'image). Le mini-test se fait sans image.') : null,
               h('li', {}, 'Posez la main comme sur le soroban et faites les gestes dans l\'air : le pouce monte, l\'index descend.'),
               h('li', {}, 'Gardez l\'image du total, pas le nombre lu : à la fin, on LIT le soroban imaginaire.'),
               h('li', {}, 'Ensuite, entraînez-vous dans « Flash anzan » en réduisant le temps d\'affichage.'))),
@@ -497,6 +507,7 @@ export default {
         let mode = 'une';
         let courant = null;
         const zoneTravail = h('div', {});
+        const zonePont = h('div', {}); // consigne « reconstruire l'image » (anzan)
         const choixMode = h('div', { class: 'segments' },
           [['une', 'Une par une'], ['feuille', 'Feuille de 10 (imprimable)']].map(([v, t]) => h('button', {
             class: v === mode ? 'actif' : '',
@@ -506,14 +517,21 @@ export default {
         const tous = sp.mental ? conseilsVitesse(sp) : [...conseilsVitesse(sp), ...GENERAUX];
         const majConseil = () => { conseil.textContent = `${sp.mental ? 'Pour bien visualiser' : 'Pour aller plus vite'} : ${tous[Math.floor(Math.random() * tous.length)]}`; };
         majConseil();
-        zone.append(bandeau, ['anzan', 'photo', 'tenir', 'placement', 'table', 'lire', 'complement'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zoneTravail, ['lire', 'complement'].includes(sp.type) ? '' : conseil);
+        zone.append(bandeau, ['anzan', 'photo', 'tenir', 'placement', 'table', 'lire', 'complement'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zonePont, zoneTravail, ['lire', 'complement'].includes(sp.type) ? '' : conseil);
 
         const chaine = chaineAnzan(sp, etatPalier(sp.id).chaine);
         // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
         // Photo du soroban : durée d'affichage qui raccourcit avec les réussites.
         const photo = sp.type === 'photo' ? dureePhoto(sp, etatPalier(sp.id).dureePhoto) : null;
         // Image d'aide : on peut la refuser (réglage gardé) ; elle est alors absente dès le début.
-        const ctxAnzan = () => (sp.type === 'anzan' ? { lignes: chaine.lignes, image: reglagesUtilisateur().anzanSansImage ? 0 : imageAnzan(sp, etatPalier(sp.id).justes).opacite }
+        // Pont vers l'anzan sans image : après une erreur une fois l'image presque ou tout à fait
+        // disparue, le calcul suivant la rend UNE fois, très légère, avec une consigne pour la
+        // reconstruire (plutôt que de seulement raccourcir la chaîne).
+        let rappelImage = false;
+        let pontsDonnes = 0;
+        const opaciteAnzan = () => (reglagesUtilisateur().anzanSansImage ? 0 : imageAnzan(sp, etatPalier(sp.id).justes).opacite);
+        const ctxAnzan = () => { if (sp.type !== 'anzan') return null; const rendre = rappelImage; rappelImage = false; return { lignes: chaine.lignes, image: rendre ? Math.max(0.15, opaciteAnzan()) : opaciteAnzan() }; };
+        const ctxExercice = () => (sp.type === 'anzan' ? ctxAnzan()
           : photo ? { duree: photo.secondes } : sp.type === 'lire' ? { rang: etatPalier(sp.id).reps } : {});
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -555,7 +573,7 @@ export default {
             // Tranches de 10 exercices équilibrées : tous les gestes de la leçon y passent.
             const suivant = fluxEquilibre(sp, 10, () => poidsDe(sp));
             courant = creerExercices(sp, zoneTravail, {
-              generer: () => suivant(ctxAnzan()),
+              generer: () => suivant(ctxExercice()),
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
               doigteMasque: () => evaluerPalier(sp.id, famille(sp)).index >= 2,
@@ -563,7 +581,14 @@ export default {
               // volume d'entraînement, pas pour le niveau.
               surExercice: (res) => {
                 n += 1;
-                if (sp.type === 'anzan') { chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes); }
+                if (sp.type === 'anzan') {
+                  chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes);
+                  if (!res.juste && sp.image && !reglagesUtilisateur().anzanSansImage && opaciteAnzan() <= 0.15) {
+                    rappelImage = true;
+                    const [titre, texte] = PONTS_ANZAN[pontsDonnes++ % PONTS_ANZAN.length];
+                    remplir(zonePont, h('div', { class: 'carte avis' }, h('strong', {}, `Reconstruire l'image · ${titre}. `), texte, ' Le calcul suivant vous rend le petit soroban, très léger, une seule fois.'));
+                  } else if (res.juste) remplir(zonePont);
+                }
                 if (photo) { photo.noter(res.juste); memoriserDureePhoto(sp.id, photo.secondes); }
                 if (n % 5 === 0) majConseil();
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);

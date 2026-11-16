@@ -60,6 +60,18 @@ export function formatHebdo(d) {
   return { ...APRES, chiffres, lignes: chiffres >= 5 ? 10 : 7, colonnes: COLONNES - operations, mul, div, theme: `${chiffres} chiffres, ${parties.join(', ')}` };
 }
 
+/**
+ * Les trois premiers grades préparatoires se passent EN DEUX TEMPS, pour casser le mur du premier
+ * examen chronométré :
+ *  - phase 1, le SOCLE : 10 colonnes, sans chrono, 8 justes (80 %) : elle donne le grade ;
+ *  - phase 2, facultative : le format complet, chronométré, à 70 %.
+ * Au-delà, c'est justement le chrono que l'on vient travailler : format complet seulement.
+ */
+export const SOCLE = { colonnes: 10, seuil: 0.8, minutes: 5, grades: ['20', '19', '18'] };
+export const aSocle = (g) => !!g && SOCLE.grades.includes(g.id);
+/** Phase 2 (format complet, chronométré) réussie ? */
+export const completObtenu = (d, g) => !!d.records[`prekyu-${g.id}-complet`]?.reussi;
+
 /** Grade préparatoire accessible : ses leçons et celles des grades d'avant sont validées. */
 export function prekyuAccessible(d, g) {
   const i = PREKYU.indexOf(g);

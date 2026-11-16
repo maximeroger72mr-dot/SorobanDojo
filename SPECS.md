@@ -935,3 +935,24 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
   avec des chiffres tous distincts et sans zéro (`drills.nombreDistinct`).
 - **Descente :** troisième forme du drill sur mesure, soustractions seules depuis le total déjà
   posé sur le soroban jusqu'à 0 (`depart` du drill ; `controles(ops, depart)`).
+
+## Version 0.35.0
+
+- **Planche « pincée pure »** (cible `pincee`) : gestes directs seulement, avec les 6 à 9 posés ou
+  retirés d'un seul mouvement. Diagnostic automatique (`motifs.diagnosticPincee`) : plus de 30 %
+  d'erreurs sur ces gestes (10 essais au moins) ajoute 8 colonnes de rattrapage à la séance et
+  aux planches proposées.
+- **Endurance par marches :** deux leçons, 7 puis 8 lignes (`p5-e7`, `p5-e8`), avant les 10 lignes.
+- **Examen préparatoire en deux temps** (20e, 19e et 18e kyū prép.) : phase 1, le socle, 10
+  colonnes sans chrono à 80 %, qui donne le grade ; phase 2, facultative, le format complet
+  chronométré à 70 % (`examen.SOCLE`, record `prekyu-<id>-complet`).
+- **Entraînement au grade de flash** (menu Flash) : le format exact d'un grade, tous grades
+  ouverts, avec l'allure (150 % à 80 % du temps du grade), 5 à 20 questions, vitesse automatique,
+  distracteurs, voix parasite, et reprise du même calcul après une erreur.
+- **Flash avec instantané du total :** après chaque nombre, l'image fixe du total, de 1,2 s à
+  0,3 s (plus court à chaque réussite). Mode d'entraînement seulement, jamais dans un test.
+- **Ponts vers l'anzan sans image** (`conseils.PONTS_ANZAN`) : quatre techniques de
+  reconstruction dans « Comprendre » ; en leçon, après une erreur une fois l'image presque
+  disparue, une consigne s'affiche et le calcul suivant rend l'image très légère, une fois.
+- **Décimaux :** exemples déroulés pas à pas dans « Comprendre » (champ `exemples`) pour le
+  compte des chiffres, la multiplication et la division de décimaux.

@@ -88,3 +88,15 @@ const PAR_LECON = {
 export function conseilsVitesse(sp) {
   return [...(PAR_LECON[sp.id] ?? []), ...(sp.mental ? ANZAN : PAR_PALIER[sp.palier?.id] ?? [])];
 }
+
+/**
+ * Ponts vers l'anzan sans image : quand le petit soroban d'aide disparaît, l'image mentale ne
+ * tient pas toute seule. Plutôt que de seulement raccourcir la chaîne après une erreur, on donne
+ * des façons ACTIVES de reconstruire l'image. [titre, consigne]
+ */
+export const PONTS_ANZAN = [
+  ['Les doigts dans l\'air', 'Faites réellement le geste, pouce et index, sur un soroban imaginaire posé devant vous. La main sait ce que l\'œil ne voit plus : c\'est elle qui tient l\'image.'],
+  ['Par blocs de 5', 'Ne regardez pas chaque boule : sur chaque tige, voyez seulement « la céleste est-elle posée ? » puis « combien de terrestres ? ». 7, c\'est « 5 et 2 », une forme, pas sept boules.'],
+  ['Le rythme', 'Un nombre, un geste, un temps : comptez intérieurement « un… deux… » au rythme de l\'affichage, sans vous arrêter. Si un nombre vous échappe, gardez le rythme et prenez le suivant : l\'image se perd surtout quand on s\'arrête.'],
+  ['Redire le total', 'Après chaque nombre, « photographiez » le total d\'un coup (pas les boules qui bougent) et dites-le en silence. C\'est cette photo que vous emportez vers le nombre suivant.'],
+];

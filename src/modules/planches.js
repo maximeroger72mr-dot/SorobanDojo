@@ -11,7 +11,7 @@ import { ErreurGeneration, avecDelai } from '../core/generateur.js';
 import { libellesModes, gesteTravaillable } from '../core/colonneGeste.js';
 import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLANCHE, paliersPyramide } from '../core/planche.js';
 import { graineAleatoire, codeDepuisGraine } from '../core/hasard.js';
-import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif } from '../core/motifs.js';
+import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif, PINCEES } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris, ancrageDuJour } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
@@ -43,6 +43,7 @@ export function optionsCibles() {
     ['ancrage', 'Ancrage : mes dernières leçons et mes gestes faibles'],
     ['faibles', 'Mes points faibles'],
     ['lents', 'Vitesse : mes gestes les plus lents'],
+    ['pincee', 'Pincée pure : poser et retirer 6, 7, 8, 9'],
     ['Familles', [['famille:petit', 'Tous les petits amis'], ['famille:grand', 'Tous les grands amis'], ['famille:mixte', 'Toutes les combinaisons'], ['famille:cascade', 'Retenues/emprunts en cascade']]],
     ['Petits amis', motifsPar('petit')],
     ['Grands amis', motifsPar('grand')],
@@ -67,6 +68,8 @@ export function contraintes(valeur) {
     const faibles = motifsEnDifficulte().map((m) => m.cle).filter((c) => appris.has(c));
     return { autorises: appris, cibles: [...new Set([...a.cibles, ...faibles])], favoris: faibles, libelle: `Ancrage : ${a.lecons.map((sp) => `« ${sp.titre} »`).join(', ')}${faibles.length ? ', avec vos gestes faibles' : ''}` };
   }
+  // Pincée pure : uniquement des gestes directs, et la pincée (6 à 9) dans chaque colonne.
+  if (valeur === 'pincee') return { autorises: new Set(DIRECT), cibles: PINCEES, libelle: 'Pincée pure : poser et retirer 6, 7, 8, 9 d\'un seul mouvement' };
   if (valeur === 'tout') return { autorises: null, cibles: TOUS_LES_MOTIFS.filter((c) => !c.endsWith(':direct')), libelle: 'Tout mélangé' };
   if (valeur === 'appris') {
     const appris = motifsAppris();

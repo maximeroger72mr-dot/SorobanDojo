@@ -21,7 +21,7 @@ import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { GRADES } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
-import { nomMotif } from '../core/motifs.js';
+import { nomMotif, diagnosticPincee } from '../core/motifs.js';
 import { ajouterJours } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
@@ -33,9 +33,9 @@ import { prochainGradeFlash, meilleurGradeFlash, libelleGradeFlash, QUESTIONS_GR
 import { semaineISO } from '../core/hasard.js';
 import { voixDisponible } from '../ui/voix.js';
 import { sorobanNombre } from '../ui/perles.js';
-import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, SOCLE, aSocle, prekyuObtenu } from '../core/examen.js';
 import { bilanHebdo } from '../core/bilan.js';
-import { plateaux } from '../core/parcours.js';
+import { plateaux, chiffresAppris as chiffresApprisDe } from '../core/parcours.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Secondes par exercice de leçon, d'après les dernières séries (25 s par défaut). */
@@ -129,7 +129,7 @@ function plan(d, debut, seance = null) {
   const fenetreExamen = [5, 6, 0].includes(jourSemaine);
   // Avec un objectif de moins de 10 minutes, l'examen (14 à 20 min) reste proposé « pour
   // compléter » : la leçon garde sa place.
-  const examEssentiel = exam && (passeAujourdhui || (fenetreExamen && !examFait && objectif >= 10));
+  const examEssentiel = exam && (passeAujourdhui || (fenetreExamen && !examFait && (objectif >= 10 || (aSocle(exam) && !prekyuObtenu(d, exam)))));
   const vitesse = jourVitesse(d, date);
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
@@ -141,7 +141,14 @@ function plan(d, debut, seance = null) {
   const minutesAnzan = Math.max(2, Math.min(6, Math.round(objectif * 0.1)));
   const exclus = [];
   let isolesBloc3 = 0;
-  if (examEssentiel) {
+  // Trois premiers grades préparatoires, pas encore obtenus : le socle (10 colonnes, sans chrono).
+  const examSocle = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
+  if (examEssentiel && (examSocle || (aSocle(exam) && examFait?.socle && passeAujourdhui))) {
+    essentiel.push({ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: !!examFait && passeAujourdhui,
+      detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', grade obtenu' : ', pas encore : retentez quand vous voulez'}`
+        : `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade`,
+      pourquoi: 'Votre premier examen se passe en deux temps : d\'abord le socle, sans chrono, où seule la justesse compte. Le format chronométré vient ensuite, quand vous le voudrez.' });
+  } else if (examEssentiel) {
     const format = formatBlanc(date);
     essentiel.push({ titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesBlanc(format), aller: ['examen', {}], examen: true, fait: !!examFait && passeAujourdhui,
       detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', réussi' : ', pas encore : retentez la semaine prochaine'}`
@@ -216,6 +223,15 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Erreur qui se répète (× et ÷)', detail: `${e.nom}, ${repetee.nombre} fois ces derniers jours : ${e.remede.toLowerCase()}`, minutes: 3,
       pourquoi: 'La même erreur revient : ce n\'est plus de l\'inattention, c\'est un point à travailler à part, quelques minutes.',
       fait: suivi, aller });
+  }
+  // Pincée : plus de 30 % d'erreurs sur les 6 à 9 posés ou retirés d'un seul mouvement : 8 colonnes
+  // de rattrapage, gestes directs seulement.
+  const pincee = diagnosticPincee(d.motifs);
+  const pinceeFaite = fait((s) => s.module === 'planches' && s.reglages?.proposition === 'pincee');
+  if (pinceeFaite || (pincee.alerte && estValide(d, 'p1-3'))) {
+    essentiel.push({ titre: 'Pincée : colonnes de rattrapage', detail: pincee.taux !== null ? `${Math.round(pincee.taux * 100)} % d'erreurs sur vos 6, 7, 8, 9 : 8 colonnes de pincée pure` : '8 colonnes de pincée pure', minutes: 3,
+      pourquoi: 'Poser 6 à 9, c\'est UN mouvement : l\'index abaisse la céleste pendant que le pouce monte les terrestres. En deux temps, le geste se trompe et ralentit tout le reste.',
+      fait: pinceeFaite, aller: ['planches', { cible: 'pincee', chiffres: Math.min(2, chiffresApprisDe(d)), lignes: 6, colonnes: 8, proposition: 'pincee', auto: true }] });
   }
   // Dictée (yomiage) : deux fois par semaine (mardi et jeudi), dès les gestes directs à 2 chiffres.
   // Calculer à l'oreille, sur le soroban, oblige à poser sans relire : un autre canal que l'œil.

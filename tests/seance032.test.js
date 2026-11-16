@@ -217,3 +217,30 @@ test('0.34.1 : pas répété aux chiffres distincts ou saisi ; descente (soustra
   // Ancien réglage (retour: true/false) toujours compris.
   assert.equal(drillPerso({ chiffres: 2, etapes: 5, retour: false }).operations.length, 5);
 });
+
+test('0.35 : pincée, paliers 7 et 8 lignes, socle des premiers grades', async () => {
+  const { diagnosticPincee, PINCEES } = await import('../src/core/motifs.js');
+  const { aSocle, SOCLE } = await import('../src/core/examen.js');
+  const { planchesPossibles: possibles } = await import('../src/core/propositions.js');
+  const { genererExercice } = await import('../src/core/curriculum.js');
+  const essais = (ok, ko) => [...Array.from({ length: ok }, () => ({ ok: 1, t: 2 })), ...Array.from({ length: ko }, () => ({ ok: 0, t: 2 }))];
+  assert.equal(PINCEES.length, 8);
+  assert.equal(diagnosticPincee({}).alerte, false);
+  assert.equal(diagnosticPincee({ '+7:direct': { hist: essais(2, 2) } }).alerte, false); // trop peu d'essais
+  assert.equal(diagnosticPincee({ '+7:direct': { hist: essais(8, 2) }, '-8:direct': { hist: essais(5, 0) } }).alerte, false); // 13 %
+  const mauvais = { '+7:direct': { hist: essais(6, 4) }, '+9:direct': { hist: essais(4, 3) } };
+  assert.equal(diagnosticPincee(mauvais).alerte, true); // 41 %
+  const d = valide(['p1-1', 'p1-2', 'p1-3', 'p1-4'], { motifs: mauvais });
+  const p = possibles(d, [], '2026-11-11');
+  assert.ok(p.some((x) => x.id === 'pincee' && x.cible === 'pincee' && x.colonnes === 8));
+  // Paliers d'endurance : 7, 8 puis 10 lignes, dans cet ordre.
+  const ordre = ['p5-e7', 'p5-e8', 'p5-e'].map((id) => sousPalier(id).ordre);
+  assert.ok(ordre[0] < ordre[1] && ordre[1] < ordre[2]);
+  assert.equal(genererExercice(sousPalier('p5-e7')).lignes.length, 7);
+  assert.equal(genererExercice(sousPalier('p5-e8')).lignes.length, 8);
+  assert.ok(PREREQUIS[10].includes('p5-e7'));
+  // Socle : les trois premiers grades préparatoires seulement.
+  assert.deepEqual(PREKYU.filter(aSocle).map((g) => g.id), ['20', '19', '18']);
+  assert.equal(Math.ceil(SOCLE.colonnes * SOCLE.seuil), 8);
+  assert.ok(sousPalier('pd-2').exemples.length >= 3 && sousPalier('pd-4').exemples.length >= 3);
+});

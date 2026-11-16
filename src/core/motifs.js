@@ -114,3 +114,22 @@ export function exempleMotif(cle) {
   }
   throw new Error(`Motif impossible : ${cle}`);
 }
+
+/**
+ * La pincée : poser 6, 7, 8 ou 9 d'un seul mouvement (l'index abaisse la céleste pendant que le
+ * pouce monte les terrestres), et son contraire pour les retirer. Ce sont des gestes directs,
+ * mais à deux doigts : ils se trompent et ralentissent plus que les autres.
+ */
+export const PINCEES = ['+6:direct', '+7:direct', '+8:direct', '+9:direct', '-6:direct', '-7:direct', '-8:direct', '-9:direct'];
+export const SEUIL_ERREURS_PINCEE = 0.3;
+/**
+ * Diagnostic de la pincée, sur les derniers essais de ces gestes : taux d'erreur, et alerte
+ * au-delà de 30 % (avec au moins 10 essais, pour ne pas s'alarmer sur deux colonnes).
+ * @returns {{ essais: number, erreurs: number, taux: number|null, alerte: boolean }}
+ */
+export function diagnosticPincee(motifs = {}) {
+  const hist = PINCEES.flatMap((c) => (motifs[c]?.hist ?? []).slice(-12));
+  const erreurs = hist.filter((x) => !x.ok).length;
+  const taux = hist.length ? erreurs / hist.length : null;
+  return { essais: hist.length, erreurs, taux, alerte: hist.length >= 10 && taux > SEUIL_ERREURS_PINCEE };
+}

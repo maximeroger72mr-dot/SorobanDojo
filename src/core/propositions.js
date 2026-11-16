@@ -15,7 +15,7 @@
  */
 
 import { NIVEAUX, cpm, mediane } from './maitrise.js';
-import { nomMotif } from './motifs.js';
+import { nomMotif, diagnosticPincee } from './motifs.js';
 import { libellesModes } from './colonneGeste.js';
 import { gestesLents, chiffresAppris, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
 import { catalogueDrills, tempsClassement, CLASSEMENT } from './drills.js';
@@ -54,6 +54,12 @@ export function planchesPossibles(d, difficiles = [], date = null) {
   if (!estValide(d, 'p1-3') && !d.reglages?.decouverte) return [];
   const ch = chiffresAppris(d);
   const liste = [];
+  // Pincée (6 à 9 d'un seul mouvement) : plus de 30 % d'erreurs sur ces gestes, on la reprend à part.
+  const pincee = diagnosticPincee(d.motifs);
+  if (pincee.alerte) {
+    liste.push({ id: 'pincee', but: 'Rattraper', titre: 'Planche « pincée pure »', cible: 'pincee', chiffres: Math.min(2, ch), lignes: 6, colonnes: 8,
+      objectif: `Rattraper la pincée : ${Math.round(pincee.taux * 100)} % d'erreurs sur vos 6, 7, 8, 9 posés ou retirés. 8 colonnes de gestes directs seulement, lentement : l'index et le pouce bougent ENSEMBLE.` });
+  }
   const faible = difficiles.find((m) => !m.cle.endsWith(':direct'));
   if (faible) {
     liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
