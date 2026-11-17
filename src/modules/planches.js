@@ -13,8 +13,11 @@ import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLA
 import { graineAleatoire, codeDepuisGraine } from '../core/hasard.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif, PINCEES } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
-import { motifsAppris as motifsApprisDe, gestesLents, chiffresAppris, ancrageDuJour } from '../core/parcours.js';
+import { motifsAppris as motifsApprisDe, gestesLents, ancrageDuJour } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
+import { formatsPlanche } from '../core/propositions.js';
+import { systemeChoisi } from '../core/epreuves.js';
+import { allureGrade, SURCOUT_PROBLEME_S } from '../core/allure.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -161,6 +164,26 @@ function resumePlanche(planche, rejeu) {
     messages.map((m) => h('p', { class: 'retour' }, m)));
 }
 
+/**
+ * Planche au format d'une colonne d'examen (mêmes chiffres, mêmes lignes) : ce que donnerait
+ * le mitorizan de l'examen à ce rythme (ses 10 colonnes, ou 15 chez Zenkoren), en face du temps
+ * que lui laisse l'allure du grade. Rien si aucun grade n'a ce format, ou si la feuille a
+ * trop d'erreurs pour que son temps veuille dire quelque chose.
+ */
+function projectionExamen(r, b) {
+  if (!b.total || b.justes / b.total < 0.7 || (r.genre && r.genre !== 'gestes')) return null;
+  const sys = systemeChoisi(progression());
+  const g = sys.grades.find((x) => (x.mitori.chiffres ?? x.mitori.max) === r.chiffres && x.mitori.lignes === r.lignes);
+  if (!g) return null;
+  const n = g.mitori.nb;
+  const moi = (n * b.dureeMs) / b.total / 60000;
+  const a = allureGrade(g);
+  const besoin = (n * (r.lignes * r.chiffres * a.parChiffre + SURCOUT_PROBLEME_S)) / 60;
+  const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  return h('p', { class: moi <= besoin ? 'retour ok' : 'discret' },
+    `Format du ${g.nom} : à ce rythme, les ${n} colonnes de l'examen vous prendraient environ ${nf(moi)} min. L'allure du grade leur laisse environ ${nf(besoin)} min${moi <= besoin ? ' : vous êtes dans le temps.' : '.'}`);
+}
+
 export default {
   id: 'planches',
   titre: 'Planches',
@@ -175,8 +198,13 @@ export default {
     // Planche proposée par la séance : son identifiant (pour la cocher) et son objectif.
     reglages.proposition = params.proposition ?? null;
     if (params.chiffres) reglages.chiffres = params.chiffres;
-    // Par défaut, pas plus de chiffres que dans les leçons validées (on peut toujours en choisir plus).
-    else if (!progression().reglages?.decouverte) reglages.chiffres = Math.min(reglages.chiffres, chiffresAppris(progression()));
+    // Par défaut : le format d'examen du grade visé (chiffres et lignes), dans la limite des
+    // leçons validées ; on peut toujours choisir autre chose.
+    else if (!progression().reglages?.decouverte) {
+      const { vise } = formatsPlanche(progression());
+      reglages.chiffres = vise.chiffres;
+      if (!params.lignes) reglages.lignes = vise.lignes;
+    }
     if (params.consolidation) {
       const sp = sousPalier(params.consolidation);
       Object.assign(reglages, { genre: 'gestes', cible: `consolidation:${sp.id}`, chiffres: Math.max(1, sp.chiffres), lignes: 5, colonnes: 10 });
@@ -226,7 +254,7 @@ export default {
       h('div', { class: 'reglages' },
         select('genre', [['gestes', 'Additions et soustractions'], ['additions', 'Additions seules'], ...Object.entries(GENRES_PLANCHE)], String),
         select('chiffres', Array.from({ length: 10 }, (_, i) => [i + 1, `${i + 1} chiffre${i ? 's' : ''}`]), Number),
-        select('lignes', [3, 5, 8, 10, 15, 20].map((n) => [n, `${n} lignes`]), Number),
+        select('lignes', [3, 4, 5, 6, 7, 8, 10, 15, 20].map((n) => [n, `${n} lignes`]), Number),
         h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { reglages.zeros = e.target.checked; } }), ' zéros internes'),
         h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
@@ -390,9 +418,10 @@ export default {
           // Record : seulement sur une planche découverte (rejouée, on connaît déjà les colonnes).
           const record = b.justes === b.total && !rejeu ? proposerRecord(cleRecord, b.dureeMs) : Promise.resolve(false);
           const info = h('p', {}, `Réussite ${formaterPourcent(b.justes, b.total)} · temps ${formaterDuree(b.dureeMs)}`);
+          const projection = r.pyramide && r.pyramide !== 'non' ? null : projectionExamen(r, b);
           record.then((oui) => { if (oui) info.append(' · nouveau record personnel !'); });
           return h('div', { class: 'carte bilan' },
-            h('div', { class: 'grand' }, `${b.justes} / ${b.total}`), info,
+            h('div', { class: 'grand' }, `${b.justes} / ${b.total}`), info, projection,
             h('p', { class: 'discret' }, 'Sur une colonne fausse, « Expliquer » montre chaque ligne avec ses sous-totaux. Quand l\'erreur est repérée sur une ligne précise, la colonne peut être reprise tout de suite (3 au plus par planche).'),
             h('div', { class: 'actions' },
               h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle planche'),

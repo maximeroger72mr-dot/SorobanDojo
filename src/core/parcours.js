@@ -106,6 +106,28 @@ export function ancrageDuJour(d) {
 /** Nombre de chiffres le plus grand vu dans les leçons d'addition validées (au moins 1). */
 export const chiffresAppris = (d) => Math.max(1, ...ADDSUB.filter((sp) => estValide(d, sp.id)).map((sp) => sp.chiffres));
 
+/** Colonnes les plus longues des leçons d'addition validées (5 lignes au moins). */
+export const lignesAcquises = (d) => Math.max(5, ...ADDSUB.filter((sp) => estValide(d, sp.id)).map((sp) => sp.lignesMax ?? sp.lignes ?? 5));
+
+/**
+ * Format des colonnes d'examen d'un grade : longueur des nombres et nombre de lignes du
+ * mitorizan. `decalage` : 0 pour le grade visé (le prochain à passer), 1 pour le grade dont le
+ * format vient ensuite (le premier qui diffère : après le 10e kyū, le 8e, puisque le 9e a le
+ * même sujet).
+ * @returns {{ grade: object, chiffres: number, lignes: number }}
+ */
+export function formatExamen(d, decalage = 0) {
+  const sys = systemeChoisi(d);
+  const g0 = grade(d).prochain ?? sys.grades.at(-1);
+  const f = (g) => ({ grade: g, chiffres: g.mitori.chiffres ?? g.mitori.max, lignes: g.mitori.lignes });
+  let x = f(g0);
+  for (let i = sys.grades.indexOf(g0) + 1; decalage > 0 && i < sys.grades.length; i++) {
+    const y = f(sys.grades[i]);
+    if (y.chiffres !== x.chiffres || y.lignes !== x.lignes) { x = y; decalage -= 1; }
+  }
+  return x;
+}
+
 /** Niveau global de 0 à 1 : part des leçons d'addition/soustraction validées. */
 export const niveauAddsub = (d) => ADDSUB.filter((sp) => estValide(d, sp.id)).length / ADDSUB.length;
 

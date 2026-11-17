@@ -232,7 +232,7 @@ test('0.35 : pincée, paliers 7 et 8 lignes, socle des premiers grades', async (
   assert.equal(diagnosticPincee(mauvais).alerte, true); // 41 %
   const d = valide(['p1-1', 'p1-2', 'p1-3', 'p1-4'], { motifs: mauvais });
   const p = possibles(d, [], '2026-11-11');
-  assert.ok(p.some((x) => x.id === 'pincee' && x.cible === 'pincee' && x.colonnes === 8));
+  assert.ok(p.some((x) => x.id === 'pincee' && x.cible === 'pincee' && x.colonnes >= 3)); // colonnes : selon la durée visée
   // Paliers d'endurance : 7, 8 puis 10 lignes, dans cet ordre.
   const ordre = ['p5-e7', 'p5-e8', 'p5-e'].map((id) => sousPalier(id).ordre);
   assert.ok(ordre[0] < ordre[1] && ordre[1] < ordre[2]);

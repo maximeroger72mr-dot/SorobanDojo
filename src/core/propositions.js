@@ -17,7 +17,7 @@
 import { NIVEAUX, cpm, mediane } from './maitrise.js';
 import { nomMotif, diagnosticPincee } from './motifs.js';
 import { libellesModes } from './colonneGeste.js';
-import { gestesLents, chiffresAppris, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
+import { gestesLents, chiffresAppris, lignesAcquises, formatExamen, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
 import { catalogueDrills, tempsClassement, CLASSEMENT } from './drills.js';
 import { examenDeLaSemaine, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from './examen.js';
 import { semaineISO } from './hasard.js';
@@ -46,6 +46,49 @@ export function plafonner(d, p, max = MINUTES_PLANCHE_MAX) {
 }
 
 /**
+ * Durée visée pour UNE planche (minutes) : un quart de l'objectif du jour, de 4 à 8 minutes.
+ * Toutes les planches durent à peu près autant : c'est le nombre de colonnes qui s'adapte à la
+ * vitesse mesurée, pas la longueur des nombres. Deux feuilles de même format se comparent, et le
+ * temps se projette sur celui de l'examen.
+ */
+export const dureePlanche = (d) => Math.max(4, Math.min(8, Math.round((d.reglages?.objectifMinutes ?? 15) / 4)));
+
+/** Nombre de colonnes pour que la planche dure `minutes` (3 à 20). */
+export function colonnesPour(d, { lignes, chiffres }, minutes = dureePlanche(d)) {
+  return Math.max(3, Math.min(20, Math.floor((minutes * 60) / (lignes * chiffres * secondesParChiffre(d) + 5))));
+}
+
+/**
+ * Formats des planches, d'après les sujets d'examen :
+ *  - 'vise'    : le format du grade visé (le prochain kyū), dans la limite de ce que les leçons
+ *                validées ont appris (jamais plus de chiffres, jamais de colonnes plus longues) ;
+ *  - 'suivant' : le format du grade d'après, pour préparer la suite (au plus 1 chiffre et 2
+ *                lignes de plus que le format visé) ;
+ *  - 'court'   : un chiffre et des lignes de moins, pour la vitesse.
+ * Sur le cycle des propositions : environ 70 % au format visé, 15 % au suivant, 15 % court.
+ */
+export function formatsPlanche(d) {
+  const ch = chiffresAppris(d);
+  const li = lignesAcquises(d);
+  const v = formatExamen(d);
+  const s = formatExamen(d, 1);
+  const vise = { chiffres: Math.max(1, Math.min(v.chiffres, ch)), lignes: Math.min(v.lignes, li), grade: v.grade };
+  const suivant = { chiffres: Math.max(1, Math.min(s.chiffres, ch + 1, vise.chiffres + 1)), lignes: Math.min(s.lignes, vise.lignes + 2), grade: s.grade };
+  const court = { chiffres: Math.max(1, vise.chiffres - 1), lignes: Math.max(3, Math.min(4, vise.lignes - 1)), grade: v.grade };
+  return { vise, suivant, court };
+}
+
+/**
+ * Planche sur UN geste (seul ou parmi sa famille) : au plus 4 chiffres. Au-delà, trouver des
+ * colonnes où le geste revient assez souvent demande plusieurs secondes de calcul ; le geste,
+ * lui, ne change pas avec la longueur des nombres.
+ */
+export const CHIFFRES_GESTE_MAX = 4;
+const pourGeste = (f) => ({ ...f, chiffres: Math.min(f.chiffres, CHIFFRES_GESTE_MAX) });
+
+const decrire = (f) => `${f.chiffres} chiffre${f.chiffres > 1 ? 's' : ''}, ${f.lignes} lignes`;
+
+/**
  * Les planches possibles, dans l'ordre de priorité pédagogique ; chacune a un id stable, pour
  * savoir si elle a été faite aujourd'hui (session « planches » avec reglages.proposition).
  * @param {Array<{cle}>} difficiles  gestes en difficulté (erreurs avérées), voir motifsEnDifficulte
@@ -53,16 +96,18 @@ export function plafonner(d, p, max = MINUTES_PLANCHE_MAX) {
 export function planchesPossibles(d, difficiles = [], date = null) {
   if (!estValide(d, 'p1-3') && !d.reglages?.decouverte) return [];
   const ch = chiffresAppris(d);
+  const { vise, suivant, court } = formatsPlanche(d);
+  const nomVise = vise.grade.nom;
   const liste = [];
   // Pincée (6 à 9 d'un seul mouvement) : plus de 30 % d'erreurs sur ces gestes, on la reprend à part.
   const pincee = diagnosticPincee(d.motifs);
   if (pincee.alerte) {
     liste.push({ id: 'pincee', but: 'Rattraper', titre: 'Planche « pincée pure »', cible: 'pincee', chiffres: Math.min(2, ch), lignes: 6, colonnes: 8,
-      objectif: `Rattraper la pincée : ${Math.round(pincee.taux * 100)} % d'erreurs sur vos 6, 7, 8, 9 posés ou retirés. 8 colonnes de gestes directs seulement, lentement : l'index et le pouce bougent ENSEMBLE.` });
+      objectif: `Rattraper la pincée : ${Math.round(pincee.taux * 100)} % d'erreurs sur vos 6, 7, 8, 9 posés ou retirés. Des gestes directs seulement, lentement : l'index et le pouce bougent ENSEMBLE.` });
   }
   const faible = difficiles.find((m) => !m.cle.endsWith(':direct'));
   if (faible) {
-    liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
+    liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', format: 'vise', ...pourGeste(vise),
       objectif: `Renforcer un geste qui se trompe : toutes les colonnes justes, sans chercher la vitesse.` });
   }
   const lents = gestesLents(d, 2);
@@ -70,25 +115,25 @@ export function planchesPossibles(d, difficiles = [], date = null) {
     // La cible : le premier palier de vitesse AU-DESSUS de la vitesse actuelle (jamais en dessous).
     const suivant = NIVEAUX.filter((n) => n.temps && n.temps.addsub < lent.ev.temps).map((n) => n.temps.addsub).sort((a, b) => b - a)[0];
     const quel = k === 0 ? 'votre geste le plus lent' : 'un de vos gestes les plus lents';
-    liste.push({ id: `automatiser:${lent.cle}`, but: 'Automatiser', titre: `Planche « ${nomMotif(lent.cle)} »`, cible: lent.cle, mode: 'seul', chiffres: ch, lignes: 6, colonnes: 10,
+    liste.push({ id: `automatiser:${lent.cle}`, but: 'Automatiser', titre: `Planche « ${nomMotif(lent.cle)} »`, cible: lent.cle, mode: 'seul', format: 'vise', ...pourGeste(vise),
       objectif: suivant ? `Automatiser ${quel} : viser ${cpm(suivant)} CPM (vous êtes à ${cpm(lent.ev.temps)}).` : `Automatiser ${quel} (${cpm(lent.ev.temps)} CPM) : un rythme égal, sans réfléchir.` });
   }
   // Le geste le plus lent au milieu des autres amis de sa famille : le reconnaître parmi ses voisins.
   if (lents[0]) {
     const noms = libellesModes(lents[0].cle);
-    liste.push({ id: `famille:${lents[0].cle}`, but: 'Reconnaître', titre: `Planche « ${noms.famille} »`, cible: lents[0].cle, mode: 'famille', chiffres: ch, lignes: 6, colonnes: 10,
+    liste.push({ id: `famille:${lents[0].cle}`, but: 'Reconnaître', titre: `Planche « ${noms.famille} »`, cible: lents[0].cle, mode: 'famille', format: 'vise', ...pourGeste(vise),
       objectif: `Reconnaître le geste parmi ses voisins : ${noms.famille}, avec des pièges. Regardez la tige avant chaque geste.` });
   }
-  liste.push({ id: 'consolider', but: 'Consolider', titre: 'Planche mélangée', cible: 'appris', chiffres: ch, lignes: 5, colonnes: 10,
-    objectif: 'Consolider : tous vos gestes mélangés, il faut CHOISIR le bon à chaque ligne, comme en examen.' });
-  liste.push({ id: 'endurance', but: 'Endurance', titre: 'Planche d\'endurance', cible: 'appris', chiffres: ch, lignes: ch >= 3 ? 10 : 8, colonnes: 5,
-    objectif: 'Endurance : des colonnes longues, en gardant le même rythme de la 1re à la dernière ligne.' });
-  if (ch < 6) {
-    liste.push({ id: 'cran', but: 'Un cran au-dessus', titre: `Planche à ${ch + 1} chiffres`, cible: 'appris', chiffres: ch + 1, lignes: 5, colonnes: 5,
-      objectif: `Un cran au-dessus : ${ch + 1} chiffres par nombre, la justesse d'abord, la vitesse suivra.` });
+  liste.push({ id: 'consolider', but: 'Consolider', titre: `Planche au format du ${nomVise}`, cible: 'appris', format: 'vise', ...vise,
+    objectif: `Le format de l'examen visé (${decrire(vise)}), tous vos gestes mélangés : il faut CHOISIR le bon geste à chaque ligne.` });
+  liste.push({ id: 'endurance', but: 'Endurance', titre: `Planche au format du ${nomVise} · régularité`, cible: 'appris', format: 'vise', ...vise,
+    objectif: `Toujours le format du ${nomVise} (${decrire(vise)}) : le même rythme de la première à la dernière colonne.` });
+  if (suivant.chiffres !== vise.chiffres || suivant.lignes !== vise.lignes) {
+    liste.push({ id: 'cran', but: 'Préparer la suite', titre: `Planche au format du ${suivant.grade.nom}`, cible: 'appris', format: 'suivant', ...suivant,
+      objectif: `Le format du grade d'après (${decrire(suivant)}) : la justesse d'abord, la vitesse suivra.` });
   }
-  liste.push({ id: 'vitesse', but: 'Vitesse', titre: 'Planche courte et rapide', cible: 'appris', chiffres: Math.max(1, ch - 1), lignes: 4, colonnes: 10,
-    objectif: 'Vitesse : des colonnes courtes avec moins de chiffres, le plus vite possible sans erreur.' });
+  liste.push({ id: 'vitesse', but: 'Vitesse', titre: 'Planche courte et rapide', cible: 'appris', format: 'court', ...court,
+    objectif: `Vitesse : des colonnes courtes (${decrire(court)}), le plus vite possible sans erreur.` });
   // Varier : une planche ciblée (un geste), puis une mélangée, en alternance ; le jour décide par
   // laquelle on commence. Bien faire un geste seul ne suffit pas, il faut le refaire au milieu des autres.
   const melangees = new Set(['consolider', 'endurance', 'cran', 'vitesse']);
@@ -97,7 +142,11 @@ export function planchesPossibles(d, difficiles = [], date = null) {
   const [a, b] = jourNum(date ?? '2026-01-01') % 2 ? [autres, ciblees] : [ciblees, autres];
   const alterne = [];
   for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) alterne.push(a[i]); if (b[i]) alterne.push(b[i]); }
-  return alterne.map((p) => plafonner(d, p)).map((p) => ({ ...p, minutes: minutesPlanche(d, p) }));
+  // Toutes à peu près de la même durée : le nombre de colonnes suit la vitesse mesurée.
+  return alterne.map(({ grade: g, ...p }) => {
+    const colonnes = colonnesPour(d, p);
+    return { ...p, grade: g?.id ?? null, colonnes, minutes: minutesPlanche(d, { ...p, colonnes }) };
+  });
 }
 
 const planchesFaites = (d, date) => new Set(sessionsDu(d, date).filter((s) => s.module === 'planches').map((s) => s.reglages?.proposition).filter(Boolean));
@@ -105,7 +154,7 @@ const planchesFaites = (d, date) => new Set(sessionsDu(d, date).filter((s) => s.
 /** Une proposition de planche, prête à lancer (aller). */
 const versPlanche = (p) => ({
   type: 'planche', id: p.id, titre: p.titre, but: p.but, detail: p.objectif, minutes: p.minutes,
-  aller: ['planches', { cible: p.cible, mode: p.mode, chiffres: p.chiffres, lignes: p.lignes, colonnes: p.colonnes, proposition: p.id, objectif: p.objectif, auto: true }],
+  aller: ['planches', { cible: p.cible, mode: p.mode, chiffres: p.chiffres, lignes: p.lignes, colonnes: p.colonnes, proposition: p.id, objectif: p.objectif, format: p.format, auto: true }],
 });
 
 /** Les n prochaines planches non faites aujourd'hui (la liste tourne : la suivante prend la place). */

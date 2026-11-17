@@ -19,7 +19,7 @@
 import { nomMotif } from './motifs.js';
 import { evaluer } from './maitrise.js';
 import { libellesModes, gesteTravaillable } from './colonneGeste.js';
-import { minutesPlanche, secondesParChiffre, plafonner } from './propositions.js';
+import { minutesPlanche, secondesParChiffre, formatsPlanche, colonnesPour, dureePlanche, CHIFFRES_GESTE_MAX } from './propositions.js';
 import { chiffresAppris, ancrageDuJour, plateaux, SURCHARGE, estValide } from './parcours.js';
 
 const avant = (d, date) => d.sessions.filter((s) => s.date < date);
@@ -45,15 +45,18 @@ const lignesMarathon = (d, minutes) => Math.max(20, Math.min(60, Math.round((min
 
 /**
  * Toutes les variantes d'un genre, prêtes à lancer, avec de quoi savoir si elles ont été faites.
- * @param {{ g: string|null, mix: string[], chiffres: number, plateau: object|null }} c
+ * @param {{ g: string|null, mix: string[], format: object, chiffresAncrage: number, plateau: object|null }} c
  */
 function variantes(d, genre, c) {
-  const { g, mix, chiffres } = c;
+  const { g, mix, format } = c;
   const nom = g ? nomMotif(g) : null;
-  // Une planche du bloc dure 8 minutes au plus : on retire des colonnes plutôt que d'afficher
-  // une durée fausse. `detail` reçoit le nombre de colonnes réellement proposé.
+  // Format d'examen du grade visé (planches sur un geste : 4 chiffres au plus) ; la durée est
+  // celle d'une planche de la séance (8 minutes au plus), le nombre de colonnes s'y adapte.
+  // `detail` reçoit le nombre de colonnes réellement proposé.
+  const geste = { chiffres: Math.min(format.vise.chiffres, CHIFFRES_GESTE_MAX), lignes: format.vise.lignes };
   const planche = (id, titre, detail, p0, pourquoi) => {
-    const p = plafonner(d, { colonnes: 10, lignes: 6, chiffres, ...p0 }, 8);
+    const p1 = { ...p0 };
+    const p = { ...p1, colonnes: colonnesPour(d, p1, Math.min(8, dureePlanche(d))) };
     return { id, titre, detail: detail(p.colonnes), pourquoi, minutes: minutesPlanche(d, p),
       aller: ['planches', { ...p, proposition: id, auto: true }], fait: (s) => s.module === 'planches' && s.reglages?.proposition === id };
   };
@@ -63,11 +66,11 @@ function variantes(d, genre, c) {
   if (genre === 'volume-isole' && g) {
     const lignes = lignesMarathon(d, 4);
     v.push(rythme(`marathon:${g}`, 'marathon', [g], `Volume · ${nom}`, `${lignes} lignes de marathon sur ${nom}, sans remettre à zéro`, { lignes }, 4, 'Le volume sur un seul geste installe le mouvement jusqu\'au réflexe.'));
-    if (c.planches && gesteTravaillable(g)) v.push(planche(`bloc-seul:${g}`, `Planche · ${libellesModes(g).seul}`, (n) => `${n} colonnes : le geste 2 fois par colonne, des gestes directs et un piège`, { cible: g, mode: 'seul', chiffres, lignes: 6, colonnes: 10 }, 'Le geste répété, mais jamais à l\'aveugle : le piège oblige à regarder la tige.'));
+    if (c.planches && gesteTravaillable(g)) v.push(planche(`bloc-seul:${g}`, `Planche · ${libellesModes(g).seul}`, (n) => `${n} colonnes : le geste 2 fois par colonne, des gestes directs et un piège`, { cible: g, mode: 'seul', ...geste }, 'Le geste répété, mais jamais à l\'aveugle : le piège oblige à regarder la tige.'));
   }
   if (genre === 'volume-melange') {
-    if (c.planches && g && gesteTravaillable(g)) v.push(planche(`bloc-famille:${g}`, `Planche · ${libellesModes(g).famille}`, (n) => `${n} colonnes : ${nom} au milieu de ses voisins, il faut choisir le bon geste à chaque ligne`, { cible: g, mode: 'famille', chiffres, lignes: 6, colonnes: 10 }, 'Bien faire le geste seul ne suffit pas : il faut le refaire au milieu des autres.'));
-    if (c.planches) v.push({ id: 'ancrage', titre: 'Planche mélangée · ancrage', detail: 'vos dernières leçons et vos gestes faibles, mélangés (10 colonnes)', minutes: Math.min(8, minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres })),
+    if (c.planches && g && gesteTravaillable(g)) v.push(planche(`bloc-famille:${g}`, `Planche · ${libellesModes(g).famille}`, (n) => `${n} colonnes : ${nom} au milieu de ses voisins, il faut choisir le bon geste à chaque ligne`, { cible: g, mode: 'famille', ...geste }, 'Bien faire le geste seul ne suffit pas : il faut le refaire au milieu des autres.'));
+    if (c.planches) v.push({ id: 'ancrage', titre: 'Planche mélangée · ancrage', detail: 'vos dernières leçons et vos gestes faibles, mélangés (10 colonnes)', minutes: Math.min(8, minutesPlanche(d, { colonnes: 10, lignes: 5, chiffres: c.chiffresAncrage })),
       pourquoi: 'Mélangé, le geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       aller: ['planches', { ancrage: true, auto: true }], fait: (s) => s.module === 'planches' && s.mode === 'ancrage' });
     if (mix.length > 1) {
@@ -85,7 +88,8 @@ function variantes(d, genre, c) {
   }
   if (genre === 'vitesse-melange') {
     if (mix.length) v.push(rythme('lievre-mix', 'lievre', mix, 'Vitesse mélangée · lièvre', 'le lièvre accélère sur vos derniers gestes mélangés', { chiffres: 1, accelere: true }, 3, 'La vitesse qui compte est celle qu\'on garde au milieu des autres gestes.'));
-    if (c.planches) v.push(planche('bloc-rapide', 'Vitesse mélangée · planche courte', (n) => `${n} colonnes courtes à ${Math.max(1, chiffres - 1)} chiffre${chiffres > 2 ? 's' : ''}, le plus vite possible sans erreur`, { cible: 'appris', chiffres: Math.max(1, chiffres - 1), lignes: 4, colonnes: 10 }, 'Des colonnes courtes laissent toute la place à la cadence.'));
+    const k = format.court;
+    if (c.planches) v.push(planche('bloc-rapide', 'Vitesse mélangée · planche courte', (n) => `${n} colonnes courtes de ${k.lignes} lignes à ${k.chiffres} chiffre${k.chiffres > 1 ? 's' : ''}, le plus vite possible sans erreur`, { cible: 'appris', chiffres: k.chiffres, lignes: k.lignes }, 'Des colonnes courtes laissent toute la place à la cadence.'));
   }
   return v;
 }
@@ -115,7 +119,7 @@ export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minute
   // Sans « ami » appris (étape des gestes directs) : le mélange se fait sur les gestes directs.
   const amis = cibles.filter((x) => !x.endsWith(':direct'));
   // Les planches s'ouvrent avec « Le 5 et la pincée » ; avant, le bloc se fait au marathon et au lièvre.
-  const ctx = { g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, chiffres: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
+  const ctx = { g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, format: formatsPlanche(d), chiffresAncrage: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
   const aujourdhui = du(d, date);
   const pris = new Set(exclure);
   const parGenre = Object.fromEntries([...new Set(genres)].map((x) => [x, moinsRecente(d, date, variantes(d, x, ctx))]));
