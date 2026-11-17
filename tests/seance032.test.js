@@ -238,7 +238,7 @@ test('0.35 : pincée, paliers 7 et 8 lignes, socle des premiers grades', async (
   assert.ok(ordre[0] < ordre[1] && ordre[1] < ordre[2]);
   assert.equal(genererExercice(sousPalier('p5-e7')).lignes.length, 7);
   assert.equal(genererExercice(sousPalier('p5-e8')).lignes.length, 8);
-  assert.ok(PREREQUIS[10].includes('p5-e7'));
+  assert.ok(PREREQUIS[8].includes('p5-e7') && !PREREQUIS[10].includes('p5-e7')); // 8 lignes au 8e kyū
   // Socle : les trois premiers grades préparatoires seulement.
   assert.deepEqual(PREKYU.filter(aSocle).map((g) => g.id), ['20', '19', '18']);
   assert.equal(Math.ceil(SOCLE.colonnes * SOCLE.seuil), 8);

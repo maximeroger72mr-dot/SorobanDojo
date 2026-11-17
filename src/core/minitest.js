@@ -7,7 +7,7 @@
 import { TEST, familleLecon } from './curriculum.js';
 import { NIVEAUX, tempsParUnite, UNITES_TEMPS } from './maitrise.js';
 import { tempsLecon, PART_CADENCE_LECON } from './allure.js';
-import { GRADES } from './epreuves.js';
+import { GRADES_KYU as GRADES } from './epreuves.js';
 import { PREREQUIS } from './parcours.js';
 
 export const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;

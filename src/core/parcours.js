@@ -8,7 +8,7 @@
  */
 
 import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
-import { GRADES, systemeChoisi } from './epreuves.js';
+import { systemeChoisi } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
 import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
@@ -49,21 +49,24 @@ export function motifsAppris(d) {
 
 /**
  * Leçons à valider avant de tenter chaque grade : exactement ce que l'épreuve demande
- * (10e et 9e : additions et soustractions avec tous les amis, multiplication 2×1 ; 8e : × 3×1,
- * ÷ 1 chiffre ; 7e : × 2×2 ; 6e : × 3×2, ÷ 2 chiffres).
+ * (10e et 9e : 5 lignes de 2 chiffres avec tous les amis, multiplication 2×1 ; 8e : 8 lignes,
+ * × 3×1, ÷ 1 chiffre ; 7e : 10 lignes, × 2×2 ; 6e : × 3×2, ÷ 2 chiffres).
  */
-const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5');
+const ENDURANCE = { 8: ['p5-e7', 'p5-e8'], 7: ['p5-e'] };
+const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5').filter((id) => !Object.values(ENDURANCE).flat().includes(id));
 const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1a', 'p6-1b', 'p6-1c', 'p6-1d', 'p6-1'];
-const K9 = [...K10]; // même contenu que le 10e kyū (avec soustractions), seuil plus haut
-const K8 = [...K9, 'p6-2', 'p7-0', 'p7-1', 'p7-2a', 'p7-2b', 'p7-2c', 'p7-2d', 'p7-2']; // 3 × 1, ÷ 1 chiffre
-const K7 = [...K8, 'p6-3a', 'p6-3b', 'p6-3c', 'p6-3']; // 2 × 2
+const K9 = [...K10]; // même sujet que le 10e kyū, seuil plus haut
+const K8 = [...K9, ...ENDURANCE[8], 'p6-2', 'p7-0', 'p7-1', 'p7-2a', 'p7-2b', 'p7-2c', 'p7-2d', 'p7-2']; // 8 lignes, 3 × 1, ÷ 1 chiffre
+const K7 = [...K8, ...ENDURANCE[7], 'p6-3a', 'p6-3b', 'p6-3c', 'p6-3']; // 10 lignes, 2 × 2
 // 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
 // était exigé dès le 6e kyū, décimaux et division par 3 chiffres compris).
 const K6 = [...K7, 'p6-4', 'p7-ea', 'p7-e', 'p7-3', 'p7-4a', 'p7-4b', 'p7-4c', 'p7-4', 'p8-t1']; // 3 × 2, ÷ 2 chiffres
 const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6'];
 const K4 = [...K5, 'p8-3', 'p8-5', 'p8-7'];
-const K3 = [...K4, ...idsPaliers('pd')]; // décimaux, arrondis et négatifs (p8-n, p8-n2)
-const K2 = [...K3, 'p9-1', 'p9-3', 'p9-5'];
+// Résultats négatifs : seulement aux 1er et 2e kyū (sujets modèles) ; décimaux et arrondis dès le 3e.
+const NEGATIFS = ['p8-n', 'p8-n2'];
+const K3 = [...K4, ...idsPaliers('pd').filter((id) => !NEGATIFS.includes(id))];
+const K2 = [...K3, ...NEGATIFS, 'p9-1', 'p9-3', 'p9-5'];
 const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6'];
 export const PREREQUIS = { 10: K10, 9: K9, 8: K8, 7: K7, 6: K6, 5: K5, 4: K4, 3: K3, 2: K2, 1: K1 };
 const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);

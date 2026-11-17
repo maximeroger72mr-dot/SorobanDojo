@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GRADES, genererSujet, totalPoints } from '../src/core/epreuves.js';
+import { GRADES, GRADES_KYU, genererSujet, totalPoints } from '../src/core/epreuves.js';
 import { catalogueDrills, controles } from '../src/core/drills.js';
 
 const chiffres = (x) => String(x).replace('.', '').replace(/^0+/, '').length;
 
-test('sujets conformes au tableau retenu', () => {
+test('sujets conformes au tableau officiel et aux sujets modèles', () => {
   for (const g of GRADES) {
     const s = genererSujet(g);
     assert.equal(totalPoints(g), g.minutes === 20 ? 200 : 300, g.id);
@@ -15,13 +15,18 @@ test('sujets conformes au tableau retenu', () => {
       sec.problemes.forEach((p, i) => {
         if (sec.cle === 'mitori') {
           assert.equal(p.lignes.length, f.lignes);
-          assert.ok(p.lignes.every((l) => String(l.n).length >= f.min && String(l.n).length <= f.max), `${g.id} mitori`);
-          // Les `pures` premiers problèmes : additions seules ; les suivants ont des soustractions.
-          assert.equal(p.lignes.some((l) => l.op === '-'), i >= f.pures, `${g.id} : problème ${i + 1}`);
-          if (p.resultat < 0) assert.ok(f.negatifs?.[1] > 0 && p.negatif && i >= f.nb / 2 && p.resultat > -(10 ** f.max), `${g.id} : négatif inattendu`);
-        } else if (f.decimales) {
-          // Du 3e au 1er kyū : TOUS les problèmes sont en décimaux ; millième puis unité.
-          assert.ok(p.virgules, `${g.id} : problème entier`);
+          // Tous les nombres d'un problème ont la même longueur.
+          const k = f.chiffresParProbleme?.[i] ?? f.chiffres;
+          assert.ok(p.lignes.every((l) => String(l.n).length === k), `${g.id} mitori ${i + 1}`);
+          // Problèmes 3, 5, 7, 9 : additions et soustractions, avec `moins` lignes négatives,
+          // jamais en 1re, 2e ni dernière ligne ; les autres : additions seules.
+          const moins = p.lignes.map((l, j) => (l.op === '-' ? j : -1)).filter((j) => j >= 0);
+          if ([2, 4, 6, 8].includes(i)) {
+            assert.equal(moins.length, f.moins, `${g.id} : problème ${i + 1}`);
+            assert.ok(moins.every((j) => j >= 2 && j <= f.lignes - 2), `${g.id} : ${moins}`);
+          } else assert.equal(moins.length, 0, `${g.id} : problème ${i + 1}`);
+          if (p.resultat < 0) assert.ok(f.negatifs?.[1] > 0 && p.negatif && i === 8, `${g.id} : négatif inattendu`);
+        } else if (p.virgules) {
           if (i < f.nb / 2) assert.ok(p.decimales <= f.decimales, `${g.id} : arrondi de la première moitié`);
           else assert.equal(p.decimales, 0, `${g.id} : la seconde moitié s'arrondit à l'unité`);
         } else if (sec.cle === 'mul') {
@@ -40,58 +45,59 @@ test('sujets conformes au tableau retenu', () => {
   }
 });
 
-test('grille officielle : seuils, formes et résultat négatif', () => {
+test('tableau officiel (shuzan.jp) : 口, 字, seuils, chiffres des × et ÷', () => {
   const g = (id) => GRADES.find((x) => x.id === id);
-  assert.equal(g('10').seuil * totalPoints(g('10')), 60);
-  for (const id of ['9', '8', '7']) assert.equal(g(id).seuil * totalPoints(g(id)), 120);
-  for (const id of ['6', '5', '4']) assert.equal(g(id).seuil * totalPoints(g(id)), 210);
-  for (const id of ['3', '2', '1']) assert.equal(g(id).seuil * totalPoints(g(id)), 240);
-  assert.equal(g('10').div, undefined);
-  assert.equal(g('9').div, undefined);
-  // 10e kyū : la même épreuve que le 9e (10 lignes de 1 à 2 chiffres, avec soustractions), seul le seuil change.
+  // [lignes, total de chiffres, × (実法), ÷ (法商), points pour réussir]
+  const officiel = { 10: [5, 10, 3, null, 60], 9: [5, 10, 3, null, 120], 8: [8, 16, 4, 3, 120], 7: [10, 20, 4, 4, 120],
+    6: [10, 30, 5, 4, 210], 5: [10, 40, 6, 5, 210], 4: [10, 50, 7, 6, 210], 3: [10, 60, 7, 6, 240], 2: [10, 80, 9, 8, 240], 1: [10, 100, 11, 10, 240],
+    j3: [10, null, 7, 6, 240], j2: [10, 70, 8, 7, 240], j1: [10, 90, 10, 9, 240] };
+  for (const [id, [lignes, ji, mul, div, reussite]] of Object.entries(officiel)) {
+    const x = g(id);
+    assert.equal(x.mitori.lignes, lignes, id);
+    if (ji) assert.equal(x.mitori.lignes * x.mitori.chiffres, ji, id);
+    assert.equal(x.mul.total, mul, id);
+    assert.equal(x.div?.total ?? null, div, id);
+    assert.equal(Math.round(x.seuil * totalPoints(x)), reussite, id);
+  }
+  // 準3 : 5 problèmes à 50 字, 5 à 60.
+  assert.deepEqual(g('j3').mitori.chiffresParProbleme.map((k) => k * 10).sort(), [50, 50, 50, 50, 50, 60, 60, 60, 60, 60]);
+  assert.equal(g('10').minutes, 20);
+  assert.equal(g('1').minutes, 30);
+  // Les 9e et 10e kyū : le même sujet, seul le seuil change.
   assert.deepEqual(g('10').mitori, g('9').mitori);
-  assert.equal(g('8').mitori.lignes, 10);
-  // Dès le 3e kyū : exactement un résultat négatif, dans la seconde moitié.
-  for (const id of ['3', '2', '1']) for (let k = 0; k < 5; k++) assert.equal(genererSujet(g(id)).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
-  assert.deepEqual(GRADES.filter((x) => x.milliers).map((x) => x.id), ['3', '2', '1']);
+  assert.deepEqual(g('10').mul, g('9').mul);
+  // Un résultat négatif, au problème 9, au 1er et au 2e kyū seulement (pas au 3e).
+  for (const id of ['2', '1']) for (let k = 0; k < 5; k++) {
+    const pb = genererSujet(g(id)).sections[0].problemes;
+    assert.equal(pb.filter((p) => p.resultat < 0).length, 1);
+    assert.ok(pb[8].resultat < 0);
+  }
+  for (let k = 0; k < 5; k++) assert.equal(genererSujet(g('3')).sections[0].problemes.filter((p) => p.resultat < 0).length, 0);
+  assert.deepEqual(GRADES.filter((x) => x.milliers && !x.jun).map((x) => x.id), ['3', '2', '1']);
+  // La frise des kyū ne contient pas les grades 準.
+  assert.deepEqual(GRADES_KYU.map((x) => x.id), ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1']);
 });
 
-test('mitorizan : total de chiffres par problème fixé par le grade (字数), longueurs imposées', () => {
-  const totaux = { 6: 35, 5: 45, 4: 55, 3: 60, 2: 75, 1: 100 };
-  for (const [id, total] of Object.entries(totaux)) {
-    const g = GRADES.find((x) => x.id === id);
-    assert.equal(g.mitori.longueurs.reduce((t, x) => t + x, 0), total, id);
-    for (let k = 0; k < 3; k++) for (const p of genererSujet(g).sections[0].problemes) {
-      const longueurs = p.lignes.map((l) => String(l.n).length).sort((a, b) => a - b);
-      assert.deepEqual(longueurs, [...g.mitori.longueurs].sort((a, b) => a - b), `${id} : ${longueurs}`);
-    }
-  }
-  // 6e au 4e kyū : moitié-moitié sur deux longueurs voisines.
-  for (const [id, court] of [['6', 3], ['5', 4], ['4', 5]]) {
-    const l = GRADES.find((x) => x.id === id).mitori.longueurs;
-    assert.equal(l.filter((x) => x === court).length, 5);
-    assert.equal(l.filter((x) => x === court + 1).length, 5);
-  }
-  const g1 = GRADES.find((g) => g.id === '1');
-  for (let k = 0; k < 5; k++) assert.equal(genererSujet(g1).sections[0].problemes.filter((p) => p.resultat < 0).length, 1);
-});
-
-test('× et ÷ d\'examen : aucun opérande entier terminé par 0, aucun doublon', () => {
-  for (const id of ['6', '4', '1']) {
+test('× et ÷ d\'examen : des facteurs terminés par 0 comme dans les sujets modèles, aucun doublon', () => {
+  let zeros = 0;
+  let total = 0;
+  for (let k = 0; k < 10; k++) for (const id of ['6', '4']) {
     const s = genererSujet(GRADES.find((g) => g.id === id));
     for (const sec of s.sections.filter((x) => x.cle !== 'mitori')) {
-      const entiers = sec.problemes.filter((p) => p.arrondi === undefined);
-      for (const p of entiers) assert.ok(p.b % 10 !== 0 && (p.type === 'mul' ? p.a : p.resultat) % 10 !== 0, `${id} ${p.a} ${p.b}`);
+      for (const p of sec.problemes) { total += 1; if (p.b % 10 === 0 || (p.type === 'mul' ? p.a : p.resultat) % 10 === 0) zeros += 1; }
       assert.equal(new Set(sec.problemes.map((p) => `${p.a}|${p.b}`)).size, sec.problemes.length);
     }
   }
+  assert.ok(zeros / total > 0.08 && zeros / total < 0.35, `${zeros} / ${total}`);
 });
 
-test('décimaux dès le 3e kyū seulement', () => {
+test('décimaux dès le 3e kyū seulement, environ un problème sur deux', () => {
   for (const g of GRADES) {
     const s = genererSujet(g);
-    const decimaux = s.sections.flatMap((x) => x.problemes).filter((p) => p.arrondi !== undefined).length;
-    assert.equal(decimaux > 0, ['3', '2', '1'].includes(g.id), g.id);
+    const pb = s.sections.flatMap((x) => x.problemes).filter((p) => p.type !== 'addsub');
+    const decimaux = pb.filter((p) => p.virgules).length;
+    assert.equal(decimaux > 0, !!g.mul.decimales, g.id);
+    if (g.mul.decimales) assert.ok(decimaux > 8 && decimaux < 32, `${g.id} : ${decimaux} / ${pb.length}`);
   }
 });
 

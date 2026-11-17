@@ -1,5 +1,5 @@
 /**
- * Épreuves au format des examens officiels japonais (珠算検定), du 10e au 1er kyū.
+ * Épreuves au format des examens officiels japonais (珠算検定), du 10e au 1er kyū, et 準1 à 準3.
  * Sujet complet (mitorizan, multiplication, division), compte à rebours, notation par points,
  * seuil de réussite, impression possible. Voir core/epreuves.js pour les formats et leurs sources.
  */
@@ -70,8 +70,9 @@ function resume(g) {
     return p.join(' · ');
   }
   const m = g.mitori;
-  const melange = m.pures >= m.nb ? ', additions seules' : m.pures ? ` (${m.pures} d'additions seules, ${m.nb - m.pures} avec soustractions${m.negatifs?.[0] ? ', dont un résultat négatif' : ''})` : ', additions et soustractions';
-  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} lignes de ${m.min === m.max ? m.min : `${m.min} à ${m.max}`} chiffres${m.longueurs ? ` (${m.longueurs.reduce((t, x) => t + x, 0)} chiffres par problème)` : ''}${melange}`];
+  const chiffres = m.chiffresParProbleme ? `${m.min} ou ${m.max}` : m.chiffres;
+  const moins = `${m.moins} ligne${m.moins > 1 ? 's' : ''} négative${m.moins > 1 ? 's' : ''}`;
+  const p = [`Mitorizan ${m.nb} problèmes de ${m.lignes} nombres à ${chiffres} chiffres ; les problèmes 3, 5, 7 et 9 ont ${moins}${m.negatifs?.[0] ? ', le 9 un résultat négatif' : ''}`];
   const forme = (f, sep) => (f.formes ? f.formes.map(([x, y]) => `${x} ${sep} ${y} chiffre${y > 1 ? 's' : ''}`).join(' ou ') : null);
   const dec = (f) => (f.decimales ? ', décimaux : arrondi au millième dans la première moitié, à l\'unité dans la seconde' : '');
   if (g.mul) p.push(`multiplication ${g.mul.nb} × (${forme(g.mul, '×') ?? `${g.mul.total} chiffres au total`}${dec(g.mul)})`);
@@ -113,16 +114,16 @@ export default {
         h('p', { class: 'discret' }, 'Sujets au format des examens japonais de soroban. Comme à l\'examen : tout sur votre soroban, dans le temps imparti. Choisissez le système qui compte pour votre grade ; les résultats de chacun sont gardés.'),
         choix,
         h('div', { class: 'carte', style: 'margin:12px 0' }, h('strong', {}, 'À savoir. '), zen
-          ? `Zenkoren (全国珠算教育連盟) : chaque épreuve a son propre chrono de ${MINUTES_EPREUVE_ZENKOREN} minutes, sans report de temps : multiplication, division, puis additions-soustractions (au 10e kyū, deux épreuves d'additions, A et B ; au 9e, pas de division). 15 problèmes à 10 points par épreuve, et il faut ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans CHACUNE : une seule épreuve en dessous, et l'examen est raté. Les nombres de chiffres sont ceux du même grade Nisshō (format officiel non connu ici) ; les colonnes sont plus courtes, mais il faut aller environ 1,5 fois plus vite. Un kyū Zenkoren n'est jamais plus facile que le kyū Nisshō du même rang.`
-          : 'Nisshō (Chambre de commerce du Japon, 1er au 3e kyū) et Nihon Shuzan Renmei : un seul temps pour tout le sujet, une note globale. Du 6e au 1er kyū : 300 points, réussite à 210 (4e au 6e) puis 240 (1er au 3e) ; dès le 3e kyū, multiplications et divisions s\'arrondissent, et un problème d\'additions a un résultat négatif. Du 10e au 7e kyū : 200 points, réussite à 120 (60 au 10e kyū). En mitorizan, 10 lignes ; 6 problèmes d\'additions seules puis 4 avec soustractions. Les séparateurs de milliers ne sont exigés qu\'en examen pur, du 1er au 3e kyū.'),
+          ? `Zenkoren (全国珠算教育連盟) : chaque épreuve a son propre chrono de ${MINUTES_EPREUVE_ZENKOREN} minutes, sans report de temps : multiplication, division, puis additions-soustractions (au 10e kyū, deux épreuves d'additions, A et B ; au 9e, pas de division). 15 problèmes à 10 points par épreuve, et il faut ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans CHACUNE : une seule épreuve en dessous, et l'examen est raté. Zenkoren ne publie pas le nombre de chiffres par problème : l'application reprend celui du même grade Nisshō ; les colonnes sont plus courtes, mais il faut aller 1,3 à 1,9 fois plus vite. Un kyū Zenkoren n'est jamais plus facile que le kyū Nisshō du même rang.`
+          : 'Nisshō (Chambre de commerce du Japon, 1er au 3e kyū) et Nihon Shuzan Renmei (les autres) : un seul temps pour tout le sujet, une note globale, sans note minimale par partie. Du 10e au 7e kyū : 20 minutes, 200 points, réussite à 120 (60 au 10e kyū, qui a le même sujet que le 9e). Du 6e au 1er kyū : 30 minutes, 300 points, réussite à 210 (4e au 6e) puis 240 (1er au 3e). En mitorizan, les nombres d\'un problème ont tous la même longueur ; les problèmes 3, 5, 7 et 9 mêlent additions et soustractions. Dès le 3e kyū, la moitié des × et ÷ sont en décimaux, arrondis au millième puis à l\'unité (montants) ; aux 1er et 2e kyū, le problème 9 a un résultat négatif. Les grades 準 (préparatoires) s\'intercalent entre le 4e et le 1er kyū ; ils sont facultatifs. Formats contrôlés sur le règlement de shuzan.jp et les sujets modèles officiels.'),
         optionsExamen(),
-        h('div', { class: 'liste-grades' }, sys.grades.map((g) => h('div', { class: 'carte grade' },
+        h('div', { class: 'liste-grades' }, (zen ? sys.grades : GRADES).map((g) => h('div', { class: `carte grade${g.jun ? ' grade-jun' : ''}` },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${meilleur(g)?.reussi ? 'fait' : 'ouvert'}` }, meilleur(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, g.parEpreuve ? `réussite : ${JUSTES_EPREUVE_ZENKOREN} / 15 dans chaque épreuve${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}${meilleur(g).reussi ? ' ✓' : ''}` : ''}`
               : `réussite ≥ ${Math.round(g.seuil * totalPoints(g))} / ${totalPoints(g)}${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
-          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.verifie ? '' : ' · format indicatif'),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.jun ? ' · grade facultatif, hors de la frise des kyū' : '', g.verifie ? '' : ' · format indicatif (pas de sujet modèle en ligne)'),
           ligneAllure(g),
           (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
           h('div', { class: 'ligne' },
@@ -219,7 +220,7 @@ export default {
       const zen = !!g.parEpreuve;
       const seuil = zen ? g.seuil : section ? Math.max(SEUIL_SPRINT, g.seuil) : g.seuil;
       const milliers = !section && !!g.milliers && !!reglagesUtilisateur().examenPur;
-      if (milliers) el.append(h('p', { class: 'consigne' }, 'Examen pur : écrivez les séparateurs de milliers (« 1 234 567 », ou « 12 345,678 »). Sans eux, une réponse juste est comptée fausse, comme à l\'examen.'));
+      if (milliers) el.append(h('p', { class: 'consigne' }, 'Examen pur : écrivez les séparateurs de milliers (« 1 234 567 », ou « 12 345,678 »), comme dans les sujets japonais. L\'application compte faux un nombre écrit sans eux, pour en prendre l\'habitude ; le règlement publié ne le précise pas.'));
       const minutes = zen ? (section ? g.minutesEpreuve : g.minutes) : section ? MINUTES_SPRINT : g.minutes;
       if (zen) el.append(h('p', { class: 'consigne' }, section ? `${g.minutesEpreuve} minutes, ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 pour réussir.` : `${sections.length} épreuves de ${g.minutesEpreuve} minutes, l'une après l'autre, sans revenir en arrière : à la fin du temps, on passe à la suivante. ${JUSTES_EPREUVE_ZENKOREN} justes sur 15 dans CHACUNE.`));
       feuille = creerFeuille(el, {

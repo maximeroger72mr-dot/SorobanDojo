@@ -18,7 +18,7 @@ import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
 import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide } from '../core/parcours.js';
 import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
-import { GRADES } from '../core/epreuves.js';
+import { GRADES_KYU as GRADES } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif, diagnosticPincee } from '../core/motifs.js';

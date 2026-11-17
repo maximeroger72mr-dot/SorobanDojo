@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GRADES, GRADES_ZENKOREN, genererSujet, systemeChoisi, totalPoints } from '../src/core/epreuves.js';
+import { GRADES_KYU as GRADES, GRADES_ZENKOREN, genererSujet, systemeChoisi, totalPoints } from '../src/core/epreuves.js';
 import { allureGrade } from '../src/core/allure.js';
 import { grade } from '../src/core/parcours.js';
 import { sectionsBlanc, formatBlanc, minutesBlanc, examenDeLaSemaine } from '../src/core/examen.js';
@@ -26,7 +26,8 @@ test('Zenkoren : jamais plus facile que le même grade Nisshō, sans devenir irr
     assert.equal(z.mitori.max, n.mitori.max);
     if (n.mul && z.mul) assert.equal(z.mul.total, n.mul.total); // 10e kyū Zenkoren : deux épreuves d'additions, pas de ×
     const r = allureGrade(z).cpm / allureGrade(n).cpm;
-    assert.ok(r >= 1.3 && (r <= 1.7 || n.id === '10'), `${n.id} : ${r.toFixed(2)}`);
+    // 9e et 10e kyū Nisshō : 20 minutes pour 5 lignes de 2 chiffres, très large ; le rapport y est forcément élevé.
+    assert.ok(r >= 1.3 && (r <= 1.9 || ['10', '9'].includes(n.id)), `${n.id} : ${r.toFixed(2)}`);
   }
 });
 
@@ -58,8 +59,8 @@ import { PREREQUIS } from '../src/core/parcours.js';
 import { aideDivision } from '../src/core/multiplication.js';
 
 test('0.29 : marches et ordre du parcours par grade', () => {
-  // 10 lignes avant la multiplication, exigé dès le 10e kyū.
-  assert.ok(PREREQUIS[10].includes('p5-e'));
+  // 10 lignes : exigé au 7e kyū (2けた10口), pas avant (5 lignes aux 10e et 9e, 8 au 8e).
+  assert.ok(PREREQUIS[7].includes('p5-e') && !PREREQUIS[8].includes('p5-e') && !PREREQUIS[10].includes('p5-e8'));
   const e = genererExercice(sousPalier('p5-e'));
   assert.equal(e.lignes.length, 10);
   // Diviser par 11 à 19 : au moins 2 corrections dans le calcul.
@@ -67,8 +68,8 @@ test('0.29 : marches et ordre du parcours par grade', () => {
     const x = genererExercice(sousPalier('p7-4c'));
     assert.ok(x.b >= 11 && x.b <= 19 && aideDivision(x.a, x.b).etapes.some((s) => s.essais.length >= 3));
   }
-  // Négatifs avant le 3e kyū, au format d'examen.
-  assert.ok(PREREQUIS[3].includes('p8-n') && PREREQUIS[3].includes('p8-n2'));
+  // Négatifs : exigés au 2e kyū (pas au 3e), au format d'examen.
+  assert.ok(PREREQUIS[2].includes('p8-n') && PREREQUIS[2].includes('p8-n2') && !PREREQUIS[3].includes('p8-n'));
   assert.ok(sousPalier('p8-n').ordre < sousPalier('p9-1').ordre);
   assert.equal(String(Math.abs(genererExercice(sousPalier('p8-n2')).lignes[0].n)).length, 8);
   // p8 : tout le 5e kyū avant ce qui n'est que du 4e.

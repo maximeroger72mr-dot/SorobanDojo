@@ -26,6 +26,8 @@ export function manquantesActivite(d, cle) {
 
 /** Leçons conseillées et pas encore validées pour une épreuve officielle (10e au 7e kyū). */
 export function manquantesEpreuve(d, gradeId) {
-  if (d.reglages?.decouverte || !PREREQUIS[gradeId]) return [];
-  return PREREQUIS[gradeId].filter((id) => !d.paliers[id]?.valide).map(sp);
+  // Grades 準 : les leçons du kyū qu'ils précèdent (準3 → 3e kyū : mêmes × et ÷).
+  const id = String(gradeId).startsWith('j') ? String(gradeId).slice(1) : gradeId;
+  if (d.reglages?.decouverte || !PREREQUIS[id]) return [];
+  return PREREQUIS[id].filter((id) => !d.paliers[id]?.valide).map(sp);
 }
