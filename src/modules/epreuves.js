@@ -139,9 +139,13 @@ export default {
     /** Résumé d'un grade d'anzan : « 50 additions de 3 nombres à 1 chiffre ». */
     const resumeAnzan = (g) => {
       const m = g.mitori;
-      const p = [`${m.nb} ${m.soustractions ? 'additions et soustractions' : 'additions'} de ${m.lignes} nombres à ${m.min} chiffre${m.min > 1 ? 's' : ''}`];
-      if (g.mul) p.push(`${g.mul.nb} multiplications (${g.mul.total} chiffres au total)`);
-      if (g.div) p.push(`${g.div.nb} divisions (diviseur + quotient : ${g.div.total} chiffres)`);
+      const chiffres = (s) => (s.longueurs ? `${s.longueurs.reduce((t, x) => t + x, 0)} chiffres en tout (1 ou 2 par nombre)` : `${s.chiffres} chiffre${s.chiffres > 1 ? 's' : ''}`);
+      const series = m.series.map((s) => `${s.nb} de ${s.lignes} nombres à ${chiffres(s)}`).join(', ');
+      const p = [`${m.series.reduce((t, s) => t + s.nb, 0)} ${m.soustractions ? 'additions et soustractions' : 'additions'} (${series})`];
+      const totaux = (f) => [...new Set(f.series.map((s) => s.total))].join(' puis ');
+      if (g.mul) p.push(`${g.mul.nb} multiplications (${totaux(g.mul)} chiffres au total)`);
+      if (g.div) p.push(`${g.div.nb} divisions (diviseur + quotient : ${totaux(g.div)} chiffres)`);
+      if (g.commun) p.push('le même sujet du 7e au 10e kyū : seul le nombre de points décide du grade');
       return p.join(' · ');
     };
 
@@ -149,13 +153,13 @@ export default {
     function listeAnzan() {
       const rec = (g) => progression().records[`epreuve-${g.id}`];
       return [h('h2', {}, 'Épreuves d\'anzan (暗算検定)'),
-        h('p', { class: 'discret' }, 'Tout de tête, soroban rangé. Chaque épreuve (additions, multiplications, divisions) a son propre temps : on les passe l\'une après l\'autre, sans revenir en arrière. Format indicatif : il vient de sources non officielles, et la longueur des colonnes a été reconstituée pour que chaque grade soit plus exigeant que le précédent. Ces épreuves ne comptent pas pour le grade de soroban.'),
+        h('p', { class: 'discret' }, 'Tout de tête, soroban rangé. 12 minutes pour tout le sujet, dans l\'ordre que vous voulez, 500 points. Format du règlement officiel (日本珠算連盟) et du sujet modèle du 1er kyū ; la répartition des points entre les parties n\'est pas publiée (ici 10 par addition, 5 par × ou ÷). Ces épreuves ne comptent pas pour le grade de soroban.'),
         h('div', { class: 'liste-grades' }, GRADES_ANZAN.map((g) => h('div', { class: 'carte grade' },
           h('div', { class: 'ligne' },
             h('span', { class: `icone etat-${rec(g)?.reussi ? 'fait' : 'ouvert'}` }, rec(g)?.reussi ? '✓' : '○'),
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, `réussite ≥ ${Math.round(g.seuil * totalPointsAnzan(g))} / ${totalPointsAnzan(g)}${rec(g) ? ` · meilleur ${rec(g).points}` : ''}`)),
-          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resumeAnzan(g), ' · format indicatif'),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resumeAnzan(g), g.jun ? ' · grade facultatif' : '', g.verifie ? '' : ' · sans sujet modèle en ligne : additions seules, par prudence'),
           h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrerAnzan(g) }, `Épreuve d'anzan · ${g.minutes} min`)))))];
     }
 
@@ -167,9 +171,8 @@ export default {
       feuille = creerFeuille(el, {
         titre: `${g.nom} (${g.japonais}) · ${g.minutes} minutes · de tête`,
         minutes: g.minutes,
-        // Chaque épreuve chronométrée séparément : le temps total, partagé à parts égales.
-        sections: sujet.sections.map((x) => ({ ...x, minutes: g.minutes / sujet.sections.length })),
-        parEpreuve: true,
+        // Un seul temps pour tout le sujet (一括施行), comme à l'examen.
+        sections: sujet.sections,
         surFin: (b) => {
           const reussi = b.points >= g.seuil * max;
           enregistrerSession({ module: 'epreuves', mode: g.id, total: b.total, justes: b.justes, dureeMs: b.dureeMs });

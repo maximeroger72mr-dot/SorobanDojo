@@ -154,9 +154,17 @@ function lignesMoins(f) {
   return indices;
 }
 
-/** Longueurs des lignes : toutes à `chiffres` (sujets modèles), sinon min à max. */
+/**
+ * Longueurs des lignes : toutes à `chiffres` (sujets modèles) ; ou `longueurs` imposées, dans un
+ * ordre tiré au hasard (anzan 5口8字 : trois nombres de 2 chiffres, deux de 1) ; sinon min à max.
+ */
 function longueursLignes(f) {
   if (f.chiffres) return Array.from({ length: f.lignes }, () => f.chiffres);
+  if (f.longueurs) {
+    const l = [...f.longueurs];
+    for (let i = l.length - 1; i > 0; i--) { const j = entier(0, i); [l[i], l[j]] = [l[j], l[i]]; }
+    return l;
+  }
   return Array.from({ length: f.lignes }, () => entier(f.min, f.max));
 }
 

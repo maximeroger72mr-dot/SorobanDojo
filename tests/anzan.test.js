@@ -5,24 +5,40 @@ import { PALIERS_DICTEE, palierSuivant, libellePalier } from '../src/core/dictee
 import { SOUS_PALIERS } from '../src/core/curriculum.js';
 import { exigeVitesse } from '../src/core/minitest.js';
 
-test('épreuves d\'anzan : 500 points, 12 minutes, 80 ou 50 problèmes, tous marqués « format indicatif »', () => {
+test('épreuves d\'anzan : règlement officiel (500 points, 12 minutes, 80 ou 50 problèmes)', () => {
+  const lignes = (g) => genererSujetAnzan(g).sections[0].problemes.map((p) => p.lignes.length);
   for (const g of GRADES_ANZAN) {
     assert.equal(totalPointsAnzan(g), 500, g.nom);
     assert.equal(g.minutes, 12);
-    assert.equal(g.verifie, false);
     const s = genererSujetAnzan(g);
     const n = s.sections.reduce((t, x) => t + x.problemes.length, 0);
     assert.equal(n, g.mul ? 80 : 50, g.nom);
-    for (const p of s.sections[0].problemes) {
-      assert.ok(p.resultat >= 0 && p.lignes.length === g.mitori.lignes);
-      assert.ok(p.lignes.every((l) => String(l.n).length === g.mitori.min), g.nom);
-    }
-    for (const sec of s.sections.slice(1)) for (const p of sec.problemes) {
+    for (const p of s.sections[0].problemes) assert.ok(p.resultat >= 0);
+    for (const sec of s.sections.slice(1)) for (const [i, p] of sec.problemes.entries()) {
       const total = String(p.b).length + String(sec.cle === 'mul' ? p.a : p.resultat).length;
-      assert.equal(total, g[sec.cle].total, `${g.nom} ${sec.cle}`);
+      assert.equal(total, g[sec.cle].series[i < 15 ? 0 : 1].total, `${g.nom} ${sec.cle}`);
     }
   }
-  assert.deepEqual(GRADES_ANZAN.slice(0, 4).map((g) => Math.round(g.seuil * 500)), [250, 300, 350, 400]);
+  const a = (id) => GRADES_ANZAN.find((x) => x.id === id);
+  // 7e au 10e : le même sujet, 15 × 3口, 15 × 4口, 20 × 5口 ; 400, 350, 300, 250 points.
+  assert.deepEqual(['a7', 'a8', 'a9', 'a10'].map((id) => Math.round(a(id).seuil * 500)), [400, 350, 300, 250]);
+  const l = lignes(a('a7'));
+  assert.deepEqual([l[0], l[14], l[15], l[29], l[30], l[49]], [3, 3, 4, 4, 5, 5]);
+  // 1er : 3けた10口 ; 2e : 3けた7口 ; 3e : 3けた5口 ; 4e : 2けた5口 ; 5e : 5口8字 ; 6e : 5口6字.
+  const premier = (id) => genererSujetAnzan(a(id)).sections[0].problemes[0].lignes.map((x) => String(x.n).length);
+  assert.deepEqual(premier('a1'), Array(10).fill(3));
+  assert.deepEqual(premier('a2'), Array(7).fill(3));
+  assert.deepEqual(premier('a3'), Array(5).fill(3));
+  assert.deepEqual(premier('a4'), Array(5).fill(2));
+  assert.equal(premier('a5').reduce((t, x) => t + x, 0), 8);
+  assert.equal(premier('a6').reduce((t, x) => t + x, 0), 6);
+  assert.deepEqual(['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((id) => a(id).mul.series[0].total), [5, 4, 4, 3, 3, 3]);
+  // 1er kyū : problèmes 3, 5, 7, 9 avec 4 lignes négatives (sujet modèle).
+  const p1 = genererSujetAnzan(a('a1')).sections[0].problemes;
+  assert.equal(p1[2].lignes.filter((x) => x.op === '-').length, 4);
+  assert.equal(p1[1].lignes.filter((x) => x.op === '-').length, 0);
+  // 準 : moitié-moitié entre les deux grades voisins.
+  assert.deepEqual(lignes(a('aj1')).filter((x, i) => i === 0 || i === 19), [7, 10]);
 });
 
 test('dictée anzan : paliers croissants, montée à 4 sur 5, descente à 2 sur 5', () => {
