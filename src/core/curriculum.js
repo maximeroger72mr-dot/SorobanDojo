@@ -568,6 +568,8 @@ export function familleLecon(sp) {
   if (sp.type === 'photo' || sp.type === 'tenir' || sp.type === 'lire') return 'photo';
   if (sp.type === 'complement') return 'table';
   if (['addsub', 'anzan', 'addsubdec', 'negatif'].includes(sp.type)) return 'addsub';
+  // Leçon à lire : aucun exercice, donc aucune vitesse (elle comptait comme × et ÷).
+  if (sp.type === 'theorie') return 'theorie';
   return 'muldiv';
 }
 

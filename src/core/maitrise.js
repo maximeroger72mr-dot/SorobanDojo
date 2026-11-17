@@ -114,7 +114,7 @@ export function evaluer(hist = [], famille = 'addsub') {
   if (essais >= MIN_ESSAIS) {
     for (let i = 2; i < NIVEAUX.length; i++) {
       const n = NIVEAUX[i];
-      if (reussite >= n.reussite && temps !== null && temps <= n.temps[famille]) index = i;
+      if (reussite >= n.reussite && temps !== null && n.temps[famille] != null && temps <= n.temps[famille]) index = i;
     }
   }
   const prochain = NIVEAUX[index + 1] ?? null;

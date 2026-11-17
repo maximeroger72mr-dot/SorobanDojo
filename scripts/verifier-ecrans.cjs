@@ -12,7 +12,9 @@
  *
  * Lancer : xvfb-run -a node scripts/verifier-ecrans.cjs   (code de sortie 1 au moindre problème)
  */
-const { _electron } = require('playwright');
+// playwright (poste de développement) ou playwright-core (intégration continue) : seul le pilote
+// d'Electron sert, aucun navigateur n'est téléchargé.
+const { _electron } = (() => { try { return require('playwright'); } catch { return require('playwright-core'); } })();
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -126,13 +128,18 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
     await w.evaluate((x) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: x })), [ecran, params]);
     await controler(w, `${ecran} ${JSON.stringify(params)}`, attendu);
   }
-  // Feuille : Entrée sur la dernière case corrige et arrête le chrono.
+  // Feuille : Entrée sur la dernière case, puis confirmation : la feuille est corrigée.
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: '+3:petit', auto: true, colonnes: 3, chiffres: 1 }] })));
   await w.waitForTimeout(300);
   const champs = await w.$$('#ecran .probleme input');
   for (const c of champs) { await c.fill('1'); await c.press('Enter'); }
+  // Depuis la 0.33, Entrée sur la dernière case demande « Avez-vous terminé ? » ; Entrée encore
+  // (le bouton « Oui, corriger » a le focus) corrige et arrête le chrono.
+  await w.waitForTimeout(200);
+  if (!(await w.$('#ecran .confirmation-fin'))) problemes.push('feuille : Entrée sur la dernière case ne demande pas de confirmation');
+  await w.keyboard.press('Enter');
   await w.waitForTimeout(400);
-  if (!(await w.$('#ecran .vitesse-feuille, #ecran .carte.bilan'))) problemes.push('feuille : Entrée sur la dernière case ne corrige pas');
+  if (!(await w.$('#ecran .vitesse-feuille, #ecran .carte.bilan'))) problemes.push('feuille : la confirmation (Entrée) ne corrige pas');
   // Planche proposée par la séance : son objectif est affiché.
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['planches', { cible: 'appris', auto: true, colonnes: 5, chiffres: 2, lignes: 5, proposition: 'consolider', objectif: 'Consolider : test' }] })));
   await controler(w, 'planche proposée', 'Planches');
@@ -181,7 +188,12 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   for (let i = 0; i < nbPoints; i++) {
     await aller(w, 'seance');
     await w.waitForTimeout(200);
-    const titre = await w.$eval(`#ecran .liste-paliers .ligne-palier >> nth=${i}`, (x) => x.querySelector('strong').textContent);
+    // Les blocs de la séance sont des <details> : seul le bloc en cours est ouvert. On ouvre
+    // celui qui contient l'exercice avant de cliquer (sinon l'élément est invisible).
+    const titre = await w.$eval(`#ecran .liste-paliers .ligne-palier >> nth=${i}`, (x) => {
+      for (let p = x.parentElement; p; p = p.parentElement) if (p.tagName === 'DETAILS') p.open = true;
+      return x.querySelector('strong').textContent;
+    });
     await w.click(`#ecran .liste-paliers .ligne-palier >> nth=${i}`);
     await controler(w, `séance › ${titre}`);
     const barre = await w.$eval('.barre-seance', (x) => !x.hidden).catch(() => false);

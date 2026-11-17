@@ -43,8 +43,8 @@ const TYPES = {
   colonnes1: { titre: 'Colonnes, 1 chiffre, 5 lignes', generer: () => colonne(1) },
   colonnes2: { titre: 'Colonnes, 2 chiffres, 5 lignes', generer: () => colonne(2) },
   colonnes3: { titre: 'Colonnes, 3 chiffres, 5 lignes', generer: () => colonne(3) },
-  mul21: { titre: 'Multiplications 2 × 1 chiffres', generer: () => genererMultiplication(2, 1) },
-  mul22: { titre: 'Multiplications 2 × 2 chiffres', generer: () => genererMultiplication(2, 2) },
+  mul21: { titre: 'Multiplications (2 chiffres × 1 chiffre)', generer: () => genererMultiplication(2, 1) },
+  mul22: { titre: 'Multiplications (2 chiffres × 2 chiffres)', generer: () => genererMultiplication(2, 2) },
   div: { titre: 'Divisions (÷ 1 chiffre, quotient 2 chiffres)', generer: () => genererDivision(1, 2) },
   mix: { titre: 'Mélange (colonnes, multiplications, divisions)', generer: () => [() => colonne(2), () => genererMultiplication(2, 1), () => genererDivision(1, 2)][Math.floor(Math.random() * 3)]() },
 };

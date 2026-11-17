@@ -14,7 +14,24 @@ permissions:
   contents: write
 
 jobs:
+  # Tests et robot de contrôle des écrans : rien n'est publié si l'un des deux échoue.
+  controle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # Seul le pilote d'Electron de Playwright sert : aucun navigateur n'est téléchargé.
+      - run: npm install --no-save playwright-core@1.63.0
+      - run: xvfb-run -a node scripts/verifier-ecrans.cjs
+
   construire:
+    needs: controle
     strategy:
       fail-fast: false
       matrix:
@@ -53,6 +70,7 @@ jobs:
           gh release upload derniere-version dist/*.${EXT} --clobber
 
   html:
+    needs: controle
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
