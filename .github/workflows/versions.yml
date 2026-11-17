@@ -27,8 +27,12 @@ jobs:
       - run: npm ci
       - run: npm test
       # Seul le pilote d'Electron de Playwright sert : aucun navigateur n'est téléchargé.
-      - run: npm install --no-save playwright-core@1.63.0
+      # Installé à part (NODE_PATH) : une installation dans node_modules retirait le binaire d'Electron.
+      - run: npm install --prefix "$RUNNER_TEMP/pw" playwright-core@1.63.0
+      - run: test -x node_modules/electron/dist/electron || node node_modules/electron/install.js
       - run: xvfb-run -a node scripts/verifier-ecrans.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
 
   construire:
     needs: controle
