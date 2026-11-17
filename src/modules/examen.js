@@ -50,7 +50,7 @@ export default {
             h('button', { class: 'btn', onclick: () => lancer(g, autre) }, `L'autre format : ${decrire(autre)}`))));
       }
       el.append(h('h2', {}, 'Les grades préparatoires'),
-        h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
+        h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle (Zenkoren a bien des 15e à 11e kyū, mais avec ses propres sujets, non publiés). Ils ne dépassent jamais le format du 10e kyū : 5 lignes de 2 chiffres. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
         h('div', { class: 'liste-paliers' }, PREKYU.map((x) => {
           const obtenu = prekyuObtenu(d, x);
           const ouvert = prekyuAccessible(d, x);

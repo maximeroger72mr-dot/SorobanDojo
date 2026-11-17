@@ -209,7 +209,7 @@ export default {
           return h('tr', {}, h('td', {}, sp.titre), h('td', {}, `${e.reps} / ${sp.repetitions}`),
             h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : formaterPourcent(e.justes, e.reps)),
             h('td', {}, formaterVitesse(ev.temps, familleLecon(sp))), h('td', {}, evolution(e.hist)), h('td', {}, badgeNiveau(ev)),
-            h('td', {}, !e.valide ? 'en cours' : e.carte ? `validée (boîte ${e.carte.boite})` : sp.type === 'theorie' ? 'lue' : 'validée'));
+            h('td', {}, !e.valide ? 'en cours' : e.carte?.acquise ? 'acquise' : e.carte ? `validée (boîte ${e.carte.boite})` : sp.type === 'theorie' ? 'lue' : 'validée'));
         })));
 
     // Gestes : tableau détaillé (vue tableau de la carte de maîtrise)

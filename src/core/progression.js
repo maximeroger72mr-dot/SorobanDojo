@@ -501,9 +501,22 @@ export async function enregistrerRevision(id, reussi) {
   await sauver();
 }
 
+/**
+ * Leçon ABSORBÉE : une leçon de colonnes plus avancée, validée et déjà revue avec succès (boîte
+ * 3 ou plus, ou acquise), reprend tous ses gestes. La réviser à part n'apporte plus rien : sa
+ * révision passe par celle de la leçon qui l'englobe (ex. « +4 et +3 » par « Tous les petits amis »).
+ */
+export function absorbee(d, id) {
+  const sp = SOUS_PALIERS.find((s) => s.id === id);
+  if (sp?.type !== 'addsub' || !sp.cibles?.length) return false;
+  const solide = (e) => !!e?.valide && (!!e.carte?.acquise || (e.carte?.boite ?? 0) >= 3);
+  return SOUS_PALIERS.some((x) => x.ordre > sp.ordre && x.type === 'addsub' && !x.mental && x.cibles?.length
+    && solide(d.paliers[x.id]) && sp.cibles.every((c) => x.cibles.includes(c)));
+}
+
 export function revisionsDues() {
   const j = aujourdhui();
-  return Object.entries(donnees.paliers).filter(([, e]) => estDue(e.carte, j)).map(([id]) => id);
+  return Object.entries(donnees.paliers).filter(([id, e]) => estDue(e.carte, j) && !absorbee(donnees, id)).map(([id]) => id);
 }
 
 export function reglagesUtilisateur() {

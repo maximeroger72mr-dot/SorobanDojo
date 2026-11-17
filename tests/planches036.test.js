@@ -58,3 +58,18 @@ test('0.36 : toutes les planches durent à peu près autant, selon l\'objectif d
     assert.ok(x.aller[1].chiffres <= 2, `${x.id} : ${x.aller[1].chiffres} chiffres`);
   }
 });
+
+test('0.36 : révisions qui finissent (acquise après 30 jours, ou reprise par une leçon plus avancée)', async () => {
+  const { reviser, estDue } = await import('../src/core/revision.js');
+  const { absorbee } = await import('../src/core/progression.js');
+  const c = reviser({ boite: 5, echeance: '2026-11-17' }, true, '2026-11-17');
+  assert.ok(c.acquise);
+  assert.equal(estDue(c, '2030-01-01'), false);
+  assert.equal(reviser({ boite: 5, echeance: '2026-11-17' }, false, '2026-11-17').boite, 4);
+  // « +4 et +3 » (p2-1) est reprise par « Tous les petits amis » (p2-7) quand celle-ci est en boîte 3.
+  const d = { paliers: { 'p2-1': { valide: '2026-10-01', carte: { boite: 2, echeance: '2026-11-17' } }, 'p2-7': { valide: '2026-10-10', carte: { boite: 2, echeance: '2026-11-20' } } } };
+  assert.equal(absorbee(d, 'p2-1'), false);
+  d.paliers['p2-7'].carte.boite = 3;
+  assert.equal(absorbee(d, 'p2-1'), true);
+  assert.equal(absorbee(d, 'p2-7'), false);
+});

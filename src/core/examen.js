@@ -11,14 +11,14 @@
  * Format : 20 colonnes au moins, temps fixe (compte à rebours), seuil de 70 % comme aux examens
  * officiels. Chaque tentative compte : la réussite donne le grade, l'échec ne retire rien.
  * Au-delà du 11e kyū, l'examen de la semaine garde ce format avec tous les gestes appris
- * (3 chiffres, 7 lignes) ; les vrais kyū se passent en épreuve officielle (page Grades).
+ * (au format du kyū visé) ; les vrais kyū se passent en épreuve officielle (page Grades).
  *
  * Fonctions pures : elles reçoivent les données de progression (voir progression.js).
  */
 
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { famille } from './motifs.js';
-import { motifsAppris, estValide, grade, chiffresAppris, gradeAccessible, PREREQUIS } from './parcours.js';
+import { motifsAppris, estValide, grade, chiffresAppris, lignesAcquises, formatExamen, gradeAccessible, PREREQUIS } from './parcours.js';
 import { systemeChoisi, SYSTEMES } from './epreuves.js';
 import { SOUS_PALIERS, genererExercice } from './curriculum.js';
 import { verdictAllure } from './allure.js';
@@ -37,10 +37,12 @@ export const PREKYU = [
   { id: '16', nom: '16e kyū prép.', lecons: ['p3-1', 'p3-2', 'p3-3'], chiffres: 1, lignes: 5, theme: 'grands amis en addition, 1 chiffre' },
   { id: '15', nom: '15e kyū prép.', lecons: ['p3-4'], chiffres: 2, lignes: 5, theme: 'grands amis en addition, 2 chiffres' },
   { id: '14', nom: '14e kyū prép.', lecons: ['p4-1', 'p4-2', 'p4-3', 'p4-4'], chiffres: 2, lignes: 5, theme: 'grands amis en soustraction' },
-  { id: '13', nom: '13e kyū prép.', lecons: ['p4-5'], chiffres: 3, lignes: 5, theme: 'tous les grands amis, 3 chiffres' },
-  { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 6, theme: 'combinaisons' },
-  { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 3, lignes: 6, theme: 'cascades et révision générale' },
+  { id: '13', nom: '13e kyū prép.', lecons: ['p4-5'], chiffres: 2, lignes: 5, theme: 'tous les grands amis' },
+  { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 5, theme: 'combinaisons' },
+  { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 2, lignes: 5, theme: 'cascades et révision générale, au format du 10e kyū' },
 ];
+// Jamais plus dur que le 10e kyū officiel (5 lignes de 2 chiffres) : les grades préparatoires y
+// mènent, ils ne le dépassent pas (avant la 0.36, les 13e à 11e avaient 3 chiffres et 6 lignes).
 const APRES = { id: 'hebdo', nom: 'Examen de la semaine', chiffres: 3, lignes: 7, theme: 'tous les gestes appris' };
 
 /** Dernière leçon validée d'un type (multiplication ou division sur le soroban, nombres entiers). */
@@ -48,16 +50,19 @@ const derniereValidee = (d, type) => SOUS_PALIERS.filter((sp) => sp.type === typ
 
 /**
  * Format de l'examen de la semaine, ADAPTÉ AU NIVEAU une fois les grades préparatoires passés :
- * des colonnes au nombre de chiffres des leçons validées (3 à 6), et, dès que ces leçons sont
- * validées, des multiplications et des divisions du type de la dernière leçon acquise.
+ * les colonnes du kyū visé (chiffres et lignes de son mitorizan), dans la limite des leçons
+ * validées, et, dès que ces leçons sont validées, des multiplications et des divisions du type
+ * de la dernière leçon acquise.
  */
 export function formatHebdo(d) {
   const mul = derniereValidee(d, 'mul');
   const div = derniereValidee(d, 'div');
-  const chiffres = Math.min(6, Math.max(3, chiffresAppris(d)));
+  const f = formatExamen(d);
+  const chiffres = Math.max(1, Math.min(f.chiffres, chiffresAppris(d)));
+  const lignes = Math.min(f.lignes, lignesAcquises(d));
   const operations = (mul ? 5 : 0) + (div ? 5 : 0);
   const parties = ['tous les gestes appris', mul && 'multiplications', div && 'divisions'].filter(Boolean);
-  return { ...APRES, chiffres, lignes: chiffres >= 5 ? 10 : 7, colonnes: COLONNES - operations, mul, div, theme: `${chiffres} chiffres, ${parties.join(', ')}` };
+  return { ...APRES, chiffres, lignes, colonnes: COLONNES - operations, mul, div, theme: `format du ${f.grade.nom} (${chiffres} chiffres, ${lignes} lignes), ${parties.join(', ')}` };
 }
 
 /**

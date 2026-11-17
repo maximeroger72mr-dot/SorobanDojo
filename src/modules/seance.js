@@ -361,7 +361,7 @@ function themeDuJour(decision, exam, vitesse, g) {
 /** Suggestion pour la prochaine séance. */
 function conseilDemain(d) {
   const demain = ajouterJours(aujourdhui(), 1);
-  const dues = Object.values(d.paliers).filter((e) => e.carte && e.carte.echeance <= demain).length;
+  const dues = Object.values(d.paliers).filter((e) => e.carte && !e.carte.acquise && e.carte.echeance <= demain).length;
   const parts = [];
   if (dues) parts.push(`${dues} révision${dues > 1 ? 's' : ''} prévue${dues > 1 ? 's' : ''}`);
   const faible = motifsEnDifficulte()[0];

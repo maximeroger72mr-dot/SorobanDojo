@@ -12,7 +12,7 @@ import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES } from '../core/revision.js';
 import {
   revisionsDues, etatPalier, enregistrerRevision, enregistrerSession, poidsAdaptatifs,
-  motifsEnDifficulte, aujourdhui, statsTables, rouvrirPalier,
+  motifsEnDifficulte, aujourdhui, statsTables, rouvrirPalier, absorbee, progression,
 } from '../core/progression.js';
 import { produitsARetravailler } from '../core/tables.js';
 import { questionDoigte } from '../ui/doigte.js';
@@ -73,12 +73,17 @@ export default {
       }
 
       const avenir = SOUS_PALIERS.map((sp) => ({ sp, c: etatPalier(sp.id).carte }))
-        .filter(({ c }) => c && c.echeance > aujourdhui())
+        .filter(({ sp, c }) => c && !c.acquise && c.echeance > aujourdhui() && !absorbee(progression(), sp.id))
         .sort((a, b) => a.c.echeance.localeCompare(b.c.echeance));
       if (avenir.length) {
         el.append(h('h2', {}, 'Prochaines révisions'),
           h('table', {}, h('tr', {}, h('th', {}, 'Leçon'), h('th', {}, 'Boîte'), h('th', {}, 'Date')),
             avenir.slice(0, 12).map(({ sp, c }) => h('tr', {}, h('td', {}, sp.titre), h('td', {}, c.boite), h('td', {}, dateFr(c.echeance))))));
+      }
+      // Sorties des révisions : acquises (réussies après 30 jours) ou reprises par une leçon plus avancée.
+      const sorties = SOUS_PALIERS.filter((sp) => etatPalier(sp.id).carte && (etatPalier(sp.id).carte.acquise || absorbee(progression(), sp.id)));
+      if (sorties.length) {
+        el.append(h('p', { class: 'discret' }, `${sorties.length} leçon${sorties.length > 1 ? 's' : ''} sortie${sorties.length > 1 ? 's' : ''} des révisions : acquise${sorties.length > 1 ? 's' : ''} (réussie${sorties.length > 1 ? 's' : ''} après 30 jours), ou reprise${sorties.length > 1 ? 's' : ''} par une leçon plus avancée qui contient tous leurs gestes.`));
       }
       if (!dues.length && !faibles.length && !avenir.length) {
         el.append(h('p', { class: 'discret' }, 'Les leçons validées apparaîtront ici au fil des jours.'),
@@ -129,7 +134,7 @@ export default {
           await enregistrerSession({ module: 'revisions', mode: 'flash', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const c = etatPalier(sp.id).carte;
           return reussi
-            ? `Automatisme entretenu : boîte ${c.boite}, prochaine révision ${dateFr(c.echeance)}.`
+            ? (c.acquise ? 'Acquis : réussi après 30 jours, la leçon sort des révisions.' : `Automatisme entretenu : boîte ${c.boite}, prochaine révision ${dateFr(c.echeance)}.`)
             : `Moins de ${FLASH.reussitesMin} réussites : la leçon redescend en boîte ${c.boite}, à revoir ${dateFr(c.echeance)}.`;
         },
       });
