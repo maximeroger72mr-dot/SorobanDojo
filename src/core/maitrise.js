@@ -23,13 +23,17 @@ export const SURCOUT_FEUILLE_S = 1.5;  // feuilles : frappe du résultat, retir�
 /**
  * Niveaux, du plus bas au plus haut. reussite : taux minimal ; temps : secondes maximales
  * par unité (médiane), pour les colonnes (addsub) et pour multiplication/division (muldiv).
+ * UNE seule échelle dans toute l'application : bronze, argent, or, platine. Elle est absolue
+ * (elle ne change pas avec le grade visé) ; chaque médaille correspond à l'allure d'un kyū
+ * (voir allure.js, equivalenceKyu : argent ≈ 6e kyū, or ≈ 4e, platine ≈ 2e, en colonnes).
+ * Les identifiants (debutant, confirme, expert) restent ceux des données enregistrées.
  */
 export const NIVEAUX = [
   { id: 'decouverte', nom: 'À découvrir' },
-  { id: 'progres', nom: 'En progrès' },
-  { id: 'debutant', nom: 'Acquis débutant', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0, placement: 4.0, table: 2.5, photo: 2.0 } },
-  { id: 'confirme', nom: 'Acquis confirmé', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0, placement: 2.5, table: 1.5, photo: 1.0 } },
-  { id: 'expert', nom: 'Acquis expert', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0, photo: 0.6 } },
+  { id: 'progres', nom: 'Bronze' },
+  { id: 'debutant', nom: 'Argent', reussite: 0.90, temps: { addsub: 3.0, muldiv: 5.0, placement: 4.0, table: 2.5, photo: 2.0 } },
+  { id: 'confirme', nom: 'Or', reussite: 0.95, temps: { addsub: 1.5, muldiv: 3.0, placement: 2.5, table: 1.5, photo: 1.0 } },
+  { id: 'expert', nom: 'Platine', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0, photo: 0.6 } },
 ];
 
 /** Unité de temps de chaque famille (« ≤ 1,5 s par chiffre »). Une seule liste pour tout l'affichage. */

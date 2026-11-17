@@ -7,6 +7,7 @@
 
 import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
 import { NIVEAUX, formaterVitesse } from '../core/maitrise.js';
+import { equivalenceKyu } from '../core/allure.js';
 import { progression, evaluerMotif } from '../core/progression.js';
 import { motifsAppris, verificationVitesse } from '../core/parcours.js';
 import { COULEUR_NIVEAU, ENCRE_NIVEAU, montrerBulle, cacherBulle } from './graphiques.js';
@@ -69,7 +70,7 @@ export function carteMaitrise(o = {}) {
       }))));
   const legende = h('div', { class: 'legende' },
     h('span', { class: 'pastille-legende non-pratique' }), 'pas pratiqué',
-    NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), `${n.nom}${MEDAILLE[n.id] ? ` (${MEDAILLE[n.id]})` : ''}`]),
+    NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), `${n.nom}${equivalenceKyu(n) ? ` (≈ ${equivalenceKyu(n).nom})` : ''}`]),
     modeSelection ? [h('span', { class: 'pastille-legende choisi-legende' }), 'choisi'] : null);
   return h('div', {}, tableau, legende);
 }

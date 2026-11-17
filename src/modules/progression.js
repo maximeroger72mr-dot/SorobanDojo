@@ -35,7 +35,7 @@ function ouJenSuis(app, d) {
   const indicateurs = [
     ['Leçons validées', 'LE fil du parcours : chaque leçon se valide par un mini-test (justesse et vitesse).'],
     ['Grade', 'Kyū prép. (20e au 11e) : jalons propres à l\'application, par le passage de kyū. Kyū officiels (10e au 1er) : épreuves au format japonais.'],
-    ['Niveau d\'un geste', 'À découvrir → Acquis expert : la justesse ET la vitesse sur un geste précis (carte de maîtrise). Sert à choisir quoi retravailler.'],
+    ['Niveau d\'un geste', 'À découvrir, puis bronze → platine : la justesse ET la vitesse sur un geste précis (carte de maîtrise). Sert à choisir quoi retravailler.'],
     ['Boîte de révision (1 à 5)', 'Combien de temps une leçon validée tient sans être revue. Sert à planifier les révisions.'],
     ['Médailles des drills, étoiles, records', 'Votre vitesse sur des exercices précis : pour le plaisir de progresser, sans effet sur le parcours.'],
     ['Série de jours', 'Votre régularité : quelques minutes chaque jour valent mieux qu\'une longue séance par semaine.'],

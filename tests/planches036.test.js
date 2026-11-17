@@ -73,3 +73,11 @@ test('0.36 : révisions qui finissent (acquise après 30 jours, ou reprise par u
   assert.equal(absorbee(d, 'p2-1'), true);
   assert.equal(absorbee(d, 'p2-7'), false);
 });
+
+test('0.36 : une seule échelle, bronze à platine, chaque médaille rattachée à un kyū', async () => {
+  const { NIVEAUX } = await import('../src/core/maitrise.js');
+  const { equivalenceKyu } = await import('../src/core/allure.js');
+  assert.deepEqual(NIVEAUX.map((n) => n.nom), ['À découvrir', 'Bronze', 'Argent', 'Or', 'Platine']);
+  // Les textes (course.js, lexique) citent ces équivalences : elles doivent rester vraies.
+  assert.deepEqual(NIVEAUX.filter((n) => n.temps).map((n) => equivalenceKyu(n).id), ['6', '4', '2']);
+});

@@ -965,3 +965,34 @@ Corrections de la séance du jour (audit de la 0.31) et organisation.
   fois travaillé : un nouvel exercice prenait la place, sans fin.
 - La séance se termine d'elle-même quand tout l'essentiel est fait et que 70 % de l'objectif de
   temps est atteint ; en dessous, un bouton « Terminer la séance » est proposé.
+
+## Version 0.36.0
+
+Audit de la 0.35.1, puis corrections. Sources des examens : règlement de 日本珠算連盟
+(shuzan.jp : 珠算能力検定試験, 暗算検定試験) et sujets modèles officiels (見本 : 1er, 2e, 3e,
+4e, 6e, 7e et 9e kyū de soroban, 1er kyū d'anzan).
+
+- **Tableau Nisshō conforme :** 10e/9e 5 lignes de 2 chiffres (même sujet) ; 8e 8 lignes ; 7e
+  10 lignes ; puis 10 lignes de 3, 4, 5, 6, 8, 10 chiffres (6e → 1er). Les nombres d'un
+  problème ont la même longueur, comme dans tous les sujets modèles (le règlement ne fixe que
+  le total, 字数). Problèmes 3, 5, 7, 9 mêlés : 4 lignes négatives (3 au 7e, 2 au 8e,
+  interpolé, 1 aux 9e/10e), jamais en 1re, 2e ni dernière ligne. Résultat négatif au problème 9,
+  1er et 2e kyū seulement. Facteurs terminés par 0 permis ; dès le 3e kyū, moitié de décimaux.
+  Grades 準1, 準2, 準3 (facultatifs, hors frise). Prérequis : 8 lignes au 8e, 10 au 7e,
+  négatifs au 2e.
+- **Anzan conforme :** 7e à 10e un seul sujet de 50 (3, 4, 5 nombres) ; 1er à 6e : 3けた10口,
+  7口, 5口, 2けた5口, 5口8字, 5口6字 ; × ÷ 5/4/4/3/3/3 chiffres ; 準 ; 12 minutes pour tout.
+  Piste anzan prolongée jusqu'au format du 1er kyū d'anzan.
+- **Planches au format du grade visé** (`propositions.formatsPlanche`) : ~70 % au format du
+  prochain kyū (dans la limite des leçons validées), ~15 % au format suivant, ~15 % courtes ;
+  planches de geste à 4 chiffres au plus. Durée constante : un quart de l'objectif du jour (4 à
+  8 min), le nombre de colonnes suit la vitesse mesurée. En fin de feuille au format d'un kyū,
+  projection du temps des colonnes de l'examen face à l'allure du grade.
+- **Kyū préparatoires** jamais plus durs que le 10e kyū ; examen de la semaine au format visé.
+- **Révisions qui finissent :** réussie en boîte 5, une leçon est acquise ; une leçon dont tous
+  les gestes sont repris par une leçon plus avancée (boîte 3 ou plus) sort des révisions.
+- **Une seule échelle :** bronze, argent, or, platine partout (avant : « acquis débutant /
+  confirmé / expert » et médailles) ; argent ≈ allure du 6e kyū, or ≈ 4e, platine ≈ 2e.
+- **Robot** réparé (blocs repliés, confirmation de fin de feuille) et exécuté avant toute
+  publication ; mobile : « Leçons » dans la barre, raccourcis clavier masqués au toucher, mot du
+  prof replié après deux points, doubles filets retirés.

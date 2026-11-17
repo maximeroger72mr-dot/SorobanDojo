@@ -64,11 +64,16 @@
   .barre-feuille { flex-wrap: wrap; }
   table.carte-maitrise td { width: 30px; height: 28px; font-size: 0.7rem; }
 }
-/* Tablette posée à plat : de grands nombres et de grandes cibles. */
+/* Tablette posée à plat : de grands nombres et de grandes cibles ; pas de raccourcis clavier. */
 @media (pointer: coarse) {
   button.btn, .ligne-palier, select { min-height: 44px; }
   table.colonne { font-size: 2.3rem; }
+  kbd { display: none; }
 }
+/* Pas de double filet : la carte qui suit le bandeau du jour n'a pas de filet au-dessus. */
+html:root .statut-jour + .carte, html:root .carte > h2:first-child { border-top: none; }
+.mot-prof-suite summary { cursor: pointer; color: var(--discret); font-size: 0.95rem; margin: 4px 0; }
+.mot-prof-suite[open] summary { display: none; }
 
 /* ================================================================ structure du thème */
 html:root body { font-size: 1.0625rem; line-height: 1.5; }

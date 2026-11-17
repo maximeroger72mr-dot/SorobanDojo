@@ -48,7 +48,7 @@ import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
  */
 const MENU = [
   { ecran: seance, nom: 'Aujourd\'hui', court: 'Jour', picto: 'aujourdhui' },
-  { ecran: apprendre, nom: 'Apprendre', court: 'Apprendre', picto: 'apprendre' },
+  { ecran: apprendre, nom: 'Apprendre', court: 'Leçons', picto: 'apprendre' }, // « Apprendre » ne tient pas sur un téléphone
   { ecran: entrainer, nom: 'S\'entraîner', court: 'Entraîner', picto: 'entrainer' },
   { ecran: mesurer, nom: 'Se mesurer', court: 'Mesurer', picto: 'mesurer' },
   { ecran: progressionEcran, nom: 'Progression', court: 'Progrès', picto: 'progression' },

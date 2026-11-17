@@ -150,7 +150,7 @@ export default {
       } else el.append(
         h('h1', {}, 'Leçons guidées'),
         h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, à une vitesse au moins « acquis débutant »).`),
-        h('p', { class: 'discret' }, 'Niveaux : En progrès → Acquis débutant → Acquis confirmé → Acquis expert. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
+        h('p', { class: 'discret' }, 'Niveaux : bronze → argent (l\'allure du 6e kyū) → or (4e kyū) → platine (2e kyū). Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
       if (diag) el.append(diag);
@@ -631,7 +631,7 @@ export default {
         if (et.reps < sp.repetitions && !et.coupeFile) {
           zone.append(h('div', { class: 'carte' },
             h('p', {}, `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
-            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil « Acquis confirmé »), le mini-test s\'ouvre tout de suite.'),
+            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil or), le mini-test s\'ouvre tout de suite.'),
             h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement')));
           return null;
         }

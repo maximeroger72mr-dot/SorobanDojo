@@ -11,7 +11,7 @@
  * un produit de table coûte deux fois un chiffre de colonne (le rapport des seuils « confirmé »).
  */
 
-import { genererSujet } from './epreuves.js';
+import { genererSujet, GRADES_KYU } from './epreuves.js';
 import { unites, evaluer, mediane, cpm } from './maitrise.js';
 import { avecGraine } from './hasard.js';
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
@@ -43,6 +43,17 @@ export function chargeGrade(g, filtre = null) {
     charges.set(cle, { chiffres: chiffres / N, produits: produits / N, problemes: problemes / N });
   }
   return charges.get(cle);
+}
+
+/**
+ * Le kyū dont l'allure (en colonnes) correspond à une médaille : le plus haut grade Nisshō dont
+ * la cadence à tenir est atteinte par le seuil de la médaille. Ex. argent (3 s par chiffre) →
+ * 6e kyū. null : médaille sans seuil de temps (bronze, à découvrir).
+ * @param {{ temps?: { addsub: number } }} niveau  une entrée de NIVEAUX
+ */
+export function equivalenceKyu(niveau) {
+  if (!niveau?.temps) return null;
+  return GRADES_KYU.filter((g) => niveau.temps.addsub <= allureGrade(g).parChiffre).at(-1) ?? null;
 }
 
 /**

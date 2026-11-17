@@ -2,7 +2,7 @@
  * Se mesurer : défis sur son soroban.
  *
  *  - Défi de la semaine : la même feuille toute la semaine, adaptée au niveau, en 3 étoiles :
- *      1 précision (≥ 90 % de justes), 2 vitesse (0 erreur et sous le temps « confirmé »),
+ *      1 précision (≥ 90 % de justes), 2 vitesse (0 erreur et sous le temps « or »),
  *      3 sans filet (5 colonnes NOUVELLES du même format, une par une, au rythme expert).
  *  - Défis libres : N calculs le plus vite possible, contre son fantôme (son record), ou contre
  *    « le maître » tant qu'il n'y a pas de record. Médaille d'après les seuils de niveau.
@@ -75,8 +75,8 @@ function marches(d) {
 /** Étoiles du défi de la semaine (masque : 1 précision, 2 vitesse, 4 sans filet). */
 const ETOILES = [
   { bit: 1, nom: 'Précision', texte: 'la feuille avec au moins 90 % de justes' },
-  { bit: 2, nom: 'Vitesse', texte: '0 erreur, sous le temps « confirmé »' },
-  { bit: 4, nom: 'Sans filet', texte: '5 colonnes nouvelles du même format, une par une, toutes justes, au rythme expert' },
+  { bit: 2, nom: 'Vitesse', texte: '0 erreur, sous le temps « or »' },
+  { bit: 4, nom: 'Sans filet', texte: '5 colonnes nouvelles du même format, une par une, toutes justes, au rythme platine' },
 ];
 const nbEtoiles = (masque) => ETOILES.filter((e) => masque & e.bit).length;
 const etoilesHtml = (masque) => h('span', { class: 'etoiles' }, rangee(nbEtoiles(masque), 3, `${nbEtoiles(masque)} étoile${nbEtoiles(masque) > 1 ? 's' : ''} sur 3`));
@@ -129,7 +129,7 @@ export default {
           h('button', { class: 'btn principal', onclick: () => lancer() }, 'Partez !')),
         record,
         h('h2', {}, 'Contre-la-montre arcade'),
-        h('p', { class: 'discret' }, `${ARCADE.capitalMs / 1000} s au départ, qui s'écoulent. Chaque calcul juste rajoute du temps (un peu moins que le temps « confirmé » du calcul ; davantage après ${ARCADE.serieBonus} justes d'affilée). Chaque erreur retire ${ARCADE.erreurMs / 1000} s et casse la série. Trouvez l'équilibre entre vitesse et justesse.`),
+        h('p', { class: 'discret' }, `${ARCADE.capitalMs / 1000} s au départ, qui s'écoulent. Chaque calcul juste rajoute du temps (un peu moins que le temps « or » du calcul ; davantage après ${ARCADE.serieBonus} justes d'affilée). Chaque erreur retire ${ARCADE.erreurMs / 1000} s et casse la série. Trouvez l'équilibre entre vitesse et justesse.`),
         h('div', { class: 'reglages' }, select('arcade', typesOptions.filter(([k]) => k !== 'mix')),
           h('button', { class: 'btn principal', onclick: () => lancerArcade() }, 'Jouer')),
         h('p', { class: 'discret' }, recArcade ? `Record : ${recArcade.points} calculs justes (${formaterDuree(recArcade.dureeMs)} tenues).` : 'Pas encore de record.'),
@@ -314,7 +314,7 @@ export default {
       const mem = creerMemoire(5);
       const generer = () => genererColonneVariee({ chiffres: f.chiffres, lignes: 5, autorises: f.appris, cibles: f.amis.length ? f.amis : famille('direct') }, mem);
       remplir(el, retourBtn(), h('h1', {}, 'Étoile 3 : sans filet'),
-        h('p', { class: 'discret' }, 'Cinq colonnes nouvelles, du format de la semaine. Toutes justes, et plus vite que le maître (rythme expert).'));
+        h('p', { class: 'discret' }, 'Cinq colonnes nouvelles, du format de la semaine. Toutes justes, et plus vite que le maître (rythme platine).'));
       courant = creerSerie(el, {
         generer,
         nombre: 5,
@@ -329,7 +329,7 @@ export default {
           await enregistrerSession({ module: 'defis', mode: 'sans-filet', reglages: { semaine: semaine.cle }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           el.append(h('div', { class: 'carte bilan' },
             h('div', { class: 'grand' }, formaterDuree(b.dureeMs)),
-            h('p', {}, `${b.justes} / ${b.total} justes · rythme expert : ${formaterDuree(cible)}`),
+            h('p', {}, `${b.justes} / ${b.total} justes · rythme platine : ${formaterDuree(cible)}`),
             h('p', { class: gagne ? 'retour ok' : 'discret' }, gagne ? 'Étoile 3 gagnée : sans filet !' : (b.justes < b.total ? 'Il faut les 5 justes.' : `Encore ${formaterDuree(b.dureeMs - cible)} à gagner.`)),
             h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => lancerSansFilet() }, 'Retenter'), h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'))),
           listeErreurs(b.resultats) ?? '');

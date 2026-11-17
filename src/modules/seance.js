@@ -592,7 +592,11 @@ export default {
             `${seance ? 'Continuer' : 'Commencer'} : ${prochaine.titre} →`),
           h('div', { class: 'discret' }, prochaine.detail)));
       }
-      el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), p.mot.map((x) => h('p', {}, x))));
+      // Téléphone : les deux premiers points, le reste replié (ouvert d'office sur grand écran).
+      const [debut, suite] = [p.mot.slice(0, 2), p.mot.slice(2)];
+      const large = typeof window === 'undefined' || window.innerWidth > 700;
+      el.append(h('div', { class: 'carte mot-prof' }, h('div', { class: 'mot-prof-titre' }, 'Le mot du prof'), debut.map((x) => h('p', {}, x)),
+        suite.length ? h('details', { class: 'mot-prof-suite', ...(large ? { open: true } : {}) }, h('summary', {}, `La suite (${suite.length})`), suite.map((x) => h('p', {}, x))) : null));
       const entete = h('div', { class: 'ligne' },
         h('h2', { style: 'margin:0;flex:1' }, seance ? `Séance en cours depuis ${new Date(seance.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · ${faits} / ${p.essentiel.length}` : 'Votre séance'),
         seance ? h('button', { class: 'lien', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Finir maintenant et voir le bilan') : null);

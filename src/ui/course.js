@@ -60,8 +60,8 @@ export function fantomeMaitre(generer, niveau = 'confirme') {
 export function medaille(dureeMoyenneMs, exemples, justes, total) {
   if (!total || justes / total < 0.9) return null;
   const seuil = (id) => exemples.reduce((s, ex) => s + tempsCible(ex, NIVEAUX.find((x) => x.id === id)) * 1000, 0) / exemples.length;
-  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'platine', texte: 'Platine : rythme expert.' };
-  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'or', texte: 'Or : rythme confirmé.' };
-  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'argent', texte: 'Argent : rythme débutant.' };
+  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'platine', texte: 'Platine : le rythme du 2e kyū.' };
+  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'or', texte: 'Or : le rythme du 4e kyū.' };
+  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'argent', texte: 'Argent : le rythme du 6e kyū.' };
   return { nom: 'bronze', texte: 'Bronze : juste, la vitesse viendra.' };
 }
