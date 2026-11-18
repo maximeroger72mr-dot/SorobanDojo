@@ -83,3 +83,59 @@ test('0.37 : piste anzan, divisions des examens couvertes ; gestes d\'anzan mesu
   const d = { gestesAnzan: { '+7:grand': { hist: hist(10, 6) }, '+3:petit': { hist: hist(18, 2) }, '+9:grand': { hist: hist(19, 1) }, '+1:direct': { hist: hist(5, 5) } } };
   assert.deepEqual(gestesAnzanFaibles(d).map((x) => x.cle), ['+7:grand']);
 });
+
+test('0.37 : après le 3e kyū, l\'échelle monte d\'un cran ; platine = 1er kyū avec marge', async () => {
+  const { NIVEAUX, appliquerEchelle } = await import('../src/core/maitrise.js');
+  const { equivalenceKyu, allureGrade } = await import('../src/core/allure.js');
+  const { troisiemeKyuReussi } = await import('../src/core/progression.js');
+  const { GRADES_KYU } = await import('../src/core/epreuves.js');
+  assert.equal(troisiemeKyuReussi({ records: { 'epreuve-4': { reussi: true } } }), false);
+  assert.equal(troisiemeKyuReussi({ records: { 'epreuve-j3': { reussi: true } } }), false);
+  assert.equal(troisiemeKyuReussi({ records: { 'epreuve-3': { reussi: true } } }), true);
+  assert.equal(troisiemeKyuReussi({ records: { 'blanc-nissho-2': { reussi: true } } }), true);
+  try {
+    appliquerEchelle(true);
+    const n = (id) => NIVEAUX.find((x) => x.id === id);
+    assert.equal(n('debutant').temps.addsub, 1.5);
+    assert.equal(n('confirme').temps.addsub, 0.8);
+    const premier = allureGrade(GRADES_KYU.at(-1));
+    // Platine : l'allure du 1er kyū, avec environ 10 % de marge.
+    assert.ok(Math.abs(n('expert').temps.addsub - 0.9 * premier.parChiffre) < 0.02, `${premier.parChiffre}`);
+    assert.ok(Math.abs(n('expert').temps.muldiv - 0.9 * premier.parProduit) < 0.03, `${premier.parProduit}`);
+    assert.deepEqual(NIVEAUX.filter((x) => x.temps).map((x) => equivalenceKyu(x).id), ['4', '2', '1']);
+  } finally { appliquerEchelle(false); }
+  assert.equal(NIVEAUX.find((x) => x.id === 'expert').temps.addsub, 0.8);
+});
+
+test('0.37 : volume au format du kyū, porte souple après les grands amis, examen complet dès le 6e kyū', async () => {
+  const { volumeAuFormat } = await import('../src/core/formatKyu.js');
+  const { volumeEtape, ETAPES_PORTE_STRICTE } = await import('../src/core/prof.js');
+  const { examenCompletHebdo } = await import('../src/core/examen.js');
+  const { planchesPossibles } = await import('../src/core/propositions.js');
+  const { PALIERS } = await import('../src/core/curriculum.js');
+  const valides = (jusqua) => { const fin = SOUS_PALIERS.find((s) => s.id === jusqua).ordre; return Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= fin).map((s) => [s.id, { valide: '2026-11-01', hist: [] }])); };
+  // Volume : au début des grands amis, le format visé est celui du 10e kyū (2 chiffres, 5 lignes).
+  const d = { paliers: valides('p3-1'), records: {}, reglages: {}, motifs: {}, sessions: [
+    { date: '2026-11-16', module: 'planches', reglages: { chiffres: 2, lignes: 5 }, total: 12 },
+    { date: '2026-11-17', module: 'planches', reglages: { chiffres: 3, lignes: 5 }, total: 9 },
+    { date: '2026-11-17', module: 'muldiv', reglages: { format: 'kyu' }, total: 10 },
+  ] };
+  const v = volumeAuFormat(d, '2026-11-18');
+  assert.equal(v.semaines.at(-1).colonnes, 12);
+  assert.equal(v.semaines.at(-1).operations, 10);
+  // Porte : stricte jusqu'aux petits amis, souple ensuite ; le volume compte depuis la fin de l'étape.
+  assert.deepEqual(ETAPES_PORTE_STRICTE, ['p0', 'p1', 'p2']);
+  const p3 = PALIERS.find((p) => p.id === 'p3');
+  const dv = { paliers: valides('p3-4'), sessions: [{ date: '2026-11-02', module: 'planches', total: 400 }] };
+  assert.ok(volumeEtape(dv, p3).ok);
+  assert.ok(!volumeEtape({ ...dv, sessions: [{ date: '2026-11-01', module: 'planches', total: 400 }] }, p3).ok);
+  // Examen complet : seulement une fois le 6e kyū passé.
+  const d6 = { paliers: valides('p8-8'), reglages: {}, motifs: {}, sessions: [], records: Object.fromEntries(['10', '9', '8', '7', '6'].map((g) => [`epreuve-${g}`, { reussi: true }])) };
+  assert.equal(examenCompletHebdo({ ...d6, records: { 'epreuve-7': { reussi: true } } }, '2026-11-20'), null);
+  assert.equal(examenCompletHebdo(d6, '2026-11-20').grade.id, '5');
+  // Après le 6e kyū, les planches ciblées passent en tête.
+  d6.motifs = { '+3:petit': { essais: 30, erreurs: 2, hist: Array.from({ length: 30 }, () => ({ ok: 1, t: 2.5 })) } };
+  d6.feuilles = [{ t: 2 }];
+  const p = planchesPossibles(d6, [], '2026-11-20');
+  assert.ok(p[0].mode, p.map((x) => x.id).join());
+});

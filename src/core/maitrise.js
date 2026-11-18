@@ -36,6 +36,33 @@ export const NIVEAUX = [
   { id: 'expert', nom: 'Platine', reussite: 0.98, temps: { addsub: 0.8, muldiv: 1.8, placement: 1.5, table: 1.0, photo: 0.6 } },
 ];
 
+/**
+ * Échelle « avancée », une fois le 3e kyū réussi : tout monte d'un cran. L'argent prend l'ancien
+ * or, l'or l'ancien platine, et le platine devient l'allure du 1er kyū avec 10 % de marge
+ * (0,58 s par chiffre et 1,17 s par produit à l'examen, voir allure.js : 0,52 et 1,05 ici).
+ * Les autres familles suivent le même cran. Les données enregistrées ne changent pas : seuls les
+ * seuils changent, et les niveaux se recalculent.
+ */
+const BASE = NIVEAUX.map((n) => (n.temps ? { reussite: n.reussite, temps: { ...n.temps } } : null));
+export const ECHELLE_AVANCEE = {
+  debutant: { reussite: 0.95, temps: { ...BASE[3].temps } },
+  confirme: { reussite: 0.98, temps: { ...BASE[4].temps } },
+  expert: { reussite: 0.98, temps: { addsub: 0.52, muldiv: 1.05, placement: 1.0, table: 0.7, photo: 0.4 } },
+};
+let avancee = false;
+/** Bascule l'échelle (appelé par progression.js après chaque sauvegarde). */
+export function appliquerEchelle(av) {
+  if (!!av === avancee) return;
+  avancee = !!av;
+  NIVEAUX.forEach((n, i) => {
+    if (!BASE[i]) return;
+    const src = avancee ? ECHELLE_AVANCEE[n.id] : BASE[i];
+    n.reussite = src.reussite;
+    n.temps = { ...src.temps };
+  });
+}
+export const echelleAvancee = () => avancee;
+
 /** Unité de temps de chaque famille (« ≤ 1,5 s par chiffre »). Une seule liste pour tout l'affichage. */
 export const UNITES_TEMPS = { addsub: 'chiffre', muldiv: 'produit', placement: 'placement', table: 'produit', photo: 'chiffre lu' };
 

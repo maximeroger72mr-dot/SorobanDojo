@@ -996,3 +996,28 @@ Audit de la 0.35.1, puis corrections. Sources des examens : règlement de 日本
 - **Robot** réparé (blocs repliés, confirmation de fin de feuille) et exécuté avant toute
   publication ; mobile : « Leçons » dans la barre, raccourcis clavier masqués au toucher, mot du
   prof replié après deux points, doubles filets retirés.
+
+## Version 0.37.0
+
+Suites de `AUDIT-PARCOURS-0.36.md`.
+
+- **Toutes les formes de × et ÷ des sujets vues en leçon** (B-1), adaptées au grade :
+  5e (3 × 3, 4 × 2, ÷ 5 chiffres au total ; nouvelle leçon `p8-5a`), 4e (4 × 3, 5 × 2,
+  ÷ 6 chiffres ; nouvelle leçon `p8-8`), 準2/2e (`p9-3`, `p9-5`), 準1/1er (`p9-4`, `p9-6`).
+  Test : chaque forme de chaque sujet (10e au 1er, 準) apparaît dans les leçons exigées.
+- **× et ÷ « au format du kyū »** (écran Multiplication et division, par défaut) : tirés dans
+  des sujets du grade visé, donc dans les mêmes proportions (`core/formatKyu.js`).
+- **Zéros finaux** (15 %) après les leçons sur les zéros ; **premier nombre à la longueur
+  annoncée** après les grands amis (leçons et planches) ; **anti-répétition** des × et ÷ sur les
+  30 derniers calculs d'une leçon.
+- **Anzan :** division de tête à 4 chiffres (`pa-d4`), `pa-d3` élargie ; gestes de chaque colonne
+  comptés à part (`gestesAnzan`), « ce qui lâche » dans Progression.
+- **Échelle après le 3e kyū :** tout monte d'un cran (argent = ancien or, or = ancien platine,
+  platine = allure du 1er kyū avec 10 % de marge : 0,52 s par chiffre, 1,05 s par produit).
+- **Volume au format du kyū visé**, par semaine, dans Progression (aucune source sérieuse ne
+  publie le volume des élèves japonais : pas de comparaison).
+- **Porte de fin d'étape** souple à partir des grands amis : or partout, ou argent partout avec
+  le volume de l'étape fait, ou 10 jours de pratique.
+- **Examen complet** (sujet officiel entier du prochain grade) une fois par semaine dans la séance,
+  dès le 6e kyū passé ; les planches ciblées passent alors en tête.
+- **Séries de placement** sur les formes nouvelles (`p8-pl`, `p9-pl`).

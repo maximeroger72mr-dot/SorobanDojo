@@ -97,7 +97,7 @@ export default {
   id: 'epreuves',
   titre: 'Épreuves officielles',
   parent: 'grades',
-  monter(el, app) {
+  monter(el, app, params = {}) {
     let feuille = null;
     const cleRecord = (g, section = null) => `${g.systeme === 'zenkoren' ? 'zenkoren' : 'epreuve'}-${g.id}${section ? `-${section}` : ''}`;
     const meilleur = (g) => progression().records[cleRecord(g)];
@@ -257,7 +257,10 @@ export default {
       });
     }
 
-    liste();
+    // Lancé depuis la séance (examen complet de la semaine) : le sujet du grade, directement.
+    const direct = params.grade && params.auto ? systemeChoisi(progression()).grades.find((g) => g.id === params.grade) : null;
+    if (direct) demarrer(direct);
+    else liste();
     return () => feuille?.detruire();
   },
 };

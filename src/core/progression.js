@@ -24,7 +24,7 @@
  */
 
 import { nouvelleCarte, reviser, estDue, ajouterJours } from './revision.js';
-import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX } from './maitrise.js';
+import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX, appliquerEchelle } from './maitrise.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
@@ -169,6 +169,7 @@ export async function chargerProgression() {
     changerEtat({ etat: 'ancienne-copie', appli: donnees.appli });
   }
   heriterMarches(donnees);
+  appliquerEchelle(troisiemeKyuReussi(donnees));
   // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
   for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
   if (lu && lu.version < VERSION) await sauver();
@@ -182,7 +183,11 @@ export function surChangement(fn) {
   return () => ecouteursChangement.delete(fn);
 }
 
+/** Le 3e kyū (ou plus haut) est-il réussi, en épreuve ou en examen blanc ? L'échelle monte alors d'un cran. */
+export const troisiemeKyuReussi = (d) => Object.entries(d.records ?? {}).some(([k, r]) => r?.reussi && /^(epreuve|zenkoren)-(3|2|1|j2|j1)$|^blanc-[a-z]+-(3|2|1)$/.test(k));
+
 async function sauver() {
+  appliquerEchelle(troisiemeKyuReussi(donnees));
   if (etatStockage.etat === 'lecture-seule') return;
   // Nouveaux succès ? On les date, puis on prévient l'interface.
   const nouveaux = succesObtenus(donnees, aujourdhui()).filter((id) => !donnees.succes[id]);

@@ -101,6 +101,30 @@ export const cleBlanc = (sys, id) => `blanc-${sys.id}-${id}`;
 export function kyuPasse(d, sys, g) {
   return sys.grades.slice(sys.grades.indexOf(g)).some((x) => !!d.records[sys.record(x.id)]?.reussi || !!d.records[cleBlanc(sys, x.id)]?.reussi);
 }
+/** Le 6e kyū (ou plus haut) est-il passé, dans le système choisi ? */
+export function sixiemeKyuPasse(d) {
+  const sys = systemeChoisi(d);
+  const g6 = sys.grades.find((g) => g.id === '6');
+  return !!g6 && kyuPasse(d, sys, g6);
+}
+
+/**
+ * Examen complet de la semaine, une fois le 6e kyū passé : le sujet officiel ENTIER du prochain
+ * grade (mitorizan, × et ÷, 30 minutes ; ou les épreuves Zenkoren), à la place de l'examen
+ * blanc. null avant, ou si tout est réussi.
+ * @returns {{ grade: object, fait: object|null } | null}  fait : la session de la semaine, s'il y en a une
+ */
+export function examenCompletHebdo(d, date) {
+  if (!sixiemeKyuPasse(d)) return null;
+  const sys = systemeChoisi(d);
+  const g = grade(d).prochain;
+  if (!g) return null;
+  const semaine = semaineISO(date).cle;
+  const mode = `${g.systeme === 'zenkoren' ? 'z' : ''}${g.id}`;
+  const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === mode && semaineISO(s.date).cle === semaine) ?? null;
+  return { grade: g, systeme: sys.id, fait };
+}
+
 /** Plus haut kyū officiel réussi en examen blanc (ou null). */
 export const meilleurBlanc = (d) => { const sys = systemeChoisi(d); return [...sys.grades].reverse().find((g) => !!d.records[cleBlanc(sys, g.id)]?.reussi) ?? null; };
 

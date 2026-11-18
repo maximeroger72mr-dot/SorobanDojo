@@ -33,7 +33,7 @@ import { prochainGradeFlash, meilleurGradeFlash, libelleGradeFlash, QUESTIONS_GR
 import { semaineISO } from '../core/hasard.js';
 import { voixDisponible } from '../ui/voix.js';
 import { sorobanNombre } from '../ui/perles.js';
-import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, SOCLE, aSocle, prekyuObtenu } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, SOCLE, aSocle, prekyuObtenu, examenCompletHebdo } from '../core/examen.js';
 import { bilanHebdo } from '../core/bilan.js';
 import { plateaux, chiffresAppris as chiffresApprisDe } from '../core/parcours.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
@@ -143,7 +143,17 @@ function plan(d, debut, seance = null) {
   let isolesBloc3 = 0;
   // Trois premiers grades préparatoires, pas encore obtenus : le socle (10 colonnes, sans chrono).
   const examSocle = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
-  if (examEssentiel && (examSocle || (aSocle(exam) && examFait?.socle && passeAujourdhui))) {
+  // Une fois le 6e kyū passé : le sujet officiel complet du prochain grade, une fois par semaine
+  // (vendredi au dimanche), à la place de l'examen blanc.
+  const complet = examenCompletHebdo(d, date);
+  const completAujourdhui = !!complet?.fait && complet.fait.date === date;
+  if (complet && (completAujourdhui || (fenetreExamen && !complet.fait && objectif >= 10))) {
+    const g = complet.grade;
+    const f = complet.fait;
+    essentiel.push({ titre: `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
+      detail: f ? `${f.justes} / ${f.total} justes` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
+      pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' });
+  } else if (examEssentiel && (examSocle || (aSocle(exam) && examFait?.socle && passeAujourdhui))) {
     essentiel.push({ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: !!examFait && passeAujourdhui,
       detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', grade obtenu' : ', pas encore : retentez quand vous voulez'}`
         : `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade`,

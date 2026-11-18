@@ -21,6 +21,7 @@ import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 import { prochainSousPalier } from './lecons.js';
 import { meilleurPrekyu } from '../core/examen.js';
 import { revisionsDues, gestesAnzanFaibles } from '../core/progression.js';
+import { volumeAuFormat } from '../core/formatKyu.js';
 
 /**
  * « Où j'en suis » : une phrase de synthèse, puis à quoi sert chaque indicateur.
@@ -104,6 +105,18 @@ function carte(app) {
     carteMaitrise({ surClic: (cle) => detailGeste(app, cle) }), cascades);
 }
 
+/** Volume au format du kyū visé, semaine par semaine (les 6 dernières). */
+function tableVolumeFormat(d) {
+  const v = volumeAuFormat(d, aujourdhui());
+  const total = v.semaines.reduce((t, x) => t + x.colonnes + x.operations, 0);
+  return h('div', { class: 'carte', style: 'margin-top:12px' },
+    h('strong', {}, `Au format du ${v.grade.nom}`), h('span', { class: 'discret' }, ` (colonnes de ${v.chiffres} chiffres sur ${v.lignes} lignes, × et ÷ au format du kyū), par semaine :`),
+    total ? h('table', {}, h('tr', {}, h('th', {}, ''), v.semaines.map((x) => h('th', {}, x.semaine.split('-')[1]))),
+      h('tr', {}, h('td', {}, 'Colonnes'), v.semaines.map((x) => h('td', {}, x.colonnes || '·'))),
+      h('tr', {}, h('td', {}, '× et ÷'), v.semaines.map((x) => h('td', {}, x.operations || '·'))))
+      : h('p', { class: 'discret' }, 'Rien encore à ce format : les planches proposées par la séance y sont presque toutes.'));
+}
+
 /** Courbes de l'anzan : longueur de chaîne tenue et vitesse d'affichage (meilleure série réussie du jour). */
 export function seriesAnzan(d) {
   const parJour = {};
@@ -167,7 +180,7 @@ export default {
     const bascule = h('div', { class: 'segments' }, [['minutes', 'Minutes par jour'], ['exercices', 'Exercices par semaine'], ['chiffres', 'Chiffres par semaine']].map(([v, t]) =>
       h('button', { class: v === 'minutes' ? 'actif' : '', onclick: (e) => { [...bascule.children].forEach((b) => b.classList.toggle('actif', b === e.currentTarget)); remplir(zoneRegularite, vues[v]()); } }, t)));
     remplir(zoneRegularite, vues.minutes());
-    el.append(h('h2', {}, 'Régularité et volume'), bascule, zoneRegularite);
+    el.append(h('h2', {}, 'Régularité et volume'), bascule, zoneRegularite, tableVolumeFormat(d));
 
     // Carte de maîtrise
     el.append(h('h2', {}, 'Carte de maîtrise des gestes'), carte(app));

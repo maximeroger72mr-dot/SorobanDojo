@@ -64,12 +64,12 @@ const K6 = [...K7, 'p6-4', 'p7-ea', 'p7-e', 'p7-3', 'p7-4a', 'p7-4b', 'p7-4c', '
 // × et ÷ : chaque grade exige les leçons de TOUS les découpages de son sujet (5e : 3 × 3 et 4 × 2,
 // ÷ 5 chiffres au total ; 4e : 4 × 3 et 5 × 2, ÷ 6 chiffres au total).
 const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6', 'p8-5a', 'p8-7'];
-const K4 = [...K5, 'p8-3', 'p8-5', 'p8-8'];
+const K4 = [...K5, 'p8-3', 'p8-5', 'p8-8', 'p8-pl'];
 // Résultats négatifs : seulement aux 1er et 2e kyū (sujets modèles) ; décimaux et arrondis dès le 3e.
 const NEGATIFS = ['p8-n', 'p8-n2'];
 const K3 = [...K4, ...idsPaliers('pd').filter((id) => !NEGATIFS.includes(id))];
 const K2 = [...K3, ...NEGATIFS, 'p9-1', 'p9-3', 'p9-5'];
-const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6'];
+const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6', 'p9-pl'];
 export const PREREQUIS = { 10: K10, 9: K9, 8: K8, 7: K7, 6: K6, 5: K5, 4: K4, 3: K3, 2: K2, 1: K1 };
 const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 

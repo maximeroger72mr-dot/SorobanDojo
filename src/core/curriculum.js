@@ -354,6 +354,10 @@ export const PALIERS = [
       { id: 'p8-8', titre: 'Division à 6 chiffres au total (÷ 3 et quotient de 3, ÷ 2 et quotient de 4, ÷ 4 et quotient de 2)', type: 'div', nd: 3, nq: 3, formes: [[3, 3], [2, 4], [4, 2]], zerosFinaux: 0.15, repetitions: 30, corrections: true,
         pourquoi: 'Le format du 4e kyū : diviseur et quotient font 6 chiffres (140 866 ÷ 674 = 209 ; 265 118 ÷ 29 = 9 142 ; 289 153 ÷ 3 961 = 73). Avec un diviseur court, le quotient est long : quatre estimations à la suite, sans perdre la tige. Avec un diviseur à 4 chiffres, une seule estimation, mais quatre produits à retirer pour chaque chiffre.',
         demos: [{ a: 140866, b: 674 }, { a: 289153, b: 3961 }] },
+      { id: 'p8-pl', titre: 'Placement : les formes du 5e et du 4e kyū', type: 'placement', op: 'mul', repetitions: 30,
+        formes: [['mul', 3, 3], ['mul', 4, 2], ['mul', 2, 4], ['mul', 4, 3], ['mul', 3, 4], ['mul', 5, 2], ['mul', 2, 5], ['div', 3, 2], ['div', 2, 3], ['div', 3, 3], ['div', 2, 4], ['div', 4, 2]],
+        pourquoi: 'Une série courte, sans calculer : on ne pose que le PREMIER chiffre du produit ou du quotient. Les découpages inhabituels (5 × 2, diviseur à 4 chiffres et quotient à 2) piègent surtout là : une tige de travers, et tout le calcul est décalé. Multiplication : chiffres des deux facteurs au total = tige de la dizaine du premier produit. Division : on compare le début du dividende au diviseur.',
+        demos: [] },
     ],
   },
   {
@@ -449,6 +453,10 @@ export const PALIERS = [
       { id: 'p9-6', titre: 'Division à 9 et 10 chiffres au total (diviseur de 3 à 6 chiffres)', type: 'div', nd: 5, nq: 5, formes: [[5, 4], [4, 5], [6, 3], [3, 6], [5, 5], [6, 4], [4, 6]], zerosFinaux: 0.15, repetitions: 30,
         pourquoi: 'Les formats du 準1 (9 chiffres au total) et du 1er kyū (10 chiffres) : diviseur de 3 à 6 chiffres. Avec 5 chiffres au diviseur, l\'unité du quotient est 6 tiges à gauche de l\'unité du dividende (chiffres du diviseur + 1). Comparez les 5 premiers chiffres du dividende au diviseur pour savoir où poser le premier chiffre.',
         demos: [{ a: 760107726, b: 24318 }] },
+      { id: 'p9-pl', titre: 'Placement : les formes du 2e et du 1er kyū', type: 'placement', op: 'mul', repetitions: 30,
+        formes: [['mul', 5, 3], ['mul', 6, 3], ['mul', 3, 6], ['mul', 5, 4], ['mul', 6, 4], ['mul', 7, 4], ['mul', 4, 7], ['mul', 6, 5], ['div', 5, 2], ['div', 3, 5], ['div', 5, 3], ['div', 4, 4], ['div', 6, 3], ['div', 6, 4], ['div', 4, 6], ['div', 5, 5]],
+        pourquoi: 'Le premier chiffre seulement, sur les grands découpages du 2e et du 1er kyū (7 × 4, diviseur à 6 chiffres et quotient à 4). Avec 10 ou 11 chiffres au total, la tige du premier produit se compte vite de travers : comptez les chiffres des deux facteurs, et repérez la tige avec les points de la barre.',
+        demos: [] },
     ],
   },
   {
@@ -712,6 +720,7 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
 function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
   const entre = (a, b) => (b && Math.random() < 0.5 ? b : a);
+  if (sp.type === 'placement' && sp.formes) { const [op, x, y] = sp.formes[Math.floor(Math.random() * sp.formes.length)]; return genererPlacement(op, 1, [x, y]); }
   if (sp.type === 'placement') return sp.op === 'muldec' ? genererPlacementDecimal() : genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
   if (sp.type === 'table') return produitTable(memoireDe(sp.id));
   if (sp.type === 'addsubdec') return genererColonneDecimale(5, 4, 2);

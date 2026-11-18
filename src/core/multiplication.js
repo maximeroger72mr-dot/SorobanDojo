@@ -223,10 +223,12 @@ export function genererMarche(marche) {
  *  - division : la tige du premier chiffre du quotient (règle « deux tiges / juste à gauche »).
  * Le rang est compté depuis la tige des unités (unités = rang 0).
  */
-export function genererPlacement(op, niveau = 1) {
+export function genererPlacement(op, niveau = 1, forme = null) {
+  // forme : [m, n] (×) ou [chiffres du diviseur, chiffres du quotient] (÷), imposée (séries de
+  // placement sur les formes d'examen) ; sinon tirée selon le niveau.
   if (op === 'mul') {
-    const m = entier(1, Math.min(4, 1 + niveau));
-    const n = entier(1, Math.min(3, niveau));
+    const m = forme ? forme[0] : entier(1, Math.min(4, 1 + niveau));
+    const n = forme ? forme[1] : entier(1, Math.min(3, niveau));
     const a = facteur(Math.max(m, 1));
     const b = facteur(n);
     const total = String(a).length + String(b).length;
@@ -235,8 +237,8 @@ export function genererPlacement(op, niveau = 1) {
       explication: `${String(a).length} + ${String(b).length} = ${total} chiffres au total : la dizaine du premier produit (${chiffresDe(a)[0]} × ${chiffresDe(b)[0]} = ${deuxChiffres(chiffresDe(a)[0] * chiffresDe(b)[0])}) va sur la ${total}e tige en comptant les unités comme la 1re.`,
     };
   }
-  const nd = entier(1, Math.min(3, niveau));
-  const nq = entier(1, Math.min(3, niveau + 1));
+  const nd = forme ? forme[0] : entier(1, Math.min(3, niveau));
+  const nq = forme ? forme[1] : entier(1, Math.min(3, niveau + 1));
   const { a, b } = genererDivision(nd, nq);
   const e = etapesDivision(a, b);
   const nqReel = String(e.resultat).length;

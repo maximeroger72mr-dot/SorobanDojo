@@ -10,6 +10,7 @@
 
 import { h } from './dom.js';
 import { NIVEAUX, tempsCible } from '../core/maitrise.js';
+import { equivalenceKyu } from '../core/allure.js';
 
 /**
  * @param {{ total: number, msParUnite: number, nom: string }} o
@@ -60,8 +61,9 @@ export function fantomeMaitre(generer, niveau = 'confirme') {
 export function medaille(dureeMoyenneMs, exemples, justes, total) {
   if (!total || justes / total < 0.9) return null;
   const seuil = (id) => exemples.reduce((s, ex) => s + tempsCible(ex, NIVEAUX.find((x) => x.id === id)) * 1000, 0) / exemples.length;
-  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'platine', texte: 'Platine : le rythme du 2e kyū.' };
-  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'or', texte: 'Or : le rythme du 4e kyū.' };
-  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'argent', texte: 'Argent : le rythme du 6e kyū.' };
+  const kyu = (id) => equivalenceKyu(NIVEAUX.find((x) => x.id === id))?.nom ?? '';
+  if (dureeMoyenneMs <= seuil('expert')) return { nom: 'platine', texte: `Platine : le rythme du ${kyu('expert')}.` };
+  if (dureeMoyenneMs <= seuil('confirme')) return { nom: 'or', texte: `Or : le rythme du ${kyu('confirme')}.` };
+  if (dureeMoyenneMs <= seuil('debutant')) return { nom: 'argent', texte: `Argent : le rythme du ${kyu('debutant')}.` };
   return { nom: 'bronze', texte: 'Bronze : juste, la vitesse viendra.' };
 }

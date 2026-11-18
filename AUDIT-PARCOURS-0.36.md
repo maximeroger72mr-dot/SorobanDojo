@@ -334,3 +334,21 @@ Sujets d'examen, à comparer : 14 % (7e), 18 % (6e), 20 % (4e), 19 % (1er) de pr
 - Règlement du 珠算能力検定試験 : https://www.shuzan.jp/kentei/shuzan/
 - Règlement du 暗算検定試験 : https://www.shuzan.jp/kentei/anzan/
 - Sujets modèles (見本) : https://www.shuzan.jp/kentei/mihon/
+
+---
+
+## Suites données (version 0.37.0)
+
+| Proposition | Décision | État |
+|---|---|---|
+| C-1 Formes de × et ÷ | Validée, adaptée au niveau | Fait, plus : toutes les formes jusqu'au 1er kyū vues en cours, et × ÷ d'entraînement aux proportions du sujet |
+| C-2 Premier nombre | Validée, après les grands amis | Fait (leçons et planches) |
+| C-3 Zéros finaux | Validée | Fait (15 %) |
+| C-4 Absorption limitée | Explication demandée | En attente |
+| C-5, C-6, C-7 | Validées | Faits |
+| V-1 Au-delà du platine | Remplacée : l'échelle monte d'un cran après le 3e kyū | Fait |
+| V-2 Volume au format | Validée, par semaine | Fait ; aucun chiffre sérieux trouvé sur le volume des élèves japonais (seulement des cas individuels dans la presse) |
+| V-3 Portes « or » | Stricte jusqu'aux petits amis ; ensuite argent + volume de l'étape, ou 10 jours | Fait |
+| Mesure par geste en anzan | Validée | Fait |
+| Examen complet hebdomadaire | Validé, dès le 6e kyū passé ; planches ciblées en tête | Fait |
+| Série de placement | Validée | Fait (`p8-pl`, `p9-pl`) |

@@ -19,7 +19,7 @@ import { nomMotif, diagnosticPincee } from './motifs.js';
 import { libellesModes } from './colonneGeste.js';
 import { gestesLents, chiffresAppris, lignesAcquises, formatExamen, anzanAdapte, estValide, defiSemaine, famillesApprises, coursMultiplicationAtteint, drillValide } from './parcours.js';
 import { catalogueDrills, tempsClassement, CLASSEMENT } from './drills.js';
-import { examenDeLaSemaine, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT } from './examen.js';
+import { examenDeLaSemaine, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, sixiemeKyuPasse } from './examen.js';
 import { semaineISO } from './hasard.js';
 import { produitsARetravailler } from './tables.js';
 
@@ -140,8 +140,11 @@ export function planchesPossibles(d, difficiles = [], date = null) {
   const ciblees = liste.filter((p) => !melangees.has(p.id));
   const autres = liste.filter((p) => melangees.has(p.id));
   const [a, b] = jourNum(date ?? '2026-01-01') % 2 ? [autres, ciblees] : [ciblees, autres];
-  const alterne = [];
+  let alterne = [];
   for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) alterne.push(a[i]); if (b[i]) alterne.push(b[i]); }
+  // Une fois le 6e kyū passé, l'examen complet de la semaine dit le format ; le gros du volume va
+  // aux planches CIBLÉES sur les difficultés (gestes faibles, puis lents), les mélangées ensuite.
+  if (sixiemeKyuPasse(d)) alterne = [...ciblees, ...autres];
   // Toutes à peu près de la même durée : le nombre de colonnes suit la vitesse mesurée.
   return alterne.map(({ grade: g, ...p }) => {
     const colonnes = colonnesPour(d, p);

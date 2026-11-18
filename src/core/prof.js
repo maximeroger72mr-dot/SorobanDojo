@@ -91,6 +91,23 @@ export function leconsADorer(d, palier) {
     .sort((a, b) => a.n.index - b.n.index || a.sp.ordre - b.sp.ordre).map((x) => x.sp);
 }
 
+/**
+ * Porte « or » en fin d'étape, version souple À PARTIR DES GRANDS AMIS (étapes p3 et suivantes) :
+ * on garde 10 jours de pratique au plus, mais on passe aussi dès que toutes les leçons de l'étape
+ * sont au moins en ARGENT et que le VOLUME de l'étape est fait : depuis la fin de l'étape, autant
+ * d'exercices sur soroban que l'étape en comptait dans ses leçons. Avant (gestes directs, petits
+ * amis), la porte reste l'or.
+ */
+export const ETAPES_PORTE_STRICTE = ['p0', 'p1', 'p2'];
+const MODULES_SOROBAN = ['lecons', 'planches', 'rythme', 'revisions', 'drills', 'defis', 'examen', 'muldiv', 'jeux'];
+export function volumeEtape(d, palier) {
+  const lecons = palier.sousPaliers.map((x) => SOUS_PALIERS.find((sp) => sp.id === x.id)).filter((sp) => sp && LECON_SOROBAN(sp));
+  const fin = lecons.map((sp) => d.paliers[sp.id]?.valide).filter(Boolean).sort().at(-1) ?? null;
+  const vise = lecons.reduce((t, sp) => t + (sp.repetitions ?? 0), 0);
+  const fait = fin ? d.sessions.filter((s) => s.date > fin && MODULES_SOROBAN.includes(s.module)).reduce((t, s) => t + (s.total ?? 0), 0) : 0;
+  return { fait, vise, ok: fait >= vise };
+}
+
 /** Exercice d'automatisation d'une leçon : marathon sur ses gestes, ou entraînement de la leçon. */
 function ancrage(sp) {
   return sp.type === 'addsub'
@@ -133,12 +150,15 @@ export function decisionDuJour(d, date, prochain) {
     // d'une étape, l'argent suffit pour passer à la leçon suivante.
     if (prochain.palier.id !== derniere.palier.id && jours < JOURS_AUTOMATISATION_MAX) {
       const aDorer = leconsADorer(d, derniere.palier);
-      if (aDorer.length) {
+      const souple = !ETAPES_PORTE_STRICTE.includes(derniere.palier.id);
+      const vol = souple ? volumeEtape(d, derniere.palier) : null;
+      const sortieArgent = souple && vol.ok && aDorer.every((x) => niveauLecon(d, x).index >= 2);
+      if (aDorer.length && !sortieArgent) {
         const sp = aDorer[0];
         const reste = JOURS_AUTOMATISATION_MAX - jours;
         return { type: 'automatiser', titre: 'Automatiser', ...ancrage(sp), sp, minutes: 10, cible: 'or', finEtape: true,
           detail: `« ${sp.titre} »`,
-          raison: `L'étape « ${derniere.palier.titre} » est terminée : avant la suivante, on passe ses leçons en or (${aDorer.length} restante${aDorer.length > 1 ? 's' : ''}). L'étape suivante s'ouvre dès l'or partout, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.` };
+          raison: `L'étape « ${derniere.palier.titre} » est terminée : avant la suivante, on passe ses leçons en or (${aDorer.length} restante${aDorer.length > 1 ? 's' : ''}). L'étape suivante s'ouvre dès l'or partout${souple ? `, ou dès que tout est en argent avec le volume de l'étape fait (${vol.fait} exercices sur ${vol.vise})` : ''}, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.` };
       }
     }
   }
