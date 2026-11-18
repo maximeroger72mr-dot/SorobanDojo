@@ -321,7 +321,7 @@ export function colonneValide(col, cibles = [], strict = true) {
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false }) {
   let liste;
   let motifs;
   let valeur;
@@ -332,6 +332,21 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // oblige à visualiser deux tiges dès le départ). De préférence un chiffre qui permet une cible.
     const ouverts = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), 1) > 0);
     valeur = hasard(ouverts.length ? ouverts : [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    liste = [{ op: '+', n: valeur }];
+    motifs = [];
+    motifsLignes = [[]];
+  } else if (longueurFixe && chiffres >= 2) {
+    // Format d'examen : le premier nombre a EXACTEMENT la longueur annoncée (jamais un chiffre de
+    // plus pour permettre une soustraction en tête, comme le fait la première opération sinon).
+    // Les soustractions arrivent quand le total a grandi, comme dans les sujets modèles.
+    let choix = null;
+    for (let k = 0; k < 40; k++) {
+      const v = entier(10 ** (chiffres - 1), 10 ** chiffres - 1);
+      if (zeros && !aUnZero(v)) continue;
+      const score = ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), chiffres) + Math.random();
+      if (!choix || score > choix.score) choix = { v, score };
+    }
+    valeur = choix?.v ?? entier(10 ** (chiffres - 1), 10 ** chiffres - 1);
     liste = [{ op: '+', n: valeur }];
     motifs = [];
     motifsLignes = [[]];

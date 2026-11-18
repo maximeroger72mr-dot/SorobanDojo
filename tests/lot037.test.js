@@ -52,3 +52,34 @@ test('0.37 : × et ÷ « au format du kyū » : les proportions du sujet', async
     assert.ok(entrainement.some((p) => p.virgules) && entrainement.some((p) => !p.virgules)); // décimaux et entiers, comme au 2e kyū
   });
 });
+
+test('0.37 : premier nombre à la longueur annoncée après les grands amis, répétitions limitées', () => {
+  avecGraine(5, () => {
+    const sp = (id) => SOUS_PALIERS.find((s) => s.id === id);
+    for (const id of ['p5-5', 'p8-1', 'p8-t1']) {
+      const s = sp(id);
+      for (let i = 0; i < 60; i++) assert.ok(genererExercice(s).lignes.every((l) => String(l.n).length <= (s.chiffresMax ?? s.chiffres)), id);
+    }
+    // ÷ 1 chiffre, quotient 1 chiffre : jamais le même calcul parmi les 30 derniers.
+    const recents = [];
+    for (let i = 0; i < 60; i++) { const e = genererExercice(sp('p7-1')); const k = `${e.a}|${e.b}`; if (recents.length >= 30 && i < 40) assert.ok(!recents.slice(-30).includes(k)); recents.push(k); }
+  });
+});
+
+test('0.37 : piste anzan, divisions des examens couvertes ; gestes d\'anzan mesurés à part', async () => {
+  const { GRADES_ANZAN, genererSujetAnzan } = await import('../src/core/epreuvesAnzan.js');
+  const { gestesAnzanFaibles } = await import('../src/core/progression.js');
+  avecGraine(9, () => {
+    const piste = new Set(SOUS_PALIERS.filter((s) => s.mental && (s.type === 'mul' || s.type === 'div')).flatMap((s) => Array.from({ length: 150 }, () => forme(genererExercice(s)))));
+    for (const g of GRADES_ANZAN.filter((x) => x.mul)) {
+      const sujet = new Set(genererSujetAnzan(g).sections.filter((s) => s.cle !== 'mitori').flatMap((s) => s.problemes.map(forme)));
+      assert.deepEqual([...sujet].filter((f) => !piste.has(f)), [], g.nom);
+    }
+    const ex = genererExercice(SOUS_PALIERS.find((s) => s.id === 'p3-a'));
+    assert.equal(ex.motifs, undefined);
+    assert.ok(ex.gestesAnzan.length > 0);
+  });
+  const hist = (ok, ko) => [...Array(ok).fill(1), ...Array(ko).fill(0)];
+  const d = { gestesAnzan: { '+7:grand': { hist: hist(10, 6) }, '+3:petit': { hist: hist(18, 2) }, '+9:grand': { hist: hist(19, 1) }, '+1:direct': { hist: hist(5, 5) } } };
+  assert.deepEqual(gestesAnzanFaibles(d).map((x) => x.cle), ['+7:grand']);
+});

@@ -13,7 +13,7 @@ import { genererPlanche, genererPlancheGeste, genererPlancheSpeciale, GENRES_PLA
 import { graineAleatoire, codeDepuisGraine } from '../core/hasard.js';
 import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif, PINCEES } from '../core/motifs.js';
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
-import { motifsAppris as motifsApprisDe, gestesLents, ancrageDuJour } from '../core/parcours.js';
+import { motifsAppris as motifsApprisDe, gestesLents, ancrageDuJour, estValide } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
 import { formatsPlanche } from '../core/propositions.js';
 import { systemeChoisi } from '../core/epreuves.js';
@@ -332,7 +332,8 @@ export default {
           // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
           // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
           // tous les gestes appris.
-          const config = { chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros, ops: c.ops };
+          // Après les grands amis : premier nombre à la longueur annoncée, comme à l'examen.
+          const config = { chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, autorises: c.autorises, cibles: c.cibles, poids, zeros: !!r.zeros, ops: c.ops, longueurFixe: estValide(progression(), 'p4-5') };
           const replis = [
             [config, null],
             [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],

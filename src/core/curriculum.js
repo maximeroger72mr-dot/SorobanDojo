@@ -537,11 +537,14 @@ export const PALIERS = [
       { id: 'pa-d2', titre: 'Anzan : diviser par 2 chiffres', type: 'div', nd: 2, nq: 1, apres: 'p7-3', repetitions: 30, testMin: 12,
         pourquoi: 'On estime le chiffre du quotient avec le premier chiffre du diviseur, puis on retire les deux produits dans la tête. Un seul chiffre au quotient pour commencer : tout l\'effort va à l\'estimation et à la soustraction mentale.',
         demos: [{ a: 168, b: 24 }] },
+      { id: 'pa-d4', titre: 'Anzan : diviser, 4 chiffres au total', type: 'div', nd: 2, nq: 2, formes: [[2, 2], [3, 1], [1, 3]], apres: 'p7-4', repetitions: 30, testMin: 12,
+        pourquoi: 'Le format des 3e et 2e kyū d\'anzan : diviseur et quotient font 4 chiffres (1 512 ÷ 24 = 63 ; 5 712 ÷ 816 = 7 ; 2 856 ÷ 7 = 408). Deux estimations au plus, mais il faut garder le reste dans la tête entre les deux : relisez-le une fois avant d\'estimer le chiffre suivant.',
+        demos: [{ a: 1512, b: 24 }] },
       { id: 'pa-m4', titre: 'Anzan : multiplier 3 chiffres par 2', type: 'mul', m: 3, n: 2, apres: 'p6-4', repetitions: 30, testMin: 12,
         pourquoi: 'Le format du 1er kyū d\'anzan : 5 chiffres au total (607 × 38, 24 × 480). Six produits, sur cinq tiges : faites une passe complète par chiffre du multiplicateur, et relisez le total intermédiaire entre les deux passes.',
         demos: [{ a: 607, b: 38 }] },
-      { id: 'pa-d3', titre: 'Anzan : diviser par 2 chiffres, quotient de 3 chiffres', type: 'div', nd: 2, nq: 3, apres: 'p7-4', repetitions: 30, testMin: 12,
-        pourquoi: 'Le format du 1er kyū d\'anzan : diviseur et quotient font 5 chiffres (38 857 ÷ 49 = 793). Trois estimations à la suite : après chaque chiffre du quotient, relisez le reste dans l\'image avant d\'estimer le suivant.',
+      { id: 'pa-d3', titre: 'Anzan : diviser, 5 chiffres au total', type: 'div', nd: 2, nq: 3, formes: [[2, 3], [3, 2]], apres: 'p8-7', repetitions: 30, testMin: 12,
+        pourquoi: 'Le format du 1er kyū d\'anzan : diviseur et quotient font 5 chiffres (38 857 ÷ 49 = 793, ou 35 778 ÷ 534 = 67). Jusqu\'à trois estimations à la suite : après chaque chiffre du quotient, relisez le reste dans l\'image avant d\'estimer le suivant.',
         demos: [{ a: 38857, b: 49 }] },
     ],
   },
@@ -685,7 +688,28 @@ export function genererComplement(cible, memoire) {
  * Exercice d'un sous-palier (colonne, multiplication ou division).
  * @param {object} [ctx]  anzan seulement : { lignes, image } (voir plus bas)
  */
+/**
+ * × et ÷ des leçons : pas deux fois le même calcul parmi les 30 derniers de la leçon (les leçons
+ * à petit espace, comme ÷ 1 chiffre et quotient 1 chiffre, en répétaient 15 sur 50). Après 30
+ * essais sans calcul neuf (espace épuisé), on accepte une répétition.
+ */
+const RECENTS_MULDIV = 30;
+const recentsMulDiv = new Map();
 export function genererExercice(sp, poids = {}, ctx = {}) {
+  if (sp.type !== 'mul' && sp.type !== 'div') return genererExerciceBrut(sp, poids, ctx);
+  if (!recentsMulDiv.has(sp.id)) recentsMulDiv.set(sp.id, []);
+  const recents = recentsMulDiv.get(sp.id);
+  let ex;
+  for (let i = 0; i < 30; i++) {
+    ex = genererExerciceBrut(sp, poids, ctx);
+    if (!recents.includes(`${ex.a}|${ex.b}`)) break;
+  }
+  recents.push(`${ex.a}|${ex.b}`);
+  if (recents.length > RECENTS_MULDIV) recents.shift();
+  return ex;
+}
+
+function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   const alterner = (k) => (/et \d chiffres/.test(sp.titre) && Math.random() < 0.5 ? k + 1 : k);
   const entre = (a, b) => (b && Math.random() < 0.5 ? b : a);
   if (sp.type === 'placement') return sp.op === 'muldec' ? genererPlacementDecimal() : genererPlacement(sp.op, 1 + Math.floor(Math.random() * 3));
@@ -698,6 +722,10 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   if (sp.type === 'arrondiunite') return Math.random() < 0.5 ? genererMultiplicationDecimale(3, 2, 0) : genererDivisionDecimale(2, 3, 0);
   // Piste anzan : × et ÷ de tête (ex.mental : soroban rangé, pas de mode « mains sur le soroban »).
   if (sp.mental && (sp.type === 'mul' || sp.type === 'div')) {
+    if (sp.formes) {
+      const [x, y] = sp.formes[Math.floor(Math.random() * sp.formes.length)];
+      return { ...(sp.type === 'mul' ? genererMultiplication(x, y) : genererDivision(x, y)), mental: true };
+    }
     return { ...(sp.type === 'mul' ? genererMultiplication(sp.m, sp.n) : genererDivision(sp.nd, alterner(sp.nq))), mental: true };
   }
   // Marches : une seule difficulté à la fois (voir multiplication.MARCHES_MUL / MARCHES_DIV).
@@ -736,12 +764,17 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
     const col = genererColonneVariee({
       chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true,
     }, memoireDe(sp.id));
-    return { ...col, motifs: undefined, flash: { duree: sp.duree, image: ctx.image ?? 0 } };
+    // Les gestes de la colonne restent connus (`gestesAnzan`), mais à part : ils ne comptent pas
+    // dans les niveaux des gestes sur soroban (voir progression.noterGestesAnzan).
+    return { ...col, motifs: undefined, gestesAnzan: col.motifs, flash: { duree: sp.duree, image: ctx.image ?? 0 } };
   }
   // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
   let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
   if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
-  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros }, memoireDe(sp.id));
+  // Après les grands amis (toutes les retenues apprises), les colonnes à plusieurs chiffres suivent
+  // le format d'examen : premier nombre à la longueur annoncée.
+  const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
+  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe }, memoireDe(sp.id));
 }
 
 /**

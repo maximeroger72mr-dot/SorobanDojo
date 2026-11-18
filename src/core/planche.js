@@ -77,9 +77,10 @@ export function bilanPlanche(colonnes, cibles, realisables = cibles, replis = []
  */
 export function genererPlanche(spec, graine) {
   return avecGraine(graine, () => {
-    const { chiffres, lignes, colonnes: nb, autorises = null, cibles, poids = {}, zeros = false, profil = 'rampe', ops } = spec;
+    const { chiffres, lignes, colonnes: nb, autorises = null, cibles, poids = {}, zeros = false, profil = 'rampe', ops, longueurFixe = false } = spec;
     // ops : ['+'] pour une planche d'additions seules (les gestes visés sont alors ceux d'addition).
-    const base = { chiffres, lignes, autorises, cibles, zeros, ...(ops ? { ops } : {}) };
+    // longueurFixe : premier nombre à la longueur annoncée (format d'examen, après les grands amis).
+    const base = { chiffres, lignes, autorises, cibles, zeros, longueurFixe, ...(ops ? { ops } : {}) };
     const realisables = ciblesRealisables(base);
     const vus = {};
     // Un geste pas encore vu sur la planche passe devant ; un geste déjà vu recule.

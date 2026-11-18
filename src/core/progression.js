@@ -301,6 +301,34 @@ export const FENETRE_SOUPCON = 10;
  *    avec les sous-totaux), l'erreur compte tout de suite.
  * @returns {Array<{cle, statut: 'soupcon'|'confirme'}>}
  */
+/**
+ * Gestes en anzan : on ne sait pas QUEL geste a lâché (il n'y a que le total), mais sur assez de
+ * colonnes, un geste présent dans les colonnes ratées bien plus souvent que les autres se
+ * détache. Compteurs séparés de ceux du soroban : { essais, erreurs } par geste, 60 derniers.
+ */
+export async function noterGestesAnzan(gestes, juste) {
+  const t = (donnees.gestesAnzan ??= {});
+  for (const c of new Set(gestes ?? [])) {
+    const f = (t[c] ??= { hist: [] });
+    f.hist.push(juste ? 1 : 0);
+    if (f.hist.length > 60) f.hist.shift();
+  }
+  await sauver();
+}
+
+/**
+ * Gestes qui lâchent en anzan : au moins 12 colonnes, et un taux d'erreur au moins 1,5 fois la
+ * moyenne (et 15 % au moins). Le plus fragile d'abord.
+ * @returns {Array<{ cle, taux, essais, moyenne }>}
+ */
+export function gestesAnzanFaibles(d, n = 3) {
+  const t = Object.entries(d.gestesAnzan ?? {}).map(([cle, f]) => ({ cle, essais: f.hist.length, taux: f.hist.filter((x) => !x).length / Math.max(1, f.hist.length) }));
+  const mesures = t.filter((x) => x.essais >= 12);
+  if (!mesures.length) return [];
+  const moyenne = mesures.reduce((s, x) => s + x.taux * x.essais, 0) / mesures.reduce((s, x) => s + x.essais, 0);
+  return mesures.filter((x) => x.taux >= Math.max(0.15, 1.5 * moyenne) && !x.cle.endsWith(':direct')).sort((a, b) => b.taux - a.taux).slice(0, n).map((x) => ({ ...x, moyenne }));
+}
+
 export async function noterGestes(reussis, rates, t, { confirme = false } = {}) {
   // Vitesse « isolée » : mesurée dans une colonne où le geste n'a pour voisins que des gestes de
   // sa famille (colonne de gestes directs seuls, ou colonne dont tous les amis sont de la même

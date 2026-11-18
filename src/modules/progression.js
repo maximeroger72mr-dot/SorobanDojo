@@ -20,7 +20,7 @@ import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { ouvrirDialogue, ouvrirDemo } from '../ui/panneauDemo.js';
 import { prochainSousPalier } from './lecons.js';
 import { meilleurPrekyu } from '../core/examen.js';
-import { revisionsDues } from '../core/progression.js';
+import { revisionsDues, gestesAnzanFaibles } from '../core/progression.js';
 
 /**
  * « Où j'en suis » : une phrase de synthèse, puis à quoi sert chaque indicateur.
@@ -119,10 +119,14 @@ export function seriesAnzan(d) {
 }
 function courbesAnzan(d) {
   const j = seriesAnzan(d);
-  if (!j.length) return null;
-  return h('div', { class: 'deux-courbes' },
+  const faibles = gestesAnzanFaibles(d);
+  const ligneFaibles = faibles.length ? h('p', {}, h('strong', {}, 'En anzan, ce qui lâche : '),
+    faibles.map((x) => `${nomMotif(x.cle)} (${Math.round(x.taux * 100)} % de colonnes fausses)`).join(' · '),
+    h('span', { class: 'discret' }, ` ; en moyenne ${Math.round(faibles[0].moyenne * 100)} %. Une colonne fausse ne dit pas quel geste a lâché : c'est la répétition qui le désigne.`)) : null;
+  if (!j.length) return ligneFaibles;
+  return h('div', {}, ligneFaibles, h('div', { class: 'deux-courbes' },
     courbeSimple(j.map((x) => ({ etiquette: x.etiquette, v: x.chaine })), 'Chaîne tenue (nombres × chiffres) : plus haut = plus long', 'chiffres de tête'),
-    courbeSimple(j.filter((x) => x.vitesse).map((x) => ({ etiquette: x.etiquette, v: x.vitesse })), 'Vitesse d\'affichage (nombres par minute) : plus haut = plus rapide', 'nombres par minute'));
+    courbeSimple(j.filter((x) => x.vitesse).map((x) => ({ etiquette: x.etiquette, v: x.vitesse })), 'Vitesse d\'affichage (nombres par minute) : plus haut = plus rapide', 'nombres par minute')));
 }
 
 /** La sauvegarde et l'apparence sont dans Réglages : un rappel en bas de page. */

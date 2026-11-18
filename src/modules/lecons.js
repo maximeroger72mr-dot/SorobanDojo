@@ -18,7 +18,7 @@ import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
-  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
+  reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, noterGestesAnzan, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
   noterReconnu, progression, noterReponse, statsTables,
 } from '../core/progression.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
@@ -579,10 +579,11 @@ export default {
               doigteMasque: () => evaluerPalier(sp.id, famille(sp)).index >= 2,
               // Aide « Je suis bloqué » ou réponse auto-évaluée (mode Espace) : compte pour le
               // volume d'entraînement, pas pour le niveau.
-              surExercice: (res) => {
+              surExercice: (res, ex) => {
                 n += 1;
                 if (sp.type === 'anzan') {
                   chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes);
+                  if (ex?.gestesAnzan && !res.aide && !res.autoEvalue) noterGestesAnzan(ex.gestesAnzan, res.juste);
                   if (!res.juste && sp.image && !reglagesUtilisateur().anzanSansImage && opaciteAnzan() <= 0.15) {
                     rappelImage = true;
                     const [titre, texte] = PONTS_ANZAN[pontsDonnes++ % PONTS_ANZAN.length];
