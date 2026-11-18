@@ -35,7 +35,7 @@ test('0.36 : planches au format de l\'examen visé, sans dépasser les leçons v
   const d6 = profil('p7-4', ['10', '9', '8', '7']);
   assert.deepEqual([formatsPlanche(d6).vise.chiffres, formatsPlanche(d6).vise.lignes], [3, 10]);
   // 4e kyū visé : 5 chiffres pour les planches mélangées, 4 au plus pour les planches de geste.
-  const d4 = profil('p8-7', ['10', '9', '8', '7', '6', '5']);
+  const d4 = profil('p8-8', ['10', '9', '8', '7', '6', '5']);
   const p4 = planchesPossibles(d4, [], '2026-11-17');
   assert.equal(p4.find((x) => x.id === 'consolider').chiffres, 5);
   assert.ok(p4.filter((x) => x.mode).every((x) => x.chiffres <= CHIFFRES_GESTE_MAX));

@@ -4,13 +4,14 @@
  */
 
 import { genererMultiplication, genererDivision, genererMultiplicationDecimale, genererDivisionDecimale, genererDivisionReste } from '../core/multiplication.js';
-import { enregistrerSession, traiterErreurOperation } from '../core/progression.js';
+import { enregistrerSession, traiterErreurOperation, progression } from '../core/progression.js';
+import { gradeOperation, reserveKyu } from '../core/formatKyu.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
-const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, partRestes: 0, rang: 'millieme' };
+const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, partRestes: 0, rang: 'millieme', format: 'kyu' };
 
 export default {
   id: 'muldiv',
@@ -18,7 +19,7 @@ export default {
   monter(el, app, params = {}) {
     let courant = null;
     // Arrivée depuis une proposition (« zéro oublié qui se répète ») : planche de zéros, lancée d'office.
-    if (params.zeros) Object.assign(reglages, { partZeros: 1, partArrondis: 0 });
+    if (params.zeros) Object.assign(reglages, { partZeros: 1, partArrondis: 0, format: 'libre' });
     if (params.type) reglages.type = params.type;
     const zone = h('div', {});
     const etiquettes = h('span', {});
@@ -29,8 +30,12 @@ export default {
       sel.value = String(Math.min(val, max));
     };
     let restesSel = null; // créé plus bas, avec les autres fréquences
+    let zerosSel = null; let arrondisSel = null; let rangSel = null; let formatSel = null;
     const majLibelles = () => {
       const mul = reglages.type === 'mul';
+      const kyu = reglages.format === 'kyu' && !!gradeOperation(progression(), reglages.type);
+      for (const x of [etiquettes, zerosSel, arrondisSel, rangSel]) if (x) x.style.display = kyu ? 'none' : '';
+      if (formatSel) formatSel.options[0].textContent = gradeOperation(progression(), reglages.type) ? `Au format du ${gradeOperation(progression(), reglages.type).nom}` : 'Au format du kyū visé';
       if (restesSel) restesSel.style.display = !mul && reglages.mode === 'feuille' ? '' : 'none';
       remplir(etiquettes, mul ? 'Multiplicande' : 'Diviseur', ' ', selX, ' ', mul ? 'Multiplicateur' : 'Quotient', ' ', selY);
       options(selX, mul ? 6 : 4, reglages.x);
@@ -42,6 +47,9 @@ export default {
     const modeSel = h('select', { onchange: (e) => { reglages.mode = e.target.value; majLibelles(); } },
       h('option', { value: 'une' }, 'Une par une'), h('option', { value: 'feuille' }, 'Feuille (imprimable)'));
     modeSel.value = reglages.mode;
+    formatSel = h('select', { title: 'Au format du kyū : les mêmes découpages, zéros et arrondis que le sujet d\'examen, dans les mêmes proportions.', onchange: (e) => { reglages.format = e.target.value; majLibelles(); } },
+      h('option', { value: 'kyu' }, 'Au format du kyū visé'), h('option', { value: 'libre' }, 'Chiffres au choix'));
+    formatSel.value = reglages.format;
     const nbSel = h('select', { onchange: (e) => { reglages.nombre = Number(e.target.value); } }, [10, 20].map((n) => h('option', { value: n }, `${n} calculs`)));
     nbSel.value = String(reglages.nombre);
     // Fréquences réglables : part des calculs avec un zéro intérieur, part des calculs à arrondir.
@@ -51,15 +59,21 @@ export default {
       x.value = String(reglages[cle]);
       return x;
     };
-    const zerosSel = choix('partZeros', 'zéros : ', PARTS, 'Part des calculs qui contiennent un zéro à l\'intérieur (406 × 7, quotient 304)');
-    const arrondisSel = choix('partArrondis', 'arrondis : ', PARTS, 'Part des calculs en décimaux, à arrondir comme à l\'examen');
-    const rangSel = choix('rang', 'arrondi ', [['millieme', 'au millième'], ['unite', 'à l\'unité'], ['deux', 'au millième ou à l\'unité']], 'Rang de l\'arrondi demandé');
+    zerosSel = choix('partZeros', 'zéros : ', PARTS, 'Part des calculs qui contiennent un zéro à l\'intérieur (406 × 7, quotient 304)');
+    arrondisSel = choix('partArrondis', 'arrondis : ', PARTS, 'Part des calculs en décimaux, à arrondir comme à l\'examen');
+    rangSel = choix('rang', 'arrondi ', [['millieme', 'au millième'], ['unite', 'à l\'unité'], ['deux', 'au millième ou à l\'unité']], 'Rang de l\'arrondi demandé');
     restesSel = choix('partRestes', 'restes : ', PARTS, 'Part des divisions qui ne tombent pas juste : on répond le quotient ET le reste (feuille seulement)');
     majLibelles();
 
-    /** Un calcul : entier, avec un zéro intérieur, ou à arrondir, selon les fréquences choisies. */
+    /** Un calcul : au format du kyū (tiré d'un sujet), ou entier / zéro intérieur / à arrondir selon les fréquences choisies. */
+    let reserve = null;
     const generer = () => {
       const { type, x, y } = reglages;
+      const g = reglages.format === 'kyu' ? gradeOperation(progression(), type) : null;
+      if (g) {
+        if (!reserve || reserve.cle !== `${g.id}-${type}`) reserve = { cle: `${g.id}-${type}`, tirer: reserveKyu(g, type) };
+        return reserve.tirer();
+      }
       // Divisions avec reste : en feuille seulement (deux cases : quotient et reste).
       if (type === 'div' && reglages.mode === 'feuille' && Math.random() < reglages.partRestes) return genererDivisionReste(x, y);
       if (Math.random() < reglages.partArrondis) {
@@ -76,7 +90,7 @@ export default {
         h('ul', {},
           h('li', {}, h('strong', {}, 'Multiplication 両落とし : '), 'aucun facteur n\'est posé. On pose les produits de table sur deux tiges chacun (6 = « 06 »), en commençant par le chiffre de gauche du multiplicande multiplié par chaque chiffre du multiplicateur. Premier produit : sa dizaine sur la (m+n)-ième tige depuis les unités ; chaque produit suivant une tige plus à droite.'),
           h('li', {}, h('strong', {}, 'Division 片落とし : '), 'seul le dividende est posé. Début du dividende ≥ diviseur : chiffre du quotient deux tiges à gauche ; sinon juste à gauche. On retire ensuite quotient × chaque chiffre du diviseur, sur deux tiges, juste à droite du quotient. Unité du quotient : (chiffres du diviseur + 1) tiges à gauche de l\'unité du dividende.'))),
-      h('div', { class: 'reglages' }, typeSel, etiquettes, zerosSel, arrondisSel, rangSel, restesSel, nbSel, modeSel,
+      h('div', { class: 'reglages' }, typeSel, formatSel, etiquettes, zerosSel, arrondisSel, rangSel, restesSel, nbSel, modeSel,
         h('button', { class: 'btn', onclick: () => ouvrirExplication(generer()) }, 'Voir un exemple'),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer')),
       zone);

@@ -81,6 +81,27 @@ export function genererMultiplication(m, n, zeros = false) {
   return { type: 'mul', a, b, resultat: a * b };
 }
 
+/**
+ * Zéro final, comme à l'examen (130 × 97, 300 ÷ 20) : avec la probabilité `p`, un facteur (ou le
+ * diviseur, ou le quotient) d'au moins 2 chiffres est remplacé par un nombre de même longueur
+ * terminé par 0. Réservé aux leçons qui suivent celles sur les zéros (p8-4, p8-6).
+ */
+export function avecZeroFinal(ex, p = 0) {
+  if (!p || Math.random() >= p) return ex;
+  const finir = (x) => { const k = String(x).length; return k < 2 ? x : facteurNet(k - 1) * 10; };
+  if (ex.type === 'mul') {
+    const cotes = [ex.a, ex.b].map((x, i) => [x, i]).filter(([x]) => String(x).length >= 2);
+    if (!cotes.length) return ex;
+    const [x, i] = cotes[Math.floor(Math.random() * cotes.length)];
+    const a = i === 0 ? finir(x) : ex.a;
+    const b = i === 1 ? finir(x) : ex.b;
+    return { ...ex, a, b, resultat: a * b };
+  }
+  const b = String(ex.b).length >= 2 && Math.random() < 0.5 ? finir(ex.b) : ex.b;
+  const q = b === ex.b && String(ex.resultat).length >= 2 ? finir(ex.resultat) : ex.resultat;
+  return { ...ex, a: b * q, b, resultat: q };
+}
+
 /** Division exacte : diviseur de `nd` chiffres, quotient de `nq` chiffres. zeros : quotient avec un zéro. */
 export function genererDivision(nd, nq, zeros = false) {
   const diviseur = facteurNet(nd);

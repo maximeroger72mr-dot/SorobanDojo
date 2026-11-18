@@ -34,7 +34,7 @@ import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
 import {
   genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
-  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale, genererMarche } from './multiplication.js';
+  genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale, genererMarche, avecZeroFinal } from './multiplication.js';
 
 const DIRECT = famille('direct');
 const PETIT = famille('petit');
@@ -339,15 +339,21 @@ export const PALIERS = [
       { id: 'p8-6', titre: 'Division : quotient avec un zéro (304)', type: 'div', nd: 1, nq: 3, ndMax: 2, zeros: true, repetitions: 30,
         pourquoi: 'Quand le reste est plus petit que le diviseur, le chiffre du quotient est 0 : la tige reste vide MAIS elle compte, le chiffre suivant se pose une tige plus à droite. Ne « tassez » jamais le quotient.',
         demos: [{ a: 2128, b: 7 }, { a: 3672, b: 12 }] },
+      { id: 'p8-5a', titre: 'Multiplication à 6 chiffres au total (3 × 3, 4 × 2)', type: 'mul', m: 3, n: 3, formes: [[3, 3], [4, 2], [2, 4]], zerosFinaux: 0.15, repetitions: 30,
+        pourquoi: 'Le format du 5e kyū : 6 chiffres au total, découpés de plusieurs façons (246 × 375, 4 827 × 36, 58 × 7 041). Même méthode, mais la place du premier produit change avec le découpage : comptez les chiffres des DEUX facteurs, c\'est ce total qui donne la tige du premier produit. Un facteur peut finir par 0 (4 820 × 36) : son produit « 00 » ne se pose pas, mais on avance d\'une tige.',
+        demos: [{ a: 246, b: 375 }, { a: 4827, b: 36 }] },
+      { id: 'p8-7', titre: 'Division à 5 chiffres au total (÷ 3 chiffres, ÷ 2 chiffres et quotient de 3)', type: 'div', nd: 3, nq: 2, formes: [[3, 2], [2, 3]], zerosFinaux: 0.15, repetitions: 30, corrections: true,
+        pourquoi: 'Le format du 5e kyū : diviseur et quotient font 5 chiffres (5 832 ÷ 243 = 24, ou 8 694 ÷ 23 = 378). Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare le début du dividende au diviseur pour savoir où poser le quotient. Un chiffre trop grand peut ne se révéler qu\'au DERNIER produit : on retire alors 1 au quotient et on rend les produits déjà retirés.',
+        demos: [{ a: 5832, b: 243 }, { a: 1950, b: 249, rattrapage: true }] },
       { id: 'p8-3', titre: '5 et 6 chiffres, 10 lignes (endurance)', cibles: TOUS_LES_MOTIFS, chiffres: 5, chiffresMax: 6, lignes: 10, repetitions: 20, cumul: true,
         pourquoi: 'Le format du 4e kyū (10 lignes de 5 chiffres), puis du 3e (6 chiffres) : 10 lignes sans perdre le rythme. Repérez les tranches de 3 chiffres avec les points de la barre.',
         demos: [{ depart: 52708, op: '+', n: 39415 }] },
-      { id: 'p8-5', titre: 'Multiplication 3 × 3 et 4 × 3 chiffres', type: 'mul', m: 3, n: 3, mMax: 4, repetitions: 30,
-        pourquoi: 'Même méthode, plus de produits : 6 chiffres au total pour 3 × 3, donc premier produit sur la 6e tige. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; les produits du même chiffre glissent d\'une tige chacun.',
-        demos: [{ a: 246, b: 375 }] },
-      { id: 'p8-7', titre: 'Division par 3 chiffres', type: 'div', nd: 3, nq: 2, repetitions: 30, corrections: true,
-        pourquoi: 'Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare les 3 premiers chiffres du dividende au diviseur pour savoir où poser le quotient. Un chiffre trop grand peut ne se révéler qu\'au TROISIÈME produit : on retire alors 1 au quotient et on rend les DEUX premiers chiffres du diviseur, chacun sur sa tige (2e exemple animé).',
-        demos: [{ a: 5832, b: 243 }, { a: 1950, b: 249, rattrapage: true }] },
+      { id: 'p8-5', titre: 'Multiplication à 7 chiffres au total (4 × 3, 5 × 2)', type: 'mul', m: 4, n: 3, formes: [[4, 3], [3, 4], [5, 2], [2, 5]], zerosFinaux: 0.15, repetitions: 30,
+        pourquoi: 'Le format du 4e kyū : 7 chiffres au total (3 506 × 701, 74 213 × 25, 872 × 6 279). Plus le multiplicateur est court, plus le multiplicande est long : avec 5 × 2, ce sont 10 produits sur une seule ligne de tiges. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; les produits du même chiffre glissent d\'une tige chacun.',
+        demos: [{ a: 3506, b: 701 }, { a: 74213, b: 25 }] },
+      { id: 'p8-8', titre: 'Division à 6 chiffres au total (÷ 3 et quotient de 3, ÷ 2 et quotient de 4, ÷ 4 et quotient de 2)', type: 'div', nd: 3, nq: 3, formes: [[3, 3], [2, 4], [4, 2]], zerosFinaux: 0.15, repetitions: 30, corrections: true,
+        pourquoi: 'Le format du 4e kyū : diviseur et quotient font 6 chiffres (140 866 ÷ 674 = 209 ; 265 118 ÷ 29 = 9 142 ; 289 153 ÷ 3 961 = 73). Avec un diviseur court, le quotient est long : quatre estimations à la suite, sans perdre la tige. Avec un diviseur à 4 chiffres, une seule estimation, mais quatre produits à retirer pour chaque chiffre.',
+        demos: [{ a: 140866, b: 674 }, { a: 289153, b: 3961 }] },
     ],
   },
   {
@@ -428,20 +434,20 @@ export const PALIERS = [
       { id: 'p9-1', titre: '7 et 8 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 7, chiffresMax: 8, lignes: 10, repetitions: 20, cumul: true,
         pourquoi: 'Le format du 2e kyū : 10 lignes de 8 chiffres. Aucun geste nouveau : ce qui change, c\'est la lecture. Lisez par tranches de 3 chiffres, repérées par les points de la barre (millions, milliers, unités), et posez chaque tranche pendant que l\'œil prend la suivante. Ne revenez jamais en arrière sur une ligne : mieux vaut une colonne refaite qu\'une ligne « rattrapée ».',
         demos: [{ depart: 4072581, op: '+', n: 3964207 }] },
-      { id: 'p9-3', titre: 'Multiplication 4 × 4 et 5 × 4 chiffres', type: 'mul', m: 4, n: 4, mMax: 5, repetitions: 30,
-        pourquoi: 'Même méthode, plus de produits : 8 ou 9 chiffres au total, donc 16 ou 20 produits de table. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; ne le lâchez jamais, c\'est lui qui garde la place.',
+      { id: 'p9-3', titre: 'Multiplication à 8 et 9 chiffres au total (4 × 4, 5 × 3, 5 × 4, 6 × 3)', type: 'mul', m: 4, n: 4, formes: [[4, 4], [5, 3], [3, 5], [5, 4], [4, 5], [6, 3], [3, 6]], zerosFinaux: 0.15, repetitions: 30,
+        pourquoi: 'Les formats du 準2 (8 chiffres au total) et du 2e kyū (9 chiffres), dans tous leurs découpages. Même méthode, plus de produits : jusqu\'à 20 produits de table. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; ne le lâchez jamais, c\'est lui qui garde la place.',
         demos: [{ a: 2468, b: 3751 }] },
-      { id: 'p9-5', titre: 'Division : diviseur à 4 chiffres', type: 'div', nd: 4, nq: 3, repetitions: 30, corrections: true,
+      { id: 'p9-5', titre: 'Division à 7 et 8 chiffres au total (diviseur de 2 à 5 chiffres)', type: 'div', nd: 4, nq: 3, formes: [[4, 3], [3, 4], [5, 2], [2, 5], [4, 4], [5, 3], [3, 5]], zerosFinaux: 0.15, repetitions: 30, corrections: true,
         pourquoi: 'On estime toujours avec le diviseur arrondi sur son premier chiffre (2 431 → 2 000, 2 780 → 3 000), puis on corrige de ±1. Avec 4 chiffres au diviseur, chaque chiffre du quotient demande 4 retraits : vérifiez l\'estimation de tête avant de poser.',
         demos: [{ a: 1110967, b: 2431 }] },
       { id: 'p9-2', titre: '9 et 10 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 9, chiffresMax: 10, lignes: 10, repetitions: 20, cumul: true,
         pourquoi: 'Le format du 1er kyū : 10 lignes de 10 chiffres, soit 100 chiffres par colonne. C\'est une épreuve d\'endurance : gardez un rythme égal du premier au dernier chiffre, sans accélérer sur les lignes faciles. La main gauche suit la ligne sur la feuille pour ne pas en sauter une.',
         demos: [{ depart: 407258136, op: '+', n: 396420715 }] },
-      { id: 'p9-4', titre: 'Multiplication 6 × 5 chiffres', type: 'mul', m: 6, n: 5, repetitions: 30,
-        pourquoi: 'Le format du 1er kyū : 11 chiffres au total, 30 produits de table à la suite. La difficulté est de ne perdre ni sa place sur la feuille ni sa tige sur le soroban. Dites intérieurement le chiffre du multiplicande en cours.',
+      { id: 'p9-4', titre: 'Multiplication à 10 et 11 chiffres au total (5 × 5, 6 × 4, 6 × 5, 7 × 4)', type: 'mul', m: 6, n: 5, formes: [[5, 5], [6, 4], [4, 6], [6, 5], [5, 6], [7, 4], [4, 7]], zerosFinaux: 0.15, repetitions: 30,
+        pourquoi: 'Les formats du 準1 (10 chiffres au total) et du 1er kyū (11 chiffres) : jusqu\'à 30 produits de table à la suite. La difficulté est de ne perdre ni sa place sur la feuille ni sa tige sur le soroban. Dites intérieurement le chiffre du multiplicande en cours.',
         demos: [{ a: 246813, b: 37519 }] },
-      { id: 'p9-6', titre: 'Division : 5 chiffres par 5 chiffres', type: 'div', nd: 5, nq: 5, repetitions: 30,
-        pourquoi: 'Le format du 1er kyū : diviseur et quotient à 5 chiffres, 10 chiffres au total. L\'unité du quotient est 6 tiges à gauche de l\'unité du dividende (5 chiffres au diviseur + 1). Comparez les 5 premiers chiffres du dividende au diviseur pour savoir où poser le premier chiffre.',
+      { id: 'p9-6', titre: 'Division à 9 et 10 chiffres au total (diviseur de 3 à 6 chiffres)', type: 'div', nd: 5, nq: 5, formes: [[5, 4], [4, 5], [6, 3], [3, 6], [5, 5], [6, 4], [4, 6]], zerosFinaux: 0.15, repetitions: 30,
+        pourquoi: 'Les formats du 準1 (9 chiffres au total) et du 1er kyū (10 chiffres) : diviseur de 3 à 6 chiffres. Avec 5 chiffres au diviseur, l\'unité du quotient est 6 tiges à gauche de l\'unité du dividende (chiffres du diviseur + 1). Comparez les 5 premiers chiffres du dividende au diviseur pour savoir où poser le premier chiffre.',
         demos: [{ a: 760107726, b: 24318 }] },
     ],
   },
@@ -696,18 +702,23 @@ export function genererExercice(sp, poids = {}, ctx = {}) {
   }
   // Marches : une seule difficulté à la fois (voir multiplication.MARCHES_MUL / MARCHES_DIV).
   if (sp.marche) return genererMarche(sp.marche);
+  // Leçons à plusieurs découpages (`formes`) : chaque forme du sujet d'examen, tirée à égalité ;
+  // `zerosFinaux` : part des problèmes dont un facteur (ou le diviseur, ou le quotient) finit par 0.
+  const forme = () => sp.formes[Math.floor(Math.random() * sp.formes.length)];
+  if (sp.type === 'mul' && sp.formes) { const [m, n] = forme(); return avecZeroFinal(genererMultiplication(m, n), sp.zerosFinaux); }
   if (sp.type === 'mul') return sp.mMax ? genererMultiplication(entre(sp.m, sp.mMax), sp.n, sp.zeros) : genererMultiplication(alterner(sp.m), sp.n);
   if (sp.type === 'div') {
     if (sp.zeros) return genererDivision(entre(sp.nd, sp.ndMax), sp.nq, true);
-    if (!sp.corrections) return genererDivision(sp.nd, alterner(sp.nq));
+    const tirer = () => (sp.formes ? avecZeroFinal(genererDivision(...forme()), sp.zerosFinaux) : genererDivision(sp.nd, alterner(sp.nq)));
+    if (!sp.corrections) return tirer();
     // Leçon d'estimation : 2 fois sur 3, une division dont l'estimation demande une correction.
     const voulue = Math.random() < 2 / 3;
     for (let i = 0; i < 200; i++) {
-      const ex = genererDivision(sp.nd, sp.nq);
+      const ex = tirer();
       const corrige = aideDivision(ex.a, ex.b).etapes.some((e) => e.essais.length > 1);
       if (corrige === voulue) return ex;
     }
-    return genererDivision(sp.nd, sp.nq);
+    return tirer();
   }
   if (sp.type === 'photo') return genererPhoto(sp.chiffres, ctx.duree ?? sp.duree, memoireDe(sp.id));
   if (sp.type === 'lire') return genererLecture(ctx.rang, memoireDe(sp.id));
