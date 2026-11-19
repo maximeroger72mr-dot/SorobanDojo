@@ -317,6 +317,9 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await controler(w, 'avancé : feuille de ÷ au format du kyū');
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['defis', {}] })));
   await controler(w, 'avancé : défis');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['epreuves', { dan: true, auto: true }] })));
+  await controler(w, 'avancé : examen de dan', 'Épreuves officielles');
+  if ((await w.$$('#ecran input')).length < 150) problemes.push('examen de dan : le sujet ne s\'affiche pas en entier');
   await app.close();
 
   fs.rmSync(path.join(__dirname, 'sous-paliers.json'));

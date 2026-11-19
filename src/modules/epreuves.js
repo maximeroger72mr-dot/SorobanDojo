@@ -13,6 +13,7 @@ import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreu
 import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { boutonNaoshi } from '../ui/naoshi.js';
+import { NIVEAUX_DAN, MINUTES_EPREUVE_DAN, CLE_DAN, gradeDan, niveauAtteint, meilleurDan, prochainDan } from '../core/dan.js';
 import { localiserErreur, diagnostiquer, typeErreurOperation, ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { nomMotif } from '../core/motifs.js';
 
@@ -135,7 +136,58 @@ export default {
               const nom = k === 'mitori' && g.mitoriA ? 'Additions B' : NOMS_SECTIONS[k];
               return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${nom} seule · ${g.parEpreuve ? g.minutesEpreuve : MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
             }))))),
+        carteDan(),
         listeAnzan());
+    }
+
+    /**
+     * Dan d'entraînement (0.38), au barème Nisshō : ×, ÷ et mitorizan, 10 minutes et 300 points
+     * chacun ; le dan atteint est le plus haut dont le seuil est tenu dans les trois épreuves.
+     */
+    function carteDan() {
+      const d = progression();
+      const m = meilleurDan(d);
+      const vise = prochainDan(d) ?? NIVEAUX_DAN.at(-1);
+      const apres1 = !!d.records['epreuve-1']?.reussi || !!d.records['zenkoren-1']?.reussi;
+      return h('div', { class: 'carte grade', style: 'margin-top:16px' },
+        h('div', { class: 'ligne' },
+          h('span', { class: `icone etat-${m ? 'fait' : 'ouvert'}` }, m ? '✓' : '○'),
+          h('strong', { style: 'flex:1' }, 'Dan d\'entraînement (段位, barème Nisshō)'),
+          h('span', { class: 'discret' }, m ? `meilleur : ${m.nom} (${m.japonais})` : `premier palier : ${NIVEAUX_DAN[0].japonais}, ${NIVEAUX_DAN[0].points} points sur 300 par épreuve`)),
+        h('p', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' },
+          `Trois épreuves de 10 minutes, 300 points chacune : 60 multiplications (11 chiffres au total), 60 divisions (10 chiffres au total), entiers, décimaux au millième et montants à l'unité ; 30 mitorizan de 10 lignes de 5 à 10 chiffres, avec résultats négatifs. Pas de compensation : le dan atteint est le plus haut dont le seuil est tenu dans les TROIS épreuves (${NIVEAUX_DAN.map((x) => `${x.japonais} ${x.points}`).join(', ')}). Prochain palier visé : ${vise.nom} (${vise.japonais}).`),
+        apres1 ? null : h('p', { class: 'discret', style: 'margin:0 0 8px' }, 'Conseillé après le 1er kyū.'),
+        h('button', { class: 'btn principal', onclick: () => demarrerDan() }, 'Examen de dan · 3 × 10 min'));
+    }
+
+    function demarrerDan() {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'),
+        h('h1', {}, 'Examen de dan (entraînement)'),
+        h('p', { class: 'consigne' }, 'Trois épreuves de 10 minutes, l\'une après l\'autre, sans revenir en arrière : multiplication, division, mitorizan. Le dan atteint est le plus haut tenu dans les trois.'));
+      const vise = prochainDan(progression()) ?? NIVEAUX_DAN.at(-1);
+      const g = gradeDan(vise);
+      const sujet = genererSujet(g);
+      const milliers = !!reglagesUtilisateur().examenPur;
+      feuille = creerFeuille(el, {
+        titre: `Dan d'entraînement · 3 × ${MINUTES_EPREUVE_DAN} min${milliers ? ' · examen pur' : ''}`,
+        sections: sujet.sections,
+        parEpreuve: true,
+        milliers,
+        surFin: (b) => {
+          const points = b.parSection.map((x) => x.points);
+          const niveau = niveauAtteint(points);
+          enregistrerSession({ module: 'epreuves', mode: 'dan', reglages: { systeme: 'dan', niveau: niveau?.id ?? null }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          if (niveau) proposerMeilleurScore(CLE_DAN, NIVEAUX_DAN.indexOf(niveau) + 1, { niveau: niveau.id, reussi: true, dureeMs: b.dureeMs });
+          const suivant = NIVEAUX_DAN[niveau ? NIVEAUX_DAN.indexOf(niveau) + 1 : 0];
+          return h('div', { class: 'carte bilan' },
+            h('div', { class: 'grand' }, niveau ? `${niveau.nom} (${niveau.japonais})` : 'Pas encore de dan'),
+            h('p', {}, niveau ? `Atteint dans les trois épreuves.${suivant ? ` Prochain palier : ${suivant.japonais}, ${suivant.points} points sur 300 dans chacune.` : ' C\'est le plus haut.'}` : `Il faut ${NIVEAUX_DAN[0].points} points sur 300 dans CHAQUE épreuve pour le ${NIVEAUX_DAN[0].japonais}.`),
+            h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points', 'Palier tenu'].map((x) => h('th', {}, x))),
+              b.parSection.map((x) => { const t = niveauAtteint([x.points]); return h('tr', { class: suivant && x.points < suivant.points ? 'a-retravailler' : '' }, h('td', {}, x.titre), h('td', {}, `${x.justes} / ${x.total}`), h('td', {}, `${x.points} / ${x.pointsMax}`), h('td', {}, t ? t.japonais : '—')); })),
+            h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'dan', retour: () => liste() }), h('button', { class: 'btn', onclick: () => demarrerDan() }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+        },
+      });
     }
 
     /** Résumé d'un grade d'anzan : « 50 additions de 3 nombres à 1 chiffre ». */
@@ -260,7 +312,8 @@ export default {
 
     // Lancé depuis la séance (examen complet de la semaine) : le sujet du grade, directement.
     const direct = params.grade && params.auto ? systemeChoisi(progression()).grades.find((g) => g.id === params.grade) : null;
-    if (direct) demarrer(direct);
+    if (params.dan && params.auto) demarrerDan();
+    else if (direct) demarrer(direct);
     else liste();
     return () => feuille?.detruire();
   },

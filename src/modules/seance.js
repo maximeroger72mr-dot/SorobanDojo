@@ -170,8 +170,8 @@ function plan(d, debut, seance = null) {
   if (completVoulu) {
     const g = complet.grade;
     const f = complet.fait;
-    const item = { titre: `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
-      detail: f ? `${f.justes} / ${f.total} justes` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
+    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
+      detail: f ? `${f.justes} / ${f.total} justes` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
       pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' };
     if (completDansSeance) essentiel.push(item);
     else seanceLongue = item;

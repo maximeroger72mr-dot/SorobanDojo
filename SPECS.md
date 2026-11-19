@@ -1073,3 +1073,19 @@ Suites de `PLAN-ACTION-0.38.md` (deux audits externes de la 0.37.0). Lots 1 à 6
   le 7e kyū (même feuille toute la semaine). Porte « or » chiffrée (« 2 leçons sur 3 en or »).
   **Clinique du doigté** : un geste qui lâche, le bon mouvement puis 6 colonnes lentes avec
   rappel doigté, tous les 3 jours au plus. La dictée existait déjà dès p1-4.
+
+## Version 0.38.1
+
+- **Dan d'entraînement** (barème Nisshō fourni par l'utilisateur, `core/dan.js`) : ×, ÷ et
+  mitorizan, 10 minutes et 300 points chacun ; 60 × de 11 chiffres au total, 60 ÷ de 10, entiers,
+  décimaux au millième et montants à l'unité ; 30 mitorizan de 10 lignes de 5 à 10 chiffres
+  (85 au total), mêlés comme aux kyū, un résultat négatif tous les 10 problèmes. Seuils par
+  épreuve, sans compensation : 準初段 90, 初段 100, 準二段 110, 二段 120… 七段 220, 八段 240,
+  九段 260, 十段 290. Écran Épreuves officielles, avec naoshi.
+- **Après le 1er kyū** : l'examen de la semaine devient l'examen de dan (vers le prochain dan
+  plein) ; les marches d'allure visent ce dan au lieu de s'éteindre.
+- **Projection épreuve par épreuve** (Zenkoren et dan) : chaque épreuve a son temps et son seuil ;
+  un total global pouvait annoncer « réussi » avec une division trop lente. L'écran des marches
+  montre l'épreuve qui bloque.
+- Dan Zenkoren (7 min, 40 ×, 40 ÷, 20 mitori, 20 denpyōzan) : non fait, seuils non fournis et
+  denpyōzan sur liasses papier.

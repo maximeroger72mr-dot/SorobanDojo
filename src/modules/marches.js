@@ -28,7 +28,8 @@ export default {
       const e = etatMarches(d);
       el.append(h('h1', {}, 'Marches d\'allure'),
         h('p', { class: 'discret chapeau' }, 'De la vitesse des leçons à l\'allure d\'examen, en 5 jalons. Chaque marche se valide sur une feuille courte au format de l\'examen, deux jours différents.'));
-      if (!e) { el.append(h('div', { class: 'carte' }, 'Tous les grades sont réussis : les marches s\'arrêtent là.')); return; }
+      if (!e) { el.append(h('div', { class: 'carte' }, 'Tous les grades et tous les dan sont réussis : les marches s\'arrêtent là.')); return; }
+      if (e.dan) el.append(h('p', { class: 'discret' }, `Le 1er kyū est réussi : les marches visent maintenant le ${e.grade.nom} (${e.grade.japonais}), ${e.grade.pointsEpreuve} points sur 300 dans chaque épreuve de 10 minutes.`));
       const g = e.grade;
       if (!e.utiles) {
         el.append(h('div', { class: 'carte' }, `Jusqu'au 7e kyū, l'allure d'examen est plus lente que la vitesse déjà exigée aux leçons : pas besoin de marches. Elles commencent avec le 6e kyū.`));
@@ -52,7 +53,11 @@ export default {
       const date = dateProjetee(e, aujourdhui());
       el.append(h('div', { class: 'carte' },
         h('h2', { style: 'margin-top:0' }, 'Si l\'examen avait lieu aujourd\'hui'),
-        s ? h('p', {}, `À votre vitesse mesurée et avec votre justesse récente (${Math.round(s.taux * 100)} %), vous traiteriez ${Math.round(s.part * 100)} % du sujet : environ ${s.points} points sur ${s.pointsMax}, pour ${s.seuil} exigés. ${s.reussi ? 'Ce serait réussi.' : 'Pas encore assez.'}`)
+        s && s.epreuves ? h('div', {},
+          h('p', {}, `Chaque épreuve compte à part, sans compensation. À votre vitesse mesurée et avec votre justesse récente (${Math.round(s.taux * 100)} %) : ${s.reussi ? 'ce serait réussi.' : `pas encore : ${s.faible.titre.split(' (')[0].toLowerCase()} est l'épreuve qui bloque.`}`),
+          h('table', {}, h('tr', {}, ['Épreuve', 'Projeté', 'Exigé'].map((x) => h('th', {}, x))),
+            s.epreuves.map((x) => h('tr', { class: x.ok ? '' : 'a-retravailler' }, h('td', {}, x.titre), h('td', {}, `${x.points} / ${x.pointsMax}`), h('td', {}, `${x.seuil}${x.ok ? ' ✓' : ''}`)))))
+        : s ? h('p', {}, `À votre vitesse mesurée et avec votre justesse récente (${Math.round(s.taux * 100)} %), vous traiteriez ${Math.round(s.part * 100)} % du sujet : environ ${s.points} points sur ${s.pointsMax}, pour ${s.seuil} exigés. ${s.reussi ? 'Ce serait réussi.' : 'Pas encore assez.'}`)
           : h('p', {}, 'Pas encore assez de mesures (vitesse des colonnes et des × ÷) pour une projection.'),
         h('p', {}, date ? `Au rythme de vos marches (${Math.round(date.joursParMarche)} jours par marche), l'allure d'examen arriverait vers le ${dateFr(date.date)}.`
           : 'La date projetée s\'affiche après la première marche franchie : on ne la devine pas avant.'),

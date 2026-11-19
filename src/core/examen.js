@@ -24,6 +24,7 @@ import { SOUS_PALIERS, genererExercice } from './curriculum.js';
 import { verdictAllure } from './allure.js';
 import { cpm } from './maitrise.js';
 import { semaineISO } from './hasard.js';
+import { gradeDan, prochainDan } from './dan.js';
 
 export const COLONNES = 20;
 export const SEUIL = 0.7;
@@ -117,14 +118,16 @@ export function sixiemeKyuPasse(d) {
 export function examenCompletHebdo(d, date) {
   if (!sixiemeKyuPasse(d)) return null;
   const sys = systemeChoisi(d);
-  // Après le 1er kyū (0.38) : l'examen complet du 1er kyū reste, chaque semaine, en entretien.
+  // Après le 1er kyū (0.38) : l'examen de dan d'entraînement (30 min) prend le relais chaque
+  // semaine, en visant le prochain dan ; au-delà du 10e dan, le 1er kyū en entretien.
   const gr = grade(d);
-  const g = gr.prochain ?? (gr.obtenu ? sys.grades.at(-1) : null);
+  const dan = !gr.prochain && gr.obtenu ? prochainDan(d) : null;
+  const g = gr.prochain ?? (dan ? gradeDan(dan) : gr.obtenu ? sys.grades.at(-1) : null);
   if (!g) return null;
   const semaine = semaineISO(date).cle;
-  const mode = `${g.systeme === 'zenkoren' ? 'z' : ''}${g.id}`;
+  const mode = g.dan ? 'dan' : `${g.systeme === 'zenkoren' ? 'z' : ''}${g.id}`;
   const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === mode && semaineISO(s.date).cle === semaine) ?? null;
-  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain };
+  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain, dan: !!g.dan };
 }
 
 /** Plus haut kyū officiel réussi en examen blanc (ou null). */

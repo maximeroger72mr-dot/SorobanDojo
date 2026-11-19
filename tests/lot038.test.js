@@ -126,7 +126,8 @@ test('0.38 lot 5 : anzan guidé jusqu\'à 3 chiffres et 15 nombres ; entretien a
   const records = Object.fromEntries(GRADES.filter((g) => !g.jun).map((g) => [`epreuve-${g.id}`, { reussi: true }]));
   const d = { paliers: tous, records, reglages: {}, motifs: {}, sessions: [] };
   const c = examenCompletHebdo(d, '2026-11-20');
-  assert.equal(c.grade.id, '1');
+  assert.equal(c.grade.id, 'd1'); // après le 1er kyū : l'examen de dan, vers le 初段
+  assert.equal(c.dan, true);
   assert.equal(c.entretien, true);
   const dec = decisionDuJour(d, '2026-11-20', null);
   assert.equal(dec.aller[0], 'planches');
@@ -149,4 +150,51 @@ test('0.38 lot 6 : 10e kyū express, feuille de la semaine au format, porte « o
   for (const id of Object.keys(fin.paliers)) fin.paliers[id].hist = Array.from({ length: 10 }, () => ({ ok: 1, t: 2.8 }));
   const dec = decisionDuJour(fin, '2026-11-20', sp('p3-0'));
   if (dec.finEtape) assert.match(dec.detail, /leçons? sur \d+ en or/);
+});
+
+test('0.38 dan : barème Nisshō, sujet au format, palier tenu dans les trois épreuves', async () => {
+  const { NIVEAUX_DAN, gradeDan, niveauAtteint, prochainDan, meilleurDan } = await import('../src/core/dan.js');
+  assert.equal(NIVEAUX_DAN.length, 16);
+  assert.deepEqual(NIVEAUX_DAN.map((x) => x.points), [90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 220, 240, 260, 290]);
+  avecGraine(12, () => {
+    const s = genererSujet(gradeDan(NIVEAUX_DAN[1]));
+    assert.deepEqual(s.sections.map((x) => [x.cle, x.problemes.length, x.minutes, x.points * x.problemes.length]), [['mul', 60, 10, 300], ['div', 60, 10, 300], ['mitori', 30, 10, 300]]);
+    const chiffres = (x) => String(Math.abs(x)).replace('.', '').length;
+    for (const p of s.sections[0].problemes) assert.equal(p.virgules ? String(p.entiers[0]).length + String(p.entiers[1]).length : chiffres(p.a) + chiffres(p.b), 11);
+    for (const p of s.sections[1].problemes) if (!p.virgules) assert.equal(chiffres(p.b) + chiffres(p.resultat), 10);
+    const types = s.sections[0].problemes.map((p) => (!p.virgules ? 'entier' : p.decimales === 0 ? 'montant' : 'decimal'));
+    for (const t of ['entier', 'decimal', 'montant']) assert.ok(types.includes(t), t);
+    const m = s.sections[2].problemes;
+    for (const p of m) { assert.equal(p.lignes.length, 10); assert.equal(p.lignes.reduce((t, l) => t + String(l.n).length, 0), 85); }
+    assert.equal(m.filter((p) => p.resultat < 0).length, 3);
+  });
+  // Pas de compensation : le palier est celui de la plus faible épreuve.
+  assert.equal(niveauAtteint([300, 300, 95]).id, 'jd1');
+  assert.equal(niveauAtteint([150, 125, 300]).id, 'd2');
+  assert.equal(niveauAtteint([290, 295, 290]).id, 'd10');
+  assert.equal(niveauAtteint([80, 300, 300]), null);
+  assert.equal(prochainDan({ records: {} }).id, 'd1');
+  const d = { records: { 'dan-nissho': { points: 3, niveau: 'jd2' } } };
+  assert.equal(meilleurDan(d).id, 'jd2');
+  assert.equal(prochainDan(d).id, 'd2');
+});
+
+test('0.38 : projection Zenkoren épreuve par épreuve ; marches vers le dan après le 1er kyū', async () => {
+  const { scoreProjete, etatMarches } = await import('../src/core/marches.js');
+  const { GRADES_ZENKOREN } = await import('../src/core/epreuves.js');
+  const g = GRADES_ZENKOREN.find((x) => x.id === '4');
+  const motifs = Object.fromEntries(['+3:petit', '+4:petit', '-2:petit', '+9:grand', '-7:grand', '+6:mixte'].map((c) => [c, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 0.3 })) }]));
+  // Colonnes très rapides, × ÷ très lents : un total « moyen » ne doit pas masquer l'échec.
+  const paliers = Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && (s.type === 'mul' || s.type === 'div')).slice(0, 3).map((s) => [s.id, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 20 })) }]));
+  const s = scoreProjete(g, { motifs, paliers, sessions: [] });
+  assert.ok(s.epreuves.length >= 3);
+  assert.equal(s.reussi, false);
+  assert.ok(s.epreuves.find((x) => x.cle === 'mitori').ok);
+  assert.ok(['mul', 'div'].includes(s.faible.cle));
+  // Après le 1er kyū : les marches visent le 初段.
+  const records = Object.fromEntries(GRADES.filter((x) => !x.jun).map((x) => [`epreuve-${x.id}`, { reussi: true }]));
+  const e = etatMarches({ records, paliers: {}, motifs: {}, sessions: [], reglages: {} });
+  assert.equal(e.dan, true);
+  assert.equal(e.grade.japonais, '初段');
+  assert.equal(e.active, true);
 });

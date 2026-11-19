@@ -275,8 +275,13 @@ function serie(f, gen) {
  */
 function mitoris(f) {
   const mixte = (i) => (f.mixtes ? f.mixtes.includes(i) : i >= (f.pures ?? 0));
-  const avec = (i) => ({ ...f, soustractions: mixte(i), ...(f.chiffresParProbleme ? { chiffres: f.chiffresParProbleme[i], min: f.chiffresParProbleme[i], max: f.chiffresParProbleme[i] } : {}) });
+  // Dan (0.38) : longueurs mêlées d'un problème à l'autre (`gabarits` : listes de longueurs).
+  const gabarit = () => f.gabarits[entier(0, f.gabarits.length - 1)];
+  const avec = (i) => ({ ...f, soustractions: mixte(i), ...(f.chiffresParProbleme ? { chiffres: f.chiffresParProbleme[i], min: f.chiffresParProbleme[i], max: f.chiffresParProbleme[i] } : {}),
+    ...(f.gabarits ? { longueurs: gabarit() } : {}) });
   const liste = Array.from({ length: f.nb }, (_, i) => genererMitori(avec(i)));
+  // Rangs imposés (dan : un résultat négatif tous les 10 problèmes), sinon le nombre tiré.
+  if (f.rangsNegatifs) { for (const i of f.rangsNegatifs) liste[i] = genererMitoriNegatif(avec(i)); return liste; }
   const [min, max] = f.negatifs ?? [0, 0];
   const nombre = entier(min, max);
   for (let k = 0; k < nombre; k++) {
@@ -289,6 +294,14 @@ function mitoris(f) {
 /** Sujet complet. */
 export function genererSujet(grade) {
   const sections = [];
+  if (grade.systeme === 'dan') {
+    // Dan Nisshō : ×, ÷ puis mitorizan, 10 minutes chacun, 300 points chacun.
+    const m = grade.minutesEpreuve;
+    sections.push({ cle: 'mul', titre: 'Multiplication (乗算)', points: grade.mul.points, minutes: m, problemes: serie(grade.mul, genererMulGrade) });
+    sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, minutes: m, problemes: serie(grade.div, genererDivGrade) });
+    sections.push({ cle: 'mitori', titre: 'Mitorizan (見取算)', points: grade.mitori.points, minutes: m, problemes: mitoris(grade.mitori) });
+    return { grade, sections };
+  }
   if (grade.systeme === 'zenkoren') {
     // Ordre Zenkoren : multiplication, division, additions-soustractions ; 7 minutes chacune.
     const m = grade.minutesEpreuve;

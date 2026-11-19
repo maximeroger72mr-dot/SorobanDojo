@@ -19,6 +19,7 @@ import { genererSujet, systemeChoisi } from './epreuves.js';
 import { allureGrade, PART_CADENCE_LECON, MARGE, SURCOUT_PROBLEME_S, chargeGrade, vitesseEleve } from './allure.js';
 import { unites, cpm } from './maitrise.js';
 import { grade as gradeDe } from './parcours.js';
+import { gradeDan, prochainDan } from './dan.js';
 
 export const NB_MARCHES = 5;
 export const JUSTES_MARCHE = 0.9;
@@ -29,7 +30,7 @@ export const SERIES_FRACTIONNE = 4;
 /** Marches seulement pour les grades dont l'allure finale passe sous 3 s par chiffre (6e kyū et après). */
 export const MARCHES_SOUS = 3;
 
-export const cleMarches = (g) => `${g.systeme ?? 'nissho'}-${g.id}`;
+export const cleMarches = (g) => `${g.systeme ?? 'nissho'}-${g.id}`; // dan : « dan-d1 »…
 
 /**
  * Les 5 marches d'un grade : temps par chiffre (colonnes) et par produit (× ÷) à tenir.
@@ -57,14 +58,16 @@ export const tempsProbleme = (ex, m) => unites(ex) * (ex.type === 'addsub' ? m.p
  */
 export function etatMarches(d) {
   const gr = gradeDe(d);
-  const g = gr.prochain;
+  // Après le 1er kyū (0.38) : les marches visent le prochain dan d'entraînement.
+  const dan = !gr.prochain && gr.obtenu ? prochainDan(d) : null;
+  const g = gr.prochain ?? (dan ? gradeDan(dan) : null);
   if (!g) return null;
   const marches = marchesGrade(g);
   const e = d.marches?.[cleMarches(g)] ?? { validees: 0, reussites: [] };
   const validees = Math.min(NB_MARCHES, e.validees ?? 0);
   // Du 10e au 7e kyū, l'allure d'examen est plus lente que l'argent exigé aux leçons : pas de marches.
   const utiles = marches.at(-1).parChiffre < MARCHES_SOUS;
-  return { grade: g, marches, validees, courante: validees < NB_MARCHES ? marches[validees] : null, reussites: e.reussites ?? [], active: gr.pret && utiles, utiles, debut: e.debut ?? null, dates: e.dates ?? [] };
+  return { grade: g, marches, validees, courante: validees < NB_MARCHES ? marches[validees] : null, reussites: e.reussites ?? [], active: (gr.pret || !!dan) && utiles, utiles, debut: e.debut ?? null, dates: e.dates ?? [], dan: !!dan };
 }
 
 /**
@@ -119,11 +122,28 @@ export function scoreProjete(g, d) {
   const v = vitesseEleve(d);
   const c = chargeGrade(g);
   if (v.parChiffre == null || (c.produits > 0 && v.parProduit == null)) return null;
-  const temps = c.chiffres * v.parChiffre + c.produits * v.parProduit + c.problemes * SURCOUT_PROBLEME_S;
-  const minutes = g.parEpreuve ? g.minutesEpreuve * ['mitoriA', 'mitori', 'mul', 'div'].filter((k) => g[k]).length : g.minutes;
-  const part = Math.min(1, (minutes * 60) / temps);
   const recentes = d.sessions.filter((s) => ['epreuves', 'examen', 'planches', 'muldiv', 'marches'].includes(s.module) && s.total > 0).slice(-20);
   const taux = recentes.length ? recentes.reduce((t, s) => t + s.justes, 0) / recentes.reduce((t, s) => t + s.total, 0) : 0.9;
+  if (g.parEpreuve) {
+    // Zenkoren et dan (0.38) : chaque épreuve a son temps et son seuil, SANS compensation ; une
+    // moyenne globale pouvait annoncer « réussi » avec une division trop lente.
+    const sujet = genererSujet(g);
+    const epreuves = sujet.sections.map((sec) => {
+      const ch = chargeGrade(g, sec.cle);
+      const temps = sec.cle.startsWith('mitori') ? ch.chiffres * v.parChiffre : ch.produits * v.parProduit;
+      const part = Math.min(1, (g.minutesEpreuve * 60) / (temps + ch.problemes * SURCOUT_PROBLEME_S));
+      const pointsMax = sec.points * sec.problemes.length;
+      const points = Math.round(pointsMax * part * taux);
+      const seuil = Math.ceil(pointsMax * g.seuil);
+      return { cle: sec.cle, titre: sec.titre, points, pointsMax, seuil, ok: points >= seuil, part };
+    });
+    const pointsMax = epreuves.reduce((t, x) => t + x.pointsMax, 0);
+    const faible = [...epreuves].sort((a, b) => a.points / a.seuil - b.points / b.seuil)[0];
+    return { points: epreuves.reduce((t, x) => t + x.points, 0), pointsMax, seuil: epreuves.reduce((t, x) => t + x.seuil, 0), reussi: epreuves.every((x) => x.ok),
+      part: Math.min(...epreuves.map((x) => x.part)), taux, epreuves, faible };
+  }
+  const temps = c.chiffres * v.parChiffre + c.produits * v.parProduit + c.problemes * SURCOUT_PROBLEME_S;
+  const part = Math.min(1, (g.minutes * 60) / temps);
   const pointsMax = genererSujetPoints(g);
   const points = Math.round(pointsMax * part * taux);
   return { points, pointsMax, seuil: Math.ceil(pointsMax * g.seuil), reussi: points >= pointsMax * g.seuil, part, taux };
