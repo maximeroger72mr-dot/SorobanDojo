@@ -152,6 +152,7 @@ function plan(d, debut, seance = null) {
   let seanceLongue = null;
   const vitesse = jourVitesse(d, date);
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
+    : dec.aller[0] === 'planches' ? s.module === 'planches' && s.reglages?.proposition === dec.aller[1].proposition
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && seance.decision.type === 'lecon' && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
   const difficiles = motifsEnDifficulte();

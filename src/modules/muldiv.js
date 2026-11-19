@@ -48,8 +48,9 @@ export default {
       if (formatSel) formatSel.options[0].textContent = gradeOperation(progression(), reglages.type) ? `Au format du ${gradeOperation(progression(), reglages.type).nom}` : 'Au format du kyū visé';
       if (restesSel) restesSel.style.display = !mul && reglages.mode === 'feuille' ? '' : 'none';
       remplir(etiquettes, mul ? 'Multiplicande' : 'Diviseur', ' ', selX, ' ', mul ? 'Multiplicateur' : 'Quotient', ' ', selY);
-      options(selX, mul ? 6 : 4, reglages.x);
-      options(selY, mul ? 4 : 5, reglages.y);
+      // 0.38 : jusqu'à 7 × 5 et ÷ 6 chiffres, quotient 6 (avant : 6 × 4, ÷ 4, quotient 5).
+      options(selX, mul ? 7 : 6, reglages.x);
+      options(selY, mul ? 5 : 6, reglages.y);
     };
     const typeSel = h('select', { onchange: (e) => { reglages.type = e.target.value; majLibelles(); } },
       h('option', { value: 'mul' }, 'Multiplication (両落とし)'), h('option', { value: 'div' }, 'Division (片落とし)'));

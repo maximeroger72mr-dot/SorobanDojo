@@ -117,12 +117,14 @@ export function sixiemeKyuPasse(d) {
 export function examenCompletHebdo(d, date) {
   if (!sixiemeKyuPasse(d)) return null;
   const sys = systemeChoisi(d);
-  const g = grade(d).prochain;
+  // Après le 1er kyū (0.38) : l'examen complet du 1er kyū reste, chaque semaine, en entretien.
+  const gr = grade(d);
+  const g = gr.prochain ?? (gr.obtenu ? sys.grades.at(-1) : null);
   if (!g) return null;
   const semaine = semaineISO(date).cle;
   const mode = `${g.systeme === 'zenkoren' ? 'z' : ''}${g.id}`;
   const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === mode && semaineISO(s.date).cle === semaine) ?? null;
-  return { grade: g, systeme: sys.id, fait };
+  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain };
 }
 
 /** Plus haut kyū officiel réussi en examen blanc (ou null). */

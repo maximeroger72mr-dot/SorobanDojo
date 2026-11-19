@@ -17,7 +17,7 @@
 
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
 import { evaluer, NIVEAUX, mediane } from './maitrise.js';
-import { famillesApprises, planObjectif, gestesLents, defiSemaine, anzanAdapte } from './parcours.js';
+import { famillesApprises, planObjectif, gestesLents, defiSemaine, anzanAdapte, formatExamen, grade as gradeDe } from './parcours.js';
 import { nomMotif } from './motifs.js';
 import { examenDeLaSemaine, resultatSemaine, meilleurPrekyu } from './examen.js';
 import { GENERAUX, conseilsVitesse } from './conseils.js';
@@ -165,7 +165,14 @@ export function decisionDuJour(d, date, prochain) {
   if (prochain) {
     return { type: 'lecon', titre: 'Nouvelle leçon', detail: prochain.titre, raison: derniere ? `« ${derniere.titre} » est acquise : on avance.` : 'On commence le parcours.', aller: ['lecons', { sousPalier: prochain.id }], minutes: 15, sp: prochain };
   }
-  return { type: 'revision', titre: 'Entretien', detail: '30 lignes de marathon sur tous vos gestes', raison: 'Le parcours est terminé : on entretient la vitesse.', aller: ['rythme', { jeu: 'marathon', lignes: 30, auto: true }], minutes: 10 };
+  // Parcours terminé (0.38) : l'entretien se fait AU FORMAT de l'examen (avant : un marathon de
+  // 30 lignes à 1 chiffre, sans rapport avec le niveau atteint). Le bloc de vitesse du jour, les
+  // marches et l'examen complet de la semaine font le reste.
+  const fe = formatExamen(d);
+  const fini = !gradeDe(d).prochain;
+  return { type: 'revision', titre: 'Entretien', detail: `une planche au format du ${fe.grade.nom} (${fe.lignes} lignes de ${fe.chiffres} chiffres)`,
+    raison: fini ? `Tous les kyū sont réussis : on entretient l'allure du ${fe.grade.nom}, colonnes, × et ÷, avec son examen complet chaque semaine.` : `Toutes les leçons sont faites : il reste la vitesse du ${fe.grade.nom}.`,
+    aller: ['planches', { chiffres: fe.chiffres, lignes: fe.lignes, auto: true, proposition: 'entretien' }], minutes: 10 };
 }
 
 /** Jeu « bonus » du jour : il tourne d'un jour à l'autre parmi ceux qui ont du sens au niveau atteint. */

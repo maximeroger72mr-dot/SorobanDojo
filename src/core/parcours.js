@@ -244,6 +244,9 @@ export const MARCHES_ANZAN = [
   { mode: 'flash', chiffres: 2, termes: 3 }, { mode: 'flash', chiffres: 2, termes: 4 },
   { mode: 'flash', chiffres: 2, termes: 5 }, { mode: 'flash', chiffres: 2, termes: 6 },
   { mode: 'flash', chiffres: 3, termes: 3 }, { mode: 'flash', chiffres: 3, termes: 4 },
+  // 0.38 : jusqu'au format des grades de flash (3 chiffres, 15 nombres).
+  { mode: 'flash', chiffres: 3, termes: 5 }, { mode: 'flash', chiffres: 3, termes: 6 }, { mode: 'flash', chiffres: 3, termes: 8 },
+  { mode: 'flash', chiffres: 3, termes: 10 }, { mode: 'flash', chiffres: 3, termes: 12 }, { mode: 'flash', chiffres: 3, termes: 15 },
 ];
 /** Vitesse « bonne » pour monter d'une marche : au plus tant de secondes par nombre. */
 export const DUREE_MONTEE = 1.5;

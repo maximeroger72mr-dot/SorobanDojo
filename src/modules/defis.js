@@ -15,7 +15,8 @@
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { genererMultiplication, genererDivision } from '../core/multiplication.js';
 import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, aujourdhui } from '../core/progression.js';
-import { defiSemaine, formatSemaine, estValide } from '../core/parcours.js';
+import { defiSemaine, formatSemaine, estValide, formatExamen } from '../core/parcours.js';
+import { gradeOperation, reserveKyu } from '../core/formatKyu.js';
 import { NIVEAUX, tempsCible, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from './planches.js';
@@ -39,6 +40,19 @@ function colonne(chiffres, lignes = 5) {
   return genererColonneVariee({ chiffres, lignes, autorises: appris, cibles: amis.length ? amis : [...appris] }, memoire);
 }
 
+function colonneKyu(chiffres, lignes) {
+  const appris = motifsAppris();
+  const amis = [...appris].filter((c) => !c.endsWith(':direct'));
+  return genererColonneVariee({ chiffres, lignes, autorises: appris, cibles: amis.length ? amis : [...appris], longueurFixe: chiffres >= 2 }, memoire);
+}
+const reserves = {};
+function operationKyu(type) {
+  const g = gradeOperation(progression(), type);
+  if (!g) return type === 'mul' ? genererMultiplication(2, 1) : genererDivision(1, 2);
+  if (reserves[type]?.cle !== g.id) reserves[type] = { cle: g.id, tirer: reserveKyu(g, type) };
+  return reserves[type].tirer();
+}
+
 const TYPES = {
   colonnes1: { titre: 'Colonnes, 1 chiffre, 5 lignes', generer: () => colonne(1) },
   colonnes2: { titre: 'Colonnes, 2 chiffres, 5 lignes', generer: () => colonne(2) },
@@ -46,6 +60,10 @@ const TYPES = {
   mul21: { titre: 'Multiplications (2 chiffres × 1 chiffre)', generer: () => genererMultiplication(2, 1) },
   mul22: { titre: 'Multiplications (2 chiffres × 2 chiffres)', generer: () => genererMultiplication(2, 2) },
   div: { titre: 'Divisions (÷ 1 chiffre, quotient 2 chiffres)', generer: () => genererDivision(1, 2) },
+  // 0.38 : au format du kyū visé (avant : 3 chiffres et 2 × 2 au plus).
+  kyuColonnes: { titre: 'Colonnes au format du kyū visé', generer: () => { const f = formatExamen(progression()); return colonneKyu(f.chiffres, f.lignes); } },
+  kyuMul: { titre: 'Multiplications au format du kyū visé', generer: () => operationKyu('mul') },
+  kyuDiv: { titre: 'Divisions au format du kyū visé', generer: () => operationKyu('div') },
   mix: { titre: 'Mélange (colonnes, multiplications, divisions)', generer: () => [() => colonne(2), () => genererMultiplication(2, 1), () => genererDivision(1, 2)][Math.floor(Math.random() * 3)]() },
 };
 

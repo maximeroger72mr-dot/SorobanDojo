@@ -116,3 +116,19 @@ test('0.38 lot 4 : marches d\'allure, 2 réussites sur 2 jours, feuille courte a
   // Du 10e au 7e kyū : pas de marches (l'allure d'examen est sous l'argent des leçons).
   assert.equal(etatMarches({ sessions: [], motifs: {}, paliers: {}, records: {}, reglages: {} }).utiles, false);
 });
+
+test('0.38 lot 5 : anzan guidé jusqu\'à 3 chiffres et 15 nombres ; entretien au format après le 1er kyū', async () => {
+  const { MARCHES_ANZAN } = await import('../src/core/parcours.js');
+  const { examenCompletHebdo } = await import('../src/core/examen.js');
+  const { decisionDuJour } = await import('../src/core/prof.js');
+  assert.deepEqual([MARCHES_ANZAN.at(-1).chiffres, MARCHES_ANZAN.at(-1).termes], [3, 15]);
+  const tous = Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental).map((s) => [s.id, { valide: '2026-01-01', hist: [] }]));
+  const records = Object.fromEntries(GRADES.filter((g) => !g.jun).map((g) => [`epreuve-${g.id}`, { reussi: true }]));
+  const d = { paliers: tous, records, reglages: {}, motifs: {}, sessions: [] };
+  const c = examenCompletHebdo(d, '2026-11-20');
+  assert.equal(c.grade.id, '1');
+  assert.equal(c.entretien, true);
+  const dec = decisionDuJour(d, '2026-11-20', null);
+  assert.equal(dec.aller[0], 'planches');
+  assert.equal(dec.aller[1].chiffres, 10);
+});

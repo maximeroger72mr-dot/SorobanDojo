@@ -4,7 +4,7 @@
  * But : travailler à l'oreille. Débit, pause entre les nombres et voix réglables.
  *
  * Lecture : « On commence. », puis chaque nombre (« moins … » pour une soustraction),
- * puis « C'est tout. ». Les nombres restent courts (1 à 4 chiffres) pour rester dictables.
+ * puis « C'est tout. ». Les nombres restent dictables : 1 à 6 chiffres (4 avant la 0.38).
  */
 
 import { genererColonne, genererColonneVariee, creerMemoire } from '../core/generateur.js';
@@ -95,7 +95,7 @@ export default {
       infoPalier,
       h('div', { class: 'reglages' },
         selSupport,
-        libre(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']])),
+        libre(select('chiffres', [1, 2, 3, 4, 5, 6].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`]))),
         libre(select('nombres', [3, 5, 7, 10].map((n) => [n, `${n} nombres`]))),
         libre(h('label', {}, 'Débit', select('debit', [[0.7, 'lent'], [0.85, 'posé'], [1, 'normal'], [1.2, 'rapide'], [1.4, 'très rapide']]))),
         libre(h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']]))),

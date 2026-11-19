@@ -35,7 +35,7 @@ import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/
 /** Vitesse automatique : après chaque réponse, la durée par nombre change de ce facteur. */
 const PLUS_VITE = 0.95;
 const MOINS_VITE = 1.1;
-const DUREE_MIN = 0.25;
+const DUREE_MIN = 0.1; // 0.38 : jusqu'à 1,5 s pour 15 nombres (avant : 0,25 s par nombre)
 const DUREE_MAX = 4;
 /** Après une erreur : reprises permises du même calcul, et ralentissement de « plus lentement ». */
 const REPRISES_MAX = 2;
@@ -43,7 +43,7 @@ const RALENTI = 1.4;
 
 const reglages = { profil: 'constant', auto: true, distractVisuel: false, distractVoix: false, grade: null, mode: 'image', chiffres: 1, termes: 3, duree: 2, questions: 10, soustractions: false, mulChiffres: 2, image: 0.45, gradeEntr: null, allure: 1.25 };
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
-const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3];
+const DUREES = [3, 2.5, 2, 1.5, 1, 0.7, 0.5, 0.3, 0.2, 0.15, 0.12, 0.1];
 const IMAGES = [[0.45, 'image estompée'], [0.3, 'image légère'], [0.15, 'image très légère']];
 /** Mode « instantané » : durée d'affichage de l'image du total (ms), de 1,2 s à 0,3 s. */
 const INSTANT_MAX = 1200;
@@ -136,8 +136,9 @@ export default {
         if (reglages.mode === 'photo') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s d'affichage`])));
       } else {
         elements.push(select('chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres'], [4, '4 chiffres']]),
-          select('termes', [3, 4, 5, 7, 10, 15].map((n) => [n, `${n} nombres`])));
-        if (reglages.mode !== 'mitori') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s par nombre`])));
+          select('termes', [3, 4, 5, 6, 7, 8, 10, 12, 15].map((n) => [n, `${n} nombres`])));
+        // La durée se lit aussi en TOTAL, comme dans les grades de flash (« 15 nombres en 3 s »).
+        if (reglages.mode !== 'mitori') elements.push(select('duree', DUREES.map((d) => [d, `${d.toLocaleString('fr-FR')} s par nombre (${Math.round(d * reglages.termes * 10) / 10} s au total)`.replace('.', ',')])));
         if (['flash', 'image', 'tapis'].includes(reglages.mode)) elements.push(select('profil', Object.entries(PROFILS_VITESSE), String));
         if (reglages.mode !== 'mitori') {
           const coche = (cle, texte, titre) => h('label', { title: titre }, h('input', { type: 'checkbox', checked: reglages[cle], onchange: (e) => { reglages[cle] = e.target.checked; } }), ` ${texte}`);

@@ -17,6 +17,9 @@ import { creerLievre, cadenceDepart, cadenceReprise, cleLievre } from '../ui/lie
 import { listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
+// 0.38 : jusqu'à 10 chiffres (avant : 3), pour les avancés qui préparent les grades hauts.
+const CHIFFRES_RYTHME = Array.from({ length: 10 }, (_, i) => [i + 1, `${i + 1} chiffre${i ? 's' : ''}`]);
+
 const reglages = {
   marathon: { cible: 'lents', chiffres: 1, objectif: 30, doigte: false },
   lievre: { cible: 'appris', chiffres: 1, lignes: 5, colonnes: 6, cadence: 'auto', metronome: true, mode: 'seul' },
@@ -95,7 +98,7 @@ export default {
           h('p', {}, 'Une seule longue colonne, 5 lignes à la fois, sans jamais remettre le soroban à zéro : vous tapez le sous-total, et la suite part de ce nombre. Une erreur : le joker vous laisse continuer ; deux : fin du marathon.'),
           h('div', { class: 'reglages' },
             select(m, 'cible', optionsCibles()),
-            select(m, 'chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres']], Number),
+            select(m, 'chiffres', CHIFFRES_RYTHME, Number),
             select(m, 'objectif', [[20, '20 lignes'], [30, '30 lignes'], [40, '40 lignes'], [50, '50 lignes'], ['Infinity', 'sans fin (record de lignes)']], Number),
             caseA(m, 'doigte', 'rappel doigté'),
             h('button', { class: 'btn principal', onclick: () => lancerMarathon() }, 'Partir'))),
@@ -104,8 +107,8 @@ export default {
           h('p', {}, 'La ligne en cours est surlignée, la suivante est déjà visible : lisez-la pendant que vos doigts posent la ligne en cours. Le surligneur descend tout seul et la ligne passée disparaît. 3 colonnes justes d\'affilée : le lièvre accélère de 10 %. La course continue tant que vous tenez : elle s\'arrête à la 2e erreur, ou quand vous le décidez. Votre cadence est gardée pour chaque réglage : la fois suivante, vous repartez de là.'),
           h('div', { class: 'reglages' },
             select(l, 'cible', optionsCibles()),
-            select(l, 'chiffres', [[1, '1 chiffre'], [2, '2 chiffres'], [3, '3 chiffres']], Number),
-            select(l, 'lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes']], Number),
+            select(l, 'chiffres', CHIFFRES_RYTHME, Number),
+            select(l, 'lignes', [[5, '5 lignes'], [8, '8 lignes'], [10, '10 lignes'], [15, '15 lignes']], Number),
             select(l, 'cadence', [['auto', 'cadence : là où je m\'étais arrêté'], ...[3, 2.5, 2, 1.6, 1.3, 1, 0.8].map((x) => [x, `départ : ${sec(x)} par ligne`])], (v) => (v === 'auto' ? v : Number(v))),
             caseA(l, 'metronome', 'clic à chaque ligne'),
             choixModeLievre(l),
