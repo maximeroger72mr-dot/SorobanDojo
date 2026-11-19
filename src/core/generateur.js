@@ -281,7 +281,10 @@ export function genererColonne(params) {
         if (!(e instanceof ErreurGeneration)) throw e;
         continue;
       }
-      if (niveau === 'libre' || colonneValide(col, params.cibles, niveau === 'strict')) return niveau === 'strict' ? col : { ...col, assoupli: true };
+      // Au moins un geste visé dans la colonne (0.38) : le remplacement d'une ligne redondante par
+      // une ligne libre pouvait retirer la seule cascade d'une colonne de la leçon « cascades ».
+      const vise = !params.cibles?.length || col.motifs.some((m) => params.cibles.includes(m));
+      if (niveau === 'libre' || (vise && colonneValide(col, params.cibles, niveau === 'strict'))) return niveau === 'strict' ? col : { ...col, assoupli: true };
     }
   }
   throw new ErreurGeneration('Impossible de générer une colonne');

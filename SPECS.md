@@ -1066,6 +1066,8 @@ Suites de `PLAN-ACTION-0.38.md` (deux audits externes de la 0.37.0). Lots 1 à 6
   chaque semaine et planche au format en entretien (au lieu d'un marathon de 30 lignes).
   Dan d'entraînement : **non fait**, format officiel non vérifiable (sources secondaires
   contradictoires).
+- **Correctif :** une colonne contient toujours au moins un geste visé par la leçon (environ une
+  colonne sur 600 de la leçon « cascades » n'en avait aucune : cause du test intermittent en CI).
 - **Lot 6, débutants.** **10e kyū express** : les colonnes (p1 à p5) suffisent, la séance le
   propose ; la multiplication reste exigée au 9e. Défi de la semaine au format du kyū visé dès
   le 7e kyū (même feuille toute la semaine). Porte « or » chiffrée (« 2 leçons sur 3 en or »).
