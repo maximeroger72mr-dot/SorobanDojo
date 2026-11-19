@@ -74,6 +74,7 @@ export default {
       const m = e.courante;
       const f = feuilleMarche(g, m);
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Marches d\'allure'),
+        h('h1', {}, `Marche ${m.n} sur ${NB_MARCHES} · ${g.nom}`),
         h('p', { class: 'consigne' }, `Marche ${m.n} du ${g.nom} : ${f.minutes.toLocaleString('fr-FR')} minutes, ${Math.round(JUSTES_MARCHE * 100)} % de justes. Ce qui n'est pas fait à la fin du temps compte faux.`));
       feuille = creerFeuille(el, {
         titre: `Marche ${m.n} · ${g.nom} · ${f.minutes.toLocaleString('fr-FR')} min`,
@@ -99,6 +100,7 @@ export default {
     function fractionne(g, m, cle, k) {
       const f = feuilleMarche(g, m, SECONDES_FRACTIONNE, cle);
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Marches d\'allure'),
+        h('h1', {}, `Fractionné ${k} sur ${SERIES_FRACTIONNE}`),
         h('p', { class: 'consigne' }, `Fractionné, série ${k} sur ${SERIES_FRACTIONNE} : à l'allure de la marche ${m.n}.`));
       feuille = creerFeuille(el, {
         titre: `Fractionné ${k} / ${SERIES_FRACTIONNE} · ${f.minutes.toLocaleString('fr-FR')} min`,

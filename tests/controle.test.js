@@ -51,6 +51,8 @@ test('kyū officiels : les leçons exigées couvrent ce que l\'épreuve demande'
     if (g.div) assert.ok(ids.some((id) => sousPalier(id).type === 'div'), `${g.nom} demande des divisions sans leçon de division`);
     // Formes imposées : une leçon exigée couvre chaque découpage (facteurs, ou diviseur et quotient).
     const types = (t) => ids.map(sousPalier).filter((x) => x.type === t);
+    // 10e kyū express (0.38) : le mitorizan suffit (100 points sur 200, 60 exigés) ; la × n'est pas exigée.
+    if (g.id === '10') { assert.ok(g.mitori.points * g.mitori.nb >= g.seuil * (g.mitori.points * g.mitori.nb + g.mul.points * g.mul.nb)); continue; }
     for (const [m, n] of g.mul?.formes ?? []) assert.ok(types('mul').some((x) => (x.mMax ?? x.m) >= Math.max(m, n) && x.n >= Math.min(m, n)), `${g.nom} : ${m} × ${n} non appris`);
     for (const [nd, nq] of g.div?.formes ?? []) assert.ok(types('div').some((x) => (x.ndMax ?? x.nd) >= nd && x.nq >= Math.min(nq, 2)), `${g.nom} : ÷ ${nd} chiffre(s), quotient ${nq}, non appris`);
     // Le sujet se génère et respecte le format.

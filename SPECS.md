@@ -1021,3 +1021,53 @@ Suites de `AUDIT-PARCOURS-0.36.md`.
 - **Examen complet** (sujet officiel entier du prochain grade) une fois par semaine dans la séance,
   dès le 6e kyū passé ; les planches ciblées passent alors en tête.
 - **Séries de placement** sur les formes nouvelles (`p8-pl`, `p9-pl`).
+
+## Version 0.38.0
+
+Suites de `PLAN-ACTION-0.38.md` (deux audits externes de la 0.37.0). Lots 1 à 6 validés.
+
+- **Lot 1, bugs confirmés.**
+  - Anzan : le tirage et les mini-tests équilibrent les gestes **mesurés en anzan**
+    (`poidsAnzan`, `fluxEquilibre` étendu). Dans p3-a, « +1 grand ami » passe de 1 à environ
+    80 apparitions sur 400 chaînes.
+  - Divisions décimales à la longueur du sujet (diviseur de 4 à 6 chiffres au 1er kyū ; avant,
+    plafonné à 4).
+  - Flash et chaînes d'anzan sans nombre répété deux fois de suite.
+  - pa-5 ne vise plus les cascades (impossibles à 1 chiffre) ; p7-4c sans quotient en 0.
+  - Mention « format indicatif » reformulée ; bascule de l'échelle après le 3e kyū annoncée une
+    fois, et rappelée dans la légende des médailles.
+- **Lot 2, révisions.** Absorption limitée : une leçon n'en retire une autre des révisions que si
+  elle est de la même étape ou de la suivante et vise 18 gestes au plus (19 leçons absorbées sur
+  35 au lieu de 27). Révision mélangée : 3 leçons au plus, 5 calculs chacune à 2 leçons, 4 à 3.
+- **Lot 3, séance.**
+  - À partir du 7e kyū (8e réussi), **un bloc de vitesse par jour** sur colonnes, × ou ÷ : la
+    partie la plus loin de l'allure deux jours de pratique sur trois, la rotation le troisième
+    (`core/hakari.js`). Pour × et ÷ : une feuille chronométrée au format du kyū, à la longueur du
+    temps restant ; son temps médian par produit est enregistré et sert de mesure.
+  - **Séance longue** : l'examen blanc n'entre dans la séance qu'à partir de 20 min d'objectif,
+    l'examen complet à partir de 30 ; sinon il est proposé à part, à faire à la place de la
+    séance, sans compter comme manqué.
+  - Sous 20 min : **3 blocs au plus** (leçon, révision, puis volume ou anzan un jour sur deux).
+  - 25 min par défaut pour les nouveaux élèves, choisi à l'accueil ; une carte, une fois, propose
+    25 min à ceux qui sont à 15.
+  - **Mini-tests longs en séries de 5** (plus de 12 min au seuil : p5-5, p5-e, p8-t1, p8-t2,
+    p8-1, p8-2, p8-3, p8-5, p8-n2, p9-1, p9-2) ; même exigence au total ; séries valables
+    jusqu'au lendemain.
+- **Lot 4, de la leçon à l'allure.**
+  - **Marches d'allure** (`core/marches.js`, écran « Marches d'allure » dans Se mesurer) : 5 par
+    grade, du 6e au 1er kyū, de 70 % de l'allure à l'allure avec 10 % de marge ; feuille courte
+    au format (environ 5 min), 90 % de justes, deux jours différents. Proposée dans la séance un
+    jour de pratique sur deux une fois les leçons du grade validées. Fractionné : 4 × 90 s.
+  - Score projeté et date projetée (d'après le rythme des marches ; rien avant la première).
+  - **Naoshi** : « Reprendre mes erreurs » après une épreuve, un examen blanc ou une marche.
+- **Lot 5, avancés.** Rythme jusqu'à 10 chiffres ; dictée jusqu'à 6 ; × ÷ libres jusqu'à 7 × 5
+  et ÷ 6 chiffres, quotient 6 ; défis au format du kyū visé ; anzan guidé jusqu'à 3 chiffres et
+  15 nombres, flash jusqu'à 0,1 s par nombre. Après le 1er kyū : examen complet du 1er kyū
+  chaque semaine et planche au format en entretien (au lieu d'un marathon de 30 lignes).
+  Dan d'entraînement : **non fait**, format officiel non vérifiable (sources secondaires
+  contradictoires).
+- **Lot 6, débutants.** **10e kyū express** : les colonnes (p1 à p5) suffisent, la séance le
+  propose ; la multiplication reste exigée au 9e. Défi de la semaine au format du kyū visé dès
+  le 7e kyū (même feuille toute la semaine). Porte « or » chiffrée (« 2 leçons sur 3 en or »).
+  **Clinique du doigté** : un geste qui lâche, le bon mouvement puis 6 colonnes lentes avec
+  rappel doigté, tous les 3 jours au plus. La dictée existait déjà dès p1-4.

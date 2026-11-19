@@ -132,3 +132,21 @@ test('0.38 lot 5 : anzan guidé jusqu\'à 3 chiffres et 15 nombres ; entretien a
   assert.equal(dec.aller[0], 'planches');
   assert.equal(dec.aller[1].chiffres, 10);
 });
+
+test('0.38 lot 6 : 10e kyū express, feuille de la semaine au format, porte « or » chiffrée', async () => {
+  const { PREREQUIS, defiSemaine } = await import('../src/core/parcours.js');
+  const { decisionDuJour } = await import('../src/core/prof.js');
+  assert.ok(!PREREQUIS[10].some((id) => id.startsWith('p6')), '10e kyū : colonnes seules');
+  assert.ok(PREREQUIS[9].includes('p6-1'), '9e kyū : il faut des ×');
+  const valides = (jusqua) => { const fin = sp(jusqua).ordre; return Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= fin).map((s) => [s.id, { valide: '2026-11-01', hist: [] }])); };
+  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, sessions: [], records: { 'epreuve-10': { reussi: true }, 'epreuve-9': { reussi: true }, 'epreuve-8': { reussi: true } } };
+  const f = defiSemaine(d, '2026-11-19');
+  assert.match(f.description, /7e kyū/);
+  assert.deepEqual(f.sections.map((x) => x.problemes.length), defiSemaine(d, '2026-11-20').sections.map((x) => x.problemes.length));
+  assert.deepEqual(JSON.stringify(f.sections), JSON.stringify(defiSemaine(d, '2026-11-20').sections), 'même feuille toute la semaine');
+  // Porte « or » de fin d'étape : le détail dit où l'on en est.
+  const fin = { paliers: valides('p2-7'), reglages: {}, motifs: {}, records: {}, sessions: [] };
+  for (const id of Object.keys(fin.paliers)) fin.paliers[id].hist = Array.from({ length: 10 }, () => ({ ok: 1, t: 2.8 }));
+  const dec = decisionDuJour(fin, '2026-11-20', sp('p3-0'));
+  if (dec.finEtape) assert.match(dec.detail, /leçons? sur \d+ en or/);
+});

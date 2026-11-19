@@ -21,7 +21,8 @@ import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { GRADES_KYU as GRADES } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
-import { nomMotif, diagnosticPincee } from '../core/motifs.js';
+import { nomMotif, diagnosticPincee, gesteMotif } from '../core/motifs.js';
+import { gesteTravaillable } from '../core/colonneGeste.js';
 import { ajouterJours, MELANGE_MAX, calculsMelange } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
@@ -272,6 +273,20 @@ function plan(d, debut, seance = null) {
     essentiel.push({ titre: 'Pincée : colonnes de rattrapage', detail: pincee.taux !== null ? `${Math.round(pincee.taux * 100)} % d'erreurs sur vos 6, 7, 8, 9 : 8 colonnes de pincée pure` : '8 colonnes de pincée pure', minutes: 3,
       pourquoi: 'Poser 6 à 9, c\'est UN mouvement : l\'index abaisse la céleste pendant que le pouce monte les terrestres. En deux temps, le geste se trompe et ralentit tout le reste.',
       fait: pinceeFaite, aller: ['planches', { cible: 'pincee', chiffres: Math.min(2, chiffresApprisDe(d)), lignes: 6, colonnes: 8, proposition: 'pincee', auto: true }] });
+  }
+  // Clinique du doigté (0.38) : un geste qui lâche encore (erreurs avérées) a souvent un mauvais
+  // mouvement de doigts derrière lui. Une minute pour revoir LE bon mouvement, puis quelques
+  // colonnes lentes avec le rappel doigté. Un jour sur trois au plus pour le même geste.
+  const gesteFragile = difficiles.find((m) => !m.cle.endsWith(':direct') && gesteTravaillable(m.cle));
+  const cliniqueFaite = fait((s) => s.module === 'planches' && s.reglages?.proposition === 'clinique');
+  const cliniqueRecente = d.sessions.some((s) => s.module === 'planches' && s.reglages?.proposition === 'clinique' && s.date < date && s.date > ajouterJours(date, -3));
+  if (cliniqueFaite || (gesteFragile && !cliniqueRecente && estValide(d, 'p1-3'))) {
+    const c = depuis.find((s) => s.module === 'planches' && s.reglages?.proposition === 'clinique')?.reglages?.cible ?? gesteFragile?.cle;
+    if (c) {
+      essentiel.push({ titre: `Clinique du doigté · ${nomMotif(c)}`, detail: '1 minute pour revoir le bon mouvement, puis 6 colonnes lentes avec le rappel doigté', minutes: 3,
+        pourquoi: `Ce geste lâche encore. Le bon mouvement : ${gesteMotif(c)} Lentement d'abord : la vitesse viendra d'un mouvement juste.`,
+        fait: cliniqueFaite, aller: ['planches', { cible: c, mode: 'seul', chiffres: 1, lignes: 5, colonnes: 6, doigte: true, proposition: 'clinique', auto: true }] });
+    }
   }
   // Dictée (yomiage) : deux fois par semaine (mardi et jeudi), dès les gestes directs à 2 chiffres.
   // Calculer à l'oreille, sur le soroban, oblige à poser sans relire : un autre canal que l'œil.
@@ -641,6 +656,12 @@ export default {
           h('div', { class: 'ligne' },
             h('button', { class: 'btn principal', onclick: async () => { await modifierReglages({ objectifMinutes: 25, objectif25Vu: true }); afficher(bilan); } }, 'Passer à 25 minutes'),
             h('button', { class: 'btn', onclick: async () => { await modifierReglages({ objectif25Vu: true }); afficher(bilan); } }, 'Garder 15 minutes'))));
+      }
+      // 10e kyū express (0.38) : les colonnes suffisent ; on le propose dès la fin de p5.
+      if (g.pret && g.prochain?.id === '10' && !bilan) {
+        el.append(h('div', { class: 'carte avis' },
+          h('p', { style: 'margin-top:0' }, h('strong', {}, 'Votre premier kyū officiel est à portée : le 10e kyū. '), 'Le mitorizan seul rapporte 100 points sur 200, et il en faut 60 : vos colonnes suffisent. La multiplication du sujet viendra avec les leçons suivantes ; passez-le quand vous voulez, sans attendre.'),
+          h('button', { class: 'btn principal', onclick: () => app.aller('epreuves', { grade: '10', auto: true }) }, `Passer le 10e kyū (${g.prochain.minutes} min) →`)));
       }
       el.append(carteObjectif(d, () => afficher(bilan)));
 

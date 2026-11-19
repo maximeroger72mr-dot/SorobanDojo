@@ -99,3 +99,20 @@ Deux audits externes de la version 0.37.0, lus en entier :
 
 - **La séance devient le produit.** Les leçons et les examens sont jugés bons par les deux audits. Les points critiques (K-1, K-2, K-4) touchent tous l'organisation du temps. Les lots 3 et 4 changeront donc ce que l'élève voit chaque jour : à tester sur une vraie semaine avant de publier.
 - **Ne pas tout empiler.** Hakari, marches d'allure, examen complet, anzan, révisions : sur 25 minutes, il faudra **choisir** chaque jour, pas tout proposer. Règle proposée : un seul bloc de vitesse par jour, en rotation (colonnes, ×, ÷), sur la partie la plus en retard.
+
+## 7. Suites données (version 0.38.0)
+
+Lots 1 à 6 validés, avec ces choix :
+
+| Point | Décision | État |
+|---|---|---|
+| C-4 Absorption | Étape proche (même étape ou suivante) et 18 gestes au plus | Fait |
+| Bloc de vitesse dès le 7e kyū | La partie la plus en retard 2 jours sur 3, rotation colonnes / × / ÷ le 3e | Fait (`core/hakari.js`) |
+| Objectif du jour | 25 min proposé à l'accueil ; carte unique pour ceux qui sont à 15 | Fait |
+| Examen complet | Dans la séance à partir de 30 min d'objectif (examen blanc : 20), sinon « séance longue » à part | Fait |
+| Mini-tests longs | Séries de 5, même exigence au total, valables jusqu'au lendemain | Fait |
+| Marches d'allure | 2 feuilles réussies, 2 jours différents, 90 % de justes | Fait (`core/marches.js`) |
+| 10e kyū express | Dès la fin des colonnes (p5) | Fait |
+| Flash | Jusqu'à 3 chiffres et 15 nombres | Fait |
+| Dan d'entraînement | Format officiel introuvable depuis l'environnement (shuzan.jp inaccessible), sources secondaires contradictoires | **En attente** |
+| Lecture à voix haute dès p2 | La dictée est déjà proposée dès p1-4, deux fois par semaine | Rien à changer |

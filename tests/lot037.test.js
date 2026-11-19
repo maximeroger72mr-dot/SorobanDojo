@@ -14,7 +14,7 @@ test('0.37 : chaque forme de × et ÷ des sujets est vue dans les leçons exigé
     for (const sp of SOUS_PALIERS.filter((s) => !s.mental && (s.type === 'mul' || s.type === 'div'))) {
       formesLecon[sp.id] = new Set(Array.from({ length: 200 }, () => forme(genererExercice(sp))));
     }
-    for (const g of GRADES) {
+    for (const g of GRADES.filter((x) => x.id !== '10')) { // 10e kyū express (0.38) : colonnes seules
       const ids = PREREQUIS[g.jun ? g.id.slice(1) : g.id];
       const vues = new Set(ids.flatMap((id) => [...(formesLecon[id] ?? [])]));
       const sujet = new Set();

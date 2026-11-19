@@ -156,8 +156,11 @@ export function decisionDuJour(d, date, prochain) {
       if (aDorer.length && !sortieArgent) {
         const sp = aDorer[0];
         const reste = JOURS_AUTOMATISATION_MAX - jours;
-        return { type: 'automatiser', titre: 'Automatiser', ...ancrage(sp), sp, minutes: 10, cible: 'or', finEtape: true,
-          detail: `« ${sp.titre} »`,
+        // 0.38 : où en est la porte, d'un coup d'œil (« 2 leçons sur 3 en or »).
+        const total = derniere.palier.sousPaliers.map((x) => SOUS_PALIERS.find((y) => y.id === x.id)).filter((y) => y && LECON_SOROBAN(y) && d.paliers[y.id]?.valide).length;
+        const enOr = Math.max(0, total - aDorer.length);
+        return { type: 'automatiser', titre: 'Automatiser', ...ancrage(sp), sp, minutes: 10, cible: 'or', finEtape: true, porte: { enOr, total },
+          detail: `« ${sp.titre} » · porte de l'étape : ${enOr} leçon${enOr > 1 ? 's' : ''} sur ${total} en or`,
           raison: `L'étape « ${derniere.palier.titre} » est terminée : avant la suivante, on passe ses leçons en or (${aDorer.length} restante${aDorer.length > 1 ? 's' : ''}). L'étape suivante s'ouvre dès l'or partout${souple ? `, ou dès que tout est en argent avec le volume de l'étape fait (${vol.fait} exercices sur ${vol.vise})` : ''}, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.` };
       }
     }

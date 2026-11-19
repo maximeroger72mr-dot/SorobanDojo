@@ -195,6 +195,7 @@ export default {
     if (params.lignes) reglages.lignes = params.lignes;
     // Un geste travaillé seul (« −2 petit ami ») ou parmi sa famille (« −2 parmi les petits amis »).
     if (params.mode) reglages.mode = params.mode;
+    if (params.doigte != null) reglages.doigte = !!params.doigte; // clinique du doigté (0.38)
     // Planche proposée par la séance : son identifiant (pour la cocher) et son objectif.
     reglages.proposition = params.proposition ?? null;
     if (params.chiffres) reglages.chiffres = params.chiffres;

@@ -239,7 +239,7 @@ test('marches de multiplication et de division : une difficulté à la fois, hé
   }
   // Les leçons existent, précèdent leur leçon d'arrivée, et sont exigées par les grades.
   const ordre = (id) => sousPalier(id).ordre;
-  for (const id of ['p6-1a', 'p6-1b', 'p6-1c', 'p6-1d']) { assert.ok(ordre(id) < ordre('p6-1') && ordre(id) > ordre('p6-0')); assert.ok(PREREQUIS[10].includes(id)); assert.equal(genererExercice(sousPalier(id)).type, 'mul'); }
+  for (const id of ['p6-1a', 'p6-1b', 'p6-1c', 'p6-1d']) { assert.ok(ordre(id) < ordre('p6-1') && ordre(id) > ordre('p6-0')); assert.ok(PREREQUIS[9].includes(id) && !PREREQUIS[10].includes(id)); assert.equal(genererExercice(sousPalier(id)).type, 'mul'); }
   for (const id of ['p7-2a', 'p7-2b', 'p7-2c', 'p7-2d']) { assert.ok(ordre(id) < ordre('p7-2') && ordre(id) > ordre('p7-1')); assert.ok(PREREQUIS[8].includes(id)); assert.equal(genererExercice(sousPalier(id)).type, 'div'); }
   // Élève qui a déjà validé « 2 chiffres × 1 chiffre » : ses marches sont acquises, pas la division.
   const d = heriterMarches({ paliers: { 'p6-1': { valide: '2026-02-01' } } });

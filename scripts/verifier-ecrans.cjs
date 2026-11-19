@@ -50,6 +50,23 @@ function profil({ seanceFinie = false } = {}) {
   return dir;
 }
 
+/** Élève avancé (0.38) : 6e kyū réussi, toutes les leçons du 5e kyū validées, 15 min par jour. */
+function profilAvance() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verif-'));
+  const { SOUS_PALIERS, K5 } = require('./sous-paliers.json');
+  const paliers = {};
+  for (const id of SOUS_PALIERS) if (K5.includes(id)) paliers[id] = { reps: 40, justes: 39, valide: jour(30), carte: { boite: 4, echeance: jour(-10) }, hist: Array.from({ length: 30 }, () => ({ ok: 1, t: 1.5 })) };
+  const hist = (t) => Array.from({ length: 30 }, () => ({ ok: 1, t }));
+  const motifs = {};
+  for (const c of ['+3:petit', '+4:petit', '-2:petit', '+9:grand', '-7:grand', '+6:mixte', '+1:grand', '-4:grand']) motifs[c] = { essais: 60, erreurs: 2, dette: 0, hist: hist(1.4), soupcons: [] };
+  const sessions = [];
+  for (let n = 20; n >= 1; n--) sessions.push({ date: jour(n), horodatage: Date.now() - n * 86400000, module: 'planches', mode: 'examen', reglages: {}, total: 10, justes: 9, dureeMs: 900000 });
+  const records = Object.fromEntries(['10', '9', '8', '7', '6'].map((g) => [`epreuve-${g}`, { reussi: true, points: 250, date: jour(25) }]));
+  const d = { version: 2, appli: '0.0.0', sessions, records, motifs, paliers, drills: {}, reglages: { objectifMinutes: 15, objectif25Vu: true, decouverte: true }, avis: [], stats: {}, succes: {}, seance: null };
+  fs.writeFileSync(path.join(dir, 'progression.json'), JSON.stringify(d));
+  return dir;
+}
+
 async function lancer(dir) {
   const app = await _electron.launch({ args: [racine, '--no-sandbox', `--user-data-dir=${dir}`], executablePath: path.join(racine, 'node_modules/electron/dist/electron') });
   const w = await app.firstWindow();
@@ -82,7 +99,8 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   // Liste des leçons (lue dans le code, pour ne rien oublier).
   const { execSync } = require('child_process');
   const ids = JSON.parse(execSync(`node --input-type=module -e "import('${path.join(racine, 'src/core/curriculum.js').replace(/\\/g, '/')}').then((m) => console.log(JSON.stringify(m.SOUS_PALIERS.map((s) => s.id))))"`).toString());
-  fs.writeFileSync(path.join(__dirname, 'sous-paliers.json'), JSON.stringify({ SOUS_PALIERS: ids }));
+  const K5 = JSON.parse(execSync(`node --input-type=module -e "import('${path.join(racine, 'src/core/parcours.js').replace(/\\/g, '/')}').then((m) => console.log(JSON.stringify(m.PREREQUIS[5])))"`).toString());
+  fs.writeFileSync(path.join(__dirname, 'sous-paliers.json'), JSON.stringify({ SOUS_PALIERS: ids, K5 }));
 
   let [app, w] = await lancer(profil());
   // 1. Les 5 entrées du menu, et chaque carte des pages de section.
@@ -268,6 +286,37 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['lecons', { sousPalier: 'p0-2', onglet: 'entrainement' }] })));
   await controler(w, 'leçon lecture', 'Leçons guidées');
   if (!(await w.$('#ecran .saisie-nombre'))) problemes.push('leçon lecture : pas de saisie');
+  await app.close();
+
+  // 8. Élève avancé (0.38) : 6e kyū passé, leçons du 5e validées, 15 minutes par jour. Séance (3
+  //    blocs au plus, bloc de vitesse), marches d'allure (feuille et fractionné), défi au format.
+  [app, w] = await lancer(profilAvance());
+  await aller(w, 'seance');
+  await controler(w, 'avancé : séance');
+  const blocs = await w.$$eval('#ecran details.bloc-seance', (x) => x.length);
+  if (blocs > 3) problemes.push(`avancé : ${blocs} blocs dans une séance de 15 minutes (3 au plus)`);
+  const lignes = await w.$$eval('#ecran details.bloc-seance .ligne-palier', (x) => x.length);
+  for (let i = 0; i < lignes; i++) {
+    await aller(w, 'seance');
+    await w.waitForTimeout(200);
+    await w.evaluate(() => document.querySelectorAll('#ecran details.bloc-seance').forEach((x) => { x.open = true; }));
+    const t = await w.$eval(`#ecran details.bloc-seance .ligne-palier >> nth=${i}`, (x) => x.querySelector('strong').textContent);
+    await w.click(`#ecran details.bloc-seance .ligne-palier >> nth=${i}`);
+    await controler(w, `avancé : séance › ${t}`);
+  }
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['marches', {}] })));
+  await controler(w, 'avancé : marches d\'allure', 'Marches d\'allure');
+  if (!/Marche 1|marche 1/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('avancé : la marche 1 n\'apparaît pas');
+  await cliquerTexte(w, '#ecran button', 'Feuille de la marche');
+  await controler(w, 'avancé : feuille de marche', 'Marches d\'allure');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['marches', {}] })));
+  await w.waitForTimeout(200);
+  await cliquerTexte(w, '#ecran button', 'Fractionné');
+  await controler(w, 'avancé : fractionné', 'Marches d\'allure');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['muldiv', { type: 'div', format: 'kyu', mode: 'feuille', nombre: 8, auto: true, proposition: 'hakari-div' }] })));
+  await controler(w, 'avancé : feuille de ÷ au format du kyū');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['defis', {}] })));
+  await controler(w, 'avancé : défis');
   await app.close();
 
   fs.rmSync(path.join(__dirname, 'sous-paliers.json'));

@@ -8,7 +8,7 @@
  */
 
 import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
-import { systemeChoisi } from './epreuves.js';
+import { systemeChoisi, genererSujet } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
 import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
@@ -54,8 +54,12 @@ export function motifsAppris(d) {
  */
 const ENDURANCE = { 8: ['p5-e7', 'p5-e8'], 7: ['p5-e'] };
 const ADDSUB_TOUT = idsPaliers('p1', 'p2', 'p3', 'p4', 'p5').filter((id) => !Object.values(ENDURANCE).flat().includes(id));
-const K10 = [...ADDSUB_TOUT, 'p6-a', 'p6-0', 'p6-1a', 'p6-1b', 'p6-1c', 'p6-1d', 'p6-1'];
-const K9 = [...K10]; // même sujet que le 10e kyū, seuil plus haut
+// 10e kyū « express » (0.38) : le mitorizan seul rapporte 100 points sur 200, il en faut 60 ; les
+// colonnes (p1 à p5) suffisent donc. La multiplication 2 × 1 du sujet reste à faire, sans être
+// exigée : 34 leçons avant le premier grade, c'était long.
+const MUL_2X1 = ['p6-a', 'p6-0', 'p6-1a', 'p6-1b', 'p6-1c', 'p6-1d', 'p6-1'];
+const K10 = [...ADDSUB_TOUT];
+const K9 = [...K10, ...MUL_2X1]; // même sujet que le 10e kyū, seuil plus haut (120 points : il faut des ×)
 const K8 = [...K9, ...ENDURANCE[8], 'p6-2', 'p7-0', 'p7-1', 'p7-2a', 'p7-2b', 'p7-2c', 'p7-2d', 'p7-2']; // 8 lignes, 3 × 1, ÷ 1 chiffre
 const K7 = [...K8, ...ENDURANCE[7], 'p6-3a', 'p6-3b', 'p6-3c', 'p6-3']; // 10 lignes, 2 × 2
 // 6e au 1er kyū : chaque grade n'exige que ce que SON épreuve demande (avant, tout le parcours
@@ -220,6 +224,18 @@ export function defiSemaine(d, date) {
   // × et ÷ suivent les chapitres validés : jusqu'à 3 × 2 et la division par 2 chiffres.
   const fMul = estValide(d, 'p6-4') ? [3, 2] : estValide(d, 'p6-3') ? [2, 2] : [2, 1];
   const fDiv = estValide(d, 'p7-4') ? [2, 2] : estValide(d, 'p7-2') ? [1, 3] : [1, 2];
+  // 0.38 : à partir du 7e kyū (8e kyū réussi), la feuille de la semaine suit le FORMAT de l'examen
+  // visé : un cinquième de son sujet, le même toute la semaine, à battre (avant : 3 × 2 et ÷ 2
+  // chiffres au plus, quel que soit le niveau).
+  const gr = grade(d);
+  const sys = systemeChoisi(d);
+  const g8 = sys.grades.find((x) => x.id === '8');
+  if (gr.obtenu && g8 && sys.grades.indexOf(gr.obtenu) >= sys.grades.indexOf(g8)) {
+    const gv = gr.prochain ?? sys.grades.at(-1);
+    const graineK = [...`${semaine}-kyu-${sys.id}-${gv.id}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+    const sectionsK = avecGraine(graineK, () => genererSujet(gv).sections.map((x) => ({ titre: x.titre, problemes: x.problemes.slice(0, Math.max(1, Math.ceil(x.problemes.length / 5))) })));
+    return { cle: `defi-semaine-${semaine}-kyu-${sys.id}-${gv.id}`, semaine, sections: sectionsK, description: `au format du ${gv.nom} : un cinquième de son sujet` };
+  }
   const palier = `${chiffres}${mul ? `m${fMul.join('')}` : ''}${div ? `d${fDiv.join('')}` : ''}${amis.length}`;
   const graine = [...`${semaine}-${palier}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const sections = avecGraine(graine, () => {
