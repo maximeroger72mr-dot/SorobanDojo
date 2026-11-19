@@ -17,7 +17,7 @@ import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
 import {
-  etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, enregistrerSession,
+  etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, poidsAnzan, enregistrerSession,
   reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, noterGestesAnzan, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
   noterReconnu, progression, noterReponse, statsTables,
 } from '../core/progression.js';
@@ -122,7 +122,7 @@ function encadreVitesse(sp) {
   if (!conseils.length) return null;
   return h('div', { class: 'carte vitesse' }, h('strong', {}, sp.mental ? 'Pour bien visualiser' : 'Pour aller plus vite'), h('ul', {}, conseils.map((c) => h('li', {}, c))));
 }
-const poidsDe = (sp) => poidsAdaptatifs(sp.type === 'addsub' || sp.type === 'anzan' ? sp.cibles : []);
+const poidsDe = (sp) => (sp.type === 'anzan' ? poidsAnzan(sp.cibles) : poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : []));
 
 const libelleDemo = (sp, d) => (d.rattrapage ? `rattraper un quotient trop grand (${d.a} ÷ ${d.b})` : sp.type === 'mul' || sp.type === 'table' ? `${d.a} × ${d.b}` : sp.type === 'div' ? `${d.a} ÷ ${d.b}` : `${d.depart} ${d.op === '+' ? '+' : '−'} ${d.n}`);
 

@@ -53,7 +53,14 @@ const INSTANT_PAS = 100;
 const ALLURES_GRADE = [[1.5, 'lent : 150 % du temps du grade'], [1.25, 'posé : 125 %'], [1, 'le temps du grade'], [0.9, 'un peu plus vite : 90 %'], [0.8, 'plus vite : 80 %']];
 
 /** Colonne d'anzan : gestes appris seulement, soustractions en option. */
+// Deux nombres identiques de suite : en flash, l'écran ne change pas, on croit à un raté.
+const doublon = (col) => col.lignes.some((l, i) => i > 0 && l.n === col.lignes[i - 1].n);
 function colonne(chiffres, termes, soustractions) {
+  let col;
+  for (let i = 0; i < 20; i++) { col = colonneBrute(chiffres, termes, soustractions); if (!doublon(col)) break; }
+  return col;
+}
+function colonneBrute(chiffres, termes, soustractions) {
   const appris = motifsAppris(progression());
   const ops = soustractions ? ['+', '-'] : ['+'];
   const amis = [...appris].filter((c) => !c.endsWith(':direct') && ops.includes(c[0]));

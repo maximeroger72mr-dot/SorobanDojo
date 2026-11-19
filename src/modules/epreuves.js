@@ -124,7 +124,7 @@ export default {
             h('strong', { style: 'flex:1' }, `${g.nom} (${g.japonais})`),
             h('span', { class: 'discret' }, g.parEpreuve ? `réussite : ${JUSTES_EPREUVE_ZENKOREN} / 15 dans chaque épreuve${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}${meilleur(g).reussi ? ' ✓' : ''}` : ''}`
               : `réussite ≥ ${Math.round(g.seuil * totalPoints(g))} / ${totalPoints(g)}${meilleur(g) ? ` · meilleur ${meilleur(g).points} / ${totalPoints(g)}` : ''}`)),
-          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.jun ? ' · grade facultatif, hors de la frise des kyū' : '', g.verifie ? '' : ' · format indicatif (pas de sujet modèle en ligne)'),
+          h('div', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' }, resume(g), g.jun ? ' · grade facultatif, hors de la frise des kyū' : '', g.verifie ? '' : ' · lignes, chiffres et temps conformes au barème ; seul le nombre de lignes à soustraire est estimé (pas de sujet modèle en ligne)'),
           ligneAllure(g),
           (() => { const m = manquantesEpreuve(progression(), g.id); return m.length ? h('p', { class: 'discret', style: 'margin:0 0 8px' }, `Conseillé après ${m.length} leçon${m.length > 1 ? 's' : ''} encore à valider, à commencer par « ${m[0].titre} ».`) : null; })(),
           h('div', { class: 'ligne' },

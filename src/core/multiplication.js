@@ -186,7 +186,7 @@ export const MARCHES_TIRAGE = {
   'div22-direct': { tirer: () => genererDivision(2, 2), ok: estimationsJustes },
   'div22-corrige': { tirer: () => genererDivision(2, 2), ok: (ex) => !estimationsJustes(ex) },
   // Diviseur de 11 à 19, où l'arrondi à la dizaine trompe de 2 ou 3 crans : on garde ces cas-là.
-  'div-1x': { tirer: () => { const b = entier(11, 19); const q = Math.random() < 0.4 ? entier(2, 9) : entier(12, 99); return { type: 'div', a: b * q, b, resultat: q }; }, ok: (ex) => aideDivision(ex.a, ex.b).etapes.some((e) => e.essais.length >= 3) },
+  'div-1x': { tirer: () => { const b = entier(11, 19); const q = Math.random() < 0.4 ? entier(2, 9) : entier(12, 99); return { type: 'div', a: b * q, b, resultat: q }; }, ok: (ex) => ex.resultat % 10 !== 0 && aideDivision(ex.a, ex.b).etapes.some((e) => e.essais.length >= 3) }, // pas de quotient en 0 avant la leçon sur les zéros
 };
 
 /** Un exercice d'une marche (tous les cas possibles, tirés au hasard ; jamais deux fois de suite le même). */

@@ -245,7 +245,8 @@ export function genererDivGrade(f, arrondi = null) {
   // diviseur et quotient : forme imposée par le grade, sinon l'un ou l'autre sens
   let [nd, nq] = f.formes ? f.formes[entier(0, f.formes.length - 1)] : Math.random() < 0.5 ? [x, y] : [y, x];
   if (f.maxDiviseur && nd > f.maxDiviseur) [nd, nq] = [nq, nd];
-  if (enDecimaux(arrondi)) return genererDivisionDecimale(Math.min(nd, 4), nq, arrondi);
+  // 0.38 : le diviseur garde la longueur du sujet (avant : plafonné à 4 chiffres, faux aux 2e et 1er kyū).
+  if (enDecimaux(arrondi)) return genererDivisionDecimale(nd, nq, arrondi);
   const diviseur = facteur(nd);
   const quotient = facteur(nq);
   return { type: 'div', a: diviseur * quotient, b: diviseur, resultat: quotient };

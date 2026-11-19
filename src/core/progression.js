@@ -29,7 +29,7 @@ import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
 import { VERSION_APPLI, comparerVersions } from './version.js';
-import { SOUS_PALIERS } from './curriculum.js';
+import { SOUS_PALIERS, PALIERS } from './curriculum.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -186,8 +186,15 @@ export function surChangement(fn) {
 /** Le 3e kyū (ou plus haut) est-il réussi, en épreuve ou en examen blanc ? L'échelle monte alors d'un cran. */
 export const troisiemeKyuReussi = (d) => Object.entries(d.records ?? {}).some(([k, r]) => r?.reussi && /^(epreuve|zenkoren)-(3|2|1|j2|j1)$|^blanc-[a-z]+-(3|2|1)$/.test(k));
 
+export const ANNONCE_ECHELLE = 'Bravo pour le 3e kyū ! Les médailles montent d\'un cran : l\'ancien platine devient l\'or, et le nouveau platine, c\'est l\'allure du 1er kyū avec un peu de marge. Certaines médailles reculent donc d\'une couleur : vous n\'avez rien perdu, c\'est la barre qui a monté. Pour tenir le 1er kyū, visez maintenant le platine.';
+
 async function sauver() {
   appliquerEchelle(troisiemeKyuReussi(donnees));
+  // Bascule de l'échelle : annoncée une fois (avant, les médailles reculaient sans explication).
+  if (troisiemeKyuReussi(donnees) && !donnees.echelleAnnoncee) {
+    donnees.echelleAnnoncee = aujourdhui();
+    (donnees.avis ??= []).push(ANNONCE_ECHELLE);
+  }
   if (etatStockage.etat === 'lecture-seule') return;
   // Nouveaux succès ? On les date, puis on prévient l'interface.
   const nouveaux = succesObtenus(donnees, aujourdhui()).filter((id) => !donnees.succes[id]);
@@ -315,6 +322,7 @@ export async function noterGestesAnzan(gestes, juste) {
   const t = (donnees.gestesAnzan ??= {});
   for (const c of new Set(gestes ?? [])) {
     const f = (t[c] ??= { hist: [] });
+    f.n = (f.n ?? f.hist.length) + 1;
     f.hist.push(juste ? 1 : 0);
     if (f.hist.length > 60) f.hist.shift();
   }
@@ -387,6 +395,22 @@ export function motifsEnDifficulte() {
 }
 
 export const evaluerMotif = (cle) => evaluer(donnees.motifs[cle]?.hist ?? [], 'addsub');
+
+/**
+ * Poids de tirage des leçons d'anzan (0.38) : le même équilibrage, mais sur les gestes mesurés
+ * EN ANZAN (avant, il lisait les gestes du soroban, si bien que « +1 grand ami » ne sortait
+ * presque jamais dans les chaînes). Un geste raté 3 fois sur ses 12 dernières chaînes est tiré
+ * deux fois plus.
+ */
+export function poidsAnzan(cibles = []) {
+  const t = donnees.gestesAnzan ?? {};
+  return poidsEquilibre(cibles, (c) => {
+    const f = t[c];
+    if (!f) return undefined;
+    const ko = f.hist.slice(-12).filter((x) => !x).length;
+    return { essais: f.n ?? f.hist.length, dette: ko >= 3 ? 3 : 0 };
+  }, 2);
+}
 
 /** Poids de tirage : équilibrage des fréquences + remédiation des motifs en difficulté. */
 export function poidsAdaptatifs(cibles = []) {
@@ -539,11 +563,17 @@ export async function enregistrerRevision(id, reussi) {
  * 3 ou plus, ou acquise), reprend tous ses gestes. La réviser à part n'apporte plus rien : sa
  * révision passe par celle de la leçon qui l'englobe (ex. « +4 et +3 » par « Tous les petits amis »).
  */
+export const ABSORPTION_GESTES_MAX = 18;
 export function absorbee(d, id) {
   const sp = SOUS_PALIERS.find((s) => s.id === id);
   if (sp?.type !== 'addsub' || !sp.cibles?.length) return false;
   const solide = (e) => !!e?.valide && (!!e.carte?.acquise || (e.carte?.boite ?? 0) >= 3);
+  // 0.38 (C-4) : seule une leçon PROCHE absorbe : de la même étape ou de l'étape suivante, et
+  // visant 18 gestes au plus. Une révision générale (54 gestes) pose chaque geste trop rarement
+  // pour entretenir à elle seule les leçons de début de parcours.
+  const etape = (s) => PALIERS.findIndex((p) => p.id === s.palier?.id);
   return SOUS_PALIERS.some((x) => x.ordre > sp.ordre && x.type === 'addsub' && !x.mental && x.cibles?.length
+    && x.cibles.length <= ABSORPTION_GESTES_MAX && etape(x) - etape(sp) <= 1
     && solide(d.paliers[x.id]) && sp.cibles.every((c) => x.cibles.includes(c)));
 }
 

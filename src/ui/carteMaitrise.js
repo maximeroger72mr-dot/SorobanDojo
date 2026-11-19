@@ -6,7 +6,7 @@
  */
 
 import { TOUS_LES_MOTIFS, nomMotif } from '../core/motifs.js';
-import { NIVEAUX, formaterVitesse } from '../core/maitrise.js';
+import { NIVEAUX, formaterVitesse, echelleAvancee } from '../core/maitrise.js';
 import { equivalenceKyu } from '../core/allure.js';
 import { progression, evaluerMotif } from '../core/progression.js';
 import { motifsAppris, verificationVitesse } from '../core/parcours.js';
@@ -71,6 +71,7 @@ export function carteMaitrise(o = {}) {
   const legende = h('div', { class: 'legende' },
     h('span', { class: 'pastille-legende non-pratique' }), 'pas pratiqué',
     NIVEAUX.map((n) => [h('span', { class: 'pastille-legende', style: `background:${COULEUR_NIVEAU[n.id]}` }), `${n.nom}${equivalenceKyu(n) ? ` (≈ ${equivalenceKyu(n).nom})` : ''}`]),
-    modeSelection ? [h('span', { class: 'pastille-legende choisi-legende' }), 'choisi'] : null);
+    modeSelection ? [h('span', { class: 'pastille-legende choisi-legende' }), 'choisi'] : null,
+    echelleAvancee() ? h('div', { class: 'discret', style: 'flex-basis:100%' }, 'Depuis le 3e kyū, l\'échelle a monté d\'un cran : l\'or est l\'ancien platine, le platine est l\'allure du 1er kyū.') : null);
   return h('div', {}, tableau, legende);
 }

@@ -72,7 +72,13 @@ export const gradeFlashOuvert = (d, x) => GRADES_FLASH.indexOf(x) <= GRADES_FLAS
 export function questionFlash(x) {
   if (!x.forme) {
     const min = 10 ** (x.chiffres - 1);
-    const lignes = Array.from({ length: x.nombres }, () => ({ op: '+', n: entier(min, 10 * min - 1) }));
+    // Jamais deux fois le même nombre de suite : à l'écran, rien ne change, on croit à un raté.
+    const lignes = [];
+    for (let i = 0; i < x.nombres; i++) {
+      let n;
+      do n = entier(min, 10 * min - 1); while (min < 10 ** 9 && n === lignes.at(-1)?.n);
+      lignes.push({ op: '+', n });
+    }
     return { type: 'addsub', lignes, resultat: lignes.reduce((t, l) => t + l.n, 0) };
   }
   const pas = x.forme === 'dizaines' ? 10 : x.forme === 'doubles' ? 11 : 1;
@@ -82,8 +88,9 @@ export function questionFlash(x) {
   for (let i = 0; i < x.nombres; i++) {
     const choix = [];
     for (let k = 1; k <= 9; k++) {
-      if (total + k <= 9 && !(dernier && dernier.op === '-' && dernier.k === k)) choix.push({ op: '+', k });
-      if (i > 0 && total - k >= 0 && !(dernier && dernier.op === '+' && dernier.k === k)) choix.push({ op: '-', k });
+      if (dernier && dernier.k === k) continue; // ni l'inverse, ni le même nombre deux fois de suite
+      if (total + k <= 9) choix.push({ op: '+', k });
+      if (i > 0 && total - k >= 0) choix.push({ op: '-', k });
     }
     const c = choix.length ? choix[entier(0, choix.length - 1)] : (total >= 5 ? { op: '-', k: entier(1, total) } : { op: '+', k: entier(1, 9 - total) });
     total += c.op === '+' ? c.k : -c.k;

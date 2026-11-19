@@ -9,7 +9,7 @@
 import { sousPalier, SOUS_PALIERS, genererExercice } from '../core/curriculum.js';
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { famille, nomMotif } from '../core/motifs.js';
-import { INTERVALLES } from '../core/revision.js';
+import { INTERVALLES, MELANGE_MAX, calculsMelange } from '../core/revision.js';
 import {
   revisionsDues, etatPalier, enregistrerRevision, enregistrerSession, poidsAdaptatifs,
   motifsEnDifficulte, aujourdhui, statsTables, rouvrirPalier, absorbee, progression,
@@ -21,6 +21,7 @@ import { creerPlacement } from '../ui/placement.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
 const FLASH = { exercices: 10, reussitesMin: 9 };
+
 const dateFr = (d) => new Date(`${d}T12:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 const ecartJours = (a, b) => Math.round((new Date(`${b}T12:00`) - new Date(`${a}T12:00`)) / 86400000);
 
@@ -52,7 +53,7 @@ export default {
             h('span', { class: 'statut' }, `Boîte ${c.boite}${retard > 0 ? ` · en retard de ${retard} j` : ''} · Test flash →`));
         })));
         const m = melangeables();
-        if (m.length > 1) el.append(h('button', { class: 'btn principal', style: 'margin-top:8px', onclick: () => melange(m) }, `Révision mélangée : ${m.length} leçons, ${FLASH.exercices} calculs`));
+        if (m.length > 1) el.append(h('button', { class: 'btn principal', style: 'margin-top:8px', onclick: () => melange(m) }, `Révision mélangée : ${m.length} leçons, ${calculsMelange(m.length)} calculs`));
       } else {
         el.append(h('div', { class: 'carte' }, 'Rien à réviser aujourd\'hui.'));
       }
@@ -91,12 +92,12 @@ export default {
       }
     }
 
-    function lancerSerie({ titre, sousTitre, generer, apresBilan, placement = false, sp = null }) {
+    function lancerSerie({ titre, sousTitre, generer, apresBilan, placement = false, sp = null, nombre = FLASH.exercices }) {
       remplir(el, 
         h('button', { class: 'lien', onclick: () => liste() }, '← Révisions'),
         h('h1', {}, titre), h('p', { class: 'discret' }, sousTitre));
       serie = (placement ? creerPlacement : creerSerie)(el, {
-        generer, nombre: FLASH.exercices, chrono: true, defi: true, pauseErreur: true,
+        generer, nombre, chrono: true, defi: true, pauseErreur: true,
         surFin: async (bilan) => {
           serie.detruire();
           serie = null;
@@ -141,17 +142,19 @@ export default {
     }
 
     /**
-     * Révision mélangée : 10 calculs qui alternent les leçons dues (les plus en retard d'abord,
-     * 5 au plus). Il faut choisir le bon geste à chaque calcul. Chaque leçon garde sa boîte :
-     * elle monte si tous ses calculs sont justes (une erreur tolérée à partir de 4 calculs).
+     * Révision mélangée : les leçons dues les plus en retard, 3 au plus, avec 4 ou 5 calculs
+     * chacune (0.38 : avant, 10 calculs pour 5 leçons, soit 2 calculs qui décidaient de la boîte).
+     * Il faut choisir le bon geste à chaque calcul. Chaque leçon garde sa boîte : elle monte si
+     * tous ses calculs sont justes, ou s'il n'y a qu'une erreur.
      */
     function melange(sps) {
-      const ordre = Array.from({ length: FLASH.exercices }, (_, i) => sps[i % sps.length]);
+      const ordre = Array.from({ length: calculsMelange(sps.length) }, (_, i) => sps[i % sps.length]);
       for (let i = ordre.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ordre[i], ordre[j]] = [ordre[j], ordre[i]]; }
       let k = 0;
       lancerSerie({
         titre: 'Révision mélangée',
-        sousTitre: `${FLASH.exercices} calculs sur votre soroban, mélangés : ${sps.map((x) => `« ${x.titre} »`).join(', ')}. Chaque leçon garde sa boîte de révision.`,
+        nombre: ordre.length,
+        sousTitre: `${ordre.length} calculs sur votre soroban, mélangés : ${sps.map((x) => `« ${x.titre} »`).join(', ')}. Chaque leçon garde sa boîte de révision.`,
         generer: () => { const sp = ordre[k++ % ordre.length]; return { ...genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])), revision: sp.id }; },
         apresBilan: async (b) => {
           const premiers = new Map();
@@ -188,7 +191,7 @@ export default {
     }
 
     const melangeables = () => revisionsDues().map(sousPalier).filter((sp) => sp && !['placement', 'lire', 'complement', 'theorie', 'photo', 'tenir'].includes(sp.type))
-      .sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance)).slice(0, 5);
+      .sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance)).slice(0, MELANGE_MAX);
     if (params.melange && melangeables().length > 1) melange(melangeables());
     else liste();
     return () => serie?.detruire();

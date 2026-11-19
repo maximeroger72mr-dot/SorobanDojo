@@ -34,3 +34,7 @@ export function reviser(carte, reussi, aujourdhui) {
 }
 
 export const estDue = (carte, aujourdhui) => !!carte && !carte.acquise && carte.echeance <= aujourdhui;
+
+/** Révision mélangée (0.38) : 3 leçons au plus ; 5 calculs chacune à 2 leçons, 4 à 3 leçons. */
+export const MELANGE_MAX = 3;
+export const calculsMelange = (n) => n * (n <= 2 ? 5 : 4);

@@ -12,7 +12,7 @@
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur, erreursARejouer,
-  erreursOperationRepetees, traiterErreurOperation,
+  erreursOperationRepetees, traiterErreurOperation, etatPalier,
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { serieJours } from '../core/regularite.js';
@@ -22,7 +22,7 @@ import { GRADES_KYU as GRADES } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif, diagnosticPincee } from '../core/motifs.js';
-import { ajouterJours } from '../core/revision.js';
+import { ajouterJours, MELANGE_MAX, calculsMelange } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
 import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
@@ -110,11 +110,13 @@ function plan(d, debut, seance = null) {
   const dues = revisionsDues().map((id) => sousPalier(id)).filter(Boolean);
   const revisionFaite = fait((s) => s.module === 'revisions');
   if (dues.length || revisionFaite) {
-    const melangeables = dues.filter(melangeable);
-    const noms = melangeables.slice(0, 5).map((x) => `« ${x.titre} »`);
-    essentiel.push({ titre: 'Révision', minutes: Math.max(2, Math.ceil((10 * parExo) / 60)), fait: revisionFaite,
+    const melangeables = dues.filter(melangeable).sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance));
+    const nm = Math.min(MELANGE_MAX, melangeables.length);
+    const noms = melangeables.slice(0, MELANGE_MAX).map((x) => `« ${x.titre} »`);
+    const calculs = melangeables.length > 1 ? calculsMelange(nm) : 10;
+    essentiel.push({ titre: 'Révision', minutes: Math.max(2, Math.ceil((calculs * parExo) / 60)), fait: revisionFaite,
       detail: !dues.length ? 'faite' : melangeables.length > 1
-        ? `10 calculs qui mélangent ${noms.join(', ')}${melangeables.length > 5 ? ' (les plus en retard ; les autres demain)' : ''}`
+        ? `${calculs} calculs qui mélangent ${noms.join(', ')}${melangeables.length > MELANGE_MAX ? ' (les plus en retard ; les autres demain)' : ''}`
         : `${dues.length} leçon${dues.length > 1 ? 's' : ''} à revoir (10 calculs)`,
       pourquoi: 'Revoir une leçon juste avant de l\'oublier la fixe pour longtemps ; mélangées, il faut choisir le bon geste, comme en vrai.',
       aller: melangeables.length > 1 ? ['revisions', { melange: true }] : ['revisions'] });

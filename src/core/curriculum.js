@@ -509,7 +509,7 @@ export const PALIERS = [
       { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', apres: 'p4-5', image: true, cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 2, repetitions: 30, testMin: 12,
         pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant le complément sur les unités : même ordre qu\'au soroban.',
         demos: [] },
-      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS, chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
+      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS.filter((c) => !c.startsWith('cascade')), chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
         pourquoi: 'Avant de passer à deux chiffres, on consolide à un chiffre : tous les gestes mélangés, des chaînes de 5 ou 6 nombres, un peu plus vite. C\'est ici que l\'image devient vraiment stable.',
         demos: [] },
       { id: 'pa-6', titre: 'Anzan : 2 chiffres, sans retenue', type: 'anzan', apres: 'p1-4', image: true, cibles: DIRECT, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 12,
@@ -770,9 +770,14 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
     // ctx.lignes : longueur de chaîne du moment (elle s'allonge avec les réussites) ;
     // ctx.image : opacité du petit soroban d'aide qui montre le TOTAL (0 = pas d'image).
     // Sans ctx (mini-test, révision) : chaîne complète, sans image.
-    const col = genererColonneVariee({
-      chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true,
-    }, memoireDe(sp.id));
+    // Jamais deux fois le même nombre de suite (en flash, l'écran ne changerait pas).
+    let col;
+    for (let i = 0; i < 20; i++) {
+      col = genererColonneVariee({
+        chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true,
+      }, memoireDe(sp.id));
+      if (!col.lignes.some((l, k) => k > 0 && l.n === col.lignes[k - 1].n)) break;
+    }
     // Les gestes de la colonne restent connus (`gestesAnzan`), mais à part : ils ne comptent pas
     // dans les niveaux des gestes sur soroban (voir progression.noterGestesAnzan).
     return { ...col, motifs: undefined, gestesAnzan: col.motifs, flash: { duree: sp.duree, image: ctx.image ?? 0 } };
@@ -800,7 +805,9 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
  * @returns {(ctx?: object) => object}  l'exercice suivant
  */
 export function fluxEquilibre(sp, taille, poidsDe = () => ({})) {
-  if (sp.type !== 'addsub') return (ctx) => genererExercice(sp, poidsDe(), ctx);
+  // Anzan aussi (0.38) : les gestes de la chaîne sont dans `gestesAnzan` au lieu de `motifs`.
+  if (sp.type !== 'addsub' && sp.type !== 'anzan') return (ctx) => genererExercice(sp, poidsDe(), ctx);
+  const gestes = (ex) => ex.motifs ?? ex.gestesAnzan ?? [];
   let vus = {};
   let rang = 0;
   return (ctx) => {
@@ -816,11 +823,11 @@ export function fluxEquilibre(sp, taille, poidsDe = () => ({})) {
     let meilleur = null;
     for (let e = 0; e < (urgent ? 3 : 1); e++) {
       const ex = genererExercice(sp, poids, ctx);
-      const gain = absents.filter((c) => ex.motifs.includes(c)).length;
+      const gain = absents.filter((c) => gestes(ex).includes(c)).length;
       if (!meilleur || gain > meilleur.gain) meilleur = { ex, gain };
       if (gain >= Math.min(absents.length, 2)) break;
     }
-    for (const m of meilleur.ex.motifs) vus[m] = (vus[m] ?? 0) + 1;
+    for (const m of gestes(meilleur.ex)) vus[m] = (vus[m] ?? 0) + 1;
     rang += 1;
     return meilleur.ex;
   };
