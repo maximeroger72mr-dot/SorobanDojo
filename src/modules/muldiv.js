@@ -10,6 +10,13 @@ import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
+import { tempsParUnite, mediane, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
+
+/** Temps médian par produit des réponses justes (mesure du bloc de vitesse, 0.38). */
+function tempsMedian(b, feuille) {
+  const t = b.resultats.filter((r) => r.juste && r.ex && !r.autoEvalue).map((r) => (feuille ? tempsParUnite(r.ex, b.dureeMs / b.total, SURCOUT_FEUILLE_S) : tempsParUnite(r.ex, r.dureeMs)));
+  return t.length >= 3 ? Math.round(mediane(t) * 100) / 100 : undefined;
+}
 
 const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, partRestes: 0, rang: 'millieme', format: 'kyu' };
 
@@ -21,6 +28,9 @@ export default {
     // Arrivée depuis une proposition (« zéro oublié qui se répète ») : planche de zéros, lancée d'office.
     if (params.zeros) Object.assign(reglages, { partZeros: 1, partArrondis: 0, format: 'libre' });
     if (params.type) reglages.type = params.type;
+    // Bloc de vitesse de la séance (hakari) : feuille au format du kyū, longueur donnée.
+    for (const k of ['format', 'mode', 'nombre']) if (params[k] != null) reglages[k] = params[k];
+    const proposition = params.proposition ?? null;
     const zone = h('div', {});
     const etiquettes = h('span', {});
     const selX = h('select', { onchange: (e) => { reglages.x = Number(e.target.value); } });
@@ -104,7 +114,7 @@ export default {
           titre: `${r.type === 'mul' ? 'Multiplications' : 'Divisions'}`,
           sections: [{ problemes: Array.from({ length: r.nombre }, generer) }],
           surFin: (b) => {
-            enregistrerSession({ module: 'muldiv', mode: r.type, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+            enregistrerSession({ module: 'muldiv', mode: r.type, reglages: { ...r, proposition }, total: b.total, justes: b.justes, dureeMs: b.dureeMs, t: tempsMedian(b, true) });
             return h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
               h('p', {}, `Temps ${formaterDuree(b.dureeMs)}`), h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle feuille'));
           },
@@ -116,7 +126,7 @@ export default {
         surFin: async (b) => {
           courant.detruire();
           courant = null;
-          await enregistrerSession({ module: 'muldiv', mode: r.type, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          await enregistrerSession({ module: 'muldiv', mode: r.type, reglages: { ...r, proposition }, total: b.total, justes: b.justes, dureeMs: b.dureeMs, t: tempsMedian(b, false) });
           zone.append(h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
             h('p', {}, `Réussite ${formaterPourcent(b.justes, b.total)} · ${formaterDuree(b.dureeMs / b.total)} par calcul`),
             h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle série')), listeErreurs(b.resultats) ?? '');

@@ -26,6 +26,10 @@ import { ajouterJours, MELANGE_MAX, calculsMelange } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
 import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
+import { hakariActif, partieDuJour, calculsHakari, NOMS_PARTIES } from '../core/hakari.js';
+import { gradeOperation } from '../core/formatKyu.js';
+import { chargeGrade } from '../core/allure.js';
+import { testEnSeries, CALCULS_SERIE } from '../core/minitest.js';
 import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
@@ -57,7 +61,9 @@ function dureeDecision(d, decision, parExo) {
   const sp = decision.sp;
   const e = d.paliers[sp.id] ?? {};
   const reste = Math.max(0, (sp.repetitions ?? 20) - (e.reps ?? 0));
-  return Math.max(5, Math.ceil(((reste + (sp.testNombre ?? 15)) * parExo) / 60) + (e.reps ? 0 : 3));
+  // Mini-test long (0.38) : une série de 5 par séance, pas le test entier.
+  const test = testEnSeries(sp) ? CALCULS_SERIE : (sp.testNombre ?? 15);
+  return Math.max(5, Math.ceil(((reste + test) * parExo) / 60) + (e.reps ? 0 : 3));
 }
 
 /** Jours pratiqués parmi les 7 derniers (aujourd'hui compris). */
@@ -129,9 +135,20 @@ function plan(d, debut, seance = null) {
   const passeAujourdhui = fait((s) => s.module === 'examen');
   const jourSemaine = new Date(`${date}T12:00`).getDay();
   const fenetreExamen = [5, 6, 0].includes(jourSemaine);
-  // Avec un objectif de moins de 10 minutes, l'examen (14 à 20 min) reste proposé « pour
-  // compléter » : la leçon garde sa place.
-  const examEssentiel = exam && (passeAujourdhui || (fenetreExamen && !examFait && (objectif >= 10 || (aSocle(exam) && !prekyuObtenu(d, exam)))));
+  // 0.38 : séance longue. L'examen blanc (14 à 20 min) n'entre dans la séance qu'avec un objectif
+  // d'au moins 20 min, l'examen complet (30 min) avec 30 min. Sinon, il est proposé À PART, à faire
+  // à la place de la séance du jour (vendredi au dimanche), sans jamais compter comme manqué.
+  // Le socle des premiers grades (10 colonnes sans chrono) reste dans la séance.
+  const complet = examenCompletHebdo(d, date);
+  const completAujourdhui = !!complet?.fait && complet.fait.date === date;
+  const completVoulu = !!complet && (completAujourdhui || (fenetreExamen && !complet.fait));
+  const completDansSeance = completVoulu && (completAujourdhui || objectif >= OBJECTIF_EXAMEN_COMPLET);
+  const examCourt = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
+  const examVoulu = !!exam && !complet && (passeAujourdhui || (fenetreExamen && !examFait));
+  const examEssentiel = examVoulu && (passeAujourdhui || examCourt || objectif >= OBJECTIF_EXAMEN_BLANC);
+  // Fait aujourd'hui avec un objectif plus court : l'examen a REMPLACÉ la séance.
+  const remplacee = (completAujourdhui && objectif < OBJECTIF_EXAMEN_COMPLET) || (passeAujourdhui && examEssentiel && !examCourt && objectif < OBJECTIF_EXAMEN_BLANC);
+  let seanceLongue = null;
   const vitesse = jourVitesse(d, date);
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
@@ -144,17 +161,26 @@ function plan(d, debut, seance = null) {
   const exclus = [];
   let isolesBloc3 = 0;
   // Trois premiers grades préparatoires, pas encore obtenus : le socle (10 colonnes, sans chrono).
-  const examSocle = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
+  const examSocle = examCourt;
   // Une fois le 6e kyū passé : le sujet officiel complet du prochain grade, une fois par semaine
   // (vendredi au dimanche), à la place de l'examen blanc.
-  const complet = examenCompletHebdo(d, date);
-  const completAujourdhui = !!complet?.fait && complet.fait.date === date;
-  if (complet && (completAujourdhui || (fenetreExamen && !complet.fait && objectif >= 10))) {
+  if (completVoulu) {
     const g = complet.grade;
     const f = complet.fait;
-    essentiel.push({ titre: `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
+    const item = { titre: `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
       detail: f ? `${f.justes} / ${f.total} justes` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
-      pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' });
+      pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' };
+    if (completDansSeance) essentiel.push(item);
+    else seanceLongue = item;
+  }
+  if (examVoulu && !examEssentiel) {
+    const format = formatBlanc(date);
+    seanceLongue = { titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesBlanc(format), aller: ['examen', {}], examen: true, fait: false,
+      detail: format === 'long' ? 'un sujet de 20 minutes sur tout ce que vous savez, en conditions d\'examen' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son verdict`,
+      pourquoi: 'L\'examen de la semaine se passe d\'un bloc : il prend la place de la séance du jour.' };
+  }
+  if (completDansSeance) {
+    // (déjà dans l'essentiel)
   } else if (examEssentiel && (examSocle || (aSocle(exam) && examFait?.socle && passeAujourdhui))) {
     essentiel.push({ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: !!examFait && passeAujourdhui,
       detail: examFait && passeAujourdhui ? `${examFait.points} / ${examFait.total}${examFait.reussi ? ', grade obtenu' : ', pas encore : retentez quand vous voulez'}`
@@ -295,7 +321,25 @@ function plan(d, debut, seance = null) {
     ? (vitesse ? ['vitesse-melange', 'volume-melange', 'vitesse-isole', 'volume-isole'] : ['volume-melange', 'vitesse-isole', 'volume-isole', 'vitesse-melange'])
     : (vitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
   const resteBloc = objectif - prevu;
-  if (ciblesBloc.length && resteBloc >= 2) {
+  // 0.38 : à partir du 7e kyū, UN bloc de vitesse par jour, sur la partie la plus en retard (deux
+  // jours sur trois) ou à tour de rôle : colonnes, ×, ÷. Pour × et ÷, une feuille chronométrée au
+  // format du kyū, à la longueur du temps qui reste.
+  const partie = hakariActif(d) ? (seance?.partie ?? partieDuJour(d, date)) : null;
+  if (partie && partie.partie !== 'colonnes' && resteBloc >= 3) {
+    const type = partie.partie;
+    const g = gradeOperation(d, type);
+    const c = chargeGrade(g, type);
+    const m = Math.min(10, resteBloc);
+    const nombre = calculsHakari(d, type, m, c.produits / Math.max(1, c.problemes));
+    const id = `hakari-${type}`;
+    const signe = type === 'mul' ? '×' : '÷';
+    essentiel.push({ id, titre: `Vitesse · ${signe} au format du ${g.nom}`, minutes: m, bloc: 'vitesse',
+      detail: `${nombre} ${NOMS_PARTIES[type]} chronométrées, tirées des sujets du ${g.nom}`,
+      pourquoi: partie.raison === 'rotation' ? `Un jour sur trois, la vitesse tourne entre colonnes, × et ÷ : aujourd'hui, les ${NOMS_PARTIES[type]}.`
+        : partie.eleve == null ? `Vos ${NOMS_PARTIES[type]} ne sont pas encore mesurées au format du ${g.nom} : cette feuille donne la mesure.`
+        : `C'est la partie la plus loin de l'allure du ${g.nom} : ${nf(partie.eleve)} s par produit, il en faut ${nf(partie.besoin)}. À l'examen, × et ÷ font les deux tiers des points.`,
+      fait: fait((s) => s.module === 'muldiv' && s.reglages?.proposition === id), aller: ['muldiv', { type, format: 'kyu', mode: 'feuille', nombre, auto: true, proposition: id }] });
+  } else if (ciblesBloc.length && resteBloc >= 2) {
     for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus, isolesDeja: isolesBloc3, geste: seance?.gesteBloc })) {
       essentiel.push({ ...it, titre: it.titre, bloc: vitesse ? 'vitesse' : 'volume' });
     }
@@ -342,6 +386,15 @@ function plan(d, debut, seance = null) {
     it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
       : it.examen || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
   }
+  // 0.38 : séance courte (moins de 20 min) : 3 blocs au plus, la leçon et la révision d'abord, puis
+  // le volume ou l'anzan, un jour sur deux. Le reste passe dans « Pour compléter ».
+  if (objectif < 20 && !remplacee) {
+    const priorite = ['lecon', 'revision', jourPair ? 'volume' : 'anzan', jourPair ? 'anzan' : 'volume', 'echauffement'];
+    const blocsGardes = priorite.filter((b) => garde.some((it) => it.blocSeance === b)).slice(0, BLOCS_SEANCE_COURTE);
+    for (let i = garde.length - 1; i >= 0; i--) if (!blocsGardes.includes(garde[i].blocSeance) && !garde[i].fait) reportes.unshift(...garde.splice(i, 1));
+  }
+  // Examen fait aujourd'hui à la place de la séance : il est, à lui seul, la séance du jour.
+  if (remplacee) for (let i = garde.length - 1; i >= 0; i--) if (!garde[i].examen && !garde[i].fait) reportes.unshift(...garde.splice(i, 1));
   garde.sort((a, b) => ORDRE_BLOCS.indexOf(a.blocSeance) - ORDRE_BLOCS.indexOf(b.blocSeance));
   const minutes = garde.reduce((t, it) => t + it.minutes, 0);
   const theme = themeDuJour(decision, examEssentiel ? exam : null, vitesse, gesteDuJour(d, ciblesBloc, difficiles));
@@ -350,8 +403,16 @@ function plan(d, debut, seance = null) {
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
   const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
-  return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id) };
+  return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
+    partie, seanceLongue: remplacee ? null : seanceLongue };
 }
+
+/** Objectifs du jour proposés (minutes) ; 25 par défaut depuis la 0.38. */
+export const OBJECTIFS = [5, 10, 15, 20, 25, 30, 45, 60];
+export const OBJECTIF_EXAMEN_BLANC = 20;
+export const OBJECTIF_EXAMEN_COMPLET = 30;
+export const BLOCS_SEANCE_COURTE = 3;
+const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 
 /** Les 5 blocs de la séance, dans l'ordre, et leur nom. */
 export const ORDRE_BLOCS = ['echauffement', 'revision', 'lecon', 'volume', 'anzan'];
@@ -430,7 +491,7 @@ function carteObjectif(d, rafraichir) {
     h('p', { class: p.realiste || p.reussi ? '' : 'avertissement' }, texte),
     h('p', { class: 'discret' }, 'Ces durées sont des repères prudents pour un adulte qui pratique chaque jour, pas des chiffres officiels : chacun avance à son rythme.'),
     !p.reussi && p.verdict !== 'irrealiste' && p.minutesJour > reglagesUtilisateur().objectifMinutes
-      ? h('button', { class: 'btn', onclick: async () => { await modifierReglages({ objectifMinutes: [5, 10, 15, 20, 30, 45, 60].find((m) => m >= p.minutesJour) ?? 60 }); rafraichir(); } }, `Passer l'objectif du jour à ${p.minutesJour} min`)
+      ? h('button', { class: 'btn', onclick: async () => { await modifierReglages({ objectifMinutes: OBJECTIFS.find((m) => m >= p.minutesJour) ?? 60 }); rafraichir(); } }, `Passer l'objectif du jour à ${p.minutesJour} min`)
       : null,
     formulaire());
 }
@@ -503,16 +564,21 @@ export default {
 
       // --- tuiles : série, objectif, grade
       const choixObjectif = h('select', { onchange: async (e) => { await modifierReglages({ objectifMinutes: Number(e.target.value) }); afficher(bilan); } },
-        [5, 10, 15, 20, 30, 45, 60].map((m) => h('option', { value: m }, `${m} min`)));
+        OBJECTIFS.map((m) => h('option', { value: m }, `${m} min`)));
       choixObjectif.value = String(objectif);
       const premiereFois = !d.sessions.length && !Object.values(d.paliers).some((x) => x.valide);
       if (premiereFois || (params.accueil && !bilan)) {
         // Premier lancement (ou « Revoir l'accueil ») : une action, pas de compteurs à zéro.
         const sp = prochainSousPalier();
+        // 0.38 : le temps par jour se choisit dès le début ; 25 minutes conseillées.
+        const choixDepart = h('select', { onchange: (e) => modifierReglages({ objectifMinutes: Number(e.target.value), objectif25Vu: true }) },
+          OBJECTIFS.map((m) => h('option', { value: m }, `${m} min${m === 25 ? ' (conseillé)' : ''}`)));
+        choixDepart.value = String(objectif);
         el.append(h('h1', {}, 'Bienvenue'),
           h('div', { class: 'carte accueil' },
             h('p', {}, 'Ici, on apprend le soroban sur un VRAI soroban : l\'application propose les calculs, vous les faites avec vos doigts, puis vous tapez le résultat. Elle corrige, explique, et décide chaque jour de la suite.'),
             h('p', {}, 'Installez votre soroban devant vous, un crayon à portée de main, et commencez par la première leçon : elle montre comment le tenir et lire un nombre.'),
+            h('p', {}, 'Temps par jour : ', choixDepart, h('span', { class: 'discret' }, ' · 25 minutes font progresser deux fois plus vite que 15 vers les grades hauts ; 15 minutes suffisent pour les débuts. Modifiable à tout moment.')),
             h('div', { class: 'ligne' },
               premiereFois
                 ? h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)
@@ -552,6 +618,14 @@ export default {
           h('span', { style: 'flex:1' }, d.dernierExport ? `Dernier export de votre progression : il y a plus de 14 jours.` : 'Vous n\'avez encore jamais exporté votre progression.', ' Elle ne vit que dans ce navigateur : un nettoyage des données de navigation l\'effacerait.'),
           h('button', { class: 'btn', onclick: async () => { await telechargerExport(); afficher(bilan); } }, 'Exporter maintenant')));
       }
+      // 0.38 : une fois, aux élèves restés à 15 minutes, la proposition de passer à 25.
+      if (objectif === 15 && !reglagesUtilisateur().objectif25Vu && d.sessions.length) {
+        el.append(h('div', { class: 'carte avis' },
+          h('p', { style: 'margin-top:0' }, h('strong', {}, '15 ou 25 minutes par jour ? '), 'Les leçons tiennent en 15 minutes, mais la vitesse d\'examen se construit au volume : avec 25 minutes, la séance garde chaque jour la leçon, la révision, un bloc de vitesse ET l\'anzan, et les grades hauts arrivent bien plus tôt. À 15 minutes, la séance garde 3 blocs par jour.'),
+          h('div', { class: 'ligne' },
+            h('button', { class: 'btn principal', onclick: async () => { await modifierReglages({ objectifMinutes: 25, objectif25Vu: true }); afficher(bilan); } }, 'Passer à 25 minutes'),
+            h('button', { class: 'btn', onclick: async () => { await modifierReglages({ objectif25Vu: true }); afficher(bilan); } }, 'Garder 15 minutes'))));
+      }
       el.append(carteObjectif(d, () => afficher(bilan)));
 
       // --- séance terminée aujourd'hui : bilan, puis « Et maintenant ? » (une planche, un flash
@@ -563,9 +637,15 @@ export default {
       }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
       h('span', { class: 'titre' }, h('strong', {}, it.titre), it.but ? h('span', { class: 'but-proposition' }, ` · ${it.but}`) : null, ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
-      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision, gesteBloc: p.gesteBloc, blocIds: p.blocIds });
+      const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision, gesteBloc: p.gesteBloc, blocIds: p.blocIds, partie: p.partie });
+      // Séance longue (0.38) : l'examen de la semaine, proposé à part quand l'objectif est court.
+      const carteLongue = p.seanceLongue ? h('div', { class: 'carte avis' },
+        h('p', { style: 'margin-top:0' }, h('strong', {}, `Séance longue du week-end · ${p.seanceLongue.titre}`), ` : ${p.seanceLongue.detail}, environ ${p.seanceLongue.minutes} min.`),
+        h('p', { class: 'discret' }, `Votre objectif du jour (${objectif} min) est plus court : faites-le À LA PLACE de la séance du jour, quand vous avez le temps, d'ici dimanche. Pas fait cette semaine ? Rien n'est perdu, il revient la semaine prochaine.`),
+        h('button', { class: 'btn', onclick: async () => { if (!seanceEnCours() && !terminee) await demarrer(); app.aller(...p.seanceLongue.aller); } }, 'Faire l\'examen à la place de la séance →')) : null;
       if (terminee) {
         el.append(carteBilan(terminee, d));
+        if (carteLongue) el.append(carteLongue);
         const idees = propositions(d, aujourdhui(), motifsEnDifficulte(), 0);
         const [principale, ...autres] = idees;
         el.append(h('div', { class: 'carte suggestion' },
@@ -597,6 +677,7 @@ export default {
           h('span', { style: 'flex:1' }, h('strong', {}, 'Objectif de temps atteint. '), `Il reste ${p.essentiel.filter((it) => !it.fait).length} point${p.essentiel.filter((it) => !it.fait).length > 1 ? 's' : ''} : continuez si vous le souhaitez, ou arrêtez-vous là (ils passeront à demain).`),
           h('button', { class: 'btn', onclick: async () => { const b = await finirSeance(); afficher(b); } }, 'Terminer la séance')));
       }
+      if (carteLongue) el.append(carteLongue);
       if (prochaine) {
         el.append(h('div', { class: 'continuer' },
           seance ? h('div', { class: 'etape-seance' }, `Étape ${Math.min(faits + 1, p.essentiel.length)} sur ${p.essentiel.length}`) : null,

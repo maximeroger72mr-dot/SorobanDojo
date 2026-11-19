@@ -19,7 +19,7 @@ import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, poidsAnzan, enregistrerSession,
   reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, noterGestesAnzan, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
-  noterReconnu, progression, noterReponse, statsTables,
+  noterReconnu, progression, noterReponse, statsTables, noterSerieTest, effacerSeriesTest, aujourdhui as jourCourant,
 } from '../core/progression.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { aReconnaitre, questionsReconnaitre, NOMS_REGLES, QUESTIONS_RECONNAITRE, MIN_RECONNAITRE } from '../core/reconnaitre.js';
@@ -33,7 +33,8 @@ import { avecTermes } from '../ui/termes.js';
 import { questionDoigte } from '../ui/doigte.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { localiserErreur } from '../core/diagnostic.js';
-import { verdictMiniTest, testMin, exigeVitesse } from '../core/minitest.js';
+import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
+import { ajouterJours } from '../core/revision.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision, demoColonne } from '../ui/explication.js';
@@ -643,31 +644,60 @@ export default {
           return null;
         }
         let serie = null;
+        // 0.38 : mini-test long (plus de 12 min au seuil) : en séries de 5, sur deux jours au plus.
+        const enSeries = testEnSeries(sp, nombreTest(sp));
+        const nbSeries = enSeries ? nombreTest(sp) / CALCULS_SERIE : 1;
+        const faites = enSeries ? seriesValables(et, jourCourant(), ajouterJours(jourCourant(), -1)) : [];
         const intro = h('div', { class: 'carte' },
+          enSeries ? h('p', {}, h('strong', {}, `En ${nbSeries} séries de ${CALCULS_SERIE} calculs. `), faites.length
+            ? `Série ${faites.length + 1} sur ${nbSeries} : déjà ${bilanSeries(faites).justes} justes sur ${bilanSeries(faites).total}. Les séries faites restent valables jusqu'à demain.`
+            : `Ce mini-test est long : vous pouvez faire une série, faire une pause, et finir demain au plus tard. L'exigence reste la même au total.`) : null,
           h('p', {}, sp.testSecondes ? `${sp.testNombre} questions à la suite, en ${sp.testSecondes} secondes au plus, ${sp.testNombre - testMin(sp)} erreur au plus.` : `${nombreTest(sp)} calculs à la suite. Il en faut ${testMin(sp)} justes${exigeVitesse(sp) ? `, à ${verdictMiniTest(sp, { justes: 0 }).seuil.toLocaleString('fr-FR')} s par ${verdictMiniTest(sp, { justes: 0 }).unite} au plus (temps médian des réponses justes)` : ''}. Une erreur reste affichée jusqu'à Entrée ; les explications sont revues à la fin.`),
           et.valide ? h('p', { class: 'discret' }, `Déjà validé le ${dateFr(et.valide)}. Vous pouvez le repasser pour vous entraîner.`) : null,
-          h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer le mini-test'));
+          h('button', { class: 'btn principal', onclick: () => lancer() }, enSeries ? `Commencer la série ${faites.length + 1} sur ${nbSeries}` : 'Commencer le mini-test'));
         zone.append(intro);
 
         function lancer() {
           intro.remove();
           // Mini-test équilibré : chaque geste de la leçon y est posé au moins une fois.
-          const suivant = fluxEquilibre(sp, nombreTest(sp), () => poidsDe(sp));
+          const taille = enSeries ? CALCULS_SERIE : nombreTest(sp);
+          const exerciceSuivant = fluxEquilibre(sp, taille, () => poidsDe(sp));
           serie = creerExercices(sp, zone, {
-            generer: () => suivant(),
-            nombre: nombreTest(sp),
+            generer: () => exerciceSuivant(),
+            nombre: taille,
             chrono: true,
             defi: true,
             pauseErreur: true,
             filtreDiagnostic: sp.autorises,
             evaluation: () => evaluerPalier(sp.id, famille(sp)),
-            surFin: async (bilan) => {
+            surFin: async (bilanSerie) => {
               serie.detruire();
               serie = null;
               const doigteAPoser = !etatPalier(sp.id).doigte;
+              let bilan = bilanSerie;
+              await enregistrerSession({ module: 'lecons', mode: 'test', reglages: { sousPalier: sp.id, ...(enSeries ? { serie: faites.length + 1 } : {}) }, total: bilanSerie.total, justes: bilanSerie.justes, dureeMs: bilanSerie.dureeMs });
+              if (enSeries) {
+                const mesures = bilanSerie.resultats.filter((r) => r.juste && !r.autoEvalue && r.ex && Number.isFinite(r.dureeMs));
+                const series = await noterSerieTest(sp.id, { justes: bilanSerie.justes, total: bilanSerie.total, dureeMs: bilanSerie.dureeMs, tempsJustes: mesures.map((r) => tempsParUnite(r.ex, r.dureeMs)) });
+                const cumul = bilanSeries(series);
+                const perdu = cumul.total - cumul.justes > nombreTest(sp) - testMin(sp);
+                if (series.length < nbSeries && !perdu) {
+                  zone.append(h('div', { class: 'carte bilan' },
+                    h('div', { class: 'grand' }, `${bilanSerie.justes} / ${bilanSerie.total}`),
+                    h('p', {}, `Série ${series.length} sur ${nbSeries} faite : ${cumul.justes} justes sur ${cumul.total} au total. Il en faut ${testMin(sp)} sur ${nombreTest(sp)} à la fin.`),
+                    h('p', { class: 'discret' }, 'Pause possible : la série suivante peut attendre demain.'),
+                    h('div', { class: 'ligne' },
+                      h('button', { class: 'btn principal', onclick: () => afficher('test') }, `Série ${series.length + 1} sur ${nbSeries} →`),
+                      h('button', { class: 'btn', onclick: () => changer(carte) }, 'Toutes les leçons')),
+                    listeErreurs(bilanSerie.resultats) ?? ''));
+                  app.majBadges();
+                  return;
+                }
+                await effacerSeriesTest(sp.id);
+                bilan = { ...cumul, resultats: bilanSerie.resultats };
+              }
               const verdict = verdictMiniTest(sp, bilan);
               const reussi = verdict.reussi;
-              await enregistrerSession({ module: 'lecons', mode: 'test', reglages: { sousPalier: sp.id }, total: bilan.total, justes: bilan.justes, dureeMs: bilan.dureeMs });
               if (reussi) await validerPalier(sp.id, !sp.sansRevision);
               const c = etatPalier(sp.id).carte;
               zone.append(h('div', { class: 'carte bilan' },

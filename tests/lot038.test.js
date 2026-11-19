@@ -56,3 +56,31 @@ test('0.38 lot 2 : absorption limitée aux leçons proches ; révision mélangé
   assert.equal(MELANGE_MAX, 3);
   assert.deepEqual([2, 3].map(calculsMelange), [10, 12]);
 });
+
+test('0.38 lot 3 : bloc de vitesse (colonnes, ×, ÷) à partir du 7e kyū ; mini-tests longs en séries', async () => {
+  const { hakariActif, partieDuJour, retardParties, calculsHakari } = await import('../src/core/hakari.js');
+  const { testEnSeries, bilanSeries, verdictMiniTest, seriesValables } = await import('../src/core/minitest.js');
+  const valides = (jusqua) => { const fin = sp(jusqua).ordre; return Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= fin).map((s) => [s.id, { valide: '2026-11-01', hist: [] }])); };
+  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, records: { 'epreuve-9': { reussi: true } }, sessions: [] };
+  assert.equal(hakariActif(d), false);
+  d.records['epreuve-8'] = { reussi: true };
+  assert.equal(hakariActif(d), true);
+  // Rien de mesuré : la première partie sans mesure ; le 3e jour pratiqué, la rotation.
+  assert.ok(['colonnes', 'mul', 'div'].includes(partieDuJour(d, '2026-11-20').partie));
+  const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, module: 'planches', total: 1 }));
+  assert.equal(partieDuJour({ ...d, sessions: jours(2) }, '2026-11-20').raison, 'rotation');
+  assert.equal(partieDuJour({ ...d, sessions: jours(3) }, '2026-11-20').raison, 'retard');
+  // × mesuré très lent : c'est lui, le plus en retard.
+  const lent = { ...d, motifs: Object.fromEntries(['+1:petit', '+2:petit', '+3:petit', '+4:petit', '+5:grand'].map((c) => [c, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 0.5 })) }])),
+    sessions: [1, 2].flatMap((i) => [{ date: `2026-11-0${i}`, module: 'muldiv', mode: 'mul', reglages: { format: 'kyu' }, t: 30 }, { date: `2026-11-0${i}`, module: 'muldiv', mode: 'div', reglages: { format: 'kyu' }, t: 0.5 }]) };
+  assert.equal(retardParties(lent)[0].partie, 'mul');
+  assert.ok(calculsHakari(lent, 'mul', 8, 3) >= 5);
+  // Séries : p8-1 (30 min au seuil) en 3 séries de 5 ; pas une leçon courte.
+  assert.equal(testEnSeries(sp('p8-1')), true);
+  assert.equal(testEnSeries(sp('p3-1')), false);
+  const series = [{ justes: 5, total: 5, dureeMs: 1000, tempsJustes: [1, 1, 1, 1, 1] }, { justes: 4, total: 5, dureeMs: 1000, tempsJustes: [1, 1, 1, 1] }, { justes: 5, total: 5, dureeMs: 1000, tempsJustes: [1, 1, 1, 1, 1] }];
+  assert.equal(verdictMiniTest(sp('p8-1'), bilanSeries(series)).reussi, true);
+  assert.equal(verdictMiniTest(sp('p8-1'), bilanSeries(series.map((x) => ({ ...x, tempsJustes: x.tempsJustes.map(() => 9) })))).reussi, false);
+  assert.equal(seriesValables({ testSeries: { debut: '2026-11-18', series } }, '2026-11-19', '2026-11-18').length, 3);
+  assert.equal(seriesValables({ testSeries: { debut: '2026-11-17', series } }, '2026-11-19', '2026-11-18').length, 0);
+});

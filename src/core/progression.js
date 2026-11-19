@@ -12,7 +12,7 @@
  *   motifs:   { [cleMotif]: { essais, erreurs, dette, hist: [{ ok, t }] } }   // par geste
  *   paliers:  { [idSousPalier]: { reps, justes, valide, carte: { boite, echeance }, hist: [{ ok, t }] } },
  *   drills:   { [idDrill]: { validations, valide } }       // parcours des drills (2 passages sous bronze)
- *   reglages: { decouverte: false, objectifMinutes: 15 },
+ *   reglages: { decouverte: false, objectifMinutes: 25 },  (15 avant la 0.38)
  *   avis:     [ messages à montrer une fois ],
  *   stats:    { suite, meilleureSuite }                       // réponses justes d'affilée
  *   succes:   { [idSucces]: 'AAAA-MM-JJ' },
@@ -37,7 +37,7 @@ const CLE_LOCALE = 'soroban-progression';
 export const SEUIL_DIFFICULTE = 2;
 
 const vide = () => ({
-  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 15, modeEspace: false }, avis: [],
+  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 25, objectif25Vu: true, modeEspace: false }, avis: [],
   stats: { suite: 0, meilleureSuite: 0 }, succes: {}, seance: null,
 });
 
@@ -542,6 +542,24 @@ export async function verifierCoupeFile(id, repetitions, famille) {
 }
 
 /** Mini-test réussi : sous-palier validé, carte de révision créée (J+1) sauf leçon de lecture. */
+/**
+ * Mini-test en séries (0.38) : une série faite. Les séries commencées avant hier sont oubliées.
+ * @returns {object[]} les séries valables, celle-ci comprise
+ */
+export async function noterSerieTest(id, serie) {
+  const e = palier(id);
+  const j = aujourdhui();
+  if (!e.testSeries || e.testSeries.debut < ajouterJours(j, -1)) e.testSeries = { debut: j, series: [] };
+  e.testSeries.series.push(serie);
+  await sauver();
+  return e.testSeries.series;
+}
+
+export async function effacerSeriesTest(id) {
+  delete palier(id).testSeries;
+  await sauver();
+}
+
 export async function validerPalier(id, avecRevision = true) {
   const e = palier(id);
   if (!e.valide) {
