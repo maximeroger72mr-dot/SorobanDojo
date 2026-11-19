@@ -30,6 +30,7 @@ import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
 import { VERSION_APPLI, comparerVersions } from './version.js';
 import { SOUS_PALIERS, PALIERS } from './curriculum.js';
+import { apresFeuilleMarche } from './marches.js';
 
 const VERSION = 2;
 const CLE_LOCALE = 'soroban-progression';
@@ -553,6 +554,14 @@ export async function noterSerieTest(id, serie) {
   e.testSeries.series.push(serie);
   await sauver();
   return e.testSeries.series;
+}
+
+/** Feuille d'une marche d'allure (0.38) : met à jour l'état des marches du grade. */
+export async function noterMarche(cle, reussi) {
+  const m = (donnees.marches ??= {});
+  m[cle] = apresFeuilleMarche(m[cle], aujourdhui(), reussi);
+  await sauver();
+  return m[cle];
 }
 
 export async function effacerSeriesTest(id) {

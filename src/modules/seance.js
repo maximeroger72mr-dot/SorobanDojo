@@ -30,6 +30,7 @@ import { hakariActif, partieDuJour, calculsHakari, NOMS_PARTIES } from '../core/
 import { gradeOperation } from '../core/formatKyu.js';
 import { chargeGrade } from '../core/allure.js';
 import { testEnSeries, CALCULS_SERIE } from '../core/minitest.js';
+import { etatMarches, NB_MARCHES, MINUTES_FEUILLE_MARCHE } from '../core/marches.js';
 import { sousPalier } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
@@ -325,11 +326,25 @@ function plan(d, debut, seance = null) {
   // jours sur trois) ou à tour de rôle : colonnes, ×, ÷. Pour × et ÷, une feuille chronométrée au
   // format du kyū, à la longueur du temps qui reste.
   const partie = hakariActif(d) ? (seance?.partie ?? partieDuJour(d, date)) : null;
-  if (partie && partie.partie !== 'colonnes' && resteBloc >= 3) {
+  // Marches d'allure (0.38) : leçons du grade validées, une feuille de marche un jour de pratique
+  // sur deux (pas le jour où elle est déjà réussie) ; le bloc de vitesse prend le temps qui reste.
+  const em = etatMarches(d);
+  const marcheFaite = fait((s) => s.module === 'marches' && s.mode === 'feuille');
+  const joursAvant = new Set(d.sessions.filter((s) => s.date < date).map((s) => s.date)).size;
+  let resteVitesse = resteBloc;
+  if (em?.active && em.courante && (marcheFaite || (joursAvant % 2 === 0 && !em.reussites.includes(date))) && resteBloc >= 5) {
+    const m = Math.min(resteBloc, MINUTES_FEUILLE_MARCHE + 1);
+    essentiel.push({ id: 'marche', titre: `Marche d'allure ${em.courante.n} sur ${NB_MARCHES} · ${em.grade.nom}`, minutes: m, bloc: 'vitesse', fait: marcheFaite,
+      detail: `une feuille d'environ ${MINUTES_FEUILLE_MARCHE} min au format du ${em.grade.nom}, à ${em.courante.cpm} chiffres/min, 90 % de justes${em.reussites.length ? ' (déjà réussie une fois : la seconde valide la marche)' : ''}`,
+      pourquoi: 'Les leçons du grade sont faites : il reste la vitesse. Cinq marches mènent de la cadence des leçons à l\'allure d\'examen ; chacune se franchit deux jours différents.',
+      aller: ['marches', { auto: true }] });
+    resteVitesse = resteBloc - m;
+  }
+  if (partie && partie.partie !== 'colonnes' && resteVitesse >= 3) {
     const type = partie.partie;
     const g = gradeOperation(d, type);
     const c = chargeGrade(g, type);
-    const m = Math.min(10, resteBloc);
+    const m = Math.min(10, resteVitesse);
     const nombre = calculsHakari(d, type, m, c.produits / Math.max(1, c.problemes));
     const id = `hakari-${type}`;
     const signe = type === 'mul' ? '×' : '÷';
@@ -339,8 +354,8 @@ function plan(d, debut, seance = null) {
         : partie.eleve == null ? `Vos ${NOMS_PARTIES[type]} ne sont pas encore mesurées au format du ${g.nom} : cette feuille donne la mesure.`
         : `C'est la partie la plus loin de l'allure du ${g.nom} : ${nf(partie.eleve)} s par produit, il en faut ${nf(partie.besoin)}. À l'examen, × et ÷ font les deux tiers des points.`,
       fait: fait((s) => s.module === 'muldiv' && s.reglages?.proposition === id), aller: ['muldiv', { type, format: 'kyu', mode: 'feuille', nombre, auto: true, proposition: id }] });
-  } else if (ciblesBloc.length && resteBloc >= 2) {
-    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteBloc, exclure: exclus, isolesDeja: isolesBloc3, geste: seance?.gesteBloc })) {
+  } else if (ciblesBloc.length && resteVitesse >= 2) {
+    for (const it of exercicesBloc(d, date, { genres, cibles: ciblesBloc, difficiles, minutes: resteVitesse, exclure: exclus, isolesDeja: isolesBloc3, geste: seance?.gesteBloc })) {
       essentiel.push({ ...it, titre: it.titre, bloc: vitesse ? 'vitesse' : 'volume' });
     }
   }

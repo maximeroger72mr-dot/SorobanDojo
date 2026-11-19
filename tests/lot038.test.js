@@ -84,3 +84,35 @@ test('0.38 lot 3 : bloc de vitesse (colonnes, ×, ÷) à partir du 7e kyū ; min
   assert.equal(seriesValables({ testSeries: { debut: '2026-11-18', series } }, '2026-11-19', '2026-11-18').length, 3);
   assert.equal(seriesValables({ testSeries: { debut: '2026-11-17', series } }, '2026-11-19', '2026-11-18').length, 0);
 });
+
+test('0.38 lot 4 : marches d\'allure, 2 réussites sur 2 jours, feuille courte au format, projections', async () => {
+  const { marchesGrade, apresFeuilleMarche, feuilleMarche, dateProjetee, scoreProjete, etatMarches, NB_MARCHES } = await import('../src/core/marches.js');
+  const { allureGrade } = await import('../src/core/allure.js');
+  const { GRADES_KYU } = await import('../src/core/epreuves.js');
+  const g1 = GRADES_KYU.at(-1);
+  const m = marchesGrade(g1);
+  assert.equal(m.length, NB_MARCHES);
+  for (let i = 1; i < m.length; i++) assert.ok(m[i].parChiffre < m[i - 1].parChiffre && m[i].parProduit < m[i - 1].parProduit);
+  assert.ok(Math.abs(m.at(-1).parChiffre - 0.9 * allureGrade(g1).parChiffre) < 1e-9, 'dernière marche : allure d\'examen avec 10 % de marge');
+  avecGraine(3, () => {
+    const f = feuilleMarche(g1, m[0]);
+    assert.ok(f.minutes >= 3 && f.minutes <= 7, `${f.minutes}`);
+    assert.deepEqual(f.sections.map((s) => s.cle), ['mitori', 'mul', 'div']);
+    const fr = feuilleMarche(g1, m[0], 90, 'mul');
+    assert.equal(fr.sections.length, 1);
+    assert.ok(fr.minutes <= 1.6);
+  });
+  let e = apresFeuilleMarche(undefined, '2026-11-18', true);
+  e = apresFeuilleMarche(e, '2026-11-18', true); // même jour : ne compte pas
+  assert.equal(e.validees, 0);
+  e = apresFeuilleMarche(e, '2026-11-19', false);
+  assert.equal(e.validees, 0);
+  e = apresFeuilleMarche(e, '2026-11-20', true);
+  assert.equal(e.validees, 1);
+  assert.deepEqual(e.reussites, []);
+  assert.equal(dateProjetee({ ...e, debut: '2026-11-10' }, '2026-11-20').joursParMarche, 10);
+  assert.equal(dateProjetee({ validees: 0, debut: '2026-11-10' }, '2026-11-20'), null);
+  assert.equal(scoreProjete(g1, { sessions: [], motifs: {}, paliers: {} }), null);
+  // Du 10e au 7e kyū : pas de marches (l'allure d'examen est sous l'argent des leçons).
+  assert.equal(etatMarches({ sessions: [], motifs: {}, paliers: {}, records: {}, reglages: {} }).utiles, false);
+});

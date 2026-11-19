@@ -12,6 +12,7 @@ import { verdictAllure, allureGrade } from '../core/allure.js';
 import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreuvesAnzan.js';
 import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
+import { boutonNaoshi } from '../ui/naoshi.js';
 import { localiserErreur, diagnostiquer, typeErreurOperation, ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { nomMotif } from '../core/motifs.js';
 
@@ -184,7 +185,7 @@ export default {
             h('table', {}, h('tr', {}, ['Épreuve', 'Justes', 'Points'].map((x) => h('th', {}, x))),
               b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
-            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrerAnzan(g) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'epreuve-anzan', retour: () => liste() }), h('button', { class: 'btn', onclick: () => demarrerAnzan(g) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
         },
       });
     }
@@ -252,7 +253,7 @@ export default {
               b.parSection.map((s) => h('tr', { class: zen && !okSection(s) ? 'a-retravailler' : '' }, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`), h('td', {}, `${s.points} / ${s.pointsMax}`)))),
             h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
             rapport(app, b.resultats),
-            h('div', { class: 'ligne' }, h('button', { class: 'btn principal', onclick: () => demarrer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'epreuve', retour: () => liste() }), h('button', { class: 'btn', onclick: () => demarrer(g, section) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
         },
       });
     }

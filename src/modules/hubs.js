@@ -20,6 +20,7 @@ import { avertirPrerequis } from '../ui/avertissement.js';
 import { frisePiste } from '../ui/frise.js';
 import { prochainJalon } from '../core/examen.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
+import { etatMarches, NB_MARCHES } from '../core/marches.js';
 
 const bits = (m) => [1, 2, 4].filter((b) => m & b).length;
 
@@ -66,6 +67,8 @@ export const CARTES = {
         if (g.pret) return { texte: `Prêt pour le ${g.prochain.nom}`, aFaire: true };
         return ex ? { texte: r ? `${ex.nom} : ${r.points} / ${r.total} cette semaine${r.reussi ? ' ✓' : ''}` : `${ex.nom} : quand vous voulez` } : null;
       } },
+    { ecran: 'marches', titre: 'Marches d\'allure', description: 'De la vitesse des leçons à l\'allure d\'examen : 5 jalons par grade, une feuille courte au format, et la projection de votre score.',
+      info: () => { const e = etatMarches(progression()); return e?.utiles ? { texte: e.courante ? `${e.grade.nom} : marche ${e.courante.n} sur ${NB_MARCHES}` : `${e.grade.nom} : allure tenue`, aFaire: e.active && !!e.courante } : null; } },
     { ecran: 'defis', prerequis: 'defis', titre: 'Défis chrono', description: 'Défi de la semaine en 3 étoiles, défis libres contre votre fantôme, arcade, l\'escalier.',
       info: () => { const d = progression(); const s = defiSemaine(d, aujourdhui()); return { texte: `Défi de la semaine : ${bits(d.records[`${s.cle}-etoiles`]?.points ?? 0)} étoile(s) sur 3` }; } },
   ],

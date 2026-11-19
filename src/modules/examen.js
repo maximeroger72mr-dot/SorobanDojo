@@ -8,6 +8,7 @@ import { examenDeLaSemaine, resultatSemaine, cleSemaine, PREKYU, prekyuAccessibl
 import { progression, aujourdhui, enregistrerSession, proposerMeilleurScore } from '../core/progression.js';
 import { SYSTEMES } from '../core/epreuves.js';
 import { creerFeuille } from '../ui/feuille.js';
+import { boutonNaoshi } from '../ui/naoshi.js';
 import { listeErreurs } from '../ui/serie.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
 
@@ -124,7 +125,7 @@ export default {
             h('p', {}, `Temps : ${formaterDuree(b.dureeMs)} sur ${minutesBlanc(format)} min`),
             info,
             erreurs ?? null,
-            h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'));
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'examen', retour: () => accueil() }), h('button', { class: 'btn', onclick: () => accueil() }, 'Retour')));
         },
       });
     }

@@ -40,6 +40,7 @@ import verification from './modules/verification.js';
 import grades from './modules/grades.js';
 import reglagesEcran from './modules/reglages.js';
 import positionnement from './modules/positionnement.js';
+import marches from './modules/marches.js';
 import { apprendre, entrainer, mesurer, SECTION_DE } from './modules/hubs.js';
 
 /**
@@ -56,7 +57,7 @@ const MENU = [
   { ecran: reglagesEcran, nom: 'Réglages', court: 'Plus', picto: 'reglages' },
 ];
 const ECRANS = [seance, apprendre, entrainer, mesurer, progressionEcran, revisions, lecons, lecture, libre, planches, drills, rythme, jeux,
-  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs, verification, grades, reglagesEcran, positionnement];
+  quotidien, muldiv, anzan, dictee, defis, examen, epreuves, lexique, bilan, erreurs, verification, grades, reglagesEcran, positionnement, marches];
 /** Entrée du menu à surligner pour un écran. */
 const entreeDe = (id) => (MENU.some((m) => m.ecran.id === id) ? id : SECTION_DE[id] ?? (id === 'bilan' ? 'progression' : 'seance'));
 
