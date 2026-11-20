@@ -17,6 +17,25 @@ import { ouvrirExplication } from './explication.js';
 import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 /**
+ * Liasse de bordereaux (denpyōzan, 伝票算) : un bordereau à la fois, qu'on tourne avec les boutons
+ * ou Page suivante / Page précédente, comme on tourne les feuillets d'une vraie liasse (0.38.3).
+ */
+function liasse(bordereaux) {
+  let k = 0;
+  const corps = h('div', { class: 'bordereau' });
+  const afficher = () => remplir(corps, h('div', { class: 'bordereau-titre' }, `Bordereau ${k + 1} / ${bordereaux.length}`),
+    h('ol', {}, bordereaux[k].map((x) => h('li', {}, formaterNombre(x)))));
+  const tourner = (pas) => { k = Math.max(0, Math.min(bordereaux.length - 1, k + pas)); afficher(); };
+  afficher();
+  const el = h('div', { class: 'liasse', tabindex: '0', 'aria-label': 'Liasse de bordereaux' },
+    h('button', { class: 'btn', type: 'button', onclick: () => tourner(-1) }, '◀'), corps, h('button', { class: 'btn', type: 'button', onclick: () => tourner(1) }, '▶'),
+    h('span', { class: 'discret' }, 'Page suivante / précédente pour tourner'));
+  el.addEventListener('keydown', (e) => { if (e.key === 'PageDown' || e.key === 'ArrowRight') { tourner(1); e.preventDefault(); } if (e.key === 'PageUp' || e.key === 'ArrowLeft') { tourner(-1); e.preventDefault(); } });
+  document.addEventListener('keydown', (e) => { if (!el.isConnected) return; if (e.key === 'PageDown') { tourner(1); e.preventDefault(); } if (e.key === 'PageUp') { tourner(-1); e.preventDefault(); } });
+  return el;
+}
+
+/**
  * @param {HTMLElement} conteneur
  * @param {object} o
  * @param {string} o.titre
@@ -47,10 +66,11 @@ export function creerFeuille(conteneur, o) {
 
   const sectionsEl = o.sections.map((sec, si) => h('section', { class: 'section-feuille' },
     sec.titre ? h('h2', {}, sec.titre, sec.points ? h('span', { class: 'discret' }, ` · ${sec.points} point${sec.points > 1 ? 's' : ''} par problème`) : null) : null,
+    sec.liasse ? liasse(sec.liasse) : null,
     // Colonnes de grands nombres (10 chiffres au 1er kyū) : la case s'élargit avec le plus long
     // nombre, séparateurs et signe compris, pour que deux colonnes voisines ne se chevauchent pas.
-    h('div', { class: `grille-feuille ${sec.problemes[0]?.type === 'addsub' ? 'colonnes' : 'operations'}`,
-      style: sec.problemes[0]?.type === 'addsub' ? `grid-template-columns: repeat(auto-fill, minmax(${Math.max(130, 17 * Math.max(...sec.problemes.flatMap((ex) => (ex.lignes ?? []).map((l) => formaterNombre(l.n).length + 2))) + 44)}px, 1fr))` : null },
+    h('div', { class: `grille-feuille ${sec.problemes[0]?.type === 'addsub' && !sec.liasse ? 'colonnes' : 'operations'}`,
+      style: sec.problemes[0]?.type === 'addsub' && !sec.liasse ? `grid-template-columns: repeat(auto-fill, minmax(${Math.max(130, 17 * Math.max(...sec.problemes.flatMap((ex) => (ex.lignes ?? []).map((l) => formaterNombre(l.n).length + 2))) + 44)}px, 1fr))` : null },
       sec.problemes.map((ex) => {
         numero += 1;
         const avecReste = ex.reste !== undefined;
@@ -239,7 +259,7 @@ export function creerFeuille(conteneur, o) {
         if (sansMilliers) c.carte.append(h('div', { class: 'correction' }, h('div', {}, h('strong', {}, 'Nombre juste, compté faux : '), 'il manque les séparateurs de milliers (', formaterNombre(c.ex.resultat), ').')));
         else if (ident) { reprisesRestantes -= 1; proposerReprise(c, reponse, ident); } else montrerCorrection(c, reponse);
       }
-      if (!juste && !sansMilliers && reponse !== null) {
+      if (!juste && !sansMilliers && reponse !== null && !c.ex.denpyo) {
         noterErreurColonne(c.ex); // à rejouer demain
         const type = typeErreurOperation(c.ex, reponse);
         if (type) noterErreurOperation(type, String(c.ex.type).startsWith('div'));

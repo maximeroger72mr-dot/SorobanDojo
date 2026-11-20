@@ -293,6 +293,8 @@ function mitoris(f) {
 
 /** Sujet complet. */
 export function genererSujet(grade) {
+  // Grade qui porte son propre générateur (dan Zenkoren, voir core/danZenkoren.js).
+  if (grade.generer) return grade.generer(grade);
   const sections = [];
   if (grade.systeme === 'dan') {
     // Dan Nisshō : ×, ÷ puis mitorizan, 10 minutes chacun, 300 points chacun.

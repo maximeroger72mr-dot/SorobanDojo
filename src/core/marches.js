@@ -20,6 +20,10 @@ import { allureGrade, PART_CADENCE_LECON, MARGE, SURCOUT_PROBLEME_S, chargeGrade
 import { unites, cpm } from './maitrise.js';
 import { grade as gradeDe } from './parcours.js';
 import { gradeDan, prochainDan } from './dan.js';
+import { gradeDanZenkoren, prochainNiveau, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN } from './danZenkoren.js';
+
+/** Le sujet, réduit aux matières de calcul (× , ÷, mitorizan) : marches et projections (0.38.3). */
+const sujetCalcul = (g) => { const s = genererSujet(g); return { ...s, sections: s.sections.filter((x) => ['mitoriA', 'mitori', 'mul', 'div'].includes(x.cle)) }; };
 
 export const NB_MARCHES = 5;
 export const JUSTES_MARCHE = 0.9;
@@ -59,8 +63,9 @@ export const tempsProbleme = (ex, m) => unites(ex) * (ex.type === 'addsub' ? m.p
 export function etatMarches(d) {
   const gr = gradeDe(d);
   // Après le 1er kyū (0.38) : les marches visent le prochain dan d'entraînement.
-  const dan = !gr.prochain && gr.obtenu ? prochainDan(d) : null;
-  const g = gr.prochain ?? (dan ? gradeDan(dan) : null);
+  const zen = systemeChoisi(d).id === 'zenkoren';
+  const dan = !gr.prochain && gr.obtenu ? (zen ? prochainNiveau(d, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN) : prochainDan(d)) : null;
+  const g = gr.prochain ?? (dan ? (zen ? gradeDanZenkoren(dan) : gradeDan(dan)) : null);
   if (!g) return null;
   const marches = marchesGrade(g);
   const e = d.marches?.[cleMarches(g)] ?? { validees: 0, reussites: [] };
@@ -76,7 +81,7 @@ export function etatMarches(d) {
  * @returns {{ sections: object[], minutes: number }}
  */
 export function feuilleMarche(g, m, secondes = MINUTES_FEUILLE_MARCHE * 60, cle = null) {
-  const sujet = genererSujet(g);
+  const sujet = sujetCalcul(g);
   let sections;
   if (cle) {
     // Fractionné : une seule partie (colonnes, × ou ÷), autant de problèmes que 90 s en permettent.
@@ -127,7 +132,7 @@ export function scoreProjete(g, d) {
   if (g.parEpreuve) {
     // Zenkoren et dan (0.38) : chaque épreuve a son temps et son seuil, SANS compensation ; une
     // moyenne globale pouvait annoncer « réussi » avec une division trop lente.
-    const sujet = genererSujet(g);
+    const sujet = sujetCalcul(g);
     const epreuves = sujet.sections.map((sec) => {
       const ch = chargeGrade(g, sec.cle);
       const temps = sec.cle.startsWith('mitori') ? ch.chiffres * v.parChiffre : ch.produits * v.parProduit;
@@ -148,7 +153,7 @@ export function scoreProjete(g, d) {
   const points = Math.round(pointsMax * part * taux);
   return { points, pointsMax, seuil: Math.ceil(pointsMax * g.seuil), reussi: points >= pointsMax * g.seuil, part, taux };
 }
-const genererSujetPoints = (g) => genererSujet(g).sections.reduce((t, s) => t + s.points * s.problemes.length, 0);
+const genererSujetPoints = (g) => sujetCalcul(g).sections.reduce((t, s) => t + s.points * s.problemes.length, 0);
 
 /**
  * Date projetée de la fin des marches (donc de l'allure d'examen), d'après le rythme des marches

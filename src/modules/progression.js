@@ -11,7 +11,7 @@ import {
 import { NIVEAUX, formaterTemps, formaterVitesse, formaterCadence, cpm } from '../core/maitrise.js';
 import { SOUS_PALIERS, familleLecon } from '../core/curriculum.js';
 import { TOUS_LES_MOTIFS, nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
-import { minutesParJour, serieJours } from '../core/regularite.js';
+import { minutesParJour, serieJours, semainesTenues, JOURS_SEMAINE_TENUE } from '../core/regularite.js';
 import { grade, compteurs, MESURES_FIABLES } from '../core/parcours.js';
 import { SUCCES, prochainsSucces } from '../core/succes.js';
 import { badgeNiveau } from '../ui/niveau.js';
@@ -155,6 +155,7 @@ export default {
     const { parModule, parJour } = statistiques();
     const g = grade(d);
     const serie = serieJours([...new Set(d.sessions.map((s) => s.date))], aujourdhui());
+    const tenues = semainesTenues([...new Set(d.sessions.map((s) => s.date))], aujourdhui());
     el.append(h('h1', {}, 'Progression'), h('h2', { style: 'margin-top:0' }, 'Où j\'en suis'), ouJenSuis(app, d),
       h('p', {}, h('button', { class: 'btn', onclick: () => app.aller('bilan') }, 'Bilan imprimable (pour un club ou un professeur)')));
 
@@ -164,9 +165,9 @@ export default {
         h('div', { class: 'tuile-valeur' }, libelleGrade(d).valeur),
         h('div', { class: 'discret' }, libelleGrade(d).detail),
         !g.pret && g.prochain && g.manquantes.length ? h('div', { class: 'discret' }, `À valider : ${g.manquantes.slice(0, 3).map((s) => s.titre).join(', ')}${g.manquantes.length > 3 ? ` et ${g.manquantes.length - 3} autres` : ''}.`) : null),
-      h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Série'),
-        h('div', { class: 'tuile-valeur' }, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`),
-        h('div', { class: 'discret' }, 'Un jour de repos par semaine ne casse pas la série.'))));
+      h('div', { class: 'tuile' }, h('div', { class: 'tuile-titre' }, 'Régularité'),
+        h('div', { class: 'tuile-valeur' }, `${tenues.semaines} semaine${tenues.semaines > 1 ? 's' : ''} tenue${tenues.semaines > 1 ? 's' : ''}`),
+        h('div', { class: 'discret' }, `Une semaine est tenue avec ${JOURS_SEMAINE_TENUE} jours sur 7 (cette semaine : ${tenues.cetteSemaine}${tenues.tenueCetteSemaine ? ' ✓' : tenues.encorePossible ? ', encore possible' : ''}). Série de jours : ${serie.jours}${d.stats?.meilleureSerie ? ` (record ${Math.max(d.stats.meilleureSerie, serie.jours)})` : ''}.`))));
     // Régularité : calendrier des minutes, ou volume brut par semaine (exercices, chiffres calculés).
     const zoneRegularite = h('div', {});
     const exercicesParJour = {};

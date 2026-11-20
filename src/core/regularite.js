@@ -45,6 +45,28 @@ export function serieJours(datesPratiquees, aujourdhui) {
 }
 
 /**
+ * Semaines tenues (0.38.3) : une semaine (lundi à dimanche) est tenue avec 5 jours de pratique sur
+ * 7. On compte les semaines tenues d'affilée jusqu'à la dernière semaine complète ; la semaine en
+ * cours s'y ajoute dès qu'elle est tenue, et ne casse rien tant qu'elle peut encore l'être. Plus
+ * tolérant qu'une série de jours, qui casse au premier jour manqué (c'est souvent là qu'un adulte
+ * décroche).
+ * @returns {{ semaines: number, cetteSemaine: number, tenueCetteSemaine: boolean, encorePossible: boolean }}
+ */
+export const JOURS_SEMAINE_TENUE = 5;
+export function semainesTenues(datesPratiquees, aujourdhui) {
+  const fait = new Set(datesPratiquees);
+  const lundiDe = (j) => { const x = new Date(`${j}T12:00`); return ajouterJours(j, -((x.getDay() + 6) % 7)); };
+  const jours = (lundi, jusqua = ajouterJours(lundi, 6)) => { let n = 0; for (let k = 0; k < 7; k++) { const j = ajouterJours(lundi, k); if (j <= jusqua && fait.has(j)) n += 1; } return n; };
+  const lundi = lundiDe(aujourdhui);
+  const cetteSemaine = jours(lundi, aujourdhui);
+  const restants = 6 - ((new Date(`${aujourdhui}T12:00`).getDay() + 6) % 7);
+  const tenueCetteSemaine = cetteSemaine >= JOURS_SEMAINE_TENUE;
+  let semaines = tenueCetteSemaine ? 1 : 0;
+  for (let l = ajouterJours(lundi, -7), garde = 0; garde < 600 && jours(l) >= JOURS_SEMAINE_TENUE; l = ajouterJours(l, -7), garde++) semaines += 1;
+  return { semaines, cetteSemaine, tenueCetteSemaine, encorePossible: cetteSemaine + restants >= JOURS_SEMAINE_TENUE };
+}
+
+/**
  * Régularité du rythme sur un bloc de colonnes (ou de tranches de marathon) : l'écart entre les
  * temps par chiffre, sans rien demander de plus à l'élève (on ne chronomètre pas chaque ligne,
  * ce qui casserait le geste).

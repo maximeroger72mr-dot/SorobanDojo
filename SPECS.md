@@ -1107,3 +1107,28 @@ Défauts signalés après la 0.38.1.
   minutes » ne s'affichait jamais aux anciennes sauvegardes (fusion des réglages par défaut).
 - **Examen du week-end** : il ne prend la place de la leçon qu'au premier jour pratiqué de la
   fenêtre ; pas fait ce jour-là, la leçon revient et l'examen reste proposé à part.
+
+## Version 0.38.3
+
+- **Dan d'entraînement Zenkoren** (règles et barèmes fournis par l'utilisateur, `core/danZenkoren.js`),
+  dans Épreuves officielles quand le système Zenkoren est choisi :
+  - 珠算段位 : multiplication, division, mitorizan (obligatoires) et, au choix, denpyōzan et anzan ;
+    30 problèmes à 10 points, 7 minutes par matière (anzan : 3). La plus basse note fixe le dan
+    (準初段 80 … 十段 280), sur le meilleur score de chaque matière parmi la session et les deux
+    précédentes. L'ōyō keisan et le kaihō ne sont pas proposés : le dan se calcule sur les
+    matières passées.
+  - Denpyōzan : une liasse de 20 bordereaux de 5 lignes, tournée à l'écran (flèches, Page
+    suivante / précédente) ; chaque problème additionne une ligne sur 10 bordereaux.
+  - 暗算段位 : 40 ×, 40 ÷, 40 mitori de tête, 5 points, 3 minutes chacun, décimaux ; la plus basse
+    fixe le grade (準初段 70 … 十段 190), même règle des 3 sessions.
+  - Taille des nombres d'après les annales (fournie par l'utilisateur) : 珠算 × 11 puis 12 chiffres
+    (6 × 5, 7 × 4 ; 6 × 6, 7 × 5), ÷ 10 puis 11, mitorizan de 10 lignes de 3–6 à 5–10 chiffres ;
+    暗算 × 2 × 2 à 4 × 4 et ÷ de 4 à 8 chiffres par blocs, mitori de 3 chiffres sur 5 lignes puis
+    des nombres à 4 chiffres et 6 lignes, soustractions sur les 10 derniers. Estimés et signalés :
+    part de décimaux, denpyōzan, anzan au choix.
+  - Après le 1er kyū Zenkoren : marches d'allure et examen de la semaine vers le dan Zenkoren.
+- **Régularité en semaines tenues** (5 jours sur 7) dans la séance et dans Progression ; la série
+  de jours reste en info-bulle.
+- **Rappel d'export** tous les 7 jours (version navigateur) ; **compte à rebours** (J−n) vers
+  l'objectif daté ; **feuille de la semaine** proposée chaque jour dans « Pour compléter » (le même
+  sujet toute la semaine, à battre).

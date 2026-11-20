@@ -179,14 +179,24 @@ export function anzanPropose(d, date) {
 }
 
 /** Le jeu, lancé directement dans la bonne variante ; parfois le défi de la semaine à la place. */
+/**
+ * Feuille de la semaine (0.38.3) : le même sujet court toute la semaine, à battre chaque jour
+ * (l'émulation d'un juku, contre soi-même). Proposée chaque jour où elle n'est pas encore faite.
+ */
+export function feuilleSemaine(d, date) {
+  if (!estValide(d, 'p1-3')) return null;
+  if (sessionsDu(d, date).some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode))) return null;
+  const semaine = semaineISO(date).cle;
+  const tentee = d.sessions.some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode) && semaineISO(s.date).cle === semaine);
+  const r = d.records[defiSemaine(d, date).cle];
+  return { type: 'defi', titre: 'Feuille de la semaine', but: 'Se mesurer', minutes: 5,
+    detail: !tentee ? 'le même sujet toute la semaine : tentez-la une première fois pour avoir votre repère' : r?.dureeMs ? `le même sujet que les autres jours : battez votre temps (${Math.round(r.dureeMs / 1000)} s)` : 'le même sujet que les autres jours : faites mieux qu\'hier',
+    aller: ['defis', { semaine: true }] };
+}
+
 export function jeuPropose(d, date) {
   const du = sessionsDu(d, date);
-  // Défi de la semaine : seulement s'il n'a pas encore été tenté cette semaine, un jour sur deux.
-  const semaine = semaineISO(date).cle;
-  const defiTente = d.sessions.some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode) && semaineISO(s.date).cle === semaine);
-  if (estValide(d, 'p1-3') && !defiTente && jourNum(date) % 2 === 0) {
-    return { type: 'defi', titre: 'Défi de la semaine', but: 'Se mesurer', minutes: 5, detail: 'La même feuille toute la semaine : tentez-la une première fois pour avoir votre repère.', aller: ['defis', { semaine: true }] };
-  }
+  // (0.38.3 : la feuille de la semaine a sa propre proposition, chaque jour : feuilleSemaine.)
   const f = famillesApprises(d);
   const cible = coursMultiplicationAtteint(d, null) && d.paliers['p6-a']?.valide ? 100 : f.has('grand') ? 10 : 5;
   const jeux = [
@@ -244,7 +254,7 @@ function tablesProposees(d, date) {
  * @param {number} minutesRestantes  temps restant avant l'objectif du jour (0 : séance finie)
  */
 export function propositions(d, date, difficiles = [], minutesRestantes = 0, exclure = []) {
-  const liste = [...prochainesPlanches(d, date, difficiles, 1, exclure), anzanPropose(d, date), jeuPropose(d, date)].filter(Boolean);
+  const liste = [...prochainesPlanches(d, date, difficiles, 1, exclure), anzanPropose(d, date), feuilleSemaine(d, date), jeuPropose(d, date)].filter(Boolean);
   let total = liste.reduce((t, x) => t + x.minutes, 0);
   if (minutesRestantes > total) {
     const autres = prochainesPlanches(d, date, difficiles, 3, exclure);

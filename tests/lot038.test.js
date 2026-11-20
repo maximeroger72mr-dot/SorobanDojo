@@ -228,3 +228,81 @@ test('0.38.2 : mini-test planifié en entier ; pa-5 sur ses 34 amis ; délai à 
   assert.ok(Math.abs(p.moisRestants - p.manquantes / 4 / 4.33) < 0.01);
   assert.equal(dureePlanche({ reglages: {} }), 6); // 25 min par défaut (avant : 15)
 });
+
+test('0.38.3 : semaines tenues (5 jours sur 7), feuille de la semaine proposée chaque jour', async () => {
+  const { semainesTenues } = await import('../src/core/regularite.js');
+  const { feuilleSemaine } = await import('../src/core/propositions.js');
+  // Semaines du lundi 2 au dimanche 15 novembre : 5 jours puis 6 jours ; ce vendredi 20 : 3 jours.
+  const dates = ['2026-11-02', '2026-11-03', '2026-11-05', '2026-11-06', '2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-13', '2026-11-14', '2026-11-15', '2026-11-16', '2026-11-18', '2026-11-20'];
+  const t = semainesTenues(dates, '2026-11-20');
+  assert.equal(t.semaines, 2);
+  assert.equal(t.cetteSemaine, 3);
+  assert.equal(t.encorePossible, true);
+  // Une semaine à 4 jours casse la suite.
+  assert.equal(semainesTenues(dates.filter((x) => x !== '2026-11-05'), '2026-11-20').semaines, 1);
+  const d = { paliers: { 'p1-3': { valide: '2026-11-01' } }, records: {}, reglages: {}, motifs: {}, sessions: [] };
+  assert.equal(feuilleSemaine(d, '2026-11-20').titre, 'Feuille de la semaine');
+  d.sessions.push({ date: '2026-11-20', module: 'defis', mode: 'semaine', total: 10, justes: 10 });
+  assert.equal(feuilleSemaine(d, '2026-11-20'), null);
+  assert.ok(feuilleSemaine(d, '2026-11-21'));
+});
+
+test('0.38.3 : dan Zenkoren (6 matières, plus basse note, meilleur sur 3 sessions) et dan d\'anzan Zenkoren', async () => {
+  const z = await import('../src/core/danZenkoren.js');
+  assert.deepEqual(z.NIVEAUX_DAN_ZENKOREN.map((x) => x.points), [80, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 220, 240, 260, 280]);
+  assert.deepEqual(z.NIVEAUX_ANZAN_DAN_ZENKOREN.map((x) => x.points), [70, 80, 90, 100, 110, 120, 130, 140, 150, 170, 190]);
+  avecGraine(33, () => {
+    const s = genererSujet(z.gradeDanZenkoren(z.NIVEAUX_DAN_ZENKOREN[1]));
+    assert.deepEqual(s.sections.map((x) => [x.cle, x.problemes.length, x.minutes, x.points]), [['mul', 30, 7, 10], ['div', 30, 7, 10], ['mitori', 30, 7, 10], ['denpyo', 30, 7, 10], ['anzan', 30, 3, 10]]);
+    const dp = s.sections[3];
+    assert.equal(dp.liasse.length, 20);
+    for (const p of dp.problemes) {
+      const attendu = dp.liasse.slice(p.denpyo.debut - 1, p.denpyo.fin).reduce((t, b) => t + b[p.denpyo.ligne - 1], 0);
+      assert.equal(p.resultat, attendu);
+    }
+    for (const p of s.sections[2].problemes) assert.equal(p.lignes.length, 10);
+    assert.ok(s.sections[4].problemes.every((p) => p.mental));
+    const a = z.genererSujetAnzanDanZenkoren({ id: 'x' });
+    assert.deepEqual(a.sections.map((x) => [x.problemes.length, x.minutes, x.points]), [[40, 3, 5], [40, 3, 5], [40, 3, 5]]);
+    assert.ok(a.sections[0].problemes.some((p) => p.virgules || String(p.resultat).includes('.')), 'des décimaux');
+  });
+  // La plus basse matière fixe le dan ; le meilleur de chaque matière sur 3 sessions est gardé.
+  assert.equal(z.niveauAtteintZenkoren([300, 300, 300, 300, 85]).id, 'jd1');
+  const sessions = [
+    { date: '1', scores: { mul: 90, div: 300 } }, // trop ancienne (4e en partant de la fin)
+    { date: '2', scores: { mul: 120, div: 100, mitori: 150 } },
+    { date: '3', scores: { mul: 100, div: 125, mitori: 130 } },
+    { date: '4', scores: { mul: 110, div: 110, mitori: 125 } },
+  ];
+  const c = z.niveauCumule(sessions);
+  assert.deepEqual(c.meilleurs, { mul: 120, div: 125, mitori: 150 });
+  assert.equal(c.niveau.id, 'd2');
+  assert.equal(z.niveauCumule([{ scores: { mul: 150, div: 150, mitori: 150 } }], z.NIVEAUX_ANZAN_DAN_ZENKOREN).niveau.id, 'ad8');
+});
+
+test('0.38.3 : formats des annales Zenkoren (×, ÷, mitori ; 暗算 par blocs)', async () => {
+  const z = await import('../src/core/danZenkoren.js');
+  const nb = (x) => String(Math.abs(x)).replace('.', '').replace(/^0+/, '').length;
+  avecGraine(44, () => {
+    const s = genererSujet(z.gradeDanZenkoren(z.NIVEAUX_DAN_ZENKOREN[1]));
+    s.sections[0].problemes.forEach((p, i) => {
+      const t = p.virgules ? String(p.entiers[0]).length + String(p.entiers[1]).length : nb(p.a) + nb(p.b);
+      assert.equal(t, i < 15 ? 11 : 12, `× n° ${i + 1}`);
+    });
+    s.sections[2].problemes.forEach((p, i) => {
+      const [min, max] = z.LONGUEURS_MITORI_DAN[Math.floor(i / 5)];
+      if (p.resultat >= 0) for (const l of p.lignes) assert.ok(String(l.n).length >= min && String(l.n).length <= max, `mitori n° ${i + 1}`);
+    });
+    const a = z.genererSujetAnzanDanZenkoren({ id: 'x' });
+    a.sections[0].problemes.forEach((p, i) => {
+      if (p.virgules) return;
+      const [m, n] = z.FORMES_MUL_ANZAN_DAN[z.blocAnzanDan(i)];
+      assert.deepEqual([nb(p.a), nb(p.b)].sort(), [m, n].sort(), `× de tête n° ${i + 1}`);
+    });
+    a.sections[1].problemes.forEach((p, i) => { if (!p.virgules) assert.equal(nb(p.b) + nb(p.resultat), z.TOTAUX_DIV_ANZAN_DAN[z.blocAnzanDan(i)], `÷ de tête n° ${i + 1}`); });
+    a.sections[2].problemes.forEach((p, i) => {
+      assert.equal(p.lignes.some((l) => l.op === '-'), i >= 30, `mitori de tête n° ${i + 1} : soustractions sur les 10 derniers seulement`);
+      if (i < 8) assert.ok(p.lignes.length === 5 && p.lignes.every((l) => String(l.n).length === 3));
+    });
+  });
+});

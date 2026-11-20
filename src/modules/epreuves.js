@@ -7,12 +7,13 @@
 import { manquantesEpreuve } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
 import { GRADES, genererSujet, totalPoints, SYSTEMES, systemeChoisi, MINUTES_EPREUVE_ZENKOREN, JUSTES_EPREUVE_ZENKOREN } from '../core/epreuves.js';
-import { enregistrerSession, progression, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
+import { enregistrerSession, progression, proposerMeilleurScore, reglagesUtilisateur, modifierReglages, noterSessionDan } from '../core/progression.js';
 import { verdictAllure, allureGrade } from '../core/allure.js';
 import { GRADES_ANZAN, genererSujetAnzan, totalPointsAnzan } from '../core/epreuvesAnzan.js';
 import { cpm } from '../core/maitrise.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { boutonNaoshi } from '../ui/naoshi.js';
+import { NIVEAUX_DAN_ZENKOREN, NIVEAUX_ANZAN_DAN_ZENKOREN, MATIERES, OPTIONS_DISPO, CLE_DAN_ZENKOREN, CLE_ANZAN_DAN_ZENKOREN, genererSujetDanZenkoren, genererSujetAnzanDanZenkoren, gradeDanZenkoren, niveauAtteintZenkoren, niveauCumule, meilleurNiveau, prochainNiveau } from '../core/danZenkoren.js';
 import { NIVEAUX_DAN, MINUTES_EPREUVE_DAN, CLE_DAN, gradeDan, niveauAtteint, meilleurDan, prochainDan } from '../core/dan.js';
 import { localiserErreur, diagnostiquer, typeErreurOperation, ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { nomMotif } from '../core/motifs.js';
@@ -136,8 +137,103 @@ export default {
               const nom = k === 'mitori' && g.mitoriA ? 'Additions B' : NOMS_SECTIONS[k];
               return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${nom} seule · ${g.parEpreuve ? g.minutesEpreuve : MINUTES_SPRINT} min${r ? ` (${r.points} pts)` : ''}`);
             }))))),
-        carteDan(),
+        zen ? [carteDanZenkoren(), carteAnzanDanZenkoren()] : carteDan(),
         listeAnzan());
+    }
+
+    /**
+     * Dan Zenkoren (0.38.3) : 3 matières obligatoires + les options proposées (denpyōzan, anzan),
+     * 7 minutes chacune (anzan : 3). Le niveau : la plus basse des matières, sur le meilleur score
+     * de chaque matière parmi cette session et les 2 précédentes.
+     */
+    function carteDanZenkoren() {
+      const d = progression();
+      const m = meilleurNiveau(d, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN);
+      const vise = prochainNiveau(d, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN) ?? NIVEAUX_DAN_ZENKOREN.at(-1);
+      const options = Object.fromEntries(OPTIONS_DISPO.map((k) => [k, h('input', { type: 'checkbox', checked: true })]));
+      return h('div', { class: 'carte grade', style: 'margin-top:16px' },
+        h('div', { class: 'ligne' },
+          h('span', { class: `icone etat-${m ? 'fait' : 'ouvert'}` }, m ? '✓' : '○'),
+          h('strong', { style: 'flex:1' }, 'Dan d\'entraînement Zenkoren (珠算段位)'),
+          h('span', { class: 'discret' }, m ? `meilleur : ${m.japonais}` : `premier palier : ${NIVEAUX_DAN_ZENKOREN[0].japonais}, ${NIVEAUX_DAN_ZENKOREN[0].points} sur 300`)),
+        h('p', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' },
+          `30 problèmes à 10 points par matière, 7 minutes (anzan : 3). Obligatoires : multiplication (11 à 12 chiffres au total), division (10 à 11), mitorizan (10 lignes, de 3–6 à 5–10 chiffres) ; au choix : denpyōzan (liasse de bordereaux à l'écran) et anzan. L'ōyō keisan et le kaihō ne sont pas encore là : le dan se calcule sur les matières passées. La plus basse fixe le dan, sur le meilleur score de chaque matière parmi cette session et les deux précédentes. Seuils : ${NIVEAUX_DAN_ZENKOREN.map((x) => `${x.japonais} ${x.points}`).join(', ')}. Format des annales ; la part de décimaux, le denpyōzan et l'anzan au choix sont estimés. Prochain palier visé : ${vise.japonais}.`),
+        h('div', { class: 'ligne' }, 'Matières au choix : ', OPTIONS_DISPO.map((k) => h('label', {}, options[k], ` ${MATIERES[k].titre}`))),
+        h('button', { class: 'btn principal', style: 'margin-top:8px', onclick: () => demarrerDanZenkoren(OPTIONS_DISPO.filter((k) => options[k].checked)) }, 'Examen de dan Zenkoren'));
+    }
+
+    function carteAnzanDanZenkoren() {
+      const d = progression();
+      const m = meilleurNiveau(d, CLE_ANZAN_DAN_ZENKOREN, NIVEAUX_ANZAN_DAN_ZENKOREN);
+      return h('div', { class: 'carte grade', style: 'margin-top:12px' },
+        h('div', { class: 'ligne' },
+          h('span', { class: `icone etat-${m ? 'fait' : 'ouvert'}` }, m ? '✓' : '○'),
+          h('strong', { style: 'flex:1' }, 'Dan d\'anzan Zenkoren (暗算段位)'),
+          h('span', { class: 'discret' }, m ? `meilleur : ${m.japonais}` : `premier palier : ${NIVEAUX_ANZAN_DAN_ZENKOREN[0].japonais}, ${NIVEAUX_ANZAN_DAN_ZENKOREN[0].points} sur 200`)),
+        h('p', { class: 'discret', style: 'font-size:0.85rem;margin:4px 0 8px' },
+          `De tête : 40 multiplications, 40 divisions, 40 additions-soustractions, 5 points chacune, 3 minutes par matière, des décimaux. La plus basse des trois fixe le grade, sur le meilleur score de chaque matière parmi cette session et les deux précédentes. Seuils : ${NIVEAUX_ANZAN_DAN_ZENKOREN.map((x) => `${x.japonais.replace('暗算', '')} ${x.points}`).join(', ')}. × de 2 × 2 à 4 × 4, ÷ de 4 à 8 chiffres au total, mitori de 3 chiffres sur 5 lignes jusqu'à des nombres à 4 chiffres sur 6 lignes, soustractions sur les 10 derniers. Format des annales ; la part de décimaux est estimée.`),
+        h('button', { class: 'btn principal', onclick: () => demarrerAnzanDanZenkoren() }, 'Examen de dan d\'anzan · 3 × 3 min'));
+    }
+
+    /** Bilan commun des dan Zenkoren : scores de la session, meilleurs sur 3 sessions, niveau. */
+    function bilanDanZ(b, cle, niveaux, max, retour, relancer) {
+      const scores = Object.fromEntries(b.parSection.map((x, i) => [cles[i], x.points]));
+      const info = h('div', {});
+      noterSessionDan(cle, scores).then((sessions) => {
+        const { meilleurs, niveau } = niveauCumule(sessions, niveaux);
+        if (niveau) proposerMeilleurScore(cle, niveaux.indexOf(niveau) + 1, { niveau: niveau.id, reussi: true });
+        const session = niveauAtteintZenkoren(Object.values(scores), niveaux);
+        remplir(info,
+          h('div', { class: 'grand' }, niveau ? niveau.japonais : 'Pas encore de dan'),
+          h('p', {}, `Cette session seule : ${session ? session.japonais : 'sous le premier palier'}. Avec le meilleur de chaque matière sur vos 3 dernières sessions : ${niveau ? `${niveau.nom} (${niveau.japonais})` : `il faut ${niveaux[0].points} sur ${max} dans chacune`}.`),
+          h('table', {}, h('tr', {}, ['Matière', 'Justes', 'Points', 'Meilleur (3 sessions)'].map((x) => h('th', {}, x))),
+            b.parSection.map((x, i) => h('tr', {}, h('td', {}, x.titre), h('td', {}, `${x.justes} / ${x.total}`), h('td', {}, `${x.points} / ${x.pointsMax}`), h('td', {}, `${meilleurs[cles[i]]}`)))));
+        app.majBadges?.();
+      });
+      let cles = [];
+      return { info, poser: (k) => { cles = k; } };
+    }
+
+    function demarrerDanZenkoren(options) {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'),
+        h('h1', {}, 'Examen de dan Zenkoren (entraînement)'),
+        h('p', { class: 'consigne' }, `Les matières l'une après l'autre, chacune avec son temps, sans revenir en arrière. Denpyōzan : tournez les bordereaux avec les flèches ou Page suivante / précédente, et additionnez la ligne demandée sur les bordereaux indiqués.`));
+      const vise = prochainNiveau(progression(), CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN) ?? NIVEAUX_DAN_ZENKOREN.at(-1);
+      const sujet = genererSujetDanZenkoren(gradeDanZenkoren(vise), options);
+      const cles = sujet.sections.map((x) => x.cle);
+      feuille = creerFeuille(el, {
+        titre: `Dan Zenkoren · ${sujet.sections.length} matières`,
+        sections: sujet.sections,
+        parEpreuve: true,
+        milliers: !!reglagesUtilisateur().examenPur,
+        surFin: (b) => {
+          enregistrerSession({ module: 'epreuves', mode: 'dan-zenkoren', reglages: { systeme: 'dan-zenkoren', options }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          const x = bilanDanZ(b, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN, 300);
+          x.poser(cles);
+          return h('div', { class: 'carte bilan' }, x.info, h('p', {}, `Temps utilisé : ${formaterDuree(b.dureeMs)}`),
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'dan-zenkoren', retour: () => liste() }), h('button', { class: 'btn', onclick: () => demarrerDanZenkoren(options) }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+        },
+      });
+    }
+
+    function demarrerAnzanDanZenkoren() {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'),
+        h('h1', {}, 'Examen de dan d\'anzan Zenkoren (entraînement)'),
+        h('p', { class: 'consigne' }, 'De tête, soroban rangé : trois matières de 3 minutes, l\'une après l\'autre.'));
+      const sujet = genererSujetAnzanDanZenkoren({ id: 'adz', nom: 'Dan d\'anzan Zenkoren' });
+      const cles = sujet.sections.map((x) => x.cle);
+      feuille = creerFeuille(el, {
+        titre: 'Dan d\'anzan Zenkoren · 3 × 3 min · de tête',
+        sections: sujet.sections,
+        parEpreuve: true,
+        surFin: (b) => {
+          enregistrerSession({ module: 'epreuves', mode: 'anzan-dan-zenkoren', reglages: { systeme: 'anzan-dan-zenkoren' }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          const x = bilanDanZ(b, CLE_ANZAN_DAN_ZENKOREN, NIVEAUX_ANZAN_DAN_ZENKOREN, 200);
+          x.poser(cles);
+          return h('div', { class: 'carte bilan' }, x.info,
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'anzan-dan-zenkoren', retour: () => liste() }), h('button', { class: 'btn', onclick: () => demarrerAnzanDanZenkoren() }, 'Nouveau sujet'), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+        },
+      });
     }
 
     /**
@@ -312,7 +408,8 @@ export default {
 
     // Lancé depuis la séance (examen complet de la semaine) : le sujet du grade, directement.
     const direct = params.grade && params.auto ? systemeChoisi(progression()).grades.find((g) => g.id === params.grade) : null;
-    if (params.dan && params.auto) demarrerDan();
+    if (params.danZenkoren && params.auto) demarrerDanZenkoren(OPTIONS_DISPO);
+    else if (params.dan && params.auto) demarrerDan();
     else if (direct) demarrer(direct);
     else liste();
     return () => feuille?.detruire();

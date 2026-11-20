@@ -574,6 +574,19 @@ export async function noterMarche(cle, reussi) {
   return m[cle];
 }
 
+/**
+ * Session de dan Zenkoren (0.38.3) : les scores par matière sont gardés ; le niveau se calcule
+ * sur le meilleur de chaque matière parmi cette session et les 2 précédentes (règle Zenkoren).
+ * @returns {Array<{ date, scores }>} les sessions de ce type
+ */
+export async function noterSessionDan(cle, scores) {
+  const t = ((donnees.dansZenkoren ??= {})[cle] ??= []);
+  t.push({ date: aujourdhui(), scores });
+  if (t.length > 12) t.shift();
+  await sauver();
+  return t;
+}
+
 export async function effacerSeriesTest(id) {
   delete palier(id).testSeries;
   await sauver();

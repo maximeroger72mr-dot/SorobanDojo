@@ -15,7 +15,7 @@ import {
   erreursOperationRepetees, traiterErreurOperation, etatPalier,
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
-import { serieJours } from '../core/regularite.js';
+import { serieJours, semainesTenues, JOURS_SEMAINE_TENUE } from '../core/regularite.js';
 import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide } from '../core/parcours.js';
 import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { GRADES_KYU as GRADES } from '../core/epreuves.js';
@@ -175,8 +175,8 @@ function plan(d, debut, seance = null) {
   if (completVoulu) {
     const g = complet.grade;
     const f = complet.fait;
-    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
-      detail: f ? `${f.justes} / ${f.total} justes` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
+    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', complet.danZenkoren ? { danZenkoren: true, auto: true } : complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
+      detail: f ? `${f.justes} / ${f.total} justes` : complet.danZenkoren ? `×, ÷, mitorizan et les matières au choix, 7 minutes chacune, au barème Zenkoren (${g.pointsEpreuve} points sur 300 dans chaque matière pour le ${g.japonais})` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
       pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' };
     if (completDansSeance) essentiel.push(item);
     else seanceLongue = item;
@@ -529,7 +529,7 @@ function carteObjectif(d, rafraichir) {
     else texte = `${lecons}${repere}Ce n'est pas réaliste pour cette date : visez plutôt ${dateR}${p.atteignable ? `, et d'ici là, le ${p.atteignable.nom} est un bon objectif intermédiaire` : ''}.`;
   }
   return h('details', { class: 'carte objectif' },
-    h('summary', {}, h('strong', {}, `Objectif : ${p.grade.nom} le ${dateFr}`), o.pourquoi ? h('span', { class: 'discret' }, ` · ${o.pourquoi}`) : null),
+    h('summary', {}, h('strong', {}, `Objectif : ${p.grade.nom} le ${dateFr}`), !p.reussi && p.jours > 0 ? h('span', { class: 'compte-rebours' }, ` · J−${p.jours}`) : null, o.pourquoi ? h('span', { class: 'discret' }, ` · ${o.pourquoi}`) : null),
     h('p', { class: p.realiste || p.reussi ? '' : 'avertissement' }, texte),
     h('p', { class: 'discret' }, 'Ces durées sont des repères prudents pour un adulte qui pratique chaque jour, pas des chiffres officiels : chacun avance à son rythme.'),
     !p.reussi && p.verdict !== 'irrealiste' && p.minutesJour > reglagesUtilisateur().objectifMinutes
@@ -599,6 +599,7 @@ export default {
       const d = progression();
       const dates = [...new Set(d.sessions.map((s) => s.date))];
       const serie = serieJours(dates, aujourdhui());
+      const tenues = semainesTenues(dates, aujourdhui());
       const objectif = reglagesUtilisateur().objectifMinutes;
       const minutes = minutesAujourdhui();
       const g = grade(d);
@@ -646,8 +647,11 @@ export default {
       el.append(h('h1', {}, 'Séance du jour'),
         h('div', { class: 'statut-jour' },
           // La série de jours, écrite sur un petit soroban.
-          h('span', { class: 'serie-soroban', title: `${septJours(dates)} jours de pratique sur les 7 derniers` },
-            sorobanNombre(serie.jours, `${serie.jours} jour${serie.jours > 1 ? 's' : ''} de série`), h('strong', {}, `${serie.jours} jour${serie.jours > 1 ? 's' : ''}`), ' de série'),
+          // 0.38.3 : la régularité se compte en SEMAINES tenues (5 jours sur 7) ; la série de jours
+          // reste en info-bulle. Un jour manqué ne casse plus rien.
+          h('span', { class: 'serie-soroban', title: `Une semaine est tenue avec ${JOURS_SEMAINE_TENUE} jours de pratique sur 7. Série de jours : ${serie.jours}.` },
+            sorobanNombre(tenues.semaines, `${tenues.semaines} semaine${tenues.semaines > 1 ? 's' : ''} tenue${tenues.semaines > 1 ? 's' : ''}`),
+            h('strong', {}, `${tenues.semaines} semaine${tenues.semaines > 1 ? 's' : ''}`), ` tenue${tenues.semaines > 1 ? 's' : ''} · cette semaine ${Math.min(tenues.cetteSemaine, 7)} / ${JOURS_SEMAINE_TENUE} jours${tenues.tenueCetteSemaine ? ' ✓' : ''}`),
           h('span', {}, h('strong', {}, `${Math.floor(minutes)} / `), choixObjectif, ' aujourd\'hui',
             h('span', { class: 'jauge mini', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
               h('span', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
@@ -655,9 +659,9 @@ export default {
       prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.statut-jour')?.after(h('div', { class: 'carte avis' }, a))));
       // Version navigateur : rappel d'export (les données ne vivent que dans ce navigateur).
       const premiere = d.sessions[0]?.date;
-      if (versionNavigateur && premiere && premiere <= ajouterJours(aujourdhui(), -7) && (!d.dernierExport || d.dernierExport <= ajouterJours(aujourdhui(), -14))) {
+      if (versionNavigateur && premiere && premiere <= ajouterJours(aujourdhui(), -7) && (!d.dernierExport || d.dernierExport <= ajouterJours(aujourdhui(), -7))) {
         el.append(h('div', { class: 'carte avis ligne' },
-          h('span', { style: 'flex:1' }, d.dernierExport ? `Dernier export de votre progression : il y a plus de 14 jours.` : 'Vous n\'avez encore jamais exporté votre progression.', ' Elle ne vit que dans ce navigateur : un nettoyage des données de navigation l\'effacerait.'),
+          h('span', { style: 'flex:1' }, d.dernierExport ? `Dernier export de votre progression : il y a plus de 7 jours.` : 'Vous n\'avez encore jamais exporté votre progression.', ' Elle ne vit que dans ce navigateur : un nettoyage des données de navigation l\'effacerait.'),
           h('button', { class: 'btn', onclick: async () => { await telechargerExport(); afficher(bilan); } }, 'Exporter maintenant')));
       }
       // 0.38 : une fois, aux élèves restés à 15 minutes, la proposition de passer à 25.

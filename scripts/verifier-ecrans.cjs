@@ -320,6 +320,19 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['epreuves', { dan: true, auto: true }] })));
   await controler(w, 'avancé : examen de dan', 'Épreuves officielles');
   if ((await w.$$('#ecran input')).length < 150) problemes.push('examen de dan : le sujet ne s\'affiche pas en entier');
+  // Dan Zenkoren (0.38.3) : système Zenkoren, examen avec liasse de bordereaux, dan d'anzan.
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['epreuves', {}] })));
+  await w.waitForTimeout(200);
+  await cliquerTexte(w, '#ecran .segments button', 'Zenkoren');
+  await controler(w, 'avancé : épreuves Zenkoren', 'Épreuves officielles');
+  if (!/Dan d'entraînement Zenkoren/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('épreuves Zenkoren : pas de carte de dan Zenkoren');
+  await cliquerTexte(w, '#ecran button', 'Examen de dan Zenkoren');
+  await controler(w, 'avancé : examen de dan Zenkoren', 'Épreuves officielles');
+  if (!(await w.$('#ecran .liasse .bordereau li'))) problemes.push('dan Zenkoren : la liasse de bordereaux n\'apparaît pas');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['epreuves', {}] })));
+  await w.waitForTimeout(200);
+  await cliquerTexte(w, '#ecran button', 'Examen de dan d\'anzan');
+  await controler(w, 'avancé : examen de dan d\'anzan Zenkoren', 'Épreuves officielles');
   await app.close();
 
   fs.rmSync(path.join(__dirname, 'sous-paliers.json'));

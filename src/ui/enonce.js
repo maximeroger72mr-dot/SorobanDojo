@@ -30,6 +30,8 @@ export function consigneArrondi(decimales) {
  *   doigte : rappel des doigts à côté de chaque ligne (pouce / index / pincée), colonnes entières seulement
  */
 export function rendreEnonce(ex, o = {}) {
+  // Denpyōzan : la consigne renvoie à la liasse (bordereaux et ligne à additionner).
+  if (ex.denpyo) return h('div', { class: `operation enonce-denpyo${o.compact ? ' compacte' : ''}` }, `Bordereaux ${ex.denpyo.debut} à ${ex.denpyo.fin}, ligne ${ex.denpyo.ligne}`);
   // Consigne de situation (ex. « Ticket de caisse : … ») au-dessus de l'énoncé.
   if (ex.consigne && !o.sansConsigne) {
     return h('div', {}, h('div', { class: 'consigne-situation' }, ex.consigne), rendreEnonce(ex, { ...o, sansConsigne: true }));
