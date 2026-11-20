@@ -41,6 +41,8 @@ const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maxi
  * @param {number} [o.erreursMax=2] la course s'arrête à cette erreur
  * @param {number} [o.colonnes]      nombre de colonnes au plus (par défaut : sans limite)
  * @param {boolean} [o.fixe]         cadence imposée : ni accélération ni ralentissement (sprint de surcharge)
+ * @param {number} [o.pas]           accélération (et ralentissement) relative : 10 % par défaut, 3 % au format du grade (0.39)
+ * @param {number} [o.serie]         colonnes justes d'affilée pour accélérer : 3 par défaut, 1 au format du grade
  * @param {boolean} [o.sansNotation] ne rien inscrire sur la carte de maîtrise (cadence volontairement trop haute)
  * @param {boolean} [o.metronome]
  * @param {(cadence:number) => any} [o.surCadence]  après chaque colonne : la cadence à retenir
@@ -144,14 +146,14 @@ export function creerLievre(conteneur, o) {
       justes += 1;
       serie += 1;
       meilleure = meilleure === null ? cadence : Math.min(meilleure, cadence);
-      const accelere = !o.fixe && serie % 3 === 0;
-      if (accelere) cadence = borne(cadence * ACCELERATION);
+      const accelere = !o.fixe && serie % (o.serie ?? 3) === 0;
+      if (accelere) cadence = borne(cadence * (o.pas != null ? 1 - o.pas : ACCELERATION));
       retour.className = 'retour ok';
       remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` Juste : ${formaterNombre(col.resultat)}.`, accelere ? ` Le lièvre accélère : ${sec(cadence)} par ligne.` : '');
     } else {
       serie = 0;
       erreurs += 1;
-      if (!o.fixe) cadence = borne(cadence / ACCELERATION);
+      if (!o.fixe) cadence = borne(cadence / (o.pas != null ? 1 - o.pas : ACCELERATION));
       retour.className = 'retour erreur';
       remplir(retour, h('span', { class: 'grand-signe' }, '✗'), ` Le résultat était ${formaterNombre(col.resultat)}.${o.fixe ? '' : ` Le lièvre ralentit : ${sec(cadence)} par ligne.`}`,
         erreurs < erreursMax ? ` Encore ${erreursMax - erreurs} erreur${erreursMax - erreurs > 1 ? 's' : ''} permise${erreursMax - erreurs > 1 ? 's' : ''} : on continue.` : '');

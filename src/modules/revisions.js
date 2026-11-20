@@ -6,7 +6,9 @@
  * redescend d'une boîte. Propose aussi une révision ciblée sur les points faibles détectés.
  */
 
-import { sousPalier, SOUS_PALIERS, genererExercice } from '../core/curriculum.js';
+import { verdictFlash } from '../core/fluidite.js';
+import { sousPalier, SOUS_PALIERS, genererExercice, familleLecon } from '../core/curriculum.js';
+import { formaterTemps } from '../core/maitrise.js';
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES, MELANGE_MAX, calculsMelange, ordreRevisions } from '../core/revision.js';
@@ -116,12 +118,14 @@ export default {
     function flash(sp) {
       lancerSerie({
         titre: `Test flash : ${sp.titre}`,
-        sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites font monter la leçon d'une boîte.`,
+        sousTitre: `${FLASH.exercices} calculs sur votre soroban. ${FLASH.reussitesMin} réussites, à votre vitesse habituelle, font monter la leçon d'une boîte.`,
         generer: () => genererExercice(sp, poidsAdaptatifs(sp.type === 'addsub' ? sp.cibles : [])),
         placement: sp.type === 'placement',
         sp,
         apresBilan: async (b) => {
-          const reussi = b.justes >= FLASH.reussitesMin;
+          // 0.39 : 9 justes ET la vitesse habituelle de la leçon (85 % au moins, voir core/fluidite.js).
+          const v = verdictFlash(sp, etatPalier(sp.id), b);
+          const reussi = v.reussi || v.lent; // juste : la leçon n'est pas rouverte
           // Leçon validée par le test de positionnement : la première révision confirme ou rouvre.
           if (etatPalier(sp.id).parTest && !etatPalier(sp.id).confirme) {
             if (!reussi) {
@@ -131,10 +135,12 @@ export default {
             }
             etatPalier(sp.id).confirme = aujourdhui();
           }
-          await enregistrerRevision(sp.id, reussi);
+          await enregistrerRevision(sp.id, v.reussi, { lent: v.lent });
           await enregistrerSession({ module: 'revisions', mode: 'flash', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           const c = etatPalier(sp.id).carte;
-          return reussi
+          const unite = familleLecon(sp) === 'muldiv' ? 'produit' : 'chiffre';
+          if (v.lent) return `Juste, mais plus lent que d'habitude (${formaterTemps(v.t)} par ${unite}, ${formaterTemps(v.limite)} au plus) : la leçon reste en boîte ${c.boite}, à revoir ${dateFr(c.echeance)}. Fluidité à reprendre : elle passe en priorité dans les blocs de vitesse.`;
+          return v.reussi
             ? (c.acquise ? 'Acquis : réussi après 30 jours, la leçon sort des révisions.' : `Automatisme entretenu : boîte ${c.boite}, prochaine révision ${dateFr(c.echeance)}.`)
             : `Moins de ${FLASH.reussitesMin} réussites : la leçon redescend en boîte ${c.boite}, à revoir ${dateFr(c.echeance)}.`;
         },

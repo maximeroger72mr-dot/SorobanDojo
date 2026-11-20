@@ -139,3 +139,85 @@ test('0.39 lot 1 : le socle ne remplace la leçon qu\'au premier jour du crénea
   assert.ok(r.essentiel.some((it) => it.decision), 'la leçon garde sa place');
   assert.match(r.bonus[0].titre, /socle/);
 });
+
+test('0.39 lot 2 : marches 1 et 2 dès 70 % des leçons, sur les seules parties validées', async () => {
+  const { etatMarches, feuilleMarche, MARCHES_ANTICIPEES } = await import('../src/core/marches.js');
+  const { PREREQUIS } = await import('../src/core/parcours.js');
+  // 7e kyū réussi : on vise le 6e. Toutes ses leçons sauf les divisions.
+  const req = PREREQUIS[6];
+  const paliers = Object.fromEntries(req.filter((id) => sp(id).type !== 'div').map((id) => [id, { valide: '2026-11-01', hist: [] }]));
+  const d = { paliers, records: { 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
+  const part = Object.keys(paliers).length / req.length;
+  const e = etatMarches(d);
+  if (part >= 0.7) {
+    assert.equal(e.anticipees, true);
+    assert.deepEqual(e.parties, ['mitori', 'mul']);
+    avecGraine(4, () => assert.ok(!feuilleMarche(e.grade, e.courante, undefined, null, e.parties).sections.some((s) => s.cle === 'div'), 'pas de division non apprise'));
+    d.marches = { [`nissho-6`]: { validees: MARCHES_ANTICIPEES, reussites: [] } };
+    const e2 = etatMarches(d);
+    assert.equal(e2.courante, null, 'les marches 3 à 5 attendent la fin des leçons');
+    assert.equal(e2.attente, true);
+  } else assert.equal(e.anticipees, false);
+  // Moins de 70 % : pas de marches.
+  const peu = { ...d, paliers: Object.fromEntries(req.slice(0, Math.floor(req.length * 0.5)).map((id) => [id, { valide: '2026-11-01', hist: [] }])) };
+  assert.equal(etatMarches(peu).active, false);
+});
+
+test('0.39 lot 2 : test flash, 9 justes ET 85 % de la vitesse habituelle, plafonné à la médaille', async () => {
+  const { verdictFlash, leconsFluidite } = await import('../src/core/fluidite.js');
+  const lecon = sp('p3-1');
+  const ex = { type: 'addsub', lignes: [{ op: '+', n: 3 }, { op: '+', n: 4 }], resultat: 7 };
+  const hist = Array.from({ length: 20 }, () => ({ ok: 1, t: 1.0 }));
+  const b = (t) => ({ justes: 10, total: 10, resultats: Array.from({ length: 10 }, () => ({ ex, juste: true, dureeMs: t * 2 * 1000 })) });
+  const etat = { hist };
+  assert.equal(verdictFlash(lecon, etat, { justes: 8, total: 10, resultats: [] }).reussi, false);
+  const lent = verdictFlash(lecon, etat, b(3));
+  assert.equal(lent.lent, true);
+  assert.equal(verdictFlash(lecon, etat, b(1.1)).reussi, true);
+  // Médaille bronze (pas de seuil de temps) : seule la justesse compte.
+  assert.equal(verdictFlash(lecon, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 9 })) }, b(30)).sansVitesse, true);
+  // Juste mais lent : carte gardée, leçon marquée.
+  p.progression().paliers['p3-1'] = { valide: '2026-11-01', hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 2 })), carte: { boite: 2, echeance: '2026-11-21' } }; // argent : pas encore l'or
+  await p.enregistrerRevision('p3-1', false, { lent: true });
+  const e = p.progression().paliers['p3-1'];
+  assert.equal(e.carte.boite, 2);
+  assert.equal(e.fluidite, '2026-11-21');
+  assert.equal(leconsFluidite(p.progression())[0].id, 'p3-1');
+  await p.enregistrerRevision('p3-1', true);
+  assert.equal(p.progression().paliers['p3-1'].fluidite, undefined);
+});
+
+test('0.39 lot 2 : plateaux au-delà du platine sans marge ; × ÷ en plateau ; recul de 15 % à format égal', async () => {
+  const { plateaux, plateauOperation, reculs, allureVisee } = await import('../src/core/parcours.js');
+  const semaines = ['2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16'];
+  // Geste platine (0,7 s par chiffre), qui stagne : plateau tant que l'allure visée n'a pas 10 % de marge.
+  const hist = Array.from({ length: 30 }, () => ({ ok: 1, t: 0.7 }));
+  const sem = Object.fromEntries(semaines.map((k) => [k, Array(12).fill(0.7)]));
+  const d = { motifs: { '+6:grand': { hist, sem } }, paliers: valides('p9-6'), records: Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].map((id) => [`epreuve-${id}`, { reussi: true }])), reglages: {}, sessions: [] };
+  const vise = allureVisee(d);
+  assert.ok(vise.parChiffre * 0.9 < 0.7, `1er kyū : ${vise.parChiffre}`);
+  assert.ok(plateaux(d, '2026-11-21').some((x) => x.cle === '+6:grand'), 'platine mais pas 10 % de marge sur le 1er kyū');
+  // × en plateau : 2 feuilles par semaine, aucun gain.
+  d.mesures = semaines.flatMap((k) => [0, 1].map(() => ({ date: k, source: 'entrainement', partie: 'mul', format: 'mul:9', t: 3, n: 80, reussite: 0.95, kyu: true })));
+  const po = plateauOperation(d, 'mul', '2026-11-21');
+  assert.ok(po && Math.abs(po.cible - 3 / 1.15) < 1e-9);
+  // Recul : deux semaines consécutives 20 % plus lentes, au même format.
+  const semF = { '10x3': { '2026-10-19': Array(12).fill(1), '2026-10-26': Array(12).fill(1.05), '2026-11-09': Array(12).fill(1.2), '2026-11-16': Array(12).fill(1.25) } };
+  assert.equal(reculs({ motifs: { '+7:grand': { semF } } }, '2026-11-21')[0]?.cle, '+7:grand');
+  // Pas consécutives : pas de recul.
+  const trou = { '10x3': { ...semF['10x3'], '2026-11-09': undefined } };
+  delete trou['10x3']['2026-11-09'];
+  assert.equal(reculs({ motifs: { '+7:grand': { semF: trou } } }, '2026-11-21').length, 0);
+});
+
+test('0.39 lot 2 : feuille de la semaine d\'environ 7 minutes à l\'allure ; lièvre au format, +3 %', async () => {
+  const { defiSemaine, MINUTES_FEUILLE_SEMAINE } = await import('../src/core/parcours.js');
+  const { allureGrade } = await import('../src/core/allure.js');
+  const { unites } = await import('../src/core/maitrise.js');
+  const d = { paliers: valides('p8-8'), records: { 'epreuve-8': { reussi: true }, 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
+  const f = defiSemaine(d, '2026-11-21');
+  const a = allureGrade(f.grade);
+  const t = f.sections.flatMap((s) => s.problemes).reduce((s, ex) => s + unites(ex) * (ex.type === 'addsub' ? a.parChiffre : a.parProduit) + 3, 0);
+  assert.ok(t / 60 >= MINUTES_FEUILLE_SEMAINE - 2 && t / 60 <= MINUTES_FEUILLE_SEMAINE + 2, `${t / 60} min`);
+  assert.ok(f.sections.some((s) => s.problemes[0].type === 'addsub') && f.sections.some((s) => s.problemes[0].type === 'mul'));
+});

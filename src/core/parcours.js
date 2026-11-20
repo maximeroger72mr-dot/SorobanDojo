@@ -11,7 +11,9 @@ import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
 import { systemeChoisi, genererSujet } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
-import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
+import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence, lundi as lundiDe, unites as unitesEx } from './maitrise.js';
+import { gradeDan, prochainDan } from './dan.js';
+import { gradeDanZenkoren, prochainNiveau, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN } from './danZenkoren.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
@@ -77,7 +79,7 @@ const K3 = [...K4, ...idsPaliers('pd').filter((id) => !NEGATIFS.includes(id))];
 const K2 = [...K3, ...NEGATIFS, 'p9-1', 'p9-3', 'p9-5'];
 const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6', 'p9-pl'];
 export const PREREQUIS = { 10: K10, 9: K9, 8: K8, 7: K7, 6: K6, 5: K5, 4: K4, 3: K3, 2: K2, 1: K1 };
-const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
+export const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s.mental && !s.optionnel && s.type !== 'anzan' && s.type !== 'theorie').map((s) => s.id);
 
 /**
  * Grade : le meilleur kyū réussi en épreuve, et le suivant à préparer.
@@ -235,8 +237,17 @@ export function defiSemaine(d, date) {
   if (gr.obtenu && g8 && sys.grades.indexOf(gr.obtenu) >= sys.grades.indexOf(g8)) {
     const gv = gr.prochain ?? sys.grades.at(-1);
     const graineK = [...`${semaine}-kyu-${sys.id}-${gv.id}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-    const sectionsK = avecGraine(graineK, () => genererSujet(gv).sections.map((x) => ({ titre: x.titre, problemes: x.problemes.slice(0, Math.max(1, Math.ceil(x.problemes.length / 5))) })));
-    return { cle: `defi-semaine-${semaine}-kyu-${sys.id}-${gv.id}`, semaine, sections: sectionsK, grade: gv, description: `au format du ${gv.nom} : un cinquième de son sujet` };
+    // 0.39 : taille fixée en TEMPS (environ 7 minutes à l'allure de l'examen : 5 colonnes environ et
+    // une part de × et ÷), au lieu d'un cinquième du sujet.
+    const a = allureGrade(gv);
+    const tps = (ex) => unitesEx(ex) * (ex.type === 'addsub' ? a.parChiffre : a.parProduit) + 3;
+    const sectionsK = avecGraine(graineK, () => {
+      const secs = genererSujet(gv).sections.filter((x) => ['mitoriA', 'mitori', 'mul', 'div'].includes(x.cle));
+      const total = secs.reduce((t, x) => t + x.problemes.reduce((u, ex) => u + tps(ex), 0), 0);
+      const part = Math.min(1, (MINUTES_FEUILLE_SEMAINE * 60) / total);
+      return secs.map((x) => ({ titre: x.titre, problemes: x.problemes.slice(0, Math.max(1, Math.round(x.problemes.length * part))) }));
+    });
+    return { cle: `defi-semaine-${semaine}-kyu-${sys.id}-${gv.id}`, semaine, sections: sectionsK, grade: gv, description: `au format du ${gv.nom} : environ ${MINUTES_FEUILLE_SEMAINE} minutes à l'allure de l'examen` };
   }
   const palier = `${chiffres}${mul ? `m${fMul.join('')}` : ''}${div ? `d${fDiv.join('')}` : ''}${amis.length}`;
   const graine = [...`${semaine}-${palier}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -351,22 +362,83 @@ export function placementDuJour(d, aujourdhuiDate, prochain) {
  */
 export function plateaux(d, date) {
   const liste = [];
+  // 0.39 : au-delà du platine, la détection reste active tant que le geste n'a pas 10 % de marge
+  // sur l'allure du grade (ou du dan) visé : le platine n'est pas l'allure du 1er kyū ni d'un dan.
+  const vise = allureVisee(d);
+  const sansMarge = (ev, famille) => ev.niveau.id !== 'expert' || (vise && ev.temps != null && ev.temps > (famille === 'muldiv' ? vise.parProduit : vise.parChiffre) * (1 - MARGE_PLATEAU));
   for (const [cle, f] of Object.entries(d.motifs)) {
-    if (cle.endsWith(':direct') || evaluer(f.hist ?? []).niveau.id === 'expert') continue;
+    if (cle.endsWith(':direct') || !sansMarge(evaluer(f.hist ?? []), 'addsub')) continue;
     const p = plateauFiche(f, date);
     if (p) liste.push({ type: 'geste', cle, nom: nomMotif(cle), ...p });
   }
   for (const [id, e] of Object.entries(d.paliers)) {
     const sp = SOUS_PALIERS.find((s) => s.id === id);
-    if (!sp || sp.type !== 'addsub' || evaluer(e.hist ?? []).niveau.id === 'expert') continue;
+    if (!sp || sp.type !== 'addsub' || !sansMarge(evaluer(e.hist ?? []), 'addsub')) continue;
     const p = plateauFiche(e, date);
     if (p) liste.push({ type: 'lecon', cle: id, nom: `la leçon « ${sp.titre} »`, cibles: sp.cibles, ...p });
   }
   return liste.sort((a, b) => b.maintenant / b.avant - a.maintenant / a.avant);
 }
 
+/**
+ * Détecteur de recul (0.39) : un geste qui RALENTIT de 15 % ou plus. Comparaison à format
+ * identique seulement (lignes × chiffres), sur les 6 dernières semaines ; les deux semaines les plus
+ * récentes, consécutives et d'au moins 10 essais chacune, sont toutes deux au moins 15 % plus lentes
+ * que la meilleure semaine d'avant. Déclenche un bloc « réveil » ciblé.
+ * @returns {Array<{ cle, nom, format, avant, maintenant }>}  le plus fort recul d'abord
+ */
+export const RECUL = 0.15;
+export const SEMAINES_RECUL = 6;
+export function reculs(d, date) {
+  const jour = (k) => new Date(`${k}T12:00`).getTime();
+  const fin = jour(lundiDe(date));
+  const liste = [];
+  for (const [cle, f] of Object.entries(d.motifs ?? {})) {
+    for (const [format, sem] of Object.entries(f.semF ?? {})) {
+      const semaines = Object.entries(sem).filter(([k, ts]) => ts.length >= MIN_ESSAIS_SEMAINE && (fin - jour(k)) / (7 * 86400000) < SEMAINES_RECUL)
+        .sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, ts]) => ({ k, m: mediane(ts) }));
+      if (semaines.length < 3) continue;
+      const [s1, s2] = semaines.slice(-2);
+      const consecutives = Math.round((jour(s2.k) - jour(s1.k)) / (7 * 86400000)) === 1 && (fin - jour(s2.k)) / (7 * 86400000) <= 1;
+      const avant = Math.min(...semaines.slice(0, -2).map((x) => x.m));
+      if (consecutives && s1.m >= avant * (1 + RECUL) && s2.m >= avant * (1 + RECUL)) liste.push({ cle, nom: nomMotif(cle), format, avant, maintenant: s2.m });
+    }
+  }
+  return liste.sort((a, b) => b.maintenant / b.avant - a.maintenant / a.avant);
+}
+const MIN_ESSAIS_SEMAINE = 10;
+
 /** Sprint de surcharge : part du meilleur rythme à laquelle on force la cadence. */
 export const SURCHARGE = 1.15;
+/** Marge sur l'allure visée en deçà de laquelle la détection des plateaux reste active (0.39). */
+export const MARGE_PLATEAU = 0.1;
+
+/** Allure du prochain grade, ou du prochain dan d'entraînement après le 1er kyū ; null au-delà. */
+export function allureVisee(d) {
+  const gr = grade(d);
+  if (gr.prochain) return allureGrade(gr.prochain);
+  if (!gr.obtenu) return null;
+  const zen = systemeChoisi(d).id === 'zenkoren';
+  const n = zen ? prochainNiveau(d, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN) : prochainDan(d);
+  return n ? allureGrade(zen ? gradeDanZenkoren(n) : gradeDan(n)) : null;
+}
+
+/**
+ * Plateau en × ou ÷ (0.39) : sur les feuilles mesurées (hakari, marches), la médiane de la semaine
+ * la plus récente contre celle d'il y a 2 à 3 semaines ; moins de 5 % de gain = plateau. Au moins
+ * 2 feuilles par semaine (une feuille vaut des dizaines de produits). Pas de plateau quand l'allure
+ * visée est tenue avec 10 % de marge.
+ */
+export function plateauOperation(d, type, date) {
+  const sem = {};
+  for (const m of (d.mesures ?? []).filter((x) => x.partie === type && x.source === 'entrainement')) (sem[lundiDe(m.date)] ??= []).push(m.t);
+  const p = plateau(Object.fromEntries(Object.entries(sem).map(([k, ts]) => [k, ts.length >= 2 ? [...ts, ...Array(10).fill(mediane(ts))] : ts])), date);
+  if (!p) return null;
+  const vise = allureVisee(d);
+  if (vise && p.maintenant <= vise.parProduit * (1 - MARGE_PLATEAU)) return null;
+  const meilleur = Math.min(...(d.mesures ?? []).filter((x) => x.partie === type && x.source === 'entrainement').map((x) => x.t));
+  return { ...p, type, meilleur, cible: meilleur / SURCHARGE };
+}
 
 const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const jourDe = (date) => Math.floor(new Date(`${date}T12:00`).getTime() / 86400000);
@@ -487,6 +559,8 @@ export function verificationVitesse(d) {
  */
 /** Hypothèse prudente : vitesse gagnée par semaine de pratique régulière (planObjectif). */
 export const GAIN_VITESSE_SEMAINE = GAIN_REPERE;
+/** Feuille de la semaine au format du grade : environ 7 minutes à l'allure de l'examen (0.39). */
+export const MINUTES_FEUILLE_SEMAINE = 7;
 
 /**
  * Points (date, ratio à l'allure du grade) d'une partie, pour le gain par semaine : examens de ce

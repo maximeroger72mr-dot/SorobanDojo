@@ -7,6 +7,7 @@ import { progression, aujourdhui, enregistrerSession, noterMarche } from '../cor
 import { etatMarches, feuilleMarche, feuilleMarcheReussie, cleMarches, scoreProjete, dateProjetee, NB_MARCHES, FEUILLES_MARCHE, JUSTES_MARCHE, SECONDES_FRACTIONNE, SERIES_FRACTIONNE, MINUTES_FEUILLE_MARCHE } from '../core/marches.js';
 import { formaterTemps } from '../core/maitrise.js';
 import { partieDuJour, hakariActif } from '../core/hakari.js';
+import { gradeOperation } from '../core/formatKyu.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { boutonNaoshi } from '../ui/naoshi.js';
 import { h, remplir } from '../ui/dom.js';
@@ -35,7 +36,11 @@ export default {
         el.append(h('div', { class: 'carte' }, `Jusqu'au 7e kyū, l'allure d'examen est plus lente que la vitesse déjà exigée aux leçons : pas besoin de marches. Elles commencent avec le 6e kyū.`));
         return;
       }
-      if (!e.active) el.append(h('div', { class: 'carte avis' }, `Les marches du ${g.nom} s'ouvrent quand toutes ses leçons sont validées. Vous pouvez déjà les regarder, et tenter une feuille pour voir.`));
+      const nomsParties = { mitori: 'colonnes', mul: 'multiplications', div: 'divisions' };
+      if (!e.active) el.append(h('div', { class: 'carte avis' }, `Les marches 1 et 2 du ${g.nom} s'ouvrent dès 70 % de ses leçons validées (vous en êtes à ${Math.round((e.partLecons ?? 0) * 100)} %), les marches 3 à 5 quand toutes le sont. Vous pouvez déjà les regarder.`));
+      else if (e.anticipees) el.append(h('div', { class: 'carte avis' }, e.attente
+        ? `Marches 1 et 2 franchies. Les marches 3 à 5 s'ouvrent quand toutes les leçons du ${g.nom} sont validées : la vitesse a déjà pris de l'avance.`
+        : `Marches anticipées : la vitesse monte pendant les leçons, en alternance avec elles. Les feuilles ne portent que sur ce qui est déjà validé (${e.parties.map((k) => nomsParties[k]).join(', ')}). Les marches 3 à 5 viendront après les leçons.`));
       // L'échelle : 5 marches, la courante en évidence.
       el.append(h('div', { class: 'carte' },
         h('h2', { style: 'margin-top:0' }, `Vers le ${g.nom}`),
@@ -65,10 +70,11 @@ export default {
         s?.aConfirmer ? h('p', { class: 'discret' }, `Vitesse à confirmer : une partie vient encore de vos gestes ou de vos leçons, pas de feuilles au format du ${g.nom}. Une planche ou une marche au format la mesurera.`) : null,
         h('p', { class: 'discret' }, 'Des repères, pas des promesses : la vitesse progresse par paliers, et la fatigue ou la régularité changent tout.')));
       if (e.courante) {
-        const parties = [['mitori', 'Colonnes'], ['mul', 'Multiplications'], ['div', 'Divisions']].filter(([k]) => k === 'mitori' || g[k]);
+        const parties = [['mitori', 'Colonnes'], ['mul', 'Multiplications'], ['div', 'Divisions']].filter(([k]) => (k === 'mitori' || g[k]) && (!e.parties || e.parties.includes(k)));
         const jour = hakariActif(d) ? partieDuJour(d, aujourdhui()).partie : 'colonnes';
         const sel = h('select', {}, parties.map(([k, t]) => h('option', { value: k }, t)));
         sel.value = jour === 'colonnes' ? 'mitori' : jour;
+        if (!parties.some(([k]) => k === sel.value)) sel.value = parties[0][0];
         el.append(h('div', { class: 'ligne' },
           h('button', { class: 'btn principal', onclick: () => lancerFeuille(g, e) }, `Feuille de la marche ${e.courante.n} →`),
           h('span', { class: 'discret' }, 'ou'),
@@ -79,7 +85,7 @@ export default {
 
     function lancerFeuille(g, e) {
       const m = e.courante;
-      const f = feuilleMarche(g, m);
+      const f = feuilleMarche(g, m, undefined, null, e.parties);
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Marches d\'allure'),
         h('h1', {}, `Marche ${m.n} sur ${NB_MARCHES} · ${g.nom}`),
         h('p', { class: 'consigne' }, `Marche ${m.n} du ${g.nom} : ${f.minutes.toLocaleString('fr-FR')} minutes, ${Math.round(JUSTES_MARCHE * 100)} % de justes. Ce qui n'est pas fait à la fin du temps compte faux.`));
@@ -106,7 +112,7 @@ export default {
     }
 
     function fractionne(g, m, cle, k) {
-      const f = feuilleMarche(g, m, SECONDES_FRACTIONNE, cle);
+      const f = feuilleMarche(g, m, SECONDES_FRACTIONNE, cle, etatMarches(progression())?.parties ?? null);
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Marches d\'allure'),
         h('h1', {}, `Fractionné ${k} sur ${SERIES_FRACTIONNE}`),
         h('p', { class: 'consigne' }, `Fractionné, série ${k} sur ${SERIES_FRACTIONNE} : à l'allure de la marche ${m.n}.`));
@@ -126,8 +132,39 @@ export default {
       });
     }
 
+    /**
+     * × ou ÷ en plateau (0.39) : 4 blocs de 90 s à 115 % de la meilleure cadence, au format du kyū ;
+     * la justesse se compte sur le cumul des 4 blocs (90 % visés), pas bloc par bloc.
+     */
+    function surcharge({ type, parProduit }, k = 1, cumul = { justes: 0, total: 0 }) {
+      const g = gradeOperation(progression(), type);
+      const m = { parChiffre: parProduit / 2, parProduit };
+      const f = feuilleMarche(g, m, SECONDES_FRACTIONNE, type);
+      const signe = type === 'mul' ? '×' : '÷';
+      remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, '← Marches d\'allure'),
+        h('h1', {}, `Sprint de surcharge ${signe} · bloc ${k} sur ${SERIES_FRACTIONNE}`),
+        h('p', { class: 'consigne' }, `90 secondes à ${nf(parProduit)} s par produit : 15 % plus vite que votre meilleure cadence. La justesse se compte sur les ${SERIES_FRACTIONNE} blocs ensemble.`));
+      feuille = creerFeuille(el, {
+        titre: `Surcharge ${signe} · bloc ${k} / ${SERIES_FRACTIONNE} · ${f.minutes.toLocaleString('fr-FR')} min`,
+        sections: f.sections,
+        minutes: f.minutes,
+        surFin: (b) => {
+          const c = { justes: cumul.justes + b.justes, total: cumul.total + b.total };
+          if (k === SERIES_FRACTIONNE) enregistrerSession({ module: 'marches', mode: 'surcharge', reglages: { partie: type, parProduit }, total: c.total, justes: c.justes, dureeMs: SERIES_FRACTIONNE * SECONDES_FRACTIONNE * 1000 });
+          const ok = c.total > 0 && c.justes / c.total >= JUSTES_MARCHE;
+          return h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
+            k < SERIES_FRACTIONNE ? h('p', {}, `Cumul : ${c.justes} justes sur ${c.total}. Respirez, relâchez la main, puis le bloc suivant.`)
+              : h('p', { class: ok ? 'retour ok' : '' }, `Cumul des ${SERIES_FRACTIONNE} blocs : ${c.justes} justes sur ${c.total}. ${ok ? 'Tenu à 115 % : le plateau cède. Votre cadence habituelle va paraître lente.' : 'Pas encore 90 % à cette vitesse : c\'est normal, la main a suivi un rythme plus haut. On recommence un autre jour.'}`),
+            h('div', { class: 'ligne' },
+              k < SERIES_FRACTIONNE ? h('button', { class: 'btn principal', onclick: () => { feuille?.detruire(); surcharge({ type, parProduit }, k + 1, c); } }, `Bloc ${k + 1} →`) : null,
+              h('button', { class: 'btn', onclick: () => accueil() }, 'Retour aux marches')));
+        },
+      });
+    }
+
     const e0 = etatMarches(progression());
-    if (params.auto && e0?.courante) lancerFeuille(e0.grade, e0);
+    if (params.surcharge) surcharge(params.surcharge);
+    else if (params.auto && e0?.courante) lancerFeuille(e0.grade, e0);
     else accueil();
     return () => feuille?.detruire();
   },

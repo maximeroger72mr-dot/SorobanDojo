@@ -23,7 +23,7 @@
  *        pour repérer les plateaux.
  */
 
-import { nouvelleCarte, reviser, estDue, ajouterJours } from './revision.js';
+import { nouvelleCarte, reviser, estDue, ajouterJours, INTERVALLES } from './revision.js';
 import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX, appliquerEchelle } from './maitrise.js';
 import { ajouterMesures } from './mesures.js';
 import { succesObtenus, SUCCES } from './succes.js';
@@ -620,10 +620,18 @@ export async function validerPalier(id, avecRevision = true) {
   await sauver();
 }
 
-export async function enregistrerRevision(id, reussi) {
+export async function enregistrerRevision(id, reussi, { lent = false } = {}) {
   const e = donnees.paliers[id];
   if (!e?.carte) return;
-  e.carte = reviser(e.carte, reussi, aujourdhui());
+  if (lent) {
+    // 0.39 : juste mais trop lent : la carte reste dans sa boîte (revue au même intervalle) et la
+    // leçon passe en priorité dans les blocs de vitesse.
+    e.carte = { ...e.carte, echeance: ajouterJours(aujourdhui(), INTERVALLES[(e.carte.boite ?? 1) - 1]) };
+    e.fluidite = aujourdhui();
+  } else {
+    e.carte = reviser(e.carte, reussi, aujourdhui());
+    if (reussi) delete e.fluidite;
+  }
   await sauver();
 }
 

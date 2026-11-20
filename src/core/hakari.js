@@ -69,6 +69,10 @@ export function retardParties(d) {
 export function partieDuJour(d, date) {
   const n = new Set(d.sessions.filter((s) => s.date < date).map((s) => s.date)).size;
   const dispo = retardParties(d);
+  // 0.39 : une leçon de × ou ÷ juste mais trop lente au test flash (« fluidité à reprendre ») passe
+  // en priorité, jusqu'à l'or.
+  const fl = SOUS_PALIERS.find((sp) => !sp.mental && ['mul', 'div'].includes(sp.type) && d.paliers?.[sp.id]?.fluidite && evaluer(d.paliers[sp.id].hist ?? [], 'muldiv').index < 3);
+  if (fl && dispo.some((x) => x.partie === fl.type)) return { partie: fl.type, raison: 'fluidite', lecon: fl, ...dispo.find((x) => x.partie === fl.type) };
   if (n % 3 === 2) {
     const tour = PARTIES.filter((p) => dispo.some((x) => x.partie === p));
     return { partie: tour[Math.floor(n / 3) % tour.length], raison: 'rotation' };

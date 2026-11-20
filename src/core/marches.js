@@ -19,7 +19,8 @@ import { genererSujet, systemeChoisi } from './epreuves.js';
 import { allureGrade, PART_CADENCE_LECON, MARGE, SURCOUT_PROBLEME_S, chargeGrade, vitesseEleve } from './allure.js';
 import { ratioExamen } from './mesures.js';
 import { unites, cpm } from './maitrise.js';
-import { grade as gradeDe } from './parcours.js';
+import { grade as gradeDe, prerequis, estValide } from './parcours.js';
+import { SOUS_PALIERS } from './curriculum.js';
 import { gradeDan, prochainDan } from './dan.js';
 import { gradeDanZenkoren, prochainNiveau, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN } from './danZenkoren.js';
 
@@ -34,6 +35,22 @@ export const SECONDES_FRACTIONNE = 90;
 export const SERIES_FRACTIONNE = 4;
 /** Marches seulement pour les grades dont l'allure finale passe sous 3 s par chiffre (6e kyū et après). */
 export const MARCHES_SOUS = 3;
+
+/**
+ * Marches anticipées (0.39) : les marches 1 et 2 s'ouvrent dès 70 % des leçons du grade validées,
+ * en alternance avec les leçons qui restent, et seulement sur les parties (colonnes, ×, ÷) dont
+ * toutes les leçons du grade sont validées. Les marches 3 à 5 attendent la fin des leçons. C'est
+ * ce qui évite le « mur » de vitesse une fois les leçons finies.
+ */
+export const PART_MARCHES_ANTICIPEES = 0.7;
+export const MARCHES_ANTICIPEES = 2;
+const PARTIE_LECON = { addsub: 'mitori', negatif: 'mitori', addsubdec: 'mitori', mul: 'mul', muldec: 'mul', div: 'div', divdec: 'div', divarrondi: 'div' };
+
+/** Sections du sujet dont toutes les leçons du grade sont validées. */
+export function partiesOuvertes(d, g) {
+  const req = prerequis(g).map((id) => SOUS_PALIERS.find((s) => s.id === id)).filter(Boolean);
+  return ['mitori', 'mul', 'div'].filter((k) => (k === 'mitori' || g[k]) && req.filter((s) => PARTIE_LECON[s.type] === k).every((s) => estValide(d, s.id)));
+}
 
 export const cleMarches = (g) => `${g.systeme ?? 'nissho'}-${g.id}`; // dan : « dan-d1 »…
 
@@ -73,7 +90,13 @@ export function etatMarches(d) {
   const validees = Math.min(NB_MARCHES, e.validees ?? 0);
   // Du 10e au 7e kyū, l'allure d'examen est plus lente que l'argent exigé aux leçons : pas de marches.
   const utiles = marches.at(-1).parChiffre < MARCHES_SOUS;
-  return { grade: g, marches, validees, courante: validees < NB_MARCHES ? marches[validees] : null, reussites: e.reussites ?? [], active: (gr.pret || !!dan) && utiles, utiles, debut: e.debut ?? null, dates: e.dates ?? [], dan: !!dan };
+  const req = gr.prochain ? prerequis(gr.prochain) : [];
+  const part = req.length ? req.filter((id) => estValide(d, id)).length / req.length : 1;
+  const parties = !gr.pret && !dan ? partiesOuvertes(d, g) : null;
+  const anticipees = !gr.pret && !dan && part >= PART_MARCHES_ANTICIPEES && parties.length > 0;
+  const plafond = anticipees ? MARCHES_ANTICIPEES : NB_MARCHES;
+  return { grade: g, marches, validees, courante: validees < plafond ? marches[validees] : null, reussites: e.reussites ?? [], active: (gr.pret || !!dan || anticipees) && utiles, utiles,
+    debut: e.debut ?? null, dates: e.dates ?? [], dan: !!dan, anticipees, parties: anticipees ? parties : null, partLecons: part, attente: anticipees && validees >= MARCHES_ANTICIPEES };
 }
 
 /**
@@ -81,8 +104,10 @@ export function etatMarches(d) {
  * section du sujet (au moins un problème par section). `secondes` : durée visée (90 s : fractionné).
  * @returns {{ sections: object[], minutes: number }}
  */
-export function feuilleMarche(g, m, secondes = MINUTES_FEUILLE_MARCHE * 60, cle = null) {
-  const sujet = sujetCalcul(g);
+export function feuilleMarche(g, m, secondes = MINUTES_FEUILLE_MARCHE * 60, cle = null, parties = null) {
+  const brut = sujetCalcul(g);
+  // Marches anticipées : seulement les parties déjà validées.
+  const sujet = parties ? { ...brut, sections: brut.sections.filter((x) => parties.includes(x.cle.startsWith('mitori') ? 'mitori' : x.cle)) } : brut;
   let sections;
   if (cle) {
     // Fractionné : une seule partie (colonnes, × ou ÷), autant de problèmes que 90 s en permettent.

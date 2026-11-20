@@ -9,6 +9,9 @@
  *    suggestion pour demain. On peut ensuite continuer à s'entraîner librement.
  */
 
+import { plateauOperation, formatExamen, reculs } from '../core/parcours.js';
+import { vitesseEleve } from '../core/allure.js';
+import { leconsFluidite } from '../core/fluidite.js';
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur, erreursARejouer,
@@ -232,6 +235,16 @@ export function plan(d, debut, seance = null) {
       minutes: partLecon, aller: decision.aller, pourquoi: decision.raison, fait: decisionFaite(decision) }
     : null;
 
+  // 0.39 : un geste qui recule (15 % plus lent deux semaines de suite, à format égal) : un réveil.
+  const recul = reculs(d, date)[0] ?? null;
+  const reveilFait = !!recul && fait((s) => s.module === 'rythme' && s.mode === 'marathon' && (s.reglages?.cibles ?? []).includes(recul.cle));
+  if (recul) {
+    const c = recul.cle;
+    essentiel.push({ titre: `Réveil · ${nomMotif(c)}`, detail: `30 lignes de marathon sur ce geste : il a ralenti de ${Math.round((recul.maintenant / recul.avant - 1) * 100)} % en deux semaines (colonnes de ${recul.format.replace('x', ' lignes à ')} chiffres)`, minutes: 4,
+      pourquoi: 'Un geste qui ralentit deux semaines de suite se rouille : un bloc court et ciblé le réveille avant qu\'il ne freine vos colonnes.',
+      fait: reveilFait, aller: ['rythme', { jeu: 'marathon', cibles: [c], lignes: 30, auto: true }] });
+  }
+
   // Vitesse incohérente (ex. gestes directs plus lents que les petits amis) : on vérifie.
   const verif = verificationVitesse(d);
   if (verif) {
@@ -352,9 +365,14 @@ export function plan(d, debut, seance = null) {
   // les gestes les plus lents, à défaut ceux des dernières leçons de colonnes.
   if (!ciblesBloc.length) ciblesBloc = gestesLents(d, 2).map((x) => x.cle);
   if (!ciblesBloc.length) ciblesBloc = (ancrageDuJour(d)?.cibles ?? []).filter((c) => !c.endsWith(':direct'));
+  // 0.39 : fluidité à reprendre (test flash juste mais lent, ou porte de l'or passée sans l'or) :
+  // ses gestes passent en tête du bloc, en vitesse, jusqu'à l'or (la « dette de vitesse »).
+  const fluide = decision.type === 'automatiser' ? null : leconsFluidite(d).find((x) => gestesLecon(x).length) ?? null;
+  if (fluide) ciblesBloc = [...new Set([...gestesLecon(fluide), ...ciblesBloc])];
+  const enVitesse = vitesse || !!fluide;
   const genres = decision.type === 'automatiser'
-    ? (vitesse ? ['vitesse-melange', 'volume-melange', 'vitesse-isole', 'volume-isole'] : ['volume-melange', 'vitesse-isole', 'volume-isole', 'vitesse-melange'])
-    : (vitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
+    ? (enVitesse ? ['vitesse-melange', 'volume-melange', 'vitesse-isole', 'volume-isole'] : ['volume-melange', 'vitesse-isole', 'volume-isole', 'vitesse-melange'])
+    : (enVitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
   const resteBloc = objectif - prevu;
   // 0.38 : à partir du 7e kyū, UN bloc de vitesse par jour, sur la partie la plus en retard (deux
   // jours sur trois) ou à tour de rôle : colonnes, ×, ÷. Pour × et ÷, une feuille chronométrée au
@@ -370,11 +388,37 @@ export function plan(d, debut, seance = null) {
     const m = Math.min(resteBloc, MINUTES_FEUILLE_MARCHE + 1);
     essentiel.push({ id: 'marche', titre: `Marche d'allure ${em.courante.n} sur ${NB_MARCHES} · ${em.grade.nom}`, minutes: m, bloc: 'vitesse', fait: marcheFaite,
       detail: `une feuille d'environ ${MINUTES_FEUILLE_MARCHE} min au format du ${em.grade.nom}, à ${em.courante.cpm} chiffres/min, 90 % de justes${em.reussites.length ? ' (déjà réussie une fois : la seconde valide la marche)' : ''}`,
-      pourquoi: 'Les leçons du grade sont faites : il reste la vitesse. Cinq marches mènent de la cadence des leçons à l\'allure d\'examen ; chacune se franchit deux jours différents.',
+      pourquoi: em.anticipees ? 'Marches anticipées : la vitesse monte pendant les leçons, un jour sur deux, sur ce qui est déjà validé. Ainsi, pas de mur de vitesse une fois les leçons finies.'
+        : 'Les leçons du grade sont faites : il reste la vitesse. Cinq marches mènent de la cadence des leçons à l\'allure d\'examen ; chacune se franchit deux jours différents.',
       aller: ['marches', { auto: true }] });
     resteVitesse = resteBloc - m;
   }
-  if (partie && partie.partie !== 'colonnes' && resteVitesse >= 3) {
+  const plateauOp = partie && partie.partie !== 'colonnes' ? plateauOperation(d, partie.partie, date) : null;
+  const fg = partie?.partie === 'colonnes' ? formatExamen(d) : null;
+  if (partie?.partie === 'colonnes' && enVitesse && resteVitesse >= 4 && fg?.grade && fg.lignes >= 5) {
+    // 0.39 : colonnes AU FORMAT du grade, au tempo imposé (le lièvre) ; les colonnes courtes de
+    // gestes restent pour les jours de volume.
+    const v = vitesseEleve(d, fg.grade);
+    const cadence = Math.max(0.6, (v.parChiffre ?? 2.5) * fg.chiffres);
+    const id = 'lievre-format';
+    const colonnes = Math.max(2, Math.min(8, Math.floor((resteVitesse * 60) / (fg.lignes * cadence + 15))));
+    essentiel.push({ id, titre: `Vitesse · colonnes au format du ${fg.grade.nom}, au tempo`, minutes: Math.min(resteVitesse, 10), bloc: 'vitesse',
+      detail: `${colonnes} colonnes de ${fg.lignes} lignes à ${fg.chiffres} chiffres, départ à votre vitesse${v.colonnesAuFormat ? ' mesurée au format' : ' estimée'}, +3 % après chaque colonne juste`,
+      pourquoi: 'La vitesse d\'examen se gagne sur les colonnes de l\'examen : le surligneur impose le rythme, un peu plus vite à chaque réussite, et l\'œil lit la ligne suivante pendant que la main finit.',
+      fait: fait((s) => s.module === 'rythme' && s.reglages?.format === 'grade'),
+      aller: ['rythme', { jeu: 'lievre', format: { lignes: fg.lignes, chiffres: fg.chiffres, cadence: Math.round(cadence * 100) / 100, nom: fg.grade.nom, colonnes, proposition: id }, auto: true }] });
+  } else if (plateauOp && resteVitesse >= 5) {
+    // 0.39 : × ou ÷ en plateau : 4 × 90 s à 115 % de la meilleure cadence, la justesse comptée sur
+    // le cumul des 4 blocs.
+    const type = partie.partie;
+    const signe = type === 'mul' ? '×' : '÷';
+    const id = `surcharge-${type}`;
+    essentiel.push({ id, titre: `Vitesse · ${signe} en plateau : 4 × 90 s à 115 %`, minutes: Math.min(resteVitesse, 9), bloc: 'vitesse',
+      detail: `4 blocs de 90 s à ${nf(plateauOp.cible)} s par produit (votre meilleur : ${nf(plateauOp.meilleur)} s), justesse comptée sur les 4 blocs`,
+      pourquoi: `Vos ${NOMS_PARTIES[type]} ne progressent plus depuis ${plateauOp.semaines} semaines. Des blocs courts au-dessus de votre meilleure cadence habituent la main à une vitesse nouvelle.`,
+      fait: fait((s) => s.module === 'marches' && s.mode === 'surcharge' && s.reglages?.partie === type),
+      aller: ['marches', { surcharge: { type, parProduit: plateauOp.cible }, auto: true }] });
+  } else if (partie && partie.partie !== 'colonnes' && resteVitesse >= 3) {
     const type = partie.partie;
     const g = gradeOperation(d, type);
     const c = chargeGrade(g, type);
@@ -384,7 +428,8 @@ export function plan(d, debut, seance = null) {
     const signe = type === 'mul' ? '×' : '÷';
     essentiel.push({ id, titre: `Vitesse · ${signe} au format du ${g.nom}`, minutes: m, bloc: 'vitesse',
       detail: `${nombre} ${NOMS_PARTIES[type]} chronométrées, tirées des sujets du ${g.nom}`,
-      pourquoi: partie.raison === 'rotation' ? `Un jour sur trois, la vitesse tourne entre colonnes, × et ÷ : aujourd'hui, les ${NOMS_PARTIES[type]}.`
+      pourquoi: partie.raison === 'fluidite' ? `« ${partie.lecon.titre} » était juste mais lente à sa dernière révision : fluidité à reprendre, en priorité jusqu'à l'or.`
+        : partie.raison === 'rotation' ? `Un jour sur trois, la vitesse tourne entre colonnes, × et ÷ : aujourd'hui, les ${NOMS_PARTIES[type]}.`
         : partie.eleve == null ? `Vos ${NOMS_PARTIES[type]} ne sont pas encore mesurées au format du ${g.nom} : cette feuille donne la mesure.`
         : `C'est la partie la plus loin de l'allure du ${g.nom} : ${nf(partie.eleve)} s par produit, il en faut ${nf(partie.besoin)}. À l'examen, × et ÷ font les deux tiers des points.`,
       fait: fait((s) => s.module === 'muldiv' && s.reglages?.proposition === id), aller: ['muldiv', { type, format: 'kyu', mode: 'feuille', nombre, auto: true, proposition: id }] });

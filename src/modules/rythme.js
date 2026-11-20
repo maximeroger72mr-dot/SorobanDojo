@@ -162,9 +162,12 @@ export default {
      * `surcharge` : sprint très court (une colonne d'environ 20 s) à une cadence imposée, 15 % plus
      * rapide que le meilleur rythme de l'élève sur ce geste. Proposé seulement sur un plateau.
      */
-    function lancerLievre(cibles = null, accelere = false, surcharge = null) {
+    function lancerLievre(cibles = null, accelere = false, surcharge = null, format = null) {
       const r = { ...reglages.lievre };
       if (surcharge) Object.assign(r, { chiffres: 1, lignes: Math.min(30, Math.max(8, Math.round(DUREE_SURCHARGE_S / surcharge.cadence))), cadence: surcharge.cadence });
+      // 0.39 : colonnes AU FORMAT du grade (ex. 10 lignes de 3 chiffres), au tempo imposé : départ à
+      // 100 % de la vitesse mesurée au format, +3 % après chaque colonne juste.
+      if (format) Object.assign(r, { cible: 'appris', chiffres: format.chiffres, lignes: format.lignes, cadence: format.cadence, metronome: true, mode: 'seul' });
       const { c, note } = contraintesDe(r, cibles);
       // Mémoire par réglage : mêmes gestes, même façon, mêmes chiffres et lignes → on repart de
       // la cadence atteinte la dernière fois (un peu ralentie), pas de zéro.
@@ -173,7 +176,8 @@ export default {
       const cadence = r.cadence !== 'auto' ? r.cadence : gardee ? cadenceReprise(gardee, accelere) : cadenceDepart(tempsGestes(c.cibles), r.chiffres, accelere);
       const cle = `lievre-${r.chiffres}-${r.lignes}`;
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
-        h('h1', {}, surcharge ? `Sprint de surcharge : ${c.libelle}` : `Le lièvre : ${c.libelle}`),
+        h('h1', {}, surcharge ? `Sprint de surcharge : ${c.libelle}` : format ? `Le lièvre au format du ${format.nom}` : `Le lièvre : ${c.libelle}`),
+        format ? h('p', { class: 'consigne' }, `Colonnes de l'examen du ${format.nom} : ${format.lignes} lignes de ${format.chiffres} chiffres, au rythme du surligneur. Départ à votre vitesse mesurée (${sec(format.cadence)} par ligne), puis 3 % plus vite après chaque colonne juste. La ligne suivante est déjà visible : lisez-la pendant que la main finit la ligne en cours.`) : null,
         surcharge ? h('p', { class: 'consigne' }, `Une seule colonne, environ ${DUREE_SURCHARGE_S} secondes, à ${sec(r.cadence)} par ligne : 15 % plus vite que votre meilleur rythme sur ce geste. Le but n'est pas d'avoir juste, mais de suivre : accrochez-vous au surligneur. Rien n'est noté sur votre carte de maîtrise.`) : null,
         note ? h('p', { class: 'discret' }, note) : null,
         r.cadence === 'auto' && gardee ? h('p', { class: 'discret' }, `Reprise à ${sec(cadence)} par ligne : vous vous étiez arrêté à ${sec(gardee)} sur ce réglage.`) : null);
@@ -184,9 +188,10 @@ export default {
         cadence,
         metronome: r.metronome,
         ...(surcharge ? { fixe: true, sansNotation: true, colonnes: 1, erreursMax: 99 } : {}),
-        surCadence: (x) => (surcharge ? null : memoriserLievre(cleMemoire, x)),
+        ...(format ? { pas: 0.03, serie: 1, colonnes: format.colonnes ?? 6 } : {}),
+        surCadence: (x) => (surcharge || format ? null : memoriserLievre(cleMemoire, x)),
         surFin: async (b) => {
-          await enregistrerSession({ module: 'rythme', mode: surcharge ? 'surcharge' : 'lievre', reglages: { ...r, cibles: c.cibles }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
+          await enregistrerSession({ module: 'rythme', mode: surcharge ? 'surcharge' : 'lievre', reglages: { ...r, cibles: c.cibles, ...(format ? { format: 'grade', proposition: format.proposition ?? null } : {}) }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
           if (surcharge) {
             el.append(h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, b.justes ? 'Tenu !' : 'Sprint fait'),
               h('p', {}, b.justes ? 'Juste à 115 % de votre rythme : le plateau est en train de céder. Reprenez maintenant à votre cadence habituelle, elle paraîtra lente.' : 'Faux, et c\'est normal à cette vitesse. Ce qui compte : vos mains ont suivi un rythme plus haut. Reprenez maintenant à votre cadence habituelle.'),
@@ -215,7 +220,7 @@ export default {
     } else if (params.jeu === 'lievre') {
       if (params.chiffres) reglages.lievre.chiffres = params.chiffres;
       reglages.lievre.cadence = 'auto';
-      lancerLievre(params.cibles ?? null, !!params.accelere, params.surcharge ? { cadence: params.surcharge } : null);
+      lancerLievre(params.cibles ?? null, !!params.accelere, params.surcharge ? { cadence: params.surcharge } : null, params.format ?? null);
     } else accueil();
     return () => courant?.detruire();
   },
