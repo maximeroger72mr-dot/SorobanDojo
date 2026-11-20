@@ -15,6 +15,7 @@ import { genererSujet, GRADES_KYU } from './epreuves.js';
 import { unites, evaluer, mediane, cpm } from './maitrise.js';
 import { avecGraine } from './hasard.js';
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
+import { mesuresAuFormat, medianeRecente } from './mesures.js';
 
 export const SURCOUT_PROBLEME_S = 3;
 export const RATIO_PRODUIT = 2;
@@ -96,12 +97,15 @@ export function vitesseEleve(d, g = null) {
   const parGeste = gestes.length >= 5 ? mediane(gestes) : null;
   const parProduit = lecons.length >= 1 ? mediane(lecons) : null;
   if (!g) return { parChiffre: parGeste, parProduit };
-  // Pour un grade (0.38.4) : le temps par chiffre mesuré geste par geste vient de colonnes courtes
-  // (1 ou 2 chiffres, 5 lignes) ; il flatte l'allure sur 10 lignes de 3 chiffres. Dès qu'une
-  // planche au format du grade existe, c'est elle qui compte ; sinon l'estimation par geste reste,
-  // marquée « à confirmer ».
+  // Pour un grade (0.38.4, 0.39) : le temps par chiffre mesuré geste par geste vient de colonnes
+  // courtes (1 ou 2 chiffres, 5 lignes) ; il flatte l'allure sur 10 lignes de 3 chiffres. Les
+  // vraies feuilles au format du grade (planches, marches, feuille de la semaine) comptent d'abord ;
+  // sinon l'estimation par geste reste, marquée « à confirmer ». De même pour × et ÷ : les feuilles
+  // au format du kyū d'abord, les leçons en secours.
   const auFormat = vitesseColonnesFormat(d, g);
-  return { parChiffre: auFormat ?? parGeste, parProduit, colonnesAuFormat: auFormat !== null };
+  const types = ['mul', 'div'].filter((k) => g[k]);
+  const prod = medianeRecente((d.mesures ?? []).filter((m) => types.includes(m.partie) && mesuresAuFormat(d, m.partie, null, g[m.partie]?.total).includes(m)));
+  return { parChiffre: auFormat ?? parGeste, parProduit: prod ?? parProduit, colonnesAuFormat: auFormat !== null, produitsAuFormat: prod !== null };
 }
 
 /** Format des colonnes d'un grade : lignes et chiffres (le plus long), ou null. */
@@ -118,6 +122,10 @@ export const PLANCHES_FORMAT = 5;
 export function vitesseColonnesFormat(d, g) {
   const f = formatColonnes(g);
   if (!f) return null;
+  // 0.39 : les mesures de toutes les vraies feuilles (planches, marches, feuille de la semaine) ;
+  // à défaut (sauvegardes d'avant), les planches de l'historique des séances.
+  const ms = medianeRecente(mesuresAuFormat(d, 'colonnes', f));
+  if (ms !== null) return ms;
   const t = (d.sessions ?? []).filter((s) => {
     const r = s.reglages ?? {};
     return s.module === 'planches' && s.total > 0 && s.dureeMs > 0 && s.justes / s.total >= 0.7 && (!r.genre || r.genre === 'gestes')

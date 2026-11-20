@@ -4,7 +4,8 @@
  */
 
 import { genererMultiplication, genererDivision, genererMultiplicationDecimale, genererDivisionDecimale, genererDivisionReste } from '../core/multiplication.js';
-import { enregistrerSession, traiterErreurOperation, progression } from '../core/progression.js';
+import { enregistrerSession, traiterErreurOperation, progression, noterMesures, aujourdhui } from '../core/progression.js';
+import { SEUIL_MESURE, formatProbleme } from '../core/mesures.js';
 import { gradeOperation, reserveKyu } from '../core/formatKyu.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerFeuille } from '../ui/feuille.js';
@@ -16,6 +17,13 @@ import { tempsParUnite, mediane, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 function tempsMedian(b, feuille) {
   const t = b.resultats.filter((r) => r.juste && r.ex && !r.autoEvalue).map((r) => (feuille ? tempsParUnite(r.ex, b.dureeMs / b.total, SURCOUT_FEUILLE_S) : tempsParUnite(r.ex, r.dureeMs)));
   return t.length >= 3 ? Math.round(mediane(t) * 100) / 100 : undefined;
+}
+
+/** Mesure de vitesse (0.39) : 70 % de justes au moins ; « au format du kyū » quand c'est le cas. */
+function noterMesureMulDiv(r, b, t) {
+  if (t == null || !b.total || b.justes / b.total < SEUIL_MESURE) return;
+  const ex = b.resultats.find((x) => x.ex)?.ex;
+  noterMesures([{ date: aujourdhui(), source: 'entrainement', partie: r.type, format: ex ? formatProbleme(ex) : r.type, t, n: b.total, reussite: Math.round((b.justes / b.total) * 100) / 100, ...(r.format === 'kyu' ? { kyu: true } : {}) }]);
 }
 
 const reglages = { type: 'mul', x: 2, y: 1, nombre: 10, mode: 'une', partZeros: 0, partArrondis: 0, partRestes: 0, rang: 'millieme', format: 'kyu' };
@@ -116,6 +124,7 @@ export default {
           sections: [{ problemes: Array.from({ length: r.nombre }, generer) }],
           surFin: (b) => {
             enregistrerSession({ module: 'muldiv', mode: r.type, reglages: { ...r, proposition }, total: b.total, justes: b.justes, dureeMs: b.dureeMs, t: tempsMedian(b, true) });
+            noterMesureMulDiv(r, b, tempsMedian(b, true));
             return h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
               h('p', {}, `Temps ${formaterDuree(b.dureeMs)}`), h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle feuille'));
           },
@@ -128,6 +137,7 @@ export default {
           courant.detruire();
           courant = null;
           await enregistrerSession({ module: 'muldiv', mode: r.type, reglages: { ...r, proposition }, total: b.total, justes: b.justes, dureeMs: b.dureeMs, t: tempsMedian(b, false) });
+          noterMesureMulDiv(r, b, tempsMedian(b, false));
           zone.append(h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
             h('p', {}, `Réussite ${formaterPourcent(b.justes, b.total)} · ${formaterDuree(b.dureeMs / b.total)} par calcul`),
             h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle série')), listeErreurs(b.resultats) ?? '');

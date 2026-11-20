@@ -199,14 +199,35 @@ const TEMPS_PAR_SEMAINE = 60;
  * Garde les temps des essais RÉUSSIS, semaine par semaine (pour repérer un plateau sur la durée,
  * ce que l'historique des 30 derniers essais ne permet pas).
  */
-export function ajouterSemaine(fiche, t, date) {
+export function ajouterSemaine(fiche, t, date, format = null) {
   if (t == null) return;
-  fiche.sem ??= {};
-  const s = (fiche.sem[lundi(date)] ??= []);
-  s.push(Math.round(t * 100) / 100);
-  if (s.length > TEMPS_PAR_SEMAINE) s.shift();
-  const cles = Object.keys(fiche.sem).sort();
-  for (const k of cles.slice(0, Math.max(0, cles.length - SEMAINES_GARDEES))) delete fiche.sem[k];
+  const ranger = (sem) => {
+    const s = (sem[lundi(date)] ??= []);
+    s.push(Math.round(t * 100) / 100);
+    if (s.length > TEMPS_PAR_SEMAINE) s.shift();
+    const cles = Object.keys(sem).sort();
+    for (const k of cles.slice(0, Math.max(0, cles.length - SEMAINES_GARDEES))) delete sem[k];
+  };
+  ranger((fiche.sem ??= {}));
+  // 0.39 : aussi PAR FORMAT (lignes × chiffres de la colonne) : un temps par chiffre sur 10 lignes de
+  // 3 chiffres ne se compare pas à celui de 5 lignes d'un chiffre.
+  if (format) ranger(((fiche.semF ??= {})[format] ??= {}));
+}
+
+/** Les semaines du format le plus pratiqué (à défaut, toutes formats mêlés, avant la 0.39). */
+export function semDominante(fiche) {
+  const f = Object.entries(fiche?.semF ?? {});
+  if (!f.length) return fiche?.sem ?? {};
+  const poids = (sem) => Object.values(sem).reduce((t, ts) => t + ts.length, 0);
+  return f.sort((a, b) => poids(b[1]) - poids(a[1]))[0][1];
+}
+
+/** Plateau d'une fiche, à format identique (0.39) ; à défaut, toutes colonnes mêlées. */
+export function plateauFiche(fiche, date) {
+  const f = Object.entries(fiche?.semF ?? {});
+  if (!f.length) return plateau(fiche?.sem, date);
+  for (const [format, sem] of f) { const p = plateau(sem, date); if (p) return { ...p, format }; }
+  return null;
 }
 
 export const MIN_PAR_SEMAINE = 10;

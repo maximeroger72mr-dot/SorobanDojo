@@ -21,6 +21,7 @@ export const OPACITE_AIDE_MAX = 0.45;
 import { diagnostiquer, localiserErreur, motifsDeLigne, typeErreurOperation } from '../core/diagnostic.js';
 import { nomMotif, gesteMotif, exempleMotif } from '../core/motifs.js';
 import { tempsParUnite, tempsCible, unites, SURCOUT_S, MIN_ESSAIS } from '../core/maitrise.js';
+import { formatProbleme } from '../core/mesures.js';
 import { lireReponse, egal } from '../core/nombres.js';
 import { aideDivision } from '../core/multiplication.js';
 import { Soroban } from '../core/soroban.js';
@@ -397,7 +398,7 @@ export function creerSerie(conteneur, o) {
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
-    const bilanGestes = ex.motifs && !aideUtilisee ? await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t) : [];
+    const bilanGestes = ex.motifs && !aideUtilisee ? await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t, { format: formatProbleme(ex) }) : [];
     await noterReponse(juste);
     await opts.surExercice?.({ juste, reponse, dureeMs, t, aide: aideUtilisee }, ex, i);
     majDiag();

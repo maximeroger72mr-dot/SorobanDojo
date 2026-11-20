@@ -49,7 +49,7 @@ export default {
         e.courante ? h('p', {}, `Marche ${e.courante.n} : une feuille d'environ ${MINUTES_FEUILLE_MARCHE} minutes au format du ${g.nom}, dans le temps de la marche, avec ${Math.round(JUSTES_MARCHE * 100)} % de justes. Deux fois, deux jours différents${e.reussites.length ? ` (déjà réussie le ${dateFr(e.reussites[0])})` : ''}.`)
           : h('p', { class: 'retour ok' }, `Les 5 marches sont franchies : vous tenez l'allure du ${g.nom} avec de la marge. Place à l'examen !`)));
       // Prédiction honnête.
-      const s = scoreProjete(g, d);
+      const s = scoreProjete(g, d, aujourdhui());
       const date = dateProjetee(e, aujourdhui());
       el.append(h('div', { class: 'carte' },
         h('h2', { style: 'margin-top:0' }, 'Si l\'examen avait lieu aujourd\'hui'),
@@ -61,6 +61,8 @@ export default {
           : h('p', {}, 'Pas encore assez de mesures (vitesse des colonnes et des × ÷) pour une projection.'),
         h('p', {}, date ? `Au rythme de vos marches (${Math.round(date.joursParMarche)} jours par marche), l'allure d'examen arriverait vers le ${dateFr(date.date)}.`
           : 'La date projetée s\'affiche après la première marche franchie : on ne la devine pas avant.'),
+        s?.source === 'examen' ? h('p', { class: 'discret' }, 'Projection tirée de votre dernier examen de ce grade (moins de 3 semaines) : la vitesse sous examen.') : null,
+        s?.aConfirmer ? h('p', { class: 'discret' }, `Vitesse à confirmer : une partie vient encore de vos gestes ou de vos leçons, pas de feuilles au format du ${g.nom}. Une planche ou une marche au format la mesurera.`) : null,
         h('p', { class: 'discret' }, 'Des repères, pas des promesses : la vitesse progresse par paliers, et la fatigue ou la régularité changent tout.')));
       if (e.courante) {
         const parties = [['mitori', 'Colonnes'], ['mul', 'Multiplications'], ['div', 'Divisions']].filter(([k]) => k === 'mitori' || g[k]);
@@ -85,6 +87,7 @@ export default {
         titre: `Marche ${m.n} · ${g.nom} · ${f.minutes.toLocaleString('fr-FR')} min`,
         sections: f.sections,
         minutes: f.minutes,
+        mesure: { source: 'entrainement', grade: g },
         surFin: (b) => {
           const reussi = feuilleMarcheReussie(b.justes, b.total);
           enregistrerSession({ module: 'marches', mode: 'feuille', reglages: { grade: g.id, marche: m.n }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
@@ -111,6 +114,7 @@ export default {
         titre: `Fractionné ${k} / ${SERIES_FRACTIONNE} · ${f.minutes.toLocaleString('fr-FR')} min`,
         sections: f.sections,
         minutes: f.minutes,
+        mesure: { source: 'entrainement', grade: g },
         surFin: (b) => {
           enregistrerSession({ module: 'marches', mode: 'fractionne', reglages: { grade: g.id, marche: m.n, partie: cle }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           return h('div', { class: 'carte bilan' }, h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),

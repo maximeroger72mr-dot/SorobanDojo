@@ -16,7 +16,7 @@
  */
 
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
-import { evaluer, NIVEAUX, mediane } from './maitrise.js';
+import { evaluer, NIVEAUX, mediane, semDominante } from './maitrise.js';
 import { famillesApprises, planObjectif, gestesLents, defiSemaine, anzanAdapte, formatExamen, grade as gradeDe } from './parcours.js';
 import { nomMotif } from './motifs.js';
 import { examenDeLaSemaine, resultatSemaine, meilleurPrekyu } from './examen.js';
@@ -277,6 +277,7 @@ export function motDuProf(d, date, decision, o = {}) {
     const r = resultatSemaine(d, date);
     if (r?.reussi) phrases.push(`${g.nom} réussi cette semaine (${r.points} / ${r.total}) : bravo.`);
     else if (r) phrases.push(`Examen blanc : ${r.points} / ${r.total} cette semaine. Regardez vos erreurs : elles disent quoi travailler la semaine prochaine.`);
+    else if ([5, 6, 0].includes(jourSemaine) && examenHorsSeance === 'socle') phrases.push(`L'examen du socle (${g.nom}) vous attend dans « Pour compléter » jusqu'à dimanche : tentez-le quand vous voulez, la leçon garde sa place.`);
     else if ([5, 6, 0].includes(jourSemaine) && examenHorsSeance) phrases.push(`L'examen blanc (${g.nom}) est ouvert jusqu'à dimanche, dans « Pour compléter » : il est plus long que votre objectif du jour, à vous de voir.`);
     else if ([5, 6, 0].includes(jourSemaine)) phrases.push(v('kyu', [`L'examen blanc (${g.nom}) est ouvert jusqu'à dimanche : chronométré, sans aide. Raté, il ne vous retire rien.`,
       `Ce week-end, l'examen blanc remplace la leçon : ${g.nom}, en conditions réelles.`]));
@@ -288,7 +289,8 @@ export function motDuProf(d, date, decision, o = {}) {
     const p = planObjectif(d, ob.grade, ob.date, date);
     if (p && !p.reussi && p.jours > 0 && (p.verdict !== 'realiste' || jourSemaine === 1)) {
       const dateR = new Date(`${p.dateRealiste}T12:00`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-      if (p.verdict === 'realiste') phrases.push(`Objectif ${p.grade.nom} : vous êtes dans les temps, tenez le rythme.`);
+      if (p.plateauVitesse) phrases.push(`Objectif ${p.grade.nom} : votre vitesse ne progresse plus depuis 3 semaines. Pas de date pour l'instant : sprints au-dessus de votre allure et marches pour repartir.`);
+      else if (p.verdict === 'realiste') phrases.push(`Objectif ${p.grade.nom} : vous êtes dans les temps, tenez le rythme.`);
       else if (p.verdict === 'ambitieux') phrases.push(`Objectif ${p.grade.nom} : c'est serré, il faudrait environ ${p.minutesJour} min par jour (date réaliste : ${dateR}).`);
       else phrases.push(`Objectif ${p.grade.nom} : soyons honnêtes, la date n'est pas réaliste (visez plutôt ${dateR}${p.atteignable ? ` ; d'ici là, le ${p.atteignable.nom} est atteignable` : ''}).`);
     }
@@ -328,7 +330,7 @@ export function constatsDuJour(d, date, decision, difficiles = []) {
   const lundiDe = (x) => { const t = new Date(`${x}T12:00`); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t; };
   let meilleur = null;
   for (const [c, f] of Object.entries(motifs)) {
-    const sem = Object.entries(f.sem ?? {}).filter(([, ts]) => ts.length >= 10).sort(([a], [b]) => (a < b ? 1 : -1));
+    const sem = Object.entries(semDominante(f)).filter(([, ts]) => ts.length >= 10).sort(([a], [b]) => (a < b ? 1 : -1));
     if (sem.length < 2) continue;
     const recent = sem[0];
     if ((lundiDe(date) - new Date(`${recent[0]}T12:00`)) / 86400000 > 7) continue;

@@ -35,6 +35,18 @@ export function reviser(carte, reussi, aujourdhui) {
 
 export const estDue = (carte, aujourdhui) => !!carte && !carte.acquise && carte.echeance <= aujourdhui;
 
+/**
+ * Ordre des révisions dues (0.39) : les plus FRAGILES d'abord (« fluidité à reprendre », puis la
+ * boîte la plus basse), puis les plus en retard. Après une pause, la séance en prend 3 au plus :
+ * pas d'avalanche, les autres suivent les jours d'après.
+ * @param {(id: string) => object} etat  état d'une leçon (sa carte)
+ */
+export const REVISIONS_SEANCE_MAX = 3;
+export const ordreRevisions = (etat) => (a, b) => {
+  const ea = etat(a.id ?? a); const eb = etat(b.id ?? b);
+  return (eb.fluidite ? 1 : 0) - (ea.fluidite ? 1 : 0) || (ea.carte?.boite ?? 1) - (eb.carte?.boite ?? 1) || String(ea.carte?.echeance).localeCompare(String(eb.carte?.echeance));
+};
+
 /** Révision mélangée (0.38) : 3 leçons au plus ; 5 calculs chacune à 2 leçons, 4 à 3 leçons. */
 export const MELANGE_MAX = 3;
 export const calculsMelange = (n) => n * (n <= 2 ? 5 : 4);

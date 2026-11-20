@@ -169,7 +169,9 @@ export const PALIERS = [
       { id: 'p4-3', titre: '−5 à −1', cibles: D('-', [5, 4, 3, 2, 1], 'grand'), chiffres: 1, lignes: 5, repetitions: 50,
         pourquoi: '−5 = −10 + 5 … −1 = −10 + 9. On emprunte 1 dizaine, puis on ajoute le grand complément (céleste, ou pincée céleste + terrestres).',
         demos: [{ depart: 13, op: '-', n: 5 }, { depart: 10, op: '-', n: 1 }] },
-      { id: 'p4-4', titre: 'Grands amis en soustraction, 2 et 3 chiffres', cibles: moins(GRAND), chiffres: 2, lignes: 5, repetitions: 50,
+      // 0.39 : premier nombre à 3 chiffres, assez grand pour toutes les soustractions de la colonne
+      // (avant : 4 chiffres une fois sur deux, quand les lignes passaient à 3 chiffres).
+      { id: 'p4-4', titre: 'Grands amis en soustraction, 2 chiffres (départ à 3 chiffres)', cibles: moins(GRAND), chiffres: 2, departChiffres: 3, lignes: 5, repetitions: 50,
         pourquoi: 'L\'emprunt se prend sur la tige de gauche, déjà calculée. Toujours de gauche à droite.',
         demos: [{ depart: 95, op: '-', n: 17 }] },
       { id: 'p4-5', titre: 'Tous les grands amis, 3 chiffres', cibles: GRAND, chiffres: 3, lignes: 5, repetitions: 50,
@@ -788,7 +790,7 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // Après les grands amis (toutes les retenues apprises), les colonnes à plusieurs chiffres suivent
   // le format d'examen : premier nombre à la longueur annoncée.
   const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
-  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe }, memoireDe(sp.id));
+  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: sp.departChiffres }, memoireDe(sp.id));
 }
 
 /**

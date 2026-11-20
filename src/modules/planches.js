@@ -19,6 +19,7 @@ import { formatsPlanche } from '../core/propositions.js';
 import { systemeChoisi } from '../core/epreuves.js';
 import { allureGrade, SURCOUT_PROBLEME_S } from '../core/allure.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
+import { formatProbleme } from '../core/mesures.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { creerFeuille } from '../ui/feuille.js';
 import { carteMaitrise } from '../ui/carteMaitrise.js';
@@ -387,6 +388,7 @@ export default {
       const jusqua = r.pyramide && r.pyramide !== 'non' ? 'jusqu\'à ' : '';
       const titre = `${c.libelle} · ${r.pyramide === 'chiffres' ? jusqua : ''}${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.pyramide === 'lignes' ? jusqua : ''}${r.lignes} lignes`;
       feuille = creerFeuille(zone, {
+        mesure: (!r.genre || r.genre === 'gestes') && (!r.pyramide || r.pyramide === 'non') ? { source: 'entrainement' } : null,
         doigte: !!r.doigte,
         reprises: 3, // colonnes fausses dont l'erreur est identifiée : reprise proposée, 3 au plus
         historique: { cle: `planche-${r.chiffres}-${r.lignes}-${genre}${suffixe}`, libelle: titre },
@@ -413,7 +415,7 @@ export default {
               // Le temps d'une feuille est une moyenne : il ne renseigne la vitesse d'un geste que si
               // la planche ne vise QUE ce geste. Sinon, seule la justesse compte.
               const t = c.cibles.length === 1 ? tempsParUnite(x.ex, dureeMoyenne, SURCOUT_FEUILLE_S) : null;
-              if (x.ex.motifs) await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], t);
+              if (x.ex.motifs) await noterGestes(x.juste ? x.ex.motifs : [], loc?.motifs ?? [], t, { format: formatProbleme(x.ex) });
             }
             await enregistrerSession({ module: 'planches', mode: planche.speciale ? `genre:${r.genre}` : r.cible, reglages: r, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
           })();

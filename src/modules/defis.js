@@ -294,9 +294,11 @@ export default {
       // Temps « confirmé » de la feuille : seuils du niveau + frappe de chaque réponse.
       const cibleVitesse = problemes.reduce((t, ex) => t + (tempsCible(ex, niveau('confirme')) + SURCOUT_FEUILLE_S) * 1000, 0);
       remplir(el, retourBtn(), h('h1', {}, 'Défi de la semaine'));
+      const premierPassage = !progression().sessions.some((s) => s.module === 'defis' && s.mode === 'semaine' && s.reglages?.semaine === semaine.cle);
       courant = creerFeuille(el, {
         titre: `Défi de la semaine · ${semaine.description}`,
         sections: semaine.sections,
+        mesure: premierPassage ? { source: 'entrainement', grade: semaine.grade ?? null } : null,
         surFin: (b) => {
           const score = b.dureeMs + (b.total - b.justes) * PENALITE_SEMAINE_MS;
           enregistrerSession({ module: 'defis', mode: 'semaine', reglages: { semaine: semaine.cle }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });

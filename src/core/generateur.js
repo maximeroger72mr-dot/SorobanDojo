@@ -324,7 +324,7 @@ export function colonneValide(col, cibles = [], strict = true) {
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null }) {
   let liste;
   let motifs;
   let valeur;
@@ -335,6 +335,20 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // oblige à visualiser deux tiges dès le départ). De préférence un chiffre qui permet une cible.
     const ouverts = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), 1) > 0);
     valeur = hasard(ouverts.length ? ouverts : [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    liste = [{ op: '+', n: valeur }];
+    motifs = [];
+    motifsLignes = [[]];
+  } else if (departChiffres) {
+    // Départ plus long que les lignes (p4-4) : assez grand pour que toutes les soustractions de la
+    // colonne restent positives (chaque ligne enlève au plus 10^chiffres − 1).
+    const min = Math.min(10 ** departChiffres - 1, Math.max(10 ** (departChiffres - 1), (lignes - 1) * 10 ** chiffres + 10 ** chiffres));
+    let choix = null;
+    for (let k = 0; k < 40; k++) {
+      const v = entier(min, 10 ** departChiffres - 1);
+      const score = ouvertures(v, cibles.filter((c) => ops.includes(analyserMotif(c).op)), chiffres) + Math.random();
+      if (!choix || score > choix.score) choix = { v, score };
+    }
+    valeur = choix.v;
     liste = [{ op: '+', n: valeur }];
     motifs = [];
     motifsLignes = [[]];

@@ -11,11 +11,12 @@ import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
 import { systemeChoisi, genererSujet } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
-import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
+import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence } from './maitrise.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
 import { allureGrade, vitesseEleve, formatColonnes } from './allure.js';
+import { ratioExamen, gainHebdo, semainesRatios, mesuresAuFormat, GAIN_REPERE } from './mesures.js';
 
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
@@ -235,7 +236,7 @@ export function defiSemaine(d, date) {
     const gv = gr.prochain ?? sys.grades.at(-1);
     const graineK = [...`${semaine}-kyu-${sys.id}-${gv.id}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
     const sectionsK = avecGraine(graineK, () => genererSujet(gv).sections.map((x) => ({ titre: x.titre, problemes: x.problemes.slice(0, Math.max(1, Math.ceil(x.problemes.length / 5))) })));
-    return { cle: `defi-semaine-${semaine}-kyu-${sys.id}-${gv.id}`, semaine, sections: sectionsK, description: `au format du ${gv.nom} : un cinquième de son sujet` };
+    return { cle: `defi-semaine-${semaine}-kyu-${sys.id}-${gv.id}`, semaine, sections: sectionsK, grade: gv, description: `au format du ${gv.nom} : un cinquième de son sujet` };
   }
   const palier = `${chiffres}${mul ? `m${fMul.join('')}` : ''}${div ? `d${fDiv.join('')}` : ''}${amis.length}`;
   const graine = [...`${semaine}-${palier}`].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -352,13 +353,13 @@ export function plateaux(d, date) {
   const liste = [];
   for (const [cle, f] of Object.entries(d.motifs)) {
     if (cle.endsWith(':direct') || evaluer(f.hist ?? []).niveau.id === 'expert') continue;
-    const p = plateau(f.sem, date);
+    const p = plateauFiche(f, date);
     if (p) liste.push({ type: 'geste', cle, nom: nomMotif(cle), ...p });
   }
   for (const [id, e] of Object.entries(d.paliers)) {
     const sp = SOUS_PALIERS.find((s) => s.id === id);
     if (!sp || sp.type !== 'addsub' || evaluer(e.hist ?? []).niveau.id === 'expert') continue;
-    const p = plateau(e.sem, date);
+    const p = plateauFiche(e, date);
     if (p) liste.push({ type: 'lecon', cle: id, nom: `la leçon « ${sp.titre} »`, cibles: sp.cibles, ...p });
   }
   return liste.sort((a, b) => b.maintenant / b.avant - a.maintenant / a.avant);
@@ -485,7 +486,18 @@ export function verificationVitesse(d) {
  * (colonnes de plus en plus longues, temps limité) qui demandent des mois de drills.
  */
 /** Hypothèse prudente : vitesse gagnée par semaine de pratique régulière (planObjectif). */
-export const GAIN_VITESSE_SEMAINE = 0.02;
+export const GAIN_VITESSE_SEMAINE = GAIN_REPERE;
+
+/**
+ * Points (date, ratio à l'allure du grade) d'une partie, pour le gain par semaine : examens de ce
+ * grade (mixte), ou feuilles d'entraînement au format (colonnes, ou × ÷).
+ */
+function pointsVitesse(d, g, a, partie, cleG) {
+  const ms = d.mesures ?? [];
+  if (partie === 'mixte') return ms.filter((m) => m.partie === 'mixte' && m.grade === cleG && m.source === 'examen').map((m) => ({ date: m.date, ratio: m.ratio }));
+  if (partie === 'colonnes') return mesuresAuFormat(d, 'colonnes', formatColonnes(g)).map((m) => ({ date: m.date, ratio: m.t / a.parChiffre }));
+  return ['mul', 'div'].filter((k) => g[k]).flatMap((k) => mesuresAuFormat(d, k, null, g[k]?.total)).map((m) => ({ date: m.date, ratio: m.t / a.parProduit }));
+}
 export const MOIS_REPERE = { 10: 3, 9: 4, 8: 6, 7: 8, 6: 11, 5: 14, 4: 18, 3: 24, 2: 30, 1: 36 };
 const ajouterMois = (date, mois) => { const x = new Date(`${date}T12:00`); x.setDate(x.getDate() + Math.round(mois * 30.4)); return x.toISOString().slice(0, 10); };
 
@@ -535,11 +547,21 @@ export function planObjectif(d, gradeId, dateCible, date) {
   // 0.38.4 : colonnes mesurées AU FORMAT du grade quand c'est possible (sinon estimées sur les
   // gestes, « à confirmer ») ; × et ÷ jamais mesurés : signalés, pas ignorés en silence.
   const v = vitesseEleve(d, g);
-  const ratios = [v.parChiffre != null ? v.parChiffre / a.parChiffre : null, (g.mul || g.div) && v.parProduit != null ? v.parProduit / a.parProduit : null].filter((x) => x != null);
-  const ecart = ratios.length ? Math.max(...ratios) : null;
-  const muldivNonMesure = !!(g.mul || g.div) && v.parProduit == null;
-  const colonnesAConfirmer = v.parChiffre != null && !v.colonnesAuFormat;
-  const moisVitesse = ecart == null ? null : ecart <= 1 ? 0 : Math.log(ecart) / -Math.log(1 - GAIN_VITESSE_SEMAINE) / 4.33;
+  const rCol = v.parChiffre != null ? v.parChiffre / a.parChiffre : null;
+  const rProd = (g.mul || g.div) && v.parProduit != null ? v.parProduit / a.parProduit : null;
+  const ratios = [rCol, rProd].filter((x) => x != null);
+  // 0.39 : un examen de ce grade de moins de 3 semaines dit l'allure SOUS EXAMEN ; sinon les
+  // feuilles d'entraînement (la partie la plus lente).
+  const cleG = `${g.systeme ?? 'nissho'}:${g.id}`;
+  const exam = ratioExamen(d, cleG, date);
+  const ecart = exam ? exam.ratio : ratios.length ? Math.max(...ratios) : null;
+  const muldivNonMesure = !exam && !!(g.mul || g.div) && v.parProduit == null;
+  const colonnesAConfirmer = !exam && v.parChiffre != null && !v.colonnesAuFormat;
+  // Gain par semaine (0.39) : le repère de 2 %, puis le gain RÉEL lissé sur les semaines mesurées.
+  const limitante = exam ? 'mixte' : rProd != null && (rCol == null || rProd > rCol) ? 'produits' : 'colonnes';
+  const gh = gainHebdo(semainesRatios(pointsVitesse(d, g, a, limitante, cleG), date));
+  const plateauVitesse = gh.plateau && ecart != null && ecart > 1;
+  const moisVitesse = ecart == null ? null : ecart <= 1 ? 0 : Math.log(ecart) / -Math.log(1 - gh.gain) / 4.33;
   const base = moisLecons != null && moisVitesse != null ? 'rythme' : 'repere';
   const moisRestants = base === 'rythme' ? Math.max(moisLecons, moisVitesse) : repere;
   const moisDispo = Math.max(0, jours / 30.4);
@@ -558,6 +580,7 @@ export function planObjectif(d, gradeId, dateCible, date) {
     grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, verdict, realiste: verdict === 'realiste',
     moisRestants, dateRealiste, atteignable: atteignable && atteignable !== g ? atteignable : null,
     base, moisLecons, moisVitesse, ecartVitesse: ecart, muldivNonMesure, colonnesAConfirmer, format: formatColonnes(g),
+    sourceVitesse: exam ? 'examen' : 'entrainement', gainSemaine: gh.gain, gainReel: gh.reel, semainesMesurees: gh.semaines, plateauVitesse,
   };
 }
 

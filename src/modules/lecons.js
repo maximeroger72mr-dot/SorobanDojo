@@ -32,6 +32,7 @@ import { creerQuestions } from '../ui/questions.js';
 import { avecTermes } from '../ui/termes.js';
 import { questionDoigte } from '../ui/doigte.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
+import { formatProbleme } from '../core/mesures.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
 import { ajouterJours } from '../core/revision.js';
@@ -553,8 +554,8 @@ export default {
           enregistrerSession({ module: 'lecons', mode: 'entrainement', reglages: { sousPalier: sp.id }, ...lot });
           lot = { total: 0, justes: 0, dureeMs: 0 };
         };
-        const compter = async (juste, dureeMs, t) => {
-          await compterRepetition(sp.id, juste, t);
+        const compter = async (juste, dureeMs, t, ex = null) => {
+          await compterRepetition(sp.id, juste, t, ex ? formatProbleme(ex) : null);
           // Pas de coupe-file pour une leçon auto-évaluée (« Tenir une image ») : aucun temps mesuré.
           if (!['tenir', 'lire', 'complement'].includes(sp.type) && await verifierCoupeFile(sp.id, sp.repetitions, famille(sp))) {
             notifier('Coupe-file : mini-test débloqué', '15 premiers exercices justes et rapides : vous pouvez passer le mini-test dès maintenant.');
@@ -593,7 +594,7 @@ export default {
                 }
                 if (photo) { photo.noter(res.juste); memoriserDureePhoto(sp.id, photo.secondes); }
                 if (n % 5 === 0) majConseil();
-                return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t);
+                return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t, ex);
               },
             });
           } else {
@@ -608,10 +609,10 @@ export default {
                   const dureeMoyenne = b.dureeMs / b.total;
                   for (const r of b.resultats) {
                     const t = tempsParUnite(r.ex, dureeMoyenne, SURCOUT_FEUILLE_S);
-                    await compter(r.juste, dureeMoyenne, t);
+                    await compter(r.juste, dureeMoyenne, t, r.ex);
                     const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
                     // Vitesse des gestes : seulement si la leçon ne vise qu'un geste (moyenne de feuille).
-                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 ? t : null);
+                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 ? t : null, { format: formatProbleme(r.ex) });
                   }
                   majBandeau();
                 })();

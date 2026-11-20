@@ -17,6 +17,7 @@ import { formatExamen } from './parcours.js';
 import { allureGrade, vitesseEleve } from './allure.js';
 import { gradeOperation } from './formatKyu.js';
 import { evaluer, mediane } from './maitrise.js';
+import { mesuresAuFormat, medianeRecente } from './mesures.js';
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
 
 export const PARTIES = ['colonnes', 'mul', 'div'];
@@ -34,6 +35,10 @@ export function hakariActif(d) {
  * du kyū » (mesure enregistrée avec la séance), à défaut ses leçons de ce type.
  */
 export function tempsOperation(d, type) {
+  // 0.39 : les mesures au format du kyū (hakari, marches) d'abord.
+  const g = formatExamen(d).grade;
+  const m = medianeRecente(mesuresAuFormat(d, type, null, g?.[type]?.total));
+  if (m !== null) return m;
   const feuilles = d.sessions.filter((s) => s.module === 'muldiv' && s.mode === type && s.reglages?.format === 'kyu' && Number.isFinite(s.t)).slice(-5).map((s) => s.t);
   if (feuilles.length >= 2) return mediane(feuilles);
   const lecons = SOUS_PALIERS.filter((sp) => !sp.mental && sp.type === type && familleLecon(sp) === 'muldiv')
@@ -50,8 +55,9 @@ export function tempsOperation(d, type) {
 export function retardParties(d) {
   const g = formatExamen(d).grade;
   const a = allureGrade(g);
-  const v = vitesseEleve(d);
-  const res = [{ partie: 'colonnes', eleve: v.parChiffre, besoin: a.parChiffre }];
+  // 0.39 : la vitesse en colonnes AU FORMAT du grade visé (les gestes isolés en secours, à confirmer).
+  const v = vitesseEleve(d, g);
+  const res = [{ partie: 'colonnes', eleve: v.parChiffre, besoin: a.parChiffre, aConfirmer: v.parChiffre != null && !v.colonnesAuFormat }];
   for (const type of ['mul', 'div']) if (gradeOperation(d, type)) res.push({ partie: type, eleve: tempsOperation(d, type), besoin: a.parProduit });
   return res.map((x) => ({ ...x, ratio: x.eleve == null ? Infinity : x.eleve / x.besoin })).sort((x, y) => y.ratio - x.ratio);
 }

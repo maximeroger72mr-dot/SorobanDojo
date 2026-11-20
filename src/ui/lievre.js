@@ -15,6 +15,7 @@
  * Les gestes sont notés sur la carte de maîtrise, au temps de la cadence imposée.
  */
 
+import { formatProbleme } from '../core/mesures.js';
 import { genererColonneVariee, creerMemoire, ErreurGeneration } from '../core/generateur.js';
 import { genererColonneGeste, creerMemoirePlanche } from '../core/colonneGeste.js';
 import { motifsAppris } from '../core/parcours.js';
@@ -134,8 +135,8 @@ export function creerLievre(conteneur, o) {
     // Carte de maîtrise : une colonne juste crédite ses gestes, au temps de la cadence imposée
     // (on l'a tenue, donc au moins aussi vite) ; une erreur n'accuse qu'un geste prouvé.
     const t = cadence / o.chiffres;
-    if (o.sansNotation) { /* surcharge : au-dessus de sa vitesse, l'erreur est attendue */ } else if (juste) await noterGestes(col.motifs, [], t);
-    else await noterGestes([], localiserErreur(col, rep)?.motifs ?? [], t);
+    if (o.sansNotation) { /* surcharge : au-dessus de sa vitesse, l'erreur est attendue */ } else if (juste) await noterGestes(col.motifs, [], t, { format: formatProbleme(col) });
+    else await noterGestes([], localiserErreur(col, rep)?.motifs ?? [], t, { format: formatProbleme(col) });
     k += 1;
     saisie.disabled = true;
     zone.querySelectorAll('tr').forEach((tr) => { tr.className = ''; });

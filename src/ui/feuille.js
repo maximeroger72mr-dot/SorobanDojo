@@ -8,10 +8,11 @@
  */
 
 import { diagnostiquer, erreurIdentifiee, typeErreurOperation } from '../core/diagnostic.js';
-import { noterErreurColonne, noterErreurOperation, noterFeuille, noterVolume } from '../core/progression.js';
+import { noterErreurColonne, noterErreurOperation, noterFeuille, noterVolume, noterMesures, aujourdhui } from '../core/progression.js';
+import { mesuresFeuille } from '../core/mesures.js';
 import { NIVEAUX, unites, familleTemps, formaterTemps, formaterCadence, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
 import { lireReponse, egal, milliersCorrects } from '../core/nombres.js';
-import { poidsProbleme, ecartAllure } from '../core/allure.js';
+import { poidsProbleme, ecartAllure, allureGrade } from '../core/allure.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
 import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
@@ -49,6 +50,8 @@ function liasse(bordereaux) {
  * @param {boolean} [o.milliers]  exiger les séparateurs de milliers (examen pur, 1er au 3e kyū)
  * @param {boolean} [o.parEpreuve]  chaque section a son propre temps (sec.minutes) : on les passe
  *   l'une après l'autre, sans revenir en arrière (épreuves d'anzan)
+ * @param {{ source: 'entrainement'|'examen', grade?: object }} [o.mesure]  la feuille est une mesure
+ *   de vitesse (0.39, voir core/mesures.js) ; grade : pour une feuille qui mêle colonnes, × et ÷
  * @param {number} [o.reprises]  nombre de colonnes fausses, au plus, dont on propose la reprise
  *   immédiate ; seulement quand l'erreur est identifiée sans ambiguïté (jamais en examen)
  */
@@ -281,6 +284,11 @@ export function creerFeuille(conteneur, o) {
       dureeMs,
       resultats,
     };
+    if (o.mesure) {
+      let allure = null;
+      try { allure = o.mesure.grade ? allureGrade(o.mesure.grade) : null; } catch { allure = null; }
+      noterMesures(mesuresFeuille(b, { source: o.mesure.source, date: aujourdhui(), grade: o.mesure.grade ?? null, allure }));
+    }
     const contenu = o.surFin?.(b);
     if (contenu) remplir(bilan, contenu);
     // Vitesse de la feuille : la référence de toute l'application (secondes par chiffre, temps de

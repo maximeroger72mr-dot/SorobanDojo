@@ -23,7 +23,7 @@ import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif, diagnosticPincee, gesteMotif } from '../core/motifs.js';
 import { gesteTravaillable } from '../core/colonneGeste.js';
-import { ajouterJours, MELANGE_MAX, calculsMelange } from '../core/revision.js';
+import { ajouterJours, MELANGE_MAX, calculsMelange, ordreRevisions } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
 import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
@@ -118,13 +118,13 @@ export function plan(d, debut, seance = null) {
   const dues = revisionsDues().map((id) => sousPalier(id)).filter(Boolean);
   const revisionFaite = fait((s) => s.module === 'revisions');
   if (dues.length || revisionFaite) {
-    const melangeables = dues.filter(melangeable).sort((a, b) => etatPalier(a.id).carte.echeance.localeCompare(etatPalier(b.id).carte.echeance));
+    const melangeables = dues.filter(melangeable).sort(ordreRevisions(etatPalier));
     const nm = Math.min(MELANGE_MAX, melangeables.length);
     const noms = melangeables.slice(0, MELANGE_MAX).map((x) => `« ${x.titre} »`);
     const calculs = melangeables.length > 1 ? calculsMelange(nm) : 10;
     essentiel.push({ titre: 'Révision', minutes: Math.max(2, Math.ceil((calculs * parExo) / 60)), fait: revisionFaite,
       detail: !dues.length ? 'faite' : melangeables.length > 1
-        ? `${calculs} calculs qui mélangent ${noms.join(', ')}${melangeables.length > MELANGE_MAX ? ' (les plus en retard ; les autres demain)' : ''}`
+        ? `${calculs} calculs qui mélangent ${noms.join(', ')}${melangeables.length > MELANGE_MAX ? ' (les plus fragiles, puis les plus en retard ; les autres demain)' : ''}`
         : `${dues.length} leçon${dues.length > 1 ? 's' : ''} à revoir (10 calculs)`,
       pourquoi: 'Revoir une leçon juste avant de l\'oublier la fixe pour longtemps ; mélangées, il faut choisir le bon geste, comme en vrai.',
       aller: melangeables.length > 1 ? ['revisions', { melange: true }] : ['revisions'] });
@@ -152,7 +152,11 @@ export function plan(d, debut, seance = null) {
   const completDansSeance = completVoulu && (completAujourdhui || (objectif >= OBJECTIF_EXAMEN_COMPLET && premierJourExamen));
   const examCourt = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
   const examVoulu = !!exam && !complet && (passeAujourdhui || (fenetreExamen && !examFait));
-  const examEssentiel = examVoulu && (passeAujourdhui || examCourt || (objectif >= OBJECTIF_EXAMEN_BLANC && premierJourExamen));
+  // 0.39 : le socle (examen court des premiers grades) aussi ne prend la place de la leçon qu'au
+  // premier jour pratiqué du créneau. Avant, tant qu'il n'était pas tenté, il la remplaçait les
+  // trois jours. Les autres jours, il reste dans « Pour compléter », à tenter quand on veut.
+  const examEssentiel = examVoulu && (passeAujourdhui || ((examCourt || objectif >= OBJECTIF_EXAMEN_BLANC) && premierJourExamen));
+  const socleEnBonus = examVoulu && examCourt && !examEssentiel;
   // Fait aujourd'hui avec un objectif plus court : l'examen a REMPLACÉ la séance.
   const remplacee = (completAujourdhui && objectif < OBJECTIF_EXAMEN_COMPLET) || (passeAujourdhui && examEssentiel && !examCourt && objectif < OBJECTIF_EXAMEN_BLANC);
   let seanceLongue = null;
@@ -182,7 +186,7 @@ export function plan(d, debut, seance = null) {
     if (completDansSeance) essentiel.push(item);
     else seanceLongue = item;
   }
-  if (examVoulu && !examEssentiel) {
+  if (examVoulu && !examEssentiel && !socleEnBonus) {
     const format = formatBlanc(date);
     seanceLongue = { titre: exam.id === 'hebdo' ? 'Examen blanc' : `Examen blanc · ${exam.nom}`, minutes: minutesBlanc(format), aller: ['examen', {}], examen: true, fait: false,
       detail: format === 'long' ? 'un sujet de 20 minutes sur tout ce que vous savez, en conditions d\'examen' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son verdict`,
@@ -443,11 +447,14 @@ export function plan(d, debut, seance = null) {
   garde.sort((a, b) => ORDRE_BLOCS.indexOf(a.blocSeance) - ORDRE_BLOCS.indexOf(b.blocSeance));
   const minutes = garde.reduce((t, it) => t + it.minutes, 0);
   const theme = themeDuJour(decision, examEssentiel ? exam : null, garde);
-  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: !!exam && !examEssentiel, leconEnBonus: !!leconEnBonus && !leconEnBonus.fait });
+  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: socleEnBonus ? 'socle' : !!exam && !examEssentiel, leconEnBonus: !!leconEnBonus && !leconEnBonus.fait });
   // Pour compléter (une fois l'objectif atteint) : ce qui n'a pas tenu, puis une planche, un flash
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
-  const complements = [...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
+  const socle = socleEnBonus ? [{ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: false,
+    detail: `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade : à tenter quand vous voulez, d'ici dimanche`,
+    pourquoi: 'Le socle ne prend la place de la leçon qu\'un jour par semaine : les autres jours, il attend ici, sans pression.' }] : [];
+  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }
@@ -534,13 +541,22 @@ function carteObjectif(d, rafraichir) {
     // gestes (colonnes courtes) sont à confirmer au format du grade ; × et ÷ non mesurés sont dits.
     const fmt = p.format ? `une planche au format du ${p.grade.nom} (${p.format.lignes} lignes de ${p.format.chiffres} chiffres)` : 'une planche au format du grade';
     const reserves = [p.colonnesAConfirmer ? `colonnes estimées sur vos gestes, à confirmer sur ${fmt}` : null, p.muldivNonMesure ? '× et ÷ pas encore mesurés' : null].filter(Boolean);
-    const vitesseTxt = p.moisVitesse
-      ? `, et la vitesse du ${p.grade.nom} environ ${mois(p.moisVitesse)} (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure${reserves.length ? `, ${reserves.join(' ; ')}` : ''} ; elle progresse pendant les leçons, en comptant 2 % par semaine)`
-      : reserves.length ? `, et pour la vitesse : ${reserves.join(' ; ')}` : `, et votre vitesse tient déjà l'allure du ${p.grade.nom}`;
+    // 0.39 : le gain par semaine part du repère de 2 %, puis suit votre gain mesuré ; en plateau
+    // (aucun gain sur 3 semaines), pas de date pour la vitesse.
+    const pct = (x) => (x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    const gainTxt = p.gainReel == null ? `en comptant ${pct(p.gainSemaine)} % par semaine (repère : pas encore assez de semaines mesurées)`
+      : `en comptant ${pct(p.gainSemaine)} % par semaine (votre gain mesuré sur ${p.semainesMesurees} semaines, mêlé au repère de 2 %)`;
+    const source = p.sourceVitesse === 'examen' ? ', mesuré sous examen' : '';
+    const vitesseTxt = p.plateauVitesse
+      ? `, et la vitesse du ${p.grade.nom} est en plateau : aucun gain mesuré depuis 3 semaines (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure${source}). Pas de date tant qu'elle ne repart pas`
+      : p.moisVitesse
+        ? `, et la vitesse du ${p.grade.nom} environ ${mois(p.moisVitesse)} (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure${source}${reserves.length ? `, ${reserves.join(' ; ')}` : ''} ; ${gainTxt})`
+        : reserves.length ? `, et pour la vitesse : ${reserves.join(' ; ')}` : `, et votre vitesse tient déjà l'allure du ${p.grade.nom}${source}`;
     const repere = p.base === 'rythme'
       ? `À votre rythme : les leçons demandent encore environ ${mois(p.moisLecons)}${vitesseTxt}. Recalculé chaque jour sur vos chiffres. `
       : `Repère : il faut en général encore ${duree} de pratique quotidienne pour le ${p.grade.nom} (pas encore assez de mesures pour partir de vos chiffres). `;
-    if (p.verdict === 'realiste') texte = `${lecons}${repere}C'est réaliste avec environ ${p.minutesJour} min par jour : tenez le rythme.`;
+    if (p.plateauVitesse && p.base === 'rythme') texte = `${lecons}${repere}Pour casser le plateau : des sprints au-dessus de votre allure et les marches ; la date reviendra avec les premiers gains.`;
+    else if (p.verdict === 'realiste') texte = `${lecons}${repere}C'est réaliste avec environ ${p.minutesJour} min par jour : tenez le rythme.`;
     else if (p.verdict === 'ambitieux') texte = `${lecons}${repere}C'est ambitieux : il faudrait environ ${p.minutesJour} min par jour, tous les jours. Une date réaliste : ${dateR}.`;
     else texte = `${lecons}${repere}Ce n'est pas réaliste pour cette date : visez plutôt ${dateR}${p.atteignable ? `, et d'ici là, le ${p.atteignable.nom} est un bon objectif intermédiaire` : ''}.`;
   }

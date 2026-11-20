@@ -224,7 +224,7 @@ export function creerMarathon(conteneur, o) {
     noterVolume(tranche.lignes.reduce((s, l) => s + String(l.n).length, 0));
     await noterReponse(juste);
     if (juste) {
-      await noterGestes(tranche.motifs, [], t);
+      await noterGestes(tranche.motifs, [], t, { format: 'ruban' });
       lignesTenues += TRANCHE;
       valeur = tranche.resultat;
       retour.className = 'retour ok';

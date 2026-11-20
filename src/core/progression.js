@@ -25,6 +25,7 @@
 
 import { nouvelleCarte, reviser, estDue, ajouterJours } from './revision.js';
 import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX, appliquerEchelle } from './maitrise.js';
+import { ajouterMesures } from './mesures.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
@@ -343,7 +344,7 @@ export function gestesAnzanFaibles(d, n = 3) {
   return mesures.filter((x) => x.taux >= Math.max(0.15, 1.5 * moyenne) && !x.cle.endsWith(':direct')).sort((a, b) => b.taux - a.taux).slice(0, n).map((x) => ({ ...x, moyenne }));
 }
 
-export async function noterGestes(reussis, rates, t, { confirme = false } = {}) {
+export async function noterGestes(reussis, rates, t, { confirme = false, format = null } = {}) {
   // Vitesse « isolée » : mesurée dans une colonne où le geste n'a pour voisins que des gestes de
   // sa famille (colonne de gestes directs seuls, ou colonne dont tous les amis sont de la même
   // famille). Sert à vérifier une vitesse incohérente (voir parcours.verificationVitesse).
@@ -360,7 +361,7 @@ export async function noterGestes(reussis, rates, t, { confirme = false } = {}) 
     f.essais += 1;
     f.dette = Math.max(0, f.dette - 0.5);
     ajouterEssai(f.hist, true, t);
-    ajouterSemaine(f, t, aujourdhui());
+    ajouterSemaine(f, t, aujourdhui(), format);
     if (t != null && familleColonne === familleDe(c)) {
       (f.isole ??= []).push(Math.round(t * 100) / 100);
       if (f.isole.length > 40) f.isole.shift();
@@ -499,13 +500,13 @@ export async function noterReconnu(id) {
 
 export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille);
 
-export async function compterRepetition(id, juste, t) {
+export async function compterRepetition(id, juste, t, format = null) {
   const e = palier(id);
   e.reps += 1;
   if (juste) e.justes += 1;
   e.hist ??= [];
   if (t !== undefined) ajouterEssai(e.hist, juste, t);
-  if (t !== undefined && juste) ajouterSemaine(e, t, aujourdhui());
+  if (t !== undefined && juste) ajouterSemaine(e, t, aujourdhui(), format);
   await sauver();
 }
 
@@ -564,6 +565,13 @@ export async function preparerSeriesTest(id, plan) {
  * Avant, le plan était effacé : la série suivante en tirait un nouveau et effaçait celle-ci.
  * @param {{ morceau?: number, taille?: number }} [o]  rang du morceau du plan fait, taille d'une série
  */
+/** Mesures de vitesse d'une vraie feuille (0.39, voir core/mesures.js). */
+export async function noterMesures(mesures) {
+  if (!mesures?.length) return;
+  ajouterMesures((donnees.mesures ??= []), mesures);
+  await sauver();
+}
+
 export async function noterSerieTest(id, serie, { morceau = 0, taille = 5 } = {}) {
   const e = palier(id);
   const j = aujourdhui();
@@ -627,6 +635,7 @@ export async function enregistrerRevision(id, reussi) {
 export const ABSORPTION_GESTES_MAX = 18;
 export function absorbee(d, id) {
   const sp = SOUS_PALIERS.find((s) => s.id === id);
+  if (sp && !sp.mental && (sp.type === 'mul' || sp.type === 'div')) return absorbeeMulDiv(d, sp);
   if (sp?.type !== 'addsub' || !sp.cibles?.length) return false;
   const solide = (e) => !!e?.valide && (!!e.carte?.acquise || (e.carte?.boite ?? 0) >= 3);
   // 0.38 (C-4) : seule une leçon PROCHE absorbe : de la même étape ou de l'étape suivante, et
@@ -636,6 +645,20 @@ export function absorbee(d, id) {
   return SOUS_PALIERS.some((x) => x.ordre > sp.ordre && x.type === 'addsub' && !x.mental && x.cibles?.length
     && x.cibles.length <= ABSORPTION_GESTES_MAX && etape(x) - etape(sp) <= 1
     && solide(d.paliers[x.id]) && sp.cibles.every((c) => x.cibles.includes(c)));
+}
+
+/**
+ * × et ÷ (0.39) : une micro-marche sort des révisions dès que sa leçon complète est validée ; une
+ * petite leçon dès qu'une leçon PLUS GRANDE du même type (plus de chiffres au total) est solide.
+ * Les leçons à règle propre (zéros dans le nombre) restent : ce n'est pas un format plus petit.
+ */
+const tailleMulDiv = (s) => (s.type === 'mul' ? (s.mMax ?? s.m ?? 0) + (s.n ?? 0) : (s.ndMax ?? s.nd ?? 0) + (s.nq ?? 0));
+function absorbeeMulDiv(d, sp) {
+  const solide = (e) => !!e?.valide && (!!e.carte?.acquise || (e.carte?.boite ?? 0) >= 3);
+  if (sp.marche) return !!d.paliers[sp.marcheDe]?.valide;
+  if (sp.zeros) return false;
+  return SOUS_PALIERS.some((x) => x.type === sp.type && !x.mental && !x.marche && !x.zeros && x.ordre > sp.ordre
+    && tailleMulDiv(x) > tailleMulDiv(sp) && solide(d.paliers[x.id]));
 }
 
 export function revisionsDues() {

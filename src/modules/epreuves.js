@@ -407,6 +407,7 @@ export default {
         sections,
         parEpreuve: zen && !section,
         milliers,
+        mesure: { source: 'examen', grade: g },
         // Allure : en option, épreuve complète seulement, jamais en examen pur.
         allure: !zen && !section && reglagesUtilisateur().allureExamen && !reglagesUtilisateur().examenPur ? { part: allureGrade(g).part } : null,
         surFin: (b) => {

@@ -17,6 +17,7 @@
 
 import { genererSujet, systemeChoisi } from './epreuves.js';
 import { allureGrade, PART_CADENCE_LECON, MARGE, SURCOUT_PROBLEME_S, chargeGrade, vitesseEleve } from './allure.js';
+import { ratioExamen } from './mesures.js';
 import { unites, cpm } from './maitrise.js';
 import { grade as gradeDe } from './parcours.js';
 import { gradeDan, prochainDan } from './dan.js';
@@ -123,12 +124,22 @@ export function apresFeuilleMarche(e0, date, reussi) {
  * part du sujet qu'il traite dans le temps × taux de justes. null sans mesure.
  * @returns {{ points:number, pointsMax:number, seuil:number, reussi:boolean, part:number } | null}
  */
-export function scoreProjete(g, d) {
-  const v = vitesseEleve(d);
+export function scoreProjete(g, d, date = null) {
+  // 0.39 : vitesse AU FORMAT du grade (vraies feuilles), les gestes isolés en secours (« à confirmer »).
+  const v = vitesseEleve(d, g);
   const c = chargeGrade(g);
   if (v.parChiffre == null || (c.produits > 0 && v.parProduit == null)) return null;
+  const aConfirmer = !v.colonnesAuFormat || (c.produits > 0 && !v.produitsAuFormat);
   const recentes = d.sessions.filter((s) => ['epreuves', 'examen', 'planches', 'muldiv', 'marches'].includes(s.module) && s.total > 0).slice(-20);
   const taux = recentes.length ? recentes.reduce((t, s) => t + s.justes, 0) / recentes.reduce((t, s) => t + s.total, 0) : 0.9;
+  // Un examen de ce grade de moins de 3 semaines : c'est lui qui dit l'allure (sous examen).
+  const ex = !g.parEpreuve && date ? ratioExamen(d, `${g.systeme ?? 'nissho'}:${g.id}`, date) : null;
+  if (ex) {
+    const part = Math.min(1, allureGrade(g).part / ex.ratio);
+    const pointsMax = genererSujetPoints(g);
+    const points = Math.round(pointsMax * part * taux);
+    return { points, pointsMax, seuil: Math.ceil(pointsMax * g.seuil), reussi: points >= pointsMax * g.seuil, part, taux, source: 'examen' };
+  }
   if (g.parEpreuve) {
     // Zenkoren et dan (0.38) : chaque épreuve a son temps et son seuil, SANS compensation ; une
     // moyenne globale pouvait annoncer « réussi » avec une division trop lente.
@@ -145,13 +156,13 @@ export function scoreProjete(g, d) {
     const pointsMax = epreuves.reduce((t, x) => t + x.pointsMax, 0);
     const faible = [...epreuves].sort((a, b) => a.points / a.seuil - b.points / b.seuil)[0];
     return { points: epreuves.reduce((t, x) => t + x.points, 0), pointsMax, seuil: epreuves.reduce((t, x) => t + x.seuil, 0), reussi: epreuves.every((x) => x.ok),
-      part: Math.min(...epreuves.map((x) => x.part)), taux, epreuves, faible };
+      part: Math.min(...epreuves.map((x) => x.part)), taux, epreuves, faible, aConfirmer };
   }
   const temps = c.chiffres * v.parChiffre + c.produits * v.parProduit + c.problemes * SURCOUT_PROBLEME_S;
   const part = Math.min(1, (g.minutes * 60) / temps);
   const pointsMax = genererSujetPoints(g);
   const points = Math.round(pointsMax * part * taux);
-  return { points, pointsMax, seuil: Math.ceil(pointsMax * g.seuil), reussi: points >= pointsMax * g.seuil, part, taux };
+  return { points, pointsMax, seuil: Math.ceil(pointsMax * g.seuil), reussi: points >= pointsMax * g.seuil, part, taux, aConfirmer };
 }
 const genererSujetPoints = (g) => sujetCalcul(g).sections.reduce((t, s) => t + s.points * s.problemes.length, 0);
 

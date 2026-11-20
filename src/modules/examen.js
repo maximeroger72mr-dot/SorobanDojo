@@ -98,6 +98,7 @@ export default {
         sections,
         minutes: minutesBlanc(format),
         parEpreuve: sprints,
+        mesure: { source: 'examen', grade: g.officiel ? SYSTEMES[g.systeme]?.grades.find((x) => x.id === g.officiel) ?? null : null },
         surFin: (b) => {
           const okSprint = (x) => x.justes >= Math.ceil(x.total * SEUIL);
           const reussi = sprints ? b.parSection.every(okSprint) : b.justes >= Math.ceil(b.total * SEUIL);
