@@ -198,3 +198,33 @@ test('0.38 : projection Zenkoren épreuve par épreuve ; marches vers le dan apr
   assert.equal(e.grade.japonais, '初段');
   assert.equal(e.active, true);
 });
+
+test('0.38.2 : mini-test planifié en entier ; pa-5 sur ses 34 amis ; délai à votre rythme ; défaut 25 min', async () => {
+  const { planObjectif } = await import('../src/core/parcours.js');
+  const { dureePlanche } = await import('../src/core/propositions.js');
+  avecGraine(20, () => {
+    // p5-5 : le plan de 20 calculs, découpé en 4 séries, pose les 54 gestes.
+    const p55 = sp('p5-5');
+    const flux = fluxEquilibre(p55, 20, () => ({}));
+    const plan = Array.from({ length: 20 }, () => flux());
+    const vus = new Set(plan.flatMap((ex) => ex.motifs));
+    assert.deepEqual(p55.cibles.filter((c) => !vus.has(c)), []);
+    // pa-5 : 15 chaînes à 1 chiffre couvrent ses amis.
+    const pa5 = sp('pa-5');
+    assert.equal(pa5.cibles.length, 34);
+    const f = fluxEquilibre(pa5, 15, () => ({}));
+    const g = new Set(Array.from({ length: 15 }, () => f().gestesAnzan).flat());
+    assert.deepEqual(pa5.cibles.filter((c) => !g.has(c)), []);
+  });
+  // Délai : 4 leçons par semaine et la vitesse déjà là → les leçons décident.
+  const date = '2026-11-20';
+  const recent = SOUS_PALIERS.filter((s) => !s.mental).slice(0, 16);
+  const paliers = Object.fromEntries(recent.map((s) => [s.id, { valide: '2026-11-10', hist: [] }]));
+  const motifs = Object.fromEntries(['+3:petit', '+4:petit', '-2:petit', '+9:grand', '-7:grand'].map((c) => [c, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 0.4 })) }]));
+  const lent = Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.type === 'mul').slice(0, 2).map((s) => [s.id, { valide: '2026-10-01', hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 0.5 })) }]));
+  const p = planObjectif({ paliers: { ...paliers, ...lent }, motifs, records: {}, reglages: {}, sessions: [] }, '6', '2027-07-12', date);
+  assert.equal(p.base, 'rythme');
+  assert.ok(Math.abs(p.rythme - 4) < 0.01, `${p.rythme}`);
+  assert.ok(Math.abs(p.moisRestants - p.manquantes / 4 / 4.33) < 0.01);
+  assert.equal(dureePlanche({ reglages: {} }), 6); // 25 min par défaut (avant : 15)
+});

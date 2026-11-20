@@ -19,7 +19,7 @@ import { nomMotif } from '../core/motifs.js';
 import {
   etatPalier, compterRepetition, validerPalier, poidsAdaptatifs, poidsAnzan, enregistrerSession,
   reglagesUtilisateur, modifierReglages, evaluerPalier, noterGestes, noterGestesAnzan, verifierCoupeFile, memoriserChaine, memoriserDureePhoto,
-  noterReconnu, progression, noterReponse, statsTables, noterSerieTest, effacerSeriesTest, aujourdhui as jourCourant,
+  noterReconnu, progression, noterReponse, statsTables, noterSerieTest, effacerSeriesTest, preparerSeriesTest, aujourdhui as jourCourant,
 } from '../core/progression.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { aReconnaitre, questionsReconnaitre, NOMS_REGLES, QUESTIONS_RECONNAITRE, MIN_RECONNAITRE } from '../core/reconnaitre.js';
@@ -657,11 +657,23 @@ export default {
           h('button', { class: 'btn principal', onclick: () => lancer() }, enSeries ? `Commencer la série ${faites.length + 1} sur ${nbSeries}` : 'Commencer le mini-test'));
         zone.append(intro);
 
-        function lancer() {
+        async function lancer() {
           intro.remove();
-          // Mini-test équilibré : chaque geste de la leçon y est posé au moins une fois.
+          // Mini-test équilibré : chaque geste de la leçon y est posé au moins une fois. En séries,
+          // le test ENTIER est planifié au départ, puis découpé (sinon les gestes rares se perdent).
           const taille = enSeries ? CALCULS_SERIE : nombreTest(sp);
-          const exerciceSuivant = fluxEquilibre(sp, taille, () => poidsDe(sp));
+          let exerciceSuivant;
+          if (enSeries) {
+            let plan = faites.length ? etatPalier(sp.id).testSeries?.plan : null;
+            if (!plan || plan.length < nombreTest(sp)) {
+              const flux = fluxEquilibre(sp, nombreTest(sp), () => poidsDe(sp));
+              plan = Array.from({ length: nombreTest(sp) }, () => flux());
+              await preparerSeriesTest(sp.id, plan);
+            }
+            const morceau = plan.slice(faites.length * CALCULS_SERIE, (faites.length + 1) * CALCULS_SERIE);
+            let k = 0;
+            exerciceSuivant = () => morceau[k++ % morceau.length];
+          } else exerciceSuivant = fluxEquilibre(sp, taille, () => poidsDe(sp));
           serie = creerExercices(sp, zone, {
             generer: () => exerciceSuivant(),
             nombre: taille,

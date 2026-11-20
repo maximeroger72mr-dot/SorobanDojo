@@ -509,7 +509,7 @@ export const PALIERS = [
       { id: 'p4-a', titre: 'Anzan : grands amis (soustraction)', type: 'anzan', apres: 'p4-5', image: true, cibles: moins(GRAND), chiffres: 1, lignes: 5, duree: 2, repetitions: 30, testMin: 12,
         pourquoi: 'L\'emprunt se voit sur la tige des dizaines avant le complément sur les unités : même ordre qu\'au soroban.',
         demos: [] },
-      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les gestes', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS.filter((c) => !c.startsWith('cascade')), chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
+      { id: 'pa-5', titre: 'Anzan : 5 nombres, tous les amis', type: 'anzan', apres: 'p5-5', image: true, cibles: TOUS_LES_MOTIFS.filter((c) => !c.startsWith('cascade') && !c.endsWith(':direct')), chiffres: 1, lignes: 6, duree: 1.5, repetitions: 30, testMin: 12, lignesDepart: 3,
         pourquoi: 'Avant de passer à deux chiffres, on consolide à un chiffre : tous les gestes mélangés, des chaînes de 5 ou 6 nombres, un peu plus vite. C\'est ici que l\'image devient vraiment stable.',
         demos: [] },
       { id: 'pa-6', titre: 'Anzan : 2 chiffres, sans retenue', type: 'anzan', apres: 'p1-4', image: true, cibles: DIRECT, chiffres: 2, lignes: 4, duree: 3, repetitions: 30, testMin: 12,

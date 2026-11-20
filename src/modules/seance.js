@@ -144,10 +144,15 @@ function plan(d, debut, seance = null) {
   const complet = examenCompletHebdo(d, date);
   const completAujourdhui = !!complet?.fait && complet.fait.date === date;
   const completVoulu = !!complet && (completAujourdhui || (fenetreExamen && !complet.fait));
-  const completDansSeance = completVoulu && (completAujourdhui || objectif >= OBJECTIF_EXAMEN_COMPLET);
+  // 0.38.2 : l'examen ne prend la place de la leçon qu'au PREMIER jour pratiqué de la fenêtre
+  // (vendredi au dimanche). Pas fait ce jour-là : la leçon revient, l'examen reste proposé à part.
+  // Avant, la leçon pouvait être suspendue trois jours de suite.
+  const debutFenetre = ajouterJours(date, -((jourSemaine + 2) % 7));
+  const premierJourExamen = fenetreExamen && !d.sessions.some((s) => s.date >= debutFenetre && s.date < date);
+  const completDansSeance = completVoulu && (completAujourdhui || (objectif >= OBJECTIF_EXAMEN_COMPLET && premierJourExamen));
   const examCourt = !!exam && aSocle(exam) && !prekyuObtenu(d, exam);
   const examVoulu = !!exam && !complet && (passeAujourdhui || (fenetreExamen && !examFait));
-  const examEssentiel = examVoulu && (passeAujourdhui || examCourt || objectif >= OBJECTIF_EXAMEN_BLANC);
+  const examEssentiel = examVoulu && (passeAujourdhui || examCourt || (objectif >= OBJECTIF_EXAMEN_BLANC && premierJourExamen));
   // Fait aujourd'hui avec un objectif plus court : l'examen a REMPLACÉ la séance.
   const remplacee = (completAujourdhui && objectif < OBJECTIF_EXAMEN_COMPLET) || (passeAujourdhui && examEssentiel && !examCourt && objectif < OBJECTIF_EXAMEN_BLANC);
   let seanceLongue = null;
@@ -428,7 +433,7 @@ function plan(d, debut, seance = null) {
   if (remplacee) for (let i = garde.length - 1; i >= 0; i--) if (!garde[i].examen && !garde[i].fait) reportes.unshift(...garde.splice(i, 1));
   garde.sort((a, b) => ORDRE_BLOCS.indexOf(a.blocSeance) - ORDRE_BLOCS.indexOf(b.blocSeance));
   const minutes = garde.reduce((t, it) => t + it.minutes, 0);
-  const theme = themeDuJour(decision, examEssentiel ? exam : null, vitesse, gesteDuJour(d, ciblesBloc, difficiles));
+  const theme = themeDuJour(decision, examEssentiel ? exam : null, garde);
   const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: !!exam && !examEssentiel });
   // Pour compléter (une fois l'objectif atteint) : ce qui n'a pas tenu, puis une planche, un flash
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
@@ -453,13 +458,16 @@ const NOMS_BLOCS = { echauffement: 'Échauffement', revision: 'Révision', lecon
 const melangeable = (sp) => !['placement', 'lire', 'complement', 'theorie', 'photo', 'tenir'].includes(sp.type);
 
 /** Le thème du jour, en une phrase : ce qu'on vient faire aujourd'hui. */
-function themeDuJour(decision, exam, vitesse, g) {
-  const geste = g ? nomMotif(g) : null;
-  const bloc = vitesse ? `de la vitesse${geste ? ` sur ${geste}` : ''}, seul puis mélangé` : `du volume${geste ? ` sur ${geste}` : ''}, seul puis mélangé`;
-  if (exam) return `Aujourd'hui : l'examen blanc, sur tout ce que vous savez, puis ${bloc}.`;
-  if (decision.type === 'lecon') return `Aujourd'hui : ${decision.titre === 'Nouvelle leçon' ? 'une nouvelle leçon' : 'la suite de la leçon'}, « ${decision.detail} », puis ${bloc}.`;
-  if (decision.type === 'automatiser') return `Aujourd'hui : ${decision.reprise ? 'réveiller' : 'automatiser'} « ${decision.sp.titre} »${decision.reprise ? '' : ` jusqu'à ${decision.cible === 'argent' ? 'l\'argent' : 'l\'or'}`} : ${bloc}.`;
-  return `Aujourd'hui : ${bloc}.`;
+function themeDuJour(decision, exam, garde) {
+  // 0.38.2 : la suite se lit dans les exercices RETENUS (avant, le thème recalculait son propre
+  // « geste du jour » et pouvait annoncer +8 grand ami quand les blocs portaient sur les petits amis).
+  const vol = garde.filter((it) => it.blocSeance === 'volume');
+  const suite = vol.length ? `, puis ${vol.slice(0, 2).map((it) => `« ${it.titre} »`).join(' et ')}${vol.length > 2 ? ` (et ${vol.length - 2} autre${vol.length > 3 ? 's' : ''})` : ''}` : '';
+  const premierAuto = garde.find((it) => it.blocSeance === 'lecon' && it.id);
+  if (exam) return `Aujourd'hui : l'examen blanc, sur tout ce que vous savez${suite}.`;
+  if (decision.type === 'lecon') return `Aujourd'hui : ${decision.titre === 'Nouvelle leçon' ? 'une nouvelle leçon' : 'la suite de la leçon'}, « ${decision.detail} »${suite}.`;
+  if (decision.type === 'automatiser') return `Aujourd'hui : ${decision.reprise ? 'réveiller' : 'automatiser'} « ${decision.sp.titre} »${decision.reprise ? '' : ` jusqu'à ${decision.cible === 'argent' ? 'l\'argent' : 'l\'or'}`}${premierAuto ? ` (${premierAuto.titre.split(' · ').slice(1).join(' · ') || premierAuto.titre})` : ''}${suite}.`;
+  return `Aujourd'hui : ${decision.titre ? `${decision.titre.toLowerCase()}, ${decision.detail}` : 'l\'entretien'}${suite}.`;
 }
 
 /** Suggestion pour la prochaine séance. */
@@ -512,7 +520,10 @@ function carteObjectif(d, rafraichir) {
     const dateR = new Date(`${p.dateRealiste}T12:00`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
     const duree = p.moisRestants >= 12 ? `${nf(p.moisRestants / 12)} an${p.moisRestants >= 24 ? 's' : ''}` : `${Math.round(p.moisRestants)} mois`;
     const lecons = p.manquantes ? `${p.manquantes} leçon${p.manquantes > 1 ? 's' : ''} à valider (${nf(p.parSemaine)} par semaine ; votre rythme : ${nf(p.rythme)}). ` : 'Toutes les leçons sont validées. ';
-    const repere = `Repère : il faut en général encore ${duree} de pratique quotidienne pour le ${p.grade.nom}, car la vitesse et l'endurance exigées à l'examen se construisent en drillant, pas seulement en validant des leçons. `;
+    const mois = (m) => (m >= 12 ? `${nf(m / 12)} an${m >= 24 ? 's' : ''}` : m < 1 ? `${Math.max(1, Math.round(m * 4.33))} semaine${m * 4.33 >= 1.5 ? 's' : ''}` : `${Math.round(m)} mois`);
+    const repere = p.base === 'rythme'
+      ? `À votre rythme : les leçons demandent encore environ ${mois(p.moisLecons)}${p.moisVitesse ? `, et la vitesse du ${p.grade.nom} environ ${mois(p.moisVitesse)} (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure ; elle progresse pendant les leçons, en comptant 2 % par semaine)` : `, et votre vitesse tient déjà l'allure du ${p.grade.nom}`}. Recalculé chaque jour sur vos chiffres. `
+      : `Repère : il faut en général encore ${duree} de pratique quotidienne pour le ${p.grade.nom} (pas encore assez de mesures pour partir de vos chiffres). `;
     if (p.verdict === 'realiste') texte = `${lecons}${repere}C'est réaliste avec environ ${p.minutesJour} min par jour : tenez le rythme.`;
     else if (p.verdict === 'ambitieux') texte = `${lecons}${repere}C'est ambitieux : il faudrait environ ${p.minutesJour} min par jour, tous les jours. Une date réaliste : ${dateR}.`;
     else texte = `${lecons}${repere}Ce n'est pas réaliste pour cette date : visez plutôt ${dateR}${p.atteignable ? `, et d'ici là, le ${p.atteignable.nom} est un bon objectif intermédiaire` : ''}.`;
@@ -678,7 +689,7 @@ export default {
       // Séance longue (0.38) : l'examen de la semaine, proposé à part quand l'objectif est court.
       const carteLongue = p.seanceLongue ? h('div', { class: 'carte avis' },
         h('p', { style: 'margin-top:0' }, h('strong', {}, `Séance longue du week-end · ${p.seanceLongue.titre}`), ` : ${p.seanceLongue.detail}, environ ${p.seanceLongue.minutes} min.`),
-        h('p', { class: 'discret' }, `Votre objectif du jour (${objectif} min) est plus court : faites-le À LA PLACE de la séance du jour, quand vous avez le temps, d'ici dimanche. Pas fait cette semaine ? Rien n'est perdu, il revient la semaine prochaine.`),
+        h('p', { class: 'discret' }, `${objectif < p.seanceLongue.minutes ? `Votre objectif du jour (${objectif} min) est plus court : faites` : 'La leçon garde sa place aujourd\'hui : faites'}-le À LA PLACE de la séance du jour, quand vous avez le temps, d'ici dimanche. Pas fait cette semaine ? Rien n'est perdu, il revient la semaine prochaine.`),
         h('button', { class: 'btn', onclick: async () => { if (!seanceEnCours() && !terminee) await demarrer(); app.aller(...p.seanceLongue.aller); } }, 'Faire l\'examen à la place de la séance →')) : null;
       if (terminee) {
         el.append(carteBilan(terminee, d));

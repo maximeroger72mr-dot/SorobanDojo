@@ -1089,3 +1089,21 @@ Suites de `PLAN-ACTION-0.38.md` (deux audits externes de la 0.37.0). Lots 1 à 6
   montre l'épreuve qui bloque.
 - Dan Zenkoren (7 min, 40 ×, 40 ÷, 20 mitori, 20 denpyōzan) : non fait, seuils non fournis et
   denpyōzan sur liasses papier.
+
+## Version 0.38.2
+
+Défauts signalés après la 0.38.1.
+
+- **Mini-test en séries planifié en entier** au départ (équilibré sur ses 15 ou 20 calculs, puis
+  découpé) : la révision générale (54 gestes) en oubliait un dans 23 % des tests en séries.
+- **pa-5 vise ses 34 amis** (les gestes directs viennent d'eux-mêmes) : avec 52 gestes visés et
+  15 chaînes à 1 chiffre, presque tous les mini-tests en oubliaient un ; maintenant aucun.
+- **Le mot du prof décrit les exercices retenus** dans la séance, au lieu de recalculer son propre
+  geste du jour (il pouvait annoncer +8 grand ami quand les blocs portaient sur les petits amis).
+- **Délai de l'objectif à votre rythme** : leçons restantes à votre rythme des 4 dernières
+  semaines, et temps pour combler l'écart de vitesse avec l'allure du grade (hypothèse : 2 % par
+  semaine) ; le plus long des deux. Le repère général ne sert plus que sans mesure.
+- **Défaut de 25 min partout** (une durée de planche retombait sur 15) ; la carte « 15 ou 25
+  minutes » ne s'affichait jamais aux anciennes sauvegardes (fusion des réglages par défaut).
+- **Examen du week-end** : il ne prend la place de la leçon qu'au premier jour pratiqué de la
+  fenêtre ; pas fait ce jour-là, la leçon revient et l'examen reste proposé à part.

@@ -51,7 +51,7 @@ export function plafonner(d, p, max = MINUTES_PLANCHE_MAX) {
  * vitesse mesurée, pas la longueur des nombres. Deux feuilles de même format se comparent, et le
  * temps se projette sur celui de l'examen.
  */
-export const dureePlanche = (d) => Math.max(4, Math.min(8, Math.round((d.reglages?.objectifMinutes ?? 15) / 4)));
+export const dureePlanche = (d) => Math.max(4, Math.min(8, Math.round((d.reglages?.objectifMinutes ?? 25) / 4)));
 
 /** Nombre de colonnes pour que la planche dure `minutes` (3 à 20). */
 export function colonnesPour(d, { lignes, chiffres }, minutes = dureePlanche(d)) {

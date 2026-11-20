@@ -38,7 +38,7 @@ const CLE_LOCALE = 'soroban-progression';
 export const SEUIL_DIFFICULTE = 2;
 
 const vide = () => ({
-  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 25, objectif25Vu: true, modeEspace: false }, avis: [],
+  version: VERSION, sessions: [], records: {}, motifs: {}, paliers: {}, reglages: { decouverte: false, objectifMinutes: 25, modeEspace: false }, avis: [],
   stats: { suite: 0, meilleureSuite: 0 }, succes: {}, seance: null,
 });
 
@@ -547,6 +547,16 @@ export async function verifierCoupeFile(id, repetitions, famille) {
  * Mini-test en séries (0.38) : une série faite. Les séries commencées avant hier sont oubliées.
  * @returns {object[]} les séries valables, celle-ci comprise
  */
+/**
+ * Mini-test en séries : TOUT le test est planifié au départ (équilibré sur ses N calculs, comme
+ * d'un seul bloc), puis découpé en séries (0.38.2). Avant, chaque série était tirée seule : la
+ * révision générale (54 gestes) en oubliait un dans 23 % des tests.
+ */
+export async function preparerSeriesTest(id, plan) {
+  palier(id).testSeries = { debut: aujourdhui(), series: [], plan };
+  await sauver();
+}
+
 export async function noterSerieTest(id, serie) {
   const e = palier(id);
   const j = aujourdhui();

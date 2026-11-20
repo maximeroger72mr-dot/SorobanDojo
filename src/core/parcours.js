@@ -15,6 +15,7 @@ import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
+import { allureGrade, vitesseEleve } from './allure.js';
 
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
@@ -483,6 +484,8 @@ export function verificationVitesse(d) {
  * partie du chemin : à partir du 6e kyū, c'est la VITESSE et l'endurance exigées aux examens
  * (colonnes de plus en plus longues, temps limité) qui demandent des mois de drills.
  */
+/** Hypothèse prudente : vitesse gagnée par semaine de pratique régulière (planObjectif). */
+export const GAIN_VITESSE_SEMAINE = 0.02;
 export const MOIS_REPERE = { 10: 3, 9: 4, 8: 6, 7: 8, 6: 11, 5: 14, 4: 18, 3: 24, 2: 30, 1: 36 };
 const ajouterMois = (date, mois) => { const x = new Date(`${date}T12:00`); x.setDate(x.getDate() + Math.round(mois * 30.4)); return x.toISOString().slice(0, 10); };
 
@@ -519,9 +522,22 @@ export function planObjectif(d, gradeId, dateCible, date) {
   const parSemaine = manquantes / semaines;
   const recentes = SOUS_PALIERS.filter((sp) => !sp.mental && d.paliers[sp.id]?.valide && jour(date) - jour(d.paliers[sp.id].valide) <= 28 * 86400000).length;
   const rythme = recentes / 4;
-  // Temps de pratique encore nécessaire, et temps disponible.
+  // Temps de pratique encore nécessaire (0.38.2) : d'après VOS chiffres quand ils existent.
+  //  - leçons : celles qui restent, à votre rythme des 4 dernières semaines ;
+  //  - vitesse : l'écart entre votre vitesse mesurée et l'allure du grade, en comptant environ
+  //    2 % de vitesse gagnée par semaine de pratique régulière (hypothèse prudente) ;
+  //  les deux avancent en même temps : le délai est le plus long des deux. Sans mesure, le repère
+  //  général (MOIS_REPERE) sert encore.
   const acquis = moisAcquis(d);
-  const moisRestants = Math.max(0, MOIS_REPERE[g.id] - acquis);
+  const repere = Math.max(0, MOIS_REPERE[g.id] - acquis);
+  const moisLecons = !manquantes ? 0 : rythme >= 0.25 ? manquantes / rythme / 4.33 : null;
+  const a = allureGrade(g);
+  const v = vitesseEleve(d);
+  const ratios = [v.parChiffre != null ? v.parChiffre / a.parChiffre : null, (g.mul || g.div) && v.parProduit != null ? v.parProduit / a.parProduit : null].filter((x) => x != null);
+  const ecart = ratios.length ? Math.max(...ratios) : null;
+  const moisVitesse = ecart == null ? null : ecart <= 1 ? 0 : Math.log(ecart) / -Math.log(1 - GAIN_VITESSE_SEMAINE) / 4.33;
+  const base = moisLecons != null && moisVitesse != null ? 'rythme' : 'repere';
+  const moisRestants = base === 'rythme' ? Math.max(moisLecons, moisVitesse) : repere;
   const moisDispo = Math.max(0, jours / 30.4);
   const leconsOk = manquantes === 0 || parSemaine <= Math.max(rythme * 1.2, 3);
   let verdict;
@@ -537,6 +553,7 @@ export function planObjectif(d, gradeId, dateCible, date) {
   return {
     grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, verdict, realiste: verdict === 'realiste',
     moisRestants, dateRealiste, atteignable: atteignable && atteignable !== g ? atteignable : null,
+    base, moisLecons, moisVitesse, ecartVitesse: ecart,
   };
 }
 
