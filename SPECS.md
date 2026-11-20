@@ -1152,3 +1152,65 @@ Défauts signalés après la 0.38.1.
 - **Dan d'anzan Zenkoren** : × décimaux exacts à 3 décimales au plus (jusqu'à 9 avant).
 - Le barème du dan d'anzan garde 準初段 puis les dan pleins (barème fourni, sans 準弐段 à 準八段).
 - Un essai qui fait plus de points ne retire plus une réussite déjà obtenue (record d'épreuve).
+
+## Version 0.39.0
+
+### Lot 1 · Des mesures de vitesse fiables
+- **Mesures sur de vraies feuilles** (`core/mesures.js`) : planches, feuilles des marches, × et ÷ au
+  format du kyū, premier passage de la feuille de la semaine (« entraînement ») ; examens blancs et
+  épreuves (« sous examen »). Chaque mesure garde son format (lignes × chiffres, ou type et chiffres
+  au total). Une feuille réussie à moins de 70 % n'est pas une mesure ; une feuille avec de l'anzan
+  ou du denpyō non plus.
+- **Vitesse au format du grade partout** : allure des épreuves, objectif daté, score projeté des
+  marches, choix de la matière du jour (hakari). Les gestes isolés ne servent plus qu'en secours,
+  « à confirmer ». Un examen de ce grade de moins de 3 semaines prime (vitesse sous examen).
+- **Temps hebdomadaires par format** (gestes et leçons) : les plateaux se comparent à format égal.
+- **Projection du délai** : le repère de 2 % par semaine, puis le gain réel lissé sur 6 à 8
+  semaines (pente, bornée à 0,5–4 %), d'autant plus pris en compte que les semaines s'accumulent
+  (plein poids à 8). Aucun gain sur 3 semaines : « en plateau », pas de date pour la vitesse.
+- **Socle** (examen court des premiers grades) : il ne remplace la leçon qu'au premier jour pratiqué
+  du vendredi au dimanche ; les autres jours, il attend en tête de « Pour compléter ».
+- **p4-4** : lignes de 2 chiffres, premier nombre de 3 chiffres assez grand pour toutes les
+  soustractions (avant : 4 chiffres une fois sur deux).
+- **Révisions** : une micro-marche de × ou ÷ sort dès que sa leçon complète est validée, une petite
+  leçon dès qu'un format plus grand du même type est solide (les zéros gardent leur révision) ;
+  les révisions dues se trient par fragilité (fluidité à reprendre, boîte basse) puis par retard,
+  3 au plus par séance.
+
+### Lot 2 · La vitesse progresse pendant les leçons
+- **Marches anticipées** : marches 1 et 2 dès 70 % des leçons du grade validées, un jour sur deux,
+  sur les seules parties (colonnes, ×, ÷) dont toutes les leçons sont validées ; marches 3 à 5 après
+  les leçons.
+- **Test flash de révision** : 9 justes ET 85 % au moins de la vitesse habituelle (médiane des 10
+  derniers essais réussis), jamais plus exigeant que la médaille de la leçon. Juste mais lent : la
+  carte reste dans sa boîte, la leçon est « fluidité à reprendre » et passe en priorité dans les
+  blocs de vitesse (et le choix de la matière du jour pour × ÷), jusqu'à l'or. Les leçons sorties
+  d'une étape sans l'or y passent aussi (la « dette de vitesse »). Révision mélangée : justesse seule.
+- **Plateaux** : la détection reste active au-delà du platine tant que le geste n'a pas 10 % de marge
+  sur l'allure du grade ou du dan visé. × et ÷ : plateau sur les feuilles mesurées ; la séance
+  propose alors 4 blocs de 90 s à 115 % de la meilleure cadence, justesse sur le cumul.
+- **Détecteur de recul** : un geste 15 % plus lent deux semaines de suite (10 essais par semaine au
+  moins, même format, 6 dernières semaines) déclenche un bloc « réveil ».
+- **Feuille de la semaine** au format du grade : environ 7 minutes à l'allure de l'examen ; seul le
+  premier passage de la semaine est une mesure.
+- **Lièvre au format du grade** : quand la rotation tombe sur les colonnes un jour de vitesse, des
+  colonnes de l'examen au tempo imposé, départ à 100 % de la vitesse mesurée, +3 % après chaque
+  colonne juste ; la ligne suivante reste visible (lecture anticipée). Les colonnes courtes restent
+  pour les jours de volume.
+
+### Lot 3 · Un vrai mode entretien
+- **Rotation séance par séance** (`core/entretien.js`) : colonnes, ×, ÷, anzan et flash (et le
+  denpyōzan en Zenkoren quand le grade l'a) ; une séance sur deux, la matière la plus en retard.
+  Durée : 40 % de l'objectif du jour (5 à 20 min).
+- **Examen de la semaine en alternance** : une semaine l'examen complet chronométré (le seul qui
+  compte pour le record), l'autre deux sprints de 7 minutes (colonnes, puis la partie la plus
+  lente) et la reprise des erreurs.
+- **Format des dan après le 1er kyū** : planches d'entretien en colonnes mêlées de 5 à 10 chiffres.
+- **Maintien pur** (plus rien à viser) : l'examen complet du week-end, et à tour de rôle un sprint
+  sur la matière la plus faible, le rejeu de la planche la plus récente, le flash anzan.
+- **Contrôle tous les 90 jours** des leçons acquises à règle rare (négatifs, décimaux, arrondis) et
+  de 4 synthèses (p5-5, p8-3, p9-4, p9-6), sauté après une épreuve du mois qui les contenait ;
+  raté ou 15 % plus lent : retour en révision (boîte 3).
+- **Fiche facultative « deux mains »** en bas des épreuves, à partir de la préparation du 3e kyū,
+  sans seuil ni incitation.
+- Écartés à la demande : dictée jusqu'à 10 chiffres, tranches de 3 chiffres surlignées.

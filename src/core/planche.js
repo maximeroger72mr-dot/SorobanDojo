@@ -187,6 +187,7 @@ export const GENRES_PLANCHE = {
   examen: 'Format d\'examen : 6 additions seules, 4 mêlées',
   negatifs: 'Résultats négatifs',
   decimaux: 'Décimaux',
+  dan: 'Format des dan : colonnes mêlées de 5 à 10 chiffres',
 };
 
 /**
@@ -204,6 +205,8 @@ export function genererPlancheSpeciale(spec, graine) {
     const une = (k) => {
       if (genre === 'negatifs') return genererMitoriNegatif({ lignes: Math.max(2, lignes), min: chiffres, max: chiffres });
       if (genre === 'decimaux') return genererColonneDecimale(lignes, Math.max(2, Math.min(6, chiffres)), 2);
+      // Format des dan (0.39, entretien après le 1er kyū) : 10 lignes de longueurs mêlées, 5 à 10 chiffres.
+      if (genre === 'dan') return genererMitori({ lignes: 10, min: 5, max: 10, soustractions: k % 2 === 1, moins: 4 });
       // Format d'examen : d'abord les additions seules, puis les colonnes mêlées (2 sur 5 par défaut).
       return genererMitori(k < Math.round(nb * (1 - (spec.partMoins ?? 0.4))) ? { ...fixe, soustractions: false } : fixe);
     };

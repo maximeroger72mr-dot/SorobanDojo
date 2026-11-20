@@ -388,7 +388,7 @@ export default {
       const jusqua = r.pyramide && r.pyramide !== 'non' ? 'jusqu\'à ' : '';
       const titre = `${c.libelle} · ${r.pyramide === 'chiffres' ? jusqua : ''}${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${r.pyramide === 'lignes' ? jusqua : ''}${r.lignes} lignes`;
       feuille = creerFeuille(zone, {
-        mesure: (!r.genre || r.genre === 'gestes') && (!r.pyramide || r.pyramide === 'non') ? { source: 'entrainement' } : null,
+        mesure: (!r.genre || ['gestes', 'examen', 'dan'].includes(r.genre)) && (!r.pyramide || r.pyramide === 'non') ? { source: 'entrainement' } : null,
         doigte: !!r.doigte,
         reprises: 3, // colonnes fausses dont l'erreur est identifiée : reprise proposée, 3 au plus
         historique: { cle: `planche-${r.chiffres}-${r.lignes}-${genre}${suffixe}`, libelle: titre },
@@ -464,7 +464,10 @@ export default {
     el.querySelector('.reglages select:has(option[value="lignes"])')?.addEventListener('change', majGenre);
     selCible.addEventListener('change', majGenre);
     majGenre();
-    if (params.auto) lancer();
+    // Maintien (0.39) : rejouer la planche la plus récente au format d'examen, pour battre son temps.
+    const recente = params.rejeuRecent ? [...(progression().planches ?? [])].reverse().find((p) => (p.reglages?.lignes ?? 0) >= (params.lignes ?? 5) && (p.reglages?.chiffres ?? 0) >= (params.chiffres ?? 1)) : null;
+    if (recente) lancer(recente);
+    else if (params.auto) lancer();
     return () => feuille?.detruire();
   },
 };

@@ -28,13 +28,14 @@ export const ESSAIS_REFERENCE = 10;
  * @param {{ justes:number, resultats: Array<{ ex, juste, dureeMs }> }} b
  * @returns {{ reussi:boolean, lent:boolean, t?:number, limite?:number, sansVitesse?:boolean }}
  */
-export function verdictFlash(sp, etat, b) {
+export function verdictFlash(sp, etat, b, { plafondMedaille = true } = {}) {
   if (b.justes < JUSTES_FLASH) return { reussi: false, lent: false };
   const famille = familleLecon(sp);
   const recents = (etat?.hist ?? []).filter((x) => x.ok && x.t != null).slice(-ESSAIS_REFERENCE);
   const seuilMedaille = evaluer(etat?.hist ?? [], famille).niveau.temps?.[famille];
   if (recents.length < ESSAIS_REFERENCE || seuilMedaille == null) return { reussi: true, lent: false, sansVitesse: true };
-  const limite = Math.max(mediane(recents.map((x) => x.t)) / PART_VITESSE_REVISION, seuilMedaille);
+  // Contrôle à 90 jours : le recul se mesure à la vitesse habituelle seule (pas de plafond de médaille).
+  const limite = plafondMedaille ? Math.max(mediane(recents.map((x) => x.t)) / PART_VITESSE_REVISION, seuilMedaille) : mediane(recents.map((x) => x.t)) / PART_VITESSE_REVISION;
   const t = mediane(b.resultats.filter((r) => r.juste && r.ex && Number.isFinite(r.dureeMs) && !r.autoEvalue).map((r) => tempsParUnite(r.ex, r.dureeMs)));
   if (t == null) return { reussi: true, lent: false, sansVitesse: true };
   return t <= limite ? { reussi: true, lent: false, t, limite } : { reussi: false, lent: true, t, limite };

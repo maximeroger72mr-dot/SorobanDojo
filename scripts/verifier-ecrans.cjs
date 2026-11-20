@@ -343,6 +343,19 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await w.waitForTimeout(200);
   await cliquerTexte(w, '#ecran button', 'Examen de dan d\'anzan');
   await controler(w, 'avancé : examen de dan d\'anzan Zenkoren', 'Épreuves officielles');
+  // 0.39 : les nouveaux écrans de vitesse et d'entretien.
+  const visiter = async (dest, quoi, texte) => {
+    await w.evaluate((x) => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: x })), dest);
+    await w.waitForTimeout(300);
+    await controler(w, `avancé : ${quoi}`);
+    if (texte && !(await w.$eval('main', (x) => x.innerText)).includes(texte)) problemes.push(`${quoi} : « ${texte} » n'apparaît pas`);
+  };
+  await visiter(['rythme', { jeu: 'lievre', format: { lignes: 10, chiffres: 3, cadence: 6, nom: '6e kyū', colonnes: 2 }, auto: true }], 'lièvre au format du grade', 'Le lièvre au format du 6e kyū');
+  await visiter(['marches', { surcharge: { type: 'mul', parProduit: 3 } }], 'sprint de surcharge ×', 'Sprint de surcharge');
+  await visiter(['epreuves', { grade: '6', sprints: true, auto: true }], 'sprints de la semaine', 'Sprints de la semaine');
+  await visiter(['epreuves', { grade: '6', section: 'mul', auto: true }], 'épreuve d\'une seule matière', 'Multiplication seule');
+  await visiter(['planches', { genre: 'dan', chiffres: 10, lignes: 10, auto: true }], 'planche au format des dan', 'Format des dan');
+  await visiter(['epreuves', {}], 'épreuves : fiche deux mains', null);
   await app.close();
 
   fs.rmSync(path.join(__dirname, 'sous-paliers.json'));

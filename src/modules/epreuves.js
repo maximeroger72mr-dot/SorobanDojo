@@ -4,6 +4,8 @@
  * seuil de réussite, impression possible. Voir core/epreuves.js pour les formats et leurs sources.
  */
 
+import { retardParties } from '../core/hakari.js';
+import { MINUTES_BLANC_SPRINT, kyuPasse } from '../core/examen.js';
 import { manquantesEpreuve } from '../core/prerequis.js';
 import { avertirPrerequis } from '../ui/avertissement.js';
 import { GRADES, genererSujet, totalPoints, SYSTEMES, systemeChoisi, MINUTES_EPREUVE_ZENKOREN, JUSTES_EPREUVE_ZENKOREN, OPTIONS_KYU_ZENKOREN, MATIERES_OPTION_KYU, minutesZenkoren, optionsChoisies } from '../core/epreuves.js';
@@ -144,7 +146,8 @@ export default {
               return h('button', { class: 'btn', onclick: () => lancer(g, k) }, `${NOMS_SECTIONS[k]} seule · ${g.options[k].minutes} min${r ? ` (${r.points} pts)` : ''}`);
             }))))),
         zen ? [carteDanZenkoren(), carteAnzanDanZenkoren()] : carteDan(),
-        listeAnzan());
+        listeAnzan(),
+        ficheDeuxMains());
     }
 
     /**
@@ -380,6 +383,20 @@ export default {
           ` ${MATIERES_OPTION_KYU[k].titre} (${g.options[k].minutes} min)`)));
     }
 
+    /**
+     * Fiche facultative (0.39), à partir de la préparation du 3e kyū : la technique à deux mains.
+     * Simple information, tout en bas : jamais imposée, sans seuil de vitesse, ce n'est pas la
+     * technique standard des juku.
+     */
+    function ficheDeuxMains() {
+      const sys = systemeChoisi(progression());
+      const g4 = sys.grades.find((x) => x.id === '4');
+      if (!g4 || !kyuPasse(progression(), sys, g4)) return null;
+      return h('details', { class: 'carte discret', style: 'margin-top:16px' }, h('summary', {}, 'Fiche facultative : la technique à deux mains'),
+        h('p', {}, 'Certains élèves très avancés posent les nombres avec les deux mains : la droite sur les unités et les dizaines, la gauche sur les rangs élevés, ou la gauche qui prépare la retenue pendant que la droite pose. Ce n\'est pas la technique standard des juku japonais, où l\'on calcule d\'une seule main (pouce et index de la main droite) et où la main gauche tient le soroban et suit la ligne.'),
+        h('p', {}, 'Rien ne vous oblige à l\'essayer : la méthode à une main suffit jusqu\'aux dan. Si vous voulez la découvrir, faites-le sur des planches sans chrono, et revenez à une main pour les examens tant qu\'elle n\'est pas aussi sûre. L\'application ne mesure ni n\'exige rien à ce sujet.'));
+    }
+
     /** Avant les leçons conseillées : on prévient, sans bloquer. */
     function lancer(g, section = null) {
       const manque = manquantesEpreuve(progression(), g.id);
@@ -434,11 +451,46 @@ export default {
       });
     }
 
+    /**
+     * Semaine « sprints » (0.39) : deux sprints de 7 minutes au format du grade visé, les colonnes
+     * puis la partie la plus lente (× ou ÷), puis la reprise des erreurs. Ne compte pas pour le record.
+     */
+    function demarrerSprints(g, mode) {
+      el.replaceChildren(h('button', { class: 'lien', onclick: () => liste() }, '← Toutes les épreuves'), h('h1', {}, `Sprints de la semaine · ${g.nom}`),
+        h('p', { class: 'consigne' }, `Deux sprints de ${MINUTES_BLANC_SPRINT} minutes, l'un après l'autre : les colonnes, puis votre partie la plus lente. Ensuite, reprenez vos erreurs. L'examen complet, lui, revient la semaine prochaine.`));
+      const sujet = genererSujet(g);
+      const lente = retardParties(progression()).find((x) => x.partie !== 'colonnes' && sujet.sections.some((s) => s.cle === x.partie))?.partie ?? 'mul';
+      const col = sujet.sections.find((s) => s.cle === 'mitori') ?? sujet.sections.find((s) => s.cle.startsWith('mitori'));
+      const sections = [col, sujet.sections.find((s) => s.cle === lente)].filter(Boolean).map((s) => ({ ...s, minutes: MINUTES_BLANC_SPRINT }));
+      feuille = creerFeuille(el, {
+        titre: `${g.nom} · 2 sprints de ${MINUTES_BLANC_SPRINT} minutes`,
+        sections,
+        minutes: sections.length * MINUTES_BLANC_SPRINT,
+        parEpreuve: true,
+        mesure: { source: 'examen', grade: g },
+        surFin: (b) => {
+          enregistrerSession({ module: 'epreuves', mode: `${mode}-sprints`, reglages: { grade: g.id, sprints: true }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+          return h('div', { class: 'carte bilan' },
+            h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
+            h('table', {}, h('tr', {}, ['Sprint', 'Justes'].map((x) => h('th', {}, x))), b.parSection.map((s) => h('tr', {}, h('td', {}, s.titre), h('td', {}, `${s.justes} / ${s.total}`)))),
+            h('p', {}, 'Maintenant, la reprise des erreurs : refaites chaque problème faux, sans chrono.'),
+            h('div', { class: 'ligne' }, boutonNaoshi(el, b.resultats, { source: 'epreuve', retour: () => liste() }), h('button', { class: 'btn', onclick: () => liste() }, 'Toutes les épreuves')));
+        },
+      });
+    }
+
     // Lancé depuis la séance (examen complet de la semaine) : le sujet du grade, directement.
     const direct = params.grade && params.auto ? systemeChoisi(progression()).grades.find((g) => g.id === params.grade) : null;
-    if (params.danZenkoren && params.auto) demarrerDanZenkoren(OPTIONS_DISPO);
+    if (params.sprints && params.auto) {
+      const d = progression();
+      const zen = systemeChoisi(d).id === 'zenkoren';
+      const g = params.danZenkoren ? gradeDanZenkoren(prochainNiveau(d, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN) ?? NIVEAUX_DAN_ZENKOREN.at(-1))
+        : params.dan ? gradeDan(prochainDan(d) ?? NIVEAUX_DAN.at(-1)) : direct;
+      if (g) demarrerSprints(g, g.dan ? (params.danZenkoren ? 'dan-zenkoren' : 'dan') : `${zen ? 'z' : ''}${g.id}`);
+      else liste();
+    } else if (params.danZenkoren && params.auto) demarrerDanZenkoren(OPTIONS_DISPO);
     else if (params.dan && params.auto) demarrerDan();
-    else if (direct) demarrer(direct);
+    else if (direct) demarrer(direct, params.section ?? null);
     else liste();
     return () => feuille?.detruire();
   },

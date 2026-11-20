@@ -128,8 +128,12 @@ export function examenCompletHebdo(d, date) {
   if (!g) return null;
   const semaine = semaineISO(date).cle;
   const mode = g.dan ? (zen ? 'dan-zenkoren' : 'dan') : `${g.systeme === 'zenkoren' ? 'z' : ''}${g.id}`;
-  const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === mode && semaineISO(s.date).cle === semaine) ?? null;
-  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain, dan: !!g.dan, danZenkoren: !!g.dan && zen };
+  // 0.39 : une semaine sur deux, l'examen complet chronométré (le seul qui compte pour le record) ;
+  // l'autre, deux sprints de 7 minutes (colonnes, puis la partie la plus lente) et la reprise des erreurs.
+  const format = formatBlanc(date);
+  const modeSemaine = format === 'sprints' ? `${mode}-sprints` : mode;
+  const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === modeSemaine && semaineISO(s.date).cle === semaine) ?? null;
+  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain, dan: !!g.dan, danZenkoren: !!g.dan && zen, format, mode };
 }
 
 /** Plus haut kyū officiel réussi en examen blanc (ou null). */

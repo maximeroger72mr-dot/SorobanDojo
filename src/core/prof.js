@@ -15,6 +15,7 @@
  * Fonctions pures : elles reçoivent les données de progression (et le prochain sous-palier).
  */
 
+import { matiereEntretien, matieresEntretien, maintienPur, activiteMaintien, NOMS_MATIERES } from './entretien.js';
 import { SOUS_PALIERS, familleLecon } from './curriculum.js';
 import { evaluer, NIVEAUX, mediane, semDominante } from './maitrise.js';
 import { famillesApprises, planObjectif, gestesLents, defiSemaine, anzanAdapte, formatExamen, grade as gradeDe } from './parcours.js';
@@ -171,11 +172,54 @@ export function decisionDuJour(d, date, prochain) {
   // Parcours terminé (0.38) : l'entretien se fait AU FORMAT de l'examen (avant : un marathon de
   // 30 lignes à 1 chiffre, sans rapport avec le niveau atteint). Le bloc de vitesse du jour, les
   // marches et l'examen complet de la semaine font le reste.
+  return entretienDuJour(d, date);
+}
+
+/**
+ * Entretien (0.39) : les matières tournent séance par séance (colonnes, ×, ÷, anzan et flash, et le
+ * denpyōzan en Zenkoren), une séance sur deux sur la plus en retard ; colonnes au format des dan
+ * après le 1er kyū ; maintien pur quand il n'y a plus rien à viser (voir core/entretien.js).
+ */
+export function entretienDuJour(d, date) {
   const fe = formatExamen(d);
   const fini = !gradeDe(d).prochain;
-  return { type: 'revision', titre: 'Entretien', detail: `une planche au format du ${fe.grade.nom} (${fe.lignes} lignes de ${fe.chiffres} chiffres)`,
-    raison: fini ? `Tous les kyū sont réussis : on entretient l'allure du ${fe.grade.nom}, colonnes, × et ÷, avec son examen complet chaque semaine.` : `Toutes les leçons sont faites : il reste la vitesse du ${fe.grade.nom}.`,
-    aller: ['planches', { chiffres: fe.chiffres, lignes: fe.lignes, auto: true, proposition: 'entretien' }], minutes: 10 };
+  const base = { type: 'revision', titre: 'Entretien', minutes: 10 };
+  if (maintienPur(d)) {
+    const { activite, faible } = activiteMaintien(d, date);
+    const g = fe.grade;
+    if (activite === 'sprints') {
+      const section = faible === 'colonnes' ? 'mitori' : faible;
+      return { ...base, detail: `sprint sur la matière la plus faible (${NOMS_MATIERES[faible] ?? faible}), au format du ${g.nom}`, matiere: faible,
+        raison: 'Maintien : tout est réussi. Cette semaine, un sprint sur votre matière la plus faible, un rejeu de planche, le flash, et l\'examen complet du week-end.',
+        aller: ['epreuves', { grade: g.id, section, auto: true }] };
+    }
+    if (activite === 'rejeu') {
+      return { ...base, detail: 'rejouer votre planche la plus récente au format d\'examen, pour battre son temps', matiere: 'colonnes',
+        raison: 'Maintien : la même planche, rejouée, dit si la main garde sa vitesse. Battez votre temps.',
+        aller: ['planches', { rejeuRecent: true, chiffres: fe.chiffres, lignes: fe.lignes, auto: true, proposition: 'entretien' }] };
+    }
+    return { ...base, detail: 'flash anzan : les chaînes de tête, à votre niveau', matiere: 'anzan',
+      raison: 'Maintien : l\'anzan s\'entretient aussi, quelques minutes de flash.', aller: ['anzan', { auto: true }] };
+  }
+  const m = matiereEntretien(d, date);
+  const raison = m.raison === 'retard'
+    ? `Entretien : une séance sur deux, la matière la plus loin de l'allure visée. Aujourd'hui : les ${NOMS_MATIERES[m.matiere]}.`
+    : `Entretien : les matières tournent d'une séance à l'autre (${matieresEntretien(d).map((x) => NOMS_MATIERES[x]).join(', ')}). Aujourd'hui : ${m.matiere === 'colonnes' ? 'les colonnes' : m.matiere === 'anzan' ? 'l\'anzan et le flash' : m.matiere === 'denpyo' ? 'le denpyōzan' : `les ${NOMS_MATIERES[m.matiere]}`}.`;
+  if (m.matiere === 'colonnes') {
+    if (fini) return { ...base, matiere: 'colonnes', detail: 'une planche au format des dan : colonnes mêlées de 5 à 10 chiffres', raison,
+      aller: ['planches', { genre: 'dan', chiffres: 10, lignes: 10, auto: true, proposition: 'entretien' }] };
+    return { ...base, matiere: 'colonnes', detail: `une planche au format du ${fe.grade.nom} (${fe.lignes} lignes de ${fe.chiffres} chiffres)`, raison,
+      aller: ['planches', { chiffres: fe.chiffres, lignes: fe.lignes, auto: true, proposition: 'entretien' }] };
+  }
+  if (m.matiere === 'mul' || m.matiere === 'div') {
+    return { ...base, matiere: m.matiere, detail: `une feuille de ${NOMS_MATIERES[m.matiere]} au format du ${fe.grade.nom}`, raison,
+      aller: ['muldiv', { type: m.matiere, format: 'kyu', mode: 'feuille', nombre: 12, auto: true, proposition: 'entretien' }] };
+  }
+  if (m.matiere === 'denpyo') {
+    return { ...base, matiere: 'denpyo', detail: `le denpyōzan du ${fe.grade.nom} : une liasse de bordereaux, 7 minutes`, raison,
+      aller: ['epreuves', { grade: fe.grade.id, section: 'denpyo', auto: true }] };
+  }
+  return { ...base, matiere: 'anzan', detail: 'anzan et flash : calcul de tête à votre niveau', raison, aller: ['anzan', { auto: true }] };
 }
 
 /** Jeu « bonus » du jour : il tourne d'un jour à l'autre parmi ceux qui ont du sens au niveau atteint. */

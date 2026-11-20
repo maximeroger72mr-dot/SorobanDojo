@@ -23,9 +23,10 @@
  *        pour repérer les plateaux.
  */
 
-import { nouvelleCarte, reviser, estDue, ajouterJours, INTERVALLES } from './revision.js';
+import { nouvelleCarte, reviser, estDue, ajouterJours, INTERVALLES, controleDu, apresControle } from './revision.js';
 import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX, appliquerEchelle } from './maitrise.js';
 import { ajouterMesures } from './mesures.js';
+import { SYSTEMES } from './epreuves.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
@@ -671,7 +672,30 @@ function absorbeeMulDiv(d, sp) {
 
 export function revisionsDues() {
   const j = aujourdhui();
-  return Object.entries(donnees.paliers).filter(([id, e]) => estDue(e.carte, j) && !absorbee(donnees, id)).map(([id]) => id);
+  const couverte = formatCouvertParEpreuve(donnees, j);
+  return Object.entries(donnees.paliers).filter(([id, e]) => (estDue(e.carte, j) && !absorbee(donnees, id))
+    || controleDu(SOUS_PALIERS.find((s) => s.id === id), e.carte, j, couverte)).map(([id]) => id);
+}
+
+/**
+ * Une épreuve (officielle ou examen blanc de kyū) du dernier mois contenait-elle le format de la
+ * leçon ? Décimaux et arrondis : grade avec décimaux ; négatifs : grade avec un résultat négatif ;
+ * synthèses (révision générale, endurance, × et ÷ longs) : grade du 6e kyū ou au-delà.
+ */
+export function formatCouvertParEpreuve(d, date) {
+  const limite = ajouterJours(date, -30);
+  const grades = d.sessions.filter((s) => s.date >= limite && (s.module === 'epreuves' || (s.module === 'examen' && s.mode === 'kyu')) && s.reglages?.grade)
+    .map((s) => SYSTEMES[s.reglages.systeme ?? 'nissho']?.grades.find((g) => g.id === String(s.reglages.grade))).filter(Boolean);
+  return (sp) => grades.some((g) => (['addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'].includes(sp.type) ? !!g.mul?.decimales
+    : sp.type === 'negatif' ? g.mitori?.rangNegatif != null : Number(g.id) <= 6));
+}
+
+/** Contrôle à 90 jours (0.39) : réussi, prochain dans 90 jours ; raté ou trop lent, retour en révision. */
+export async function enregistrerControle(id, reussi) {
+  const e = donnees.paliers[id];
+  if (!e?.carte) return;
+  e.carte = apresControle(e.carte, reussi, aujourdhui());
+  await sauver();
 }
 
 export function reglagesUtilisateur() {

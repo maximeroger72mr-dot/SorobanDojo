@@ -52,7 +52,7 @@ export default {
           return h('button', { class: 'ligne-palier', onclick: () => flash(sp) },
             h('span', { class: 'icone' }, '●'),
             h('span', { class: 'titre' }, sp.titre, h('span', { class: 'discret' }, ` · ${sp.palier.titre}`)),
-            h('span', { class: 'statut' }, `Boîte ${c.boite}${retard > 0 ? ` · en retard de ${retard} j` : ''} · Test flash →`));
+            h('span', { class: 'statut' }, c.acquise ? 'Contrôle à 90 jours · Test flash →' : `Boîte ${c.boite}${retard > 0 ? ` · en retard de ${retard} j` : ''} · Test flash →`));
         })));
         const m = melangeables();
         if (m.length > 1) el.append(h('button', { class: 'btn principal', style: 'margin-top:8px', onclick: () => melange(m) }, `Révision mélangée : ${m.length} leçons, ${calculsMelange(m.length)} calculs`));
@@ -134,6 +134,17 @@ export default {
               return `Cette leçon avait été validée par le test de positionnement ; elle est rouverte pour la reprendre tranquillement (le mini-test suffit à la revalider).`;
             }
             etatPalier(sp.id).confirme = aujourdhui();
+          }
+          // Contrôle à 90 jours d'une leçon acquise : réussi et à sa vitesse (15 % de recul au plus),
+          // elle reste acquise ; sinon, elle revient en révision.
+          if (etatPalier(sp.id).carte?.acquise) {
+            const vc = verdictFlash(sp, etatPalier(sp.id), b, { plafondMedaille: false });
+            const ok = vc.reussi;
+            v.lent = vc.lent;
+            await enregistrerControle(sp.id, ok);
+            await enregistrerSession({ module: 'revisions', mode: 'controle', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });
+            return ok ? 'Contrôle à 90 jours réussi : la leçon reste acquise. Prochain contrôle dans 90 jours.'
+              : `Contrôle à 90 jours : ${v.lent ? 'juste, mais la vitesse a reculé de plus de 15 %' : 'trop d\'erreurs'}. La leçon revient en révision (boîte 3), pour retrouver sa forme.`;
           }
           await enregistrerRevision(sp.id, v.reussi, { lent: v.lent });
           await enregistrerSession({ module: 'revisions', mode: 'flash', reglages: { sousPalier: sp.id }, total: b.total, justes: b.justes, dureeMs: b.dureeMs });

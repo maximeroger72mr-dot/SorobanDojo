@@ -221,3 +221,57 @@ test('0.39 lot 2 : feuille de la semaine d\'environ 7 minutes à l\'allure ; li�
   assert.ok(t / 60 >= MINUTES_FEUILLE_SEMAINE - 2 && t / 60 <= MINUTES_FEUILLE_SEMAINE + 2, `${t / 60} min`);
   assert.ok(f.sections.some((s) => s.problemes[0].type === 'addsub') && f.sections.some((s) => s.problemes[0].type === 'mul'));
 });
+
+test('0.39 lot 3 : entretien, matières tournées séance par séance, une sur deux la plus en retard', async () => {
+  const { matiereEntretien, matieresEntretien, maintienPur, activiteMaintien } = await import('../src/core/entretien.js');
+  const { entretienDuJour } = await import('../src/core/prof.js');
+  const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, module: 'planches', total: 1 }));
+  const tous = Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].map((id) => [`epreuve-${id}`, { reussi: true }]));
+  const d = { paliers: valides('p9-6'), motifs: {}, records: tous, reglages: {}, sessions: [], mesures: [] };
+  assert.deepEqual(matieresEntretien(d), ['colonnes', 'mul', 'div', 'anzan']);
+  const vus = [0, 2, 4, 6].map((n) => matiereEntretien({ ...d, sessions: jours(n) }, '2026-11-21').matiere);
+  assert.deepEqual(vus, ['colonnes', 'mul', 'div', 'anzan']);
+  // Séance impaire : la plus en retard (× jamais mesuré = la plus loin).
+  assert.equal(matiereEntretien({ ...d, sessions: jours(1) }, '2026-11-21').raison, 'retard');
+  // Après le 1er kyū : colonnes au format des dan.
+  const apres = { ...d, records: { ...tous, 'epreuve-1': { reussi: true } } };
+  const e = entretienDuJour({ ...apres, sessions: jours(0) }, '2026-11-21');
+  assert.equal(e.aller[1].genre, 'dan');
+  assert.equal(maintienPur(apres), false, 'le dan reste à viser');
+  // Maintien pur : sprints, rejeu, flash à tour de rôle dans la semaine.
+  assert.deepEqual([0, 1, 2].map((k) => activiteMaintien({ sessions: Array.from({ length: k }, (_, i) => ({ date: `2026-11-${16 + i}` })), motifs: {}, paliers: {}, records: {}, reglages: {} }, '2026-11-21').activite), ['sprints', 'rejeu', 'flash']);
+});
+
+test('0.39 lot 3 : examen de la semaine en alternance (complet / 2 sprints) ; planche au format des dan', async () => {
+  const { examenCompletHebdo } = await import('../src/core/examen.js');
+  const { genererPlancheSpeciale } = await import('../src/core/planche.js');
+  const d = { paliers: valides('p8-8'), motifs: {}, records: { 'epreuve-6': { reussi: true }, 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [] };
+  const a = examenCompletHebdo(d, '2026-11-20');
+  const b = examenCompletHebdo(d, '2026-11-27');
+  assert.deepEqual([a.format, b.format].sort(), ['long', 'sprints']);
+  const sprints = a.format === 'sprints' ? a : b;
+  const date = sprints === a ? '2026-11-20' : '2026-11-27';
+  d.sessions.push({ date, module: 'epreuves', mode: `${sprints.mode}-sprints`, total: 30, justes: 25 });
+  assert.ok(examenCompletHebdo(d, date).fait, 'les sprints faits valent l\'examen de la semaine');
+  const p = genererPlancheSpeciale({ genre: 'dan', chiffres: 10, lignes: 10, colonnes: 10 }, 12345);
+  for (const c of p.colonnes) {
+    assert.equal(c.lignes.length, 10);
+    assert.ok(c.lignes.every((l) => String(l.n).length >= 5 && String(l.n).length <= 10));
+  }
+});
+
+test('0.39 lot 3 : contrôle tous les 90 jours (règles rares, 4 synthèses), sauté après une épreuve qui les contenait', async () => {
+  const { controleDu, apresControle, aControler } = await import('../src/core/revision.js');
+  const { formatCouvertParEpreuve } = await import('../src/core/progression.js');
+  assert.ok(aControler(sp('pd-5')) && aControler(sp('p5-5')) && aControler(sp('p9-6')));
+  assert.equal(aControler(sp('p3-1')), false);
+  const carte = { boite: 5, echeance: '2026-07-01', acquise: '2026-08-01' };
+  assert.equal(controleDu(sp('pd-5'), carte, '2026-11-21'), true, 'plus de 90 jours');
+  assert.equal(controleDu(sp('pd-5'), carte, '2026-10-21'), false);
+  assert.equal(controleDu(sp('p3-1'), carte, '2026-11-21'), false, 'leçon ordinaire : pas de contrôle');
+  const avecEpreuve = formatCouvertParEpreuve({ sessions: [{ date: '2026-11-10', module: 'epreuves', reglages: { systeme: 'nissho', grade: '3' } }] }, '2026-11-21');
+  assert.equal(controleDu(sp('pd-5'), carte, '2026-11-21', avecEpreuve), false, 'le 3e kyū contenait des arrondis');
+  assert.equal(controleDu(sp('pn-1') ?? { id: 'x', type: 'negatif' }, carte, '2026-11-21', avecEpreuve), true, 'pas de négatif au 3e kyū');
+  assert.equal(apresControle(carte, true, '2026-11-21').controle, '2026-11-21');
+  assert.deepEqual(apresControle(carte, false, '2026-11-21'), { boite: 3, echeance: '2026-11-28' });
+});

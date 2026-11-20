@@ -47,6 +47,34 @@ export const ordreRevisions = (etat) => (a, b) => {
   return (eb.fluidite ? 1 : 0) - (ea.fluidite ? 1 : 0) || (ea.carte?.boite ?? 1) - (eb.carte?.boite ?? 1) || String(ea.carte?.echeance).localeCompare(String(eb.carte?.echeance));
 };
 
+/**
+ * Contrôle tous les 90 jours (0.39), pour des leçons ACQUISES (sorties des révisions) :
+ *  - les règles rares : résultats négatifs, décimaux, arrondis ;
+ *  - 4 synthèses : la révision générale (p5-5), les colonnes d'endurance (p8-3), une synthèse de ×
+ *    (p9-4) et une de ÷ (p9-6).
+ * Sauté quand une épreuve du dernier mois contenait ces formats. Au contrôle (test flash), la leçon
+ * revient en révision si elle est ratée ou si la vitesse a reculé de plus de 15 %.
+ */
+export const CONTROLE_JOURS = 90;
+export const TYPES_REGLES_RARES = ['negatif', 'addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'];
+export const SYNTHESES_CONTROLE = ['p5-5', 'p8-3', 'p9-4', 'p9-6'];
+export const aControler = (sp) => !!sp && (TYPES_REGLES_RARES.includes(sp.type) || SYNTHESES_CONTROLE.includes(sp.id));
+
+/**
+ * La leçon est-elle due pour son contrôle ?
+ * @param {(sp: object) => boolean} couverte  une épreuve du dernier mois contenait-elle ce format ?
+ */
+export function controleDu(sp, carte, date, couverte = () => false) {
+  if (!aControler(sp) || !carte?.acquise) return false;
+  const depuis = carte.controle ?? carte.acquise;
+  return ajouterJours(depuis, CONTROLE_JOURS) <= date && !couverte(sp);
+}
+
+/** Carte après un contrôle : réussi, prochain contrôle dans 90 jours ; sinon, retour en révision (boîte 3). */
+export function apresControle(carte, reussi, date) {
+  return reussi ? { ...carte, controle: date } : { boite: 3, echeance: ajouterJours(date, INTERVALLES[2]) };
+}
+
 /** Révision mélangée (0.38) : 3 leçons au plus ; 5 calculs chacune à 2 leçons, 4 à 3 leçons. */
 export const MELANGE_MAX = 3;
 export const calculsMelange = (n) => n * (n <= 2 ? 5 : 4);

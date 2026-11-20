@@ -166,6 +166,9 @@ export function plan(d, debut, seance = null) {
   const vitesse = jourVitesse(d, date);
   const decisionFaite = (dec) => fait((s) => (dec.aller[0] === 'lecons' ? s.module === 'lecons' && s.reglages?.sousPalier === dec.aller[1].sousPalier
     : dec.aller[0] === 'planches' ? s.module === 'planches' && s.reglages?.proposition === dec.aller[1].proposition
+    : dec.aller[0] === 'muldiv' ? s.module === 'muldiv' && s.reglages?.proposition === dec.aller[1].proposition
+    : dec.aller[0] === 'epreuves' ? s.module === 'epreuves'
+    : dec.aller[0] === 'anzan' ? s.module === 'anzan'
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && seance.decision.type === 'lecon' && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
   const difficiles = motifsEnDifficulte();
@@ -182,9 +185,10 @@ export function plan(d, debut, seance = null) {
   if (completVoulu) {
     const g = complet.grade;
     const f = complet.fait;
-    const minutesComplet = minutesZenkoren(g, optionsChoisies(d, g));
-    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: minutesComplet, aller: ['epreuves', complet.danZenkoren ? { danZenkoren: true, auto: true } : complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
-      detail: f ? `${f.justes} / ${f.total} justes` : complet.danZenkoren ? `×, ÷, mitorizan et les matières au choix, 7 minutes chacune, au barème Zenkoren (${g.pointsEpreuve} points sur 300 dans chaque matière pour le ${g.japonais})` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier${optionsChoisies(d, g).length ? ', avec vos matières au choix' : ''}, ${minutesComplet} minutes, comme le jour de l'examen`,
+    const sprints = complet.format === 'sprints';
+    const minutesComplet = sprints ? 2 * MINUTES_BLANC_SPRINT + 3 : minutesZenkoren(g, optionsChoisies(d, g));
+    const item = { titre: sprints ? `Sprints de la semaine · ${complet.dan ? `vers le ${g.japonais}` : g.nom}` : complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: minutesComplet, aller: ['epreuves', { ...(complet.danZenkoren ? { danZenkoren: true } : complet.dan ? { dan: true } : { grade: g.id }), auto: true, ...(sprints ? { sprints: true } : {}) }], examen: true, fait: completAujourdhui,
+      detail: f ? `${f.justes} / ${f.total} justes` : sprints ? `cette semaine, deux sprints de ${MINUTES_BLANC_SPRINT} minutes (les colonnes, puis votre partie la plus lente), puis la reprise des erreurs ; l'examen complet revient la semaine prochaine` : complet.danZenkoren ? `×, ÷, mitorizan et les matières au choix, 7 minutes chacune, au barème Zenkoren (${g.pointsEpreuve} points sur 300 dans chaque matière pour le ${g.japonais})` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier${optionsChoisies(d, g).length ? ', avec vos matières au choix' : ''}, ${minutesComplet} minutes, comme le jour de l'examen`,
       pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' };
     if (completDansSeance) essentiel.push(item);
     else seanceLongue = item;
@@ -224,7 +228,9 @@ export function plan(d, debut, seance = null) {
     isolesBloc3 = items.filter((it) => it.genre?.endsWith('-isole')).length;
     items.forEach((it, i) => { exclus.push(it.id); essentiel.push({ ...it, titre: i ? it.titre : `${decision.titre} · ${it.titre}`, decision: i === 0, pourquoi: i ? it.pourquoi : `${decision.raison} ${it.pourquoi ?? ''}`.trim() }); });
   } else {
-    essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, decision: true, pourquoi: decision.raison, fait: decisionFaite(decision) });
+    // 0.39 : l'entretien prend une part de l'objectif du jour (5 à 20 min).
+    const m = decision.type === 'revision' ? Math.max(5, Math.min(20, Math.round(objectif * 0.4))) : partLecon;
+    essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: m, aller: decision.aller, decision: true, pourquoi: decision.raison, fait: decisionFaite(decision) });
   }
 
   // 0.38.4 : l'examen a pris la place de la leçon dans la séance. La leçon du jour n'est pas
@@ -377,7 +383,8 @@ export function plan(d, debut, seance = null) {
   // 0.38 : à partir du 7e kyū, UN bloc de vitesse par jour, sur la partie la plus en retard (deux
   // jours sur trois) ou à tour de rôle : colonnes, ×, ÷. Pour × et ÷, une feuille chronométrée au
   // format du kyū, à la longueur du temps qui reste.
-  const partie = hakariActif(d) ? (seance?.partie ?? partieDuJour(d, date)) : null;
+  // En entretien, la matière du jour est déjà la décision : pas de bloc de vitesse en double.
+  const partie = hakariActif(d) && decision.type !== 'revision' ? (seance?.partie ?? partieDuJour(d, date)) : null;
   // Marches d'allure (0.38) : leçons du grade validées, une feuille de marche un jour de pratique
   // sur deux (pas le jour où elle est déjà réussie) ; le bloc de vitesse prend le temps qui reste.
   const em = etatMarches(d);
