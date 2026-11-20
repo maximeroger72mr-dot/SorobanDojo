@@ -89,11 +89,41 @@ export function allureGrade(g) {
  * Vitesse mesurée de l'élève : temps médian par chiffre sur ses gestes, et par produit sur ses
  * leçons de multiplication et de division. null tant qu'il n'y a pas assez de mesures.
  */
-export function vitesseEleve(d) {
+export function vitesseEleve(d, g = null) {
   const gestes = Object.values(d.motifs ?? {}).map((f) => evaluer(f.hist ?? []).temps).filter((t) => t !== null);
   const lecons = SOUS_PALIERS.filter((sp) => !sp.mental && familleLecon(sp) === 'muldiv')
     .map((sp) => evaluer(d.paliers?.[sp.id]?.hist ?? [], 'muldiv').temps).filter((t) => t !== null);
-  return { parChiffre: gestes.length >= 5 ? mediane(gestes) : null, parProduit: lecons.length >= 1 ? mediane(lecons) : null };
+  const parGeste = gestes.length >= 5 ? mediane(gestes) : null;
+  const parProduit = lecons.length >= 1 ? mediane(lecons) : null;
+  if (!g) return { parChiffre: parGeste, parProduit };
+  // Pour un grade (0.38.4) : le temps par chiffre mesuré geste par geste vient de colonnes courtes
+  // (1 ou 2 chiffres, 5 lignes) ; il flatte l'allure sur 10 lignes de 3 chiffres. Dès qu'une
+  // planche au format du grade existe, c'est elle qui compte ; sinon l'estimation par geste reste,
+  // marquée « à confirmer ».
+  const auFormat = vitesseColonnesFormat(d, g);
+  return { parChiffre: auFormat ?? parGeste, parProduit, colonnesAuFormat: auFormat !== null };
+}
+
+/** Format des colonnes d'un grade : lignes et chiffres (le plus long), ou null. */
+export const formatColonnes = (g) => (g?.mitori ? { lignes: g.mitori.lignes, chiffres: g.mitori.chiffres ?? g.mitori.max } : null);
+
+/** Planches prises en compte pour la vitesse au format : les 5 dernières. */
+export const PLANCHES_FORMAT = 5;
+
+/**
+ * Temps par chiffre sur les planches AU FORMAT du grade (au moins ses lignes et ses chiffres),
+ * sans pyramide, avec 70 % de justes au moins : médiane des 5 dernières, les 3 secondes de
+ * lecture et d'écriture de chaque colonne retirées. null s'il n'y en a pas.
+ */
+export function vitesseColonnesFormat(d, g) {
+  const f = formatColonnes(g);
+  if (!f) return null;
+  const t = (d.sessions ?? []).filter((s) => {
+    const r = s.reglages ?? {};
+    return s.module === 'planches' && s.total > 0 && s.dureeMs > 0 && s.justes / s.total >= 0.7 && (!r.genre || r.genre === 'gestes')
+      && (!r.pyramide || r.pyramide === 'non') && r.lignes >= f.lignes && r.chiffres >= f.chiffres;
+  }).slice(-PLANCHES_FORMAT).map((s) => Math.max(0.05, (s.dureeMs / s.total / 1000 - SURCOUT_PROBLEME_S) / (s.reglages.lignes * s.reglages.chiffres)));
+  return t.length ? mediane(t) : null;
 }
 
 /**
@@ -104,7 +134,7 @@ export function vitesseEleve(d) {
  */
 export function verdictAllure(g, d) {
   const allure = allureGrade(g);
-  const v = vitesseEleve(d);
+  const v = vitesseEleve(d, g);
   const c = chargeGrade(g);
   const ok = (eleve, besoin) => (eleve === null ? null : eleve <= besoin);
   const complet = v.parChiffre !== null && (v.parProduit !== null || c.produits === 0);
@@ -113,7 +143,7 @@ export function verdictAllure(g, d) {
     : null;
   return {
     allure,
-    colonnes: { besoin: allure.parChiffre, eleve: v.parChiffre, ok: ok(v.parChiffre, allure.parChiffre) },
+    colonnes: { besoin: allure.parChiffre, eleve: v.parChiffre, ok: ok(v.parChiffre, allure.parChiffre), auFormat: v.colonnesAuFormat },
     muldiv: { besoin: allure.parProduit, eleve: v.parProduit, ok: ok(v.parProduit, allure.parProduit) },
     minutes,
   };

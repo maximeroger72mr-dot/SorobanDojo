@@ -594,15 +594,18 @@ export function genererColonneDecimale(lignes = 5, chiffresMax = 4, decimales = 
   }
 }
 
-/** Multiplication de décimaux exacte (pas d'arrondi), petits facteurs, avec des 0,0x de temps en temps. */
-export function genererMultiplicationDecimaleSimple(m, n) {
+/**
+ * Multiplication de décimaux exacte (pas d'arrondi), petits facteurs, avec des 0,0x de temps en
+ * temps. `maxDecimales` borne les décimales du produit (anzan : 3, voir danZenkoren).
+ */
+export function genererMultiplicationDecimaleSimple(m, n, maxDecimales = Infinity) {
   for (;;) {
     const A = facteur(m);
     const B = facteur(n);
     if (A % 10 === 0 || B % 10 === 0) continue;
     const pa = entier(0, m + 1);
     const pb = entier(0, n);
-    if (pa + pb === 0) continue;
+    if (pa + pb === 0 || pa + pb > maxDecimales) continue;
     const a = A / 10 ** pa;
     const b = B / 10 ** pb;
     return { type: 'mul', a, b, resultat: (A * B) / 10 ** (pa + pb), decimales: pa + pb, entiers: [A, B], virgules: [pa, pb] };

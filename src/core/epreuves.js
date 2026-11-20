@@ -35,6 +35,7 @@
 
 import { entier } from './aleatoire.js';
 import { facteur, genererMultiplicationDecimale, genererDivisionDecimale } from './multiplication.js';
+import { genererDenpyo } from './denpyo.js';
 
 /** Problèmes mêlant additions et soustractions dans les sujets modèles : 3, 5, 7 et 9. */
 export const MIXTES = [2, 4, 6, 8];
@@ -92,7 +93,9 @@ export const GRADES_KYU = GRADES.filter((g) => !g.jun);
  * Le nombre de chiffres par problème n'est pas publié : on reprend celui du MÊME grade Nisshō.
  * Un kyū Zenkoren est donc au moins aussi dur que le kyū Nisshō du même rang (mêmes nombres,
  * 15 problèmes au lieu de 10 ou 20, temps par épreuve, réussite exigée partout), jamais moins.
- * Les options du 1er au 3e kyū (calcul mental, denpyōzan, calcul appliqué) ne sont pas encore là.
+ * Du 3e au 1er kyū, deux matières AU CHOIX s'ajoutent (0.38.4) : le denpyōzan et l'anzan (le
+ * calcul appliqué n'est pas proposé). Chacune choisie compte comme les autres : 10 justes sur 15.
+ * Leur format n'est pas publié : il est ESTIMÉ (voir OPTIONS_KYU_ZENKOREN).
  */
 export const MINUTES_EPREUVE_ZENKOREN = 7;
 export const JUSTES_EPREUVE_ZENKOREN = 10;
@@ -103,6 +106,26 @@ export const JUSTES_EPREUVE_ZENKOREN = 10;
  * cadence Nisshō : plus dur, sans devenir irréaliste (voir tests/zenkoren.test.js).
  */
 export const LIGNES_ZENKOREN = { 10: 5, 9: 5, 8: 5, 7: 6, 6: 5, 5: 6, 4: 6, 3: 7, 2: 8, 1: 8 };
+
+/**
+ * Matières au choix des kyū Zenkoren, du 3e au 1er (format ESTIMÉ, non publié) :
+ *  - denpyōzan (伝票算) : 15 problèmes, liasse de 20 bordereaux de 5 lignes, une ligne sur 10
+ *    bordereaux par problème ; nombres de 3 à 5 (3e), 6 (2e), 7 chiffres (1er, comme au dan) ;
+ *    7 minutes ;
+ *  - anzan (暗算) : 5 ×, 5 ÷ et 5 mitori de tête, au format du kyū d'anzan Nisshō du même rang
+ *    (× et ÷ de 4, 4, puis 5 chiffres au total ; mitori de 5, 7, puis 10 lignes de 3 chiffres) ;
+ *    3 minutes, comme l'anzan du dan.
+ * 15 problèmes à 10 points chacune, 10 justes exigés dans chaque matière choisie.
+ */
+export const OPTIONS_KYU_ZENKOREN = ['denpyo', 'anzan'];
+export const MATIERES_OPTION_KYU = { denpyo: { titre: 'Denpyōzan (伝票算)', minutes: 7 }, anzan: { titre: 'Anzan (暗算)', minutes: 3 } };
+const FORMAT_OPTIONS_KYU = {
+  3: { denpyoMax: 5, anzanTotal: 4, anzanLignes: 5 },
+  2: { denpyoMax: 6, anzanTotal: 4, anzanLignes: 7 },
+  1: { denpyoMax: 7, anzanTotal: 5, anzanLignes: 10 },
+};
+/** Minutes d'un examen Zenkoren avec les options choisies. */
+export const minutesZenkoren = (g, options = []) => g.minutes + (g.options ? options.filter((k) => g.options[k]).reduce((t, k) => t + MATIERES_OPTION_KYU[k].minutes, 0) : 0);
 function versZenkoren(g) {
   const q = { nb: 15, points: 10 };
   const lignes = LIGNES_ZENKOREN[g.id] ?? g.mitori.lignes;
@@ -113,6 +136,11 @@ function versZenkoren(g) {
   const mitori = { ...base, ...q, lignes, moins, pures: 9 };
   const z = { id: g.id, nom: g.nom, japonais: g.japonais, systeme: 'zenkoren', parEpreuve: true, confirme: g.confirme, verifie: false, milliers: g.milliers,
     seuil: JUSTES_EPREUVE_ZENKOREN / 15, minutesEpreuve: MINUTES_EPREUVE_ZENKOREN };
+  const fo = FORMAT_OPTIONS_KYU[g.id];
+  if (fo) z.options = {
+    denpyo: { ...q, minutes: MATIERES_OPTION_KYU.denpyo.minutes, min: 3, max: fo.denpyoMax },
+    anzan: { ...q, minutes: MATIERES_OPTION_KYU.anzan.minutes, total: fo.anzanTotal, lignes: fo.anzanLignes, chiffres: 3 },
+  };
   if (g.id === '10') Object.assign(z, { mitoriA: { ...mitori, soustractions: false, pures: 15 }, mitori: { ...mitori, pures: 0 } });
   else {
     z.mitori = mitori;
@@ -130,6 +158,8 @@ export const SYSTEMES = {
   zenkoren: { id: 'zenkoren', nom: 'Zenkoren', long: 'Zenkoren (全国珠算教育連盟)', grades: GRADES_ZENKOREN, record: (id) => `zenkoren-${id}` },
 };
 export const systemeChoisi = (d) => SYSTEMES[d?.reglages?.systemeGrades] ?? SYSTEMES.nissho;
+/** Matières au choix cochées pour un kyū Zenkoren (gardées d'une fois sur l'autre ; toutes par défaut). */
+export const optionsChoisies = (d, g) => (g?.options ? (d?.reglages?.optionsZenkoren ?? OPTIONS_KYU_ZENKOREN).filter((k) => g.options[k]) : []);
 
 export const totalPoints = (g) => ['mitoriA', 'mitori', 'mul', 'div'].reduce((s, k) => s + (g[k] ? g[k].nb * g[k].points : 0), 0);
 
@@ -291,8 +321,20 @@ function mitoris(f) {
   return liste;
 }
 
-/** Sujet complet. */
-export function genererSujet(grade) {
+/** Anzan au choix d'un kyū Zenkoren : 5 ×, 5 ÷, 5 mitori de tête (voir OPTIONS_KYU_ZENKOREN). */
+function anzanOptionKyu(o) {
+  const court = o.total >= 5 ? 2 : 1;
+  const mul = serie({ nb: 5 }, () => genererMulGrade({ total: o.total, court }));
+  const div = serie({ nb: 5 }, () => genererDivGrade({ total: o.total, court }));
+  const mit = Array.from({ length: 5 }, (_, i) => genererMitori({ lignes: o.lignes, chiffres: o.chiffres, min: o.chiffres, max: o.chiffres, soustractions: i >= 2, moins: 1 }));
+  return [...mul, ...div, ...mit].map((p) => ({ ...p, mental: true }));
+}
+
+/**
+ * Sujet complet.
+ * @param {{ options?: string[] }} [o]  Zenkoren, 3e au 1er kyū : matières au choix passées
+ */
+export function genererSujet(grade, { options = [] } = {}) {
   // Grade qui porte son propre générateur (dan Zenkoren, voir core/danZenkoren.js).
   if (grade.generer) return grade.generer(grade);
   const sections = [];
@@ -311,6 +353,12 @@ export function genererSujet(grade) {
     if (grade.div) sections.push({ cle: 'div', titre: 'Division (除算)', points: grade.div.points, minutes: m, problemes: serie(grade.div, genererDivGrade) });
     if (grade.mitoriA) sections.push({ cle: 'mitoriA', titre: 'Additions A (加算)', points: grade.mitoriA.points, minutes: m, problemes: mitoris(grade.mitoriA) });
     if (grade.mitori) sections.push({ cle: 'mitori', titre: grade.mitoriA ? 'Additions et soustractions B (見取算)' : 'Additions et soustractions (見取算)', points: grade.mitori.points, minutes: m, problemes: mitoris(grade.mitori) });
+    const opt = grade.options ?? {};
+    if (opt.denpyo && options.includes('denpyo')) {
+      const dp = genererDenpyo({ nb: opt.denpyo.nb, min: opt.denpyo.min, max: opt.denpyo.max });
+      sections.push({ cle: 'denpyo', titre: MATIERES_OPTION_KYU.denpyo.titre, points: opt.denpyo.points, minutes: opt.denpyo.minutes, problemes: dp.problemes, liasse: dp.liasse });
+    }
+    if (opt.anzan && options.includes('anzan')) sections.push({ cle: 'anzan', titre: MATIERES_OPTION_KYU.anzan.titre, points: opt.anzan.points, minutes: opt.anzan.minutes, problemes: anzanOptionKyu(opt.anzan) });
     return { grade, sections };
   }
   if (grade.mitori) sections.push({ cle: 'mitori', titre: 'Mitorizan (見取算) : additions et soustractions', points: grade.mitori.points, problemes: mitoris(grade.mitori) });

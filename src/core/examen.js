@@ -296,8 +296,11 @@ export function libelleGrade(d) {
     // Les leçons sont validées à 70 % de la cadence ; l'épreuve, elle, demande la cadence entière.
     const v = verdictAllure(g.prochain, d);
     const lent = v.colonnes.ok === false || v.muldiv.ok === false;
+    // 0.38.4 : une allure non mesurée (× ÷) ou seulement estimée (colonnes) n'est pas une allure tenue.
+    const aMesurer = [v.colonnes.eleve === null || !v.colonnes.auFormat ? 'les colonnes sur une planche au format' : null, (g.prochain.mul || g.prochain.div) && v.muldiv.eleve === null ? '× et ÷' : null].filter(Boolean);
     officiel = lent
       ? `Prochain grade officiel : ${g.prochain.nom}. Les leçons sont validées ; il reste à tenir l'allure de l'épreuve (${cpm(v.colonnes.besoin)} CPM en colonnes) avant de la tenter.`
+      : aMesurer.length ? `Prochain grade officiel : ${g.prochain.nom}. Les leçons sont validées ; votre allure reste à mesurer (${aMesurer.join(', ')}) : un examen blanc ou une épreuve seule le dira.`
       : `Prochain grade officiel : ${g.prochain.nom}, vous pouvez tenter l'épreuve.`;
   }
   else officiel = `Prochain grade officiel : ${g.prochain.nom}, ${g.manquantes.length} leçon${g.manquantes.length > 1 ? 's' : ''} à valider.`;

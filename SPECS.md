@@ -1132,3 +1132,23 @@ Défauts signalés après la 0.38.1.
 - **Rappel d'export** tous les 7 jours (version navigateur) ; **compte à rebours** (J−n) vers
   l'objectif daté ; **feuille de la semaine** proposée chaque jour dans « Pour compléter » (le même
   sujet toute la semaine, à battre).
+
+## Version 0.38.4
+
+- **Kyū Zenkoren du 3e au 1er : deux matières au choix**, le denpyōzan (liasse de 20 bordereaux
+  à l'écran, 15 problèmes, nombres de 3 à 5, 6 puis 7 chiffres) et l'anzan (5 ×, 5 ÷, 5 mitori de
+  tête au format du kyū d'anzan Nisshō du même rang, 3 minutes). Cochées (par défaut, choix
+  gardé), elles entrent dans l'examen et COMPTENT : 10 justes sur 15 dans chacune. Format estimé ;
+  le calcul appliqué n'est pas proposé. Chacune peut aussi se passer seule.
+- **Jour d'examen** : quand l'examen prend la place de la leçon, la leçon du jour passe en tête de
+  « Pour compléter » et le mot du prof le dit (avant, elle disparaissait des deux listes).
+- **Vitesse vers un grade** (objectif daté, allure des épreuves, prochain grade) :
+  - les colonnes se mesurent sur les planches AU FORMAT du grade (au moins ses lignes et ses
+    chiffres ; médiane des 5 dernières, 3 s de lecture retirées par colonne) ; sans elles,
+    l'estimation par geste reste, marquée « à confirmer sur une planche au format » ;
+  - × et ÷ jamais mesurés : « pas encore mesurés », plus jamais « vous tenez déjà l'allure ».
+- **Mini-test en séries** : une série finie après minuit ne fait plus perdre le plan ; le morceau
+  fait passe en tête du plan, la série suivante prend un morceau pas encore fait.
+- **Dan d'anzan Zenkoren** : × décimaux exacts à 3 décimales au plus (jusqu'à 9 avant).
+- Le barème du dan d'anzan garde 準初段 puis les dan pleins (barème fourni, sans 準弐段 à 準八段).
+- Un essai qui fait plus de points ne retire plus une réussite déjà obtenue (record d'épreuve).

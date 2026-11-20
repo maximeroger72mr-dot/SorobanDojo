@@ -557,10 +557,21 @@ export async function preparerSeriesTest(id, plan) {
   await sauver();
 }
 
-export async function noterSerieTest(id, serie) {
+/**
+ * Note une série. Séries trop anciennes (commencées avant hier, par ex. une série finie après
+ * minuit) : on repart de celle-ci, SANS perdre le plan (0.38.4). Le morceau qu'elle vient de
+ * couvrir passe en tête du plan ; la série suivante prend le premier morceau pas encore fait.
+ * Avant, le plan était effacé : la série suivante en tirait un nouveau et effaçait celle-ci.
+ * @param {{ morceau?: number, taille?: number }} [o]  rang du morceau du plan fait, taille d'une série
+ */
+export async function noterSerieTest(id, serie, { morceau = 0, taille = 5 } = {}) {
   const e = palier(id);
   const j = aujourdhui();
-  if (!e.testSeries || e.testSeries.debut < ajouterJours(j, -1)) e.testSeries = { debut: j, series: [] };
+  if (!e.testSeries || e.testSeries.debut < ajouterJours(j, -1)) {
+    const plan = e.testSeries?.plan;
+    const a = morceau * taille;
+    e.testSeries = { debut: j, series: [], ...(plan ? { plan: [...plan.slice(a, a + taille), ...plan.slice(0, a), ...plan.slice(a + taille)] } : {}) };
+  }
   e.testSeries.series.push(serie);
   await sauver();
   return e.testSeries.series;

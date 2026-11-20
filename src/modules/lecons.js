@@ -690,7 +690,7 @@ export default {
               await enregistrerSession({ module: 'lecons', mode: 'test', reglages: { sousPalier: sp.id, ...(enSeries ? { serie: faites.length + 1 } : {}) }, total: bilanSerie.total, justes: bilanSerie.justes, dureeMs: bilanSerie.dureeMs });
               if (enSeries) {
                 const mesures = bilanSerie.resultats.filter((r) => r.juste && !r.autoEvalue && r.ex && Number.isFinite(r.dureeMs));
-                const series = await noterSerieTest(sp.id, { justes: bilanSerie.justes, total: bilanSerie.total, dureeMs: bilanSerie.dureeMs, tempsJustes: mesures.map((r) => tempsParUnite(r.ex, r.dureeMs)) });
+                const series = await noterSerieTest(sp.id, { justes: bilanSerie.justes, total: bilanSerie.total, dureeMs: bilanSerie.dureeMs, tempsJustes: mesures.map((r) => tempsParUnite(r.ex, r.dureeMs)) }, { morceau: faites.length, taille: CALCULS_SERIE });
                 const cumul = bilanSeries(series);
                 const perdu = cumul.total - cumul.justes > nombreTest(sp) - testMin(sp);
                 if (series.length < nbSeries && !perdu) {

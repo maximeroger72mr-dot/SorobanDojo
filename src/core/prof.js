@@ -223,11 +223,13 @@ function bilanDuJour(d, date) {
  * @param {{ theme?: string, difficiles?: object[], vitesse?: boolean }} o
  */
 export function motDuProf(d, date, decision, o = {}) {
-  const { theme = null, difficiles = [], examenHorsSeance = false } = typeof o === 'object' && o ? o : {};
+  const { theme = null, difficiles = [], examenHorsSeance = false, leconEnBonus = false } = typeof o === 'object' && o ? o : {};
   const phrases = [];
   const absence = joursAbsence(d, date);
   const v = (cle, liste) => variante(date, cle, liste);
   if (theme) phrases.push(theme);
+  // L'examen a pris la place de la leçon : on dit où elle est passée (0.38.4).
+  if (leconEnBonus) phrases.push(`La leçon du jour${decision.detail ? ` (« ${decision.detail} »)` : ''} n'est pas oubliée : elle vous attend en tête de « Pour compléter », après l'examen.`);
   if (absence === null) phrases.push('Bienvenue ! Chaque jour, une séance à la durée de votre objectif : échauffement, révision, leçon, volume ou vitesse, anzan.');
   else {
     const veille = d.sessions.filter((s) => s.date < date);

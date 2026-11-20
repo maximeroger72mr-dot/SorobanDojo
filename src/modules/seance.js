@@ -18,7 +18,7 @@ import { telechargerExport } from '../ui/exporter.js';
 import { serieJours, semainesTenues, JOURS_SEMAINE_TENUE } from '../core/regularite.js';
 import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide } from '../core/parcours.js';
 import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
-import { GRADES_KYU as GRADES } from '../core/epreuves.js';
+import { GRADES_KYU as GRADES, minutesZenkoren, optionsChoisies } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { SUCCES } from '../core/succes.js';
 import { nomMotif, diagnosticPincee, gesteMotif } from '../core/motifs.js';
@@ -79,7 +79,7 @@ const septJours = (dates) => { const j = aujourdhui(); return dates.filter((x) =
  *   démarrage (sinon, une fois le plateau cassé, elles changeraient au lieu de se cocher).
  * @returns {{ essentiel: object[], bonus: object[], mot: string[], minutes: number }}
  */
-function plan(d, debut, seance = null) {
+export function plan(d, debut, seance = null) {
   const date = aujourdhui();
   const depuis = d.sessions.filter((s) => (s.horodatage ?? 0) >= debut);
   const fait = (f) => depuis.some(f);
@@ -175,8 +175,9 @@ function plan(d, debut, seance = null) {
   if (completVoulu) {
     const g = complet.grade;
     const f = complet.fait;
-    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: g.minutes, aller: ['epreuves', complet.danZenkoren ? { danZenkoren: true, auto: true } : complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
-      detail: f ? `${f.justes} / ${f.total} justes` : complet.danZenkoren ? `×, ÷, mitorizan et les matières au choix, 7 minutes chacune, au barème Zenkoren (${g.pointsEpreuve} points sur 300 dans chaque matière pour le ${g.japonais})` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier, ${g.minutes} minutes, comme le jour de l'examen`,
+    const minutesComplet = minutesZenkoren(g, optionsChoisies(d, g));
+    const item = { titre: complet.dan ? `Examen de dan · vers le ${g.japonais}` : `Examen complet · ${g.nom}`, minutes: minutesComplet, aller: ['epreuves', complet.danZenkoren ? { danZenkoren: true, auto: true } : complet.dan ? { dan: true, auto: true } : { grade: g.id, auto: true }], examen: true, fait: completAujourdhui,
+      detail: f ? `${f.justes} / ${f.total} justes` : complet.danZenkoren ? `×, ÷, mitorizan et les matières au choix, 7 minutes chacune, au barème Zenkoren (${g.pointsEpreuve} points sur 300 dans chaque matière pour le ${g.japonais})` : complet.dan ? `×, ÷ et mitorizan, 10 minutes chacun, au barème des dan (${g.pointsEpreuve} points sur 300 dans chaque épreuve pour le ${g.japonais})` : `le sujet officiel entier${optionsChoisies(d, g).length ? ', avec vos matières au choix' : ''}, ${minutesComplet} minutes, comme le jour de l'examen`,
       pourquoi: 'Depuis le 6e kyū, l\'examen de la semaine est un vrai sujet, en entier : colonnes, multiplications et divisions, dans le temps officiel. C\'est lui qui dit où vous en êtes, et ses erreurs nourrissent les planches de la semaine suivante.' };
     if (completDansSeance) essentiel.push(item);
     else seanceLongue = item;
@@ -218,6 +219,14 @@ function plan(d, debut, seance = null) {
   } else {
     essentiel.push({ titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, decision: true, pourquoi: decision.raison, fait: decisionFaite(decision) });
   }
+
+  // 0.38.4 : l'examen a pris la place de la leçon dans la séance. La leçon du jour n'est pas
+  // perdue : elle passe en tête de « Pour compléter » (avant, elle disparaissait des deux listes,
+  // alors que le prof l'avait choisie).
+  const leconEnBonus = (completDansSeance || examEssentiel) && decision.aller
+    ? { titre: decision.type === 'lecon' ? `${decision.titre} · ${decision.detail}` : decision.titre, detail: `${decision.detail ?? ''}${decision.detail ? ' : ' : ''}l'examen a pris sa place dans la séance ; à faire après, si vous avez le temps`,
+      minutes: partLecon, aller: decision.aller, pourquoi: decision.raison, fait: decisionFaite(decision) }
+    : null;
 
   // Vitesse incohérente (ex. gestes directs plus lents que les petits amis) : on vérifie.
   const verif = verificationVitesse(d);
@@ -434,11 +443,11 @@ function plan(d, debut, seance = null) {
   garde.sort((a, b) => ORDRE_BLOCS.indexOf(a.blocSeance) - ORDRE_BLOCS.indexOf(b.blocSeance));
   const minutes = garde.reduce((t, it) => t + it.minutes, 0);
   const theme = themeDuJour(decision, examEssentiel ? exam : null, garde);
-  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: !!exam && !examEssentiel });
+  const mot = motDuProf(d, date, decision, { theme, difficiles, vitesse, examenHorsSeance: !!exam && !examEssentiel, leconEnBonus: !!leconEnBonus && !leconEnBonus.fait });
   // Pour compléter (une fois l'objectif atteint) : ce qui n'a pas tenu, puis une planche, un flash
   // anzan, un jeu (et, si le temps restant est long, d'autres idées).
   const restant = Math.max(0, objectif - minutesAujourdhui() - garde.filter((it) => !it.fait).reduce((t, it) => t + it.minutes, 0));
-  const complements = [...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
+  const complements = [...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }
@@ -521,8 +530,15 @@ function carteObjectif(d, rafraichir) {
     const duree = p.moisRestants >= 12 ? `${nf(p.moisRestants / 12)} an${p.moisRestants >= 24 ? 's' : ''}` : `${Math.round(p.moisRestants)} mois`;
     const lecons = p.manquantes ? `${p.manquantes} leçon${p.manquantes > 1 ? 's' : ''} à valider (${nf(p.parSemaine)} par semaine ; votre rythme : ${nf(p.rythme)}). ` : 'Toutes les leçons sont validées. ';
     const mois = (m) => (m >= 12 ? `${nf(m / 12)} an${m >= 24 ? 's' : ''}` : m < 1 ? `${Math.max(1, Math.round(m * 4.33))} semaine${m * 4.33 >= 1.5 ? 's' : ''}` : `${Math.round(m)} mois`);
+    // 0.38.4 : jamais « vous tenez l'allure » sur une mesure partielle. Les colonnes estimées sur les
+    // gestes (colonnes courtes) sont à confirmer au format du grade ; × et ÷ non mesurés sont dits.
+    const fmt = p.format ? `une planche au format du ${p.grade.nom} (${p.format.lignes} lignes de ${p.format.chiffres} chiffres)` : 'une planche au format du grade';
+    const reserves = [p.colonnesAConfirmer ? `colonnes estimées sur vos gestes, à confirmer sur ${fmt}` : null, p.muldivNonMesure ? '× et ÷ pas encore mesurés' : null].filter(Boolean);
+    const vitesseTxt = p.moisVitesse
+      ? `, et la vitesse du ${p.grade.nom} environ ${mois(p.moisVitesse)} (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure${reserves.length ? `, ${reserves.join(' ; ')}` : ''} ; elle progresse pendant les leçons, en comptant 2 % par semaine)`
+      : reserves.length ? `, et pour la vitesse : ${reserves.join(' ; ')}` : `, et votre vitesse tient déjà l'allure du ${p.grade.nom}`;
     const repere = p.base === 'rythme'
-      ? `À votre rythme : les leçons demandent encore environ ${mois(p.moisLecons)}${p.moisVitesse ? `, et la vitesse du ${p.grade.nom} environ ${mois(p.moisVitesse)} (vous êtes à ${Math.round(100 / p.ecartVitesse)} % de son allure ; elle progresse pendant les leçons, en comptant 2 % par semaine)` : `, et votre vitesse tient déjà l'allure du ${p.grade.nom}`}. Recalculé chaque jour sur vos chiffres. `
+      ? `À votre rythme : les leçons demandent encore environ ${mois(p.moisLecons)}${vitesseTxt}. Recalculé chaque jour sur vos chiffres. `
       : `Repère : il faut en général encore ${duree} de pratique quotidienne pour le ${p.grade.nom} (pas encore assez de mesures pour partir de vos chiffres). `;
     if (p.verdict === 'realiste') texte = `${lecons}${repere}C'est réaliste avec environ ${p.minutesJour} min par jour : tenez le rythme.`;
     else if (p.verdict === 'ambitieux') texte = `${lecons}${repere}C'est ambitieux : il faudrait environ ${p.minutesJour} min par jour, tous les jours. Une date réaliste : ${dateR}.`;

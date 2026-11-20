@@ -326,6 +326,16 @@ const cliquerTexte = (w, sel, texte) => w.evaluate(([s, t]) => { const b = [...d
   await cliquerTexte(w, '#ecran .segments button', 'Zenkoren');
   await controler(w, 'avancé : épreuves Zenkoren', 'Épreuves officielles');
   if (!/Dan d'entraînement Zenkoren/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('épreuves Zenkoren : pas de carte de dan Zenkoren');
+  // 0.38.4 : kyū Zenkoren du 3e au 1er, denpyōzan et anzan au choix (cochés par défaut).
+  if (((await w.$eval('main', (x) => x.innerText)).match(/Matières au choix \(cochées/g) ?? []).length !== 3) problemes.push('kyū Zenkoren : les matières au choix manquent du 3e au 1er kyū');
+  await w.evaluate(() => { const c = [...document.querySelectorAll('#ecran .carte.grade')].find((x) => x.querySelector('strong')?.textContent.startsWith('3e kyū')); c?.querySelector('button.btn.principal')?.click(); });
+  await w.waitForTimeout(200);
+  await cliquerTexte(w, 'dialog[open] button', 'Y aller quand même');
+  await controler(w, 'avancé : 3e kyū Zenkoren avec matières au choix', 'Épreuves officielles');
+  if (!(await w.$('#ecran .liasse .bordereau li'))) problemes.push('3e kyū Zenkoren : la liasse du denpyōzan n\'apparaît pas');
+  if (!/5 épreuves/.test(await w.$eval('main', (x) => x.innerText))) problemes.push('3e kyū Zenkoren : l\'examen n\'a pas ses 5 épreuves');
+  await w.evaluate(() => document.dispatchEvent(new CustomEvent('soroban:aller', { detail: ['epreuves', {}] })));
+  await w.waitForTimeout(200);
   await cliquerTexte(w, '#ecran button', 'Examen de dan Zenkoren');
   await controler(w, 'avancé : examen de dan Zenkoren', 'Épreuves officielles');
   if (!(await w.$('#ecran .liasse .bordereau li'))) problemes.push('dan Zenkoren : la liasse de bordereaux n\'apparaît pas');

@@ -32,8 +32,11 @@
  */
 
 import { MIXTES, genererMulGrade, genererDivGrade, genererMitori, genererMitoriNegatif } from './epreuves.js';
-import { genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, facteur } from './multiplication.js';
-import { entier } from './aleatoire.js';
+import { genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte } from './multiplication.js';
+import { genererDenpyo as genererDenpyoBase } from './denpyo.js';
+
+/** Anzan : un produit décimal se calcule de tête jusqu'au bout, sans arrondi : 3 décimales au plus (0.38.4). */
+export const DECIMALES_MAX_ANZAN = 3;
 
 const n = (id, nom, japonais, points, jun = false) => ({ id, nom, japonais, points, jun });
 export const NIVEAUX_DAN_ZENKOREN = [
@@ -96,20 +99,8 @@ function mitoriDan(i) {
   return i % 10 === 8 ? genererMitoriNegatif({ ...f, soustractions: true }) : genererMitori(f);
 }
 
-/**
- * Denpyōzan : une liasse de 20 bordereaux de 5 lignes ; le problème i additionne la ligne
- * (i mod 5) + 1 des bordereaux s à s + 9.
- */
-export function genererDenpyo() {
-  const liasse = Array.from({ length: 20 }, () => Array.from({ length: 5 }, () => facteur(entier(3, 7))));
-  const problemes = Array.from({ length: PROBLEMES_MATIERE }, (_, i) => {
-    const ligne = i % 5;
-    const debut = Math.floor(i / 5) * 2 % 11; // 0, 2, 4… : des paquets de 10 qui se chevauchent
-    const nombres = liasse.slice(debut, debut + 10).map((b) => b[ligne]);
-    return { type: 'addsub', denpyo: { debut: debut + 1, fin: debut + 10, ligne: ligne + 1 }, lignes: nombres.map((x) => ({ op: '+', n: x })), resultat: nombres.reduce((t, x) => t + x, 0) };
-  });
-  return { liasse, problemes };
-}
+/** Denpyōzan du dan : 30 problèmes, nombres de 3 à 7 chiffres (voir core/denpyo.js). */
+export const genererDenpyo = () => genererDenpyoBase({ nb: PROBLEMES_MATIERE, min: 3, max: 7 });
 
 /** Anzan (matière au choix) : 10 ×, 10 ÷ (5 chiffres au total), 10 mitori de tête (3 chiffres, 5 lignes). */
 function anzanMatiere() {
@@ -155,7 +146,7 @@ export function genererSujetAnzanDanZenkoren(grade) {
   const op = (type) => serie(40, (i) => {
     const b = blocAnzanDan(i);
     const decimal = i >= 10 && i % 4 === 3;
-    if (type === 'mul') { const [m, n2] = FORMES_MUL_ANZAN_DAN[b]; return decimal ? genererMultiplicationDecimaleSimple(m, n2) : genererMulGrade({ formes: [[m, n2]] }); }
+    if (type === 'mul') { const [m, n2] = FORMES_MUL_ANZAN_DAN[b]; return decimal ? genererMultiplicationDecimaleSimple(m, n2, DECIMALES_MAX_ANZAN) : genererMulGrade({ formes: [[m, n2]] }); }
     const total = TOTAUX_DIV_ANZAN_DAN[b];
     const nd = Math.floor(total / 2); const nq = total - nd;
     return decimal ? genererDivisionDecimaleExacte(nd, nq) : genererDivGrade({ total, court: 2 });

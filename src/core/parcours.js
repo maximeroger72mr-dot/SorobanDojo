@@ -15,7 +15,7 @@ import { evaluer, plateau, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence
 import { genererColonneVariee, creerMemoire } from './generateur.js';
 import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
-import { allureGrade, vitesseEleve } from './allure.js';
+import { allureGrade, vitesseEleve, formatColonnes } from './allure.js';
 
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
@@ -532,9 +532,13 @@ export function planObjectif(d, gradeId, dateCible, date) {
   const repere = Math.max(0, MOIS_REPERE[g.id] - acquis);
   const moisLecons = !manquantes ? 0 : rythme >= 0.25 ? manquantes / rythme / 4.33 : null;
   const a = allureGrade(g);
-  const v = vitesseEleve(d);
+  // 0.38.4 : colonnes mesurées AU FORMAT du grade quand c'est possible (sinon estimées sur les
+  // gestes, « à confirmer ») ; × et ÷ jamais mesurés : signalés, pas ignorés en silence.
+  const v = vitesseEleve(d, g);
   const ratios = [v.parChiffre != null ? v.parChiffre / a.parChiffre : null, (g.mul || g.div) && v.parProduit != null ? v.parProduit / a.parProduit : null].filter((x) => x != null);
   const ecart = ratios.length ? Math.max(...ratios) : null;
+  const muldivNonMesure = !!(g.mul || g.div) && v.parProduit == null;
+  const colonnesAConfirmer = v.parChiffre != null && !v.colonnesAuFormat;
   const moisVitesse = ecart == null ? null : ecart <= 1 ? 0 : Math.log(ecart) / -Math.log(1 - GAIN_VITESSE_SEMAINE) / 4.33;
   const base = moisLecons != null && moisVitesse != null ? 'rythme' : 'repere';
   const moisRestants = base === 'rythme' ? Math.max(moisLecons, moisVitesse) : repere;
@@ -553,7 +557,7 @@ export function planObjectif(d, gradeId, dateCible, date) {
   return {
     grade: g, reussi, manquantes, jours, parSemaine, rythme, minutesJour, verdict, realiste: verdict === 'realiste',
     moisRestants, dateRealiste, atteignable: atteignable && atteignable !== g ? atteignable : null,
-    base, moisLecons, moisVitesse, ecartVitesse: ecart,
+    base, moisLecons, moisVitesse, ecartVitesse: ecart, muldivNonMesure, colonnesAConfirmer, format: formatColonnes(g),
   };
 }
 
