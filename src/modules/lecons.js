@@ -47,7 +47,7 @@ import { SorobanVue } from '../ui/sorobanVue.js';
 import { creerQuestions } from '../ui/questions.js';
 import { avecTermes } from '../ui/termes.js';
 import { questionDoigte } from '../ui/doigte.js';
-import { tempsParUnite, SURCOUT_FEUILLE_S } from '../core/maitrise.js';
+import { tempsParUnite, SURCOUT_FEUILLE_S, unites } from '../core/maitrise.js';
 import { formatProbleme } from '../core/mesures.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
@@ -672,37 +672,47 @@ export default {
               },
             });
           } else {
-            const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
+            // 0.40.6 : tant que des colonnes d'endurance restent à faire (leçons d'amis), la feuille en
+            // contient (6 au plus, dans leur propre section) ; le reste est au format du mini-test.
+            const fEndu = planPh?.ordre.find((x) => x.id === 'endurance')?.format ?? null;
+            const enduAvant = planPh && fEndu ? Math.max(0, enduranceExigee(planPh) - (etatPalier(sp.id).colonnesEnd ?? 0)) : 0;
+            const nEndu = Math.min(enduAvant, 6);
+            const refs = Array.from({ length: 10 - nEndu }, () => genererExercice(sp, poidsDe(sp)));
+            const endus = Array.from({ length: nEndu }, () => ({ ...genererExercice(sp, poidsDe(sp), { format: { ...fEndu, autorises: autorisesPhase(sp, cascadesOk) } }), phase: 'endurance' }));
+            const libF = (f) => `${f.chiffres} chiffre${f.chiffres > 1 ? 's' : ''}, ${f.lignes} lignes`;
             // 0.40.5 : rien ne compte avant « Corriger » ; le dire, pour qu'une feuille abandonnée ne
             // surprenne pas.
             zoneTravail.append(h('p', { class: 'discret' }, 'Les colonnes de la feuille comptent au moment de « Corriger » : une feuille abandonnée avant ne compte pas.'));
             courant = creerFeuille(zoneTravail, {
               titre: `${sp.titre} · feuille d'entraînement`,
               historique: { cle: `lecon-${sp.id}`, libelle: sp.titre },
-              sections: [{ problemes }],
+              sections: nEndu ? [{ titre: `Format du mini-test (${refs.length} colonnes)`, problemes: refs }, { titre: `Endurance : ${libF(fEndu)} (${nEndu} colonnes)`, problemes: endus }] : [{ problemes: refs }],
               surFin: (b) => {
                 (async () => {
-                  // Sur une feuille, le temps se répartit entre les problèmes.
-                  const dureeMoyenne = b.dureeMs / b.total;
+                  // Sur une feuille, le temps se répartit entre les problèmes au prorata de leur
+                  // longueur (0.40.6 : les colonnes d'endurance sont plus longues).
+                  const total = b.resultats.reduce((x, r) => x + unites(r.ex), 0) || 1;
                   for (const r of b.resultats) {
-                    const t = tempsParUnite(r.ex, dureeMoyenne, SURCOUT_FEUILLE_S);
-                    await compter(r.juste, dureeMoyenne, t, r.ex);
+                    const endu = r.ex.phase === 'endurance';
+                    const duree = (b.dureeMs * unites(r.ex)) / total;
+                    const t = tempsParUnite(r.ex, duree, SURCOUT_FEUILLE_S);
+                    // Hors format du mini-test : la colonne compte pour la justesse et le volume, pas pour la médaille.
+                    await compter(r.juste, duree, endu ? undefined : t, r.ex);
                     const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
                     // Vitesse des gestes : seulement si la leçon ne vise qu'un geste (moyenne de feuille).
-                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 ? t : null, { format: formatProbleme(r.ex) });
-                    // 0.40.5 : la feuille est au format du mini-test : chaque colonne entre dans la
-                    // jauge (gestes visés, colonnes fausses comprises) et compte comme colonne de
-                    // référence. Avant, seul le mode « Une par une » remplissait la jauge.
-                    if (planPh) await noterPhaseLecon(sp.id, { etat: etatPh, gestes: gestesVises(sp, r.ex), reference: true });
+                    if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 && !endu ? t : null, { format: formatProbleme(r.ex), horsReference: endu });
+                    // 0.40.5-0.40.6 : chaque colonne entre dans la jauge (gestes visés, colonnes
+                    // fausses comprises) ; au format du mini-test, elle compte comme colonne de
+                    // référence, en endurance comme colonne d'endurance.
+                    if (planPh) await noterPhaseLecon(sp.id, { etat: etatPh, gestes: gestesVises(sp, r.ex), reference: !endu, endurance: endu });
                   }
                   majBandeau();
                 })();
-                const enduReste = planPh ? Math.max(0, enduranceExigee(planPh) - (etatPalier(sp.id).colonnesEnd ?? 0)) : 0;
-                const fEndu = planPh?.ordre.find((x) => x.id === 'endurance')?.format;
+                const reste = enduAvant - nEndu;
                 return h('div', { class: 'carte bilan' },
                   h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
                   h('p', {}, `Temps : ${formaterDuree(b.dureeMs)}`),
-                  planPh ? h('p', { class: 'discret' }, `Les ${b.total} colonnes comptent dans la jauge et comme colonnes de référence (le format du mini-test).${enduReste ? ` La feuille n'a pas de colonnes d'endurance : les ${enduReste} qui restent (${fEndu.chiffres} chiffre${fEndu.chiffres > 1 ? 's' : ''}, ${fEndu.lignes} lignes) se font en mode « Une par une ».` : ''}`) : null,
+                  planPh ? h('p', { class: 'discret' }, `Toutes les colonnes comptent dans la jauge. ${refs.length} au format du mini-test comptent comme colonnes de référence${nEndu ? `, ${nEndu} comme colonnes d'endurance` : ''}.${reste ? ` Il reste ${reste} colonne${reste > 1 ? 's' : ''} d'endurance (${libF(fEndu)}) : la prochaine feuille les contiendra.` : ''}`) : null,
                   h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle feuille'));
               },
             });

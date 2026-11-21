@@ -1372,3 +1372,14 @@ Défauts signalés après la 0.38.1.
   qu'elles se font en mode « Une par une ».
 - Au-dessus de la feuille : « Les colonnes de la feuille comptent au moment de « Corriger » : une
   feuille abandonnée avant ne compte pas. »
+
+## Version 0.40.6
+
+- **Feuille de 10 avec l'endurance** : tant que des colonnes d'endurance restent à faire (leçons d'amis
+  et « 2 et 3 chiffres »), la feuille en contient, 6 au plus, dans une section à part (« Endurance :
+  3 chiffres, 10 lignes ») ; les autres sont au format du mini-test. Au « Corriger », les colonnes du
+  format du mini-test comptent comme colonnes de référence, celles d'endurance comme colonnes
+  d'endurance (hors médaille et hors temps des gestes, comme en mode « Une par une ») ; toutes entrent
+  dans la jauge.
+- Sur une feuille, le temps se répartit entre les colonnes au prorata de leur longueur (avant : à
+  parts égales, ce qui faussait la vitesse d'une feuille aux colonnes de longueurs différentes).
