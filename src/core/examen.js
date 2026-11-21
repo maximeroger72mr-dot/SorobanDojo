@@ -155,8 +155,11 @@ export function examenDeLaSemaine(d) {
     return { ...formatHebdo(d), id: `k${haut.id}`, nom: `${haut.nom} (blanc)`, officiel: haut.id, systeme: sys.id };
   }
   const dernier = accessibles.at(-1);
-  // Tout le préparatoire est validé et obtenu : examen hebdomadaire au format avancé.
-  if (dernier === PREKYU.at(-1) && prekyuObtenu(d, dernier)) return formatHebdo(d);
+  // Le dernier grade accessible est déjà obtenu (tout le préparatoire, ou entre deux grades : le
+  // suivant n'est pas encore ouvert) : un examen hebdomadaire sur les leçons validées, avec un
+  // score et sans grade en jeu (0.40 ; avant, entre deux grades, on repassait le grade obtenu, ou
+  // rien).
+  if (prekyuObtenu(d, dernier)) return formatHebdo(d);
   return dernier;
 }
 

@@ -9,7 +9,7 @@
  *    suggestion pour demain. On peut ensuite continuer à s'entraîner librement.
  */
 
-import { plateauOperation, formatExamen, reculs } from '../core/parcours.js';
+import { plateauOperation, formatExamen, reculs, dureeEchauffement } from '../core/parcours.js';
 import { vitesseEleve } from '../core/allure.js';
 import { leconsFluidite } from '../core/fluidite.js';
 import {
@@ -82,7 +82,33 @@ const septJours = (dates) => { const j = aujourdhui(); return dates.filter((x) =
  *   démarrage (sinon, une fois le plateau cassé, elles changeraient au lieu de se cocher).
  * @returns {{ essentiel: object[], bonus: object[], mot: string[], minutes: number }}
  */
-export function plan(d, debut, seance = null) {
+/**
+ * Séance enregistrée, relue (0.40) : la leçon retrouvée dans le curriculum par son identifiant.
+ * Illisible (sauvegarde d'avant, leçon disparue) : null, et la séance se recalcule.
+ */
+export function relireSeance(seance) {
+  if (!seance) return null;
+  try {
+    const s = { ...seance };
+    if (s.decision) {
+      const id = typeof s.decision.sp === 'string' ? s.decision.sp : s.decision.sp?.id;
+      const sp = id ? sousPalier(id) : null;
+      if (s.decision.sp && !sp) return { ...s, decision: null };
+      s.decision = { ...s.decision, ...(sp ? { sp } : {}) };
+    }
+    if (s.partie?.lecon) {
+      const id = typeof s.partie.lecon === 'string' ? s.partie.lecon : s.partie.lecon.id;
+      const lecon = id ? sousPalier(id) : null;
+      s.partie = lecon ? { ...s.partie, lecon } : null;
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+export function plan(d, debut, seance0 = null) {
+  const seance = relireSeance(seance0);
   const date = aujourdhui();
   const depuis = d.sessions.filter((s) => (s.horodatage ?? 0) >= debut);
   const fait = (f) => depuis.some(f);
@@ -106,7 +132,7 @@ export function plan(d, debut, seance = null) {
       pourquoi: `Les ${cibleComplement === 5 ? 'petits' : 'grands'} amis reposent sur les paires qui font ${cibleComplement} : elles doivent venir sans réfléchir, sinon la main s'arrête.`,
       fait: fait((s) => s.module === 'jeux' && s.mode === `complement-${cibleComplement}`), aller: ['jeux', { jeu: 'complement', cible: cibleComplement }] });
   } else if (drill) {
-    essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.ceil((tempsClassement(drill, 'bronze') * 1.3) / 60000)), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
+    essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.min(3, Math.ceil(dureeEchauffement(d, drill) / 60000))), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
       fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables') && s.mode !== 'quotient'), aller: ['drills', { drill: drill.id }] });
   }
   const objectif = reglagesUtilisateur().objectifMinutes;
@@ -511,6 +537,17 @@ export function plan(d, debut, seance = null) {
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }
 
+/** Le plan, sans jamais laisser un écran vide : une séance enregistrée illisible est recalculée (0.40). */
+export function planSur(d, debut, seance) {
+  try {
+    return plan(d, debut, seance);
+  } catch (e) {
+    if (!seance) throw e;
+    console.error('Séance enregistrée illisible, recalculée :', e);
+    return plan(d, debut, null);
+  }
+}
+
 /** Objectifs du jour proposés (minutes) ; 25 par défaut depuis la 0.38. */
 export const OBJECTIFS = [5, 10, 15, 20, 25, 30, 45, 60];
 export const OBJECTIF_EXAMEN_BLANC = 20;
@@ -629,7 +666,7 @@ function carteObjectif(d, rafraichir) {
 export function etatSeance() {
   const seance = seanceEnCours();
   if (!seance) return null;
-  const p = plan(progression(), seance.debut, seance);
+  const p = planSur(progression(), seance.debut, seance);
   const restants = p.essentiel.filter((it) => !it.fait);
   return { faits: p.essentiel.length - restants.length, total: p.essentiel.length, prochaine: restants[0] ?? null, ensuite: restants[1] ?? null };
 }
@@ -715,7 +752,7 @@ export default {
         return;
       }
       // --- plan du jour (calculé tôt : la fin de séance automatique en dépend)
-      const p = plan(d, seance ? seance.debut : Date.now(), seance);
+      const p = planSur(d, seance ? seance.debut : Date.now(), seance);
       // Fin de séance : tout l'essentiel est fait ET l'objectif de temps est atteint. Le bilan
       // s'affiche alors de lui-même ; le plan reste disponible, enroulé, pour refaire un point.
       const essentielFait = p.essentiel.length > 0 && p.essentiel.every((it) => it.fait);

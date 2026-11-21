@@ -26,6 +26,7 @@
 import { nouvelleCarte, reviser, estDue, ajouterJours, INTERVALLES, controleDu, apresControle } from './revision.js';
 import { evaluer, ajouterEssai, ajouterSemaine, poidsEquilibre, NIVEAUX, appliquerEchelle } from './maitrise.js';
 import { ajouterMesures } from './mesures.js';
+import { correctionsDrills } from './drills.js';
 import { SYSTEMES } from './epreuves.js';
 import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
@@ -172,11 +173,32 @@ export async function chargerProgression() {
     changerEtat({ etat: 'ancienne-copie', appli: donnees.appli });
   }
   heriterMarches(donnees);
+  const nettoyes = corrigerDrills(donnees);
   appliquerEchelle(troisiemeKyuReussi(donnees));
   // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
   for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
-  if (lu && lu.version < VERSION) await sauver();
+  if ((lu && lu.version < VERSION) || nettoyes) await sauver();
   return donnees;
+}
+
+/** Faux records des drills (0.40, voir core/drills.correctionsDrills) : appliqués aux données. */
+export function corrigerDrills(d) {
+  const c = correctionsDrills(d);
+  let n = 0;
+  for (const [cle, r] of Object.entries(c.records)) { if (r) d.records[cle] = r; else delete d.records[cle]; n += 1; }
+  for (const [id, v] of Object.entries(c.validations)) {
+    const e = d.drills[id];
+    e.validations = v;
+    if (v < 2) delete e.valide;
+    n += 1;
+  }
+  return n;
+}
+
+/** Supprimer un record (bouton des drills, 0.40). */
+export async function supprimerRecord(cle) {
+  delete donnees.records[cle];
+  await sauver();
 }
 
 // Écouteurs « les données ont changé » (ex. la barre de séance se met à jour après un exercice).
@@ -680,14 +702,19 @@ export function revisionsDues() {
 /**
  * Une épreuve (officielle ou examen blanc de kyū) du dernier mois contenait-elle le format de la
  * leçon ? Décimaux et arrondis : grade avec décimaux ; négatifs : grade avec un résultat négatif ;
- * synthèses (révision générale, endurance, × et ÷ longs) : grade du 6e kyū ou au-delà.
+ * chaque synthèse, le grade qui contient son format (0.40) : révision générale (p5-5) dès le 10e
+ * kyū, endurance à 5 et 6 chiffres (p8-3) dès le 3e, × et ÷ longs (p9-4, p9-6) au 1er kyū. Un
+ * examen de dan contient tout.
  */
+export const GRADE_SYNTHESE = { 'p5-5': 10, 'p8-3': 3, 'p9-4': 1, 'p9-6': 1 };
 export function formatCouvertParEpreuve(d, date) {
   const limite = ajouterJours(date, -30);
-  const grades = d.sessions.filter((s) => s.date >= limite && (s.module === 'epreuves' || (s.module === 'examen' && s.mode === 'kyu')) && s.reglages?.grade)
+  const recentes = d.sessions.filter((s) => s.date >= limite && (s.module === 'epreuves' || (s.module === 'examen' && s.mode === 'kyu')));
+  const dan = recentes.some((s) => s.module === 'epreuves' && /^dan/.test(String(s.mode)) && !String(s.mode).endsWith('-sprints'));
+  const grades = recentes.filter((s) => s.reglages?.grade && !s.reglages?.sprints)
     .map((s) => SYSTEMES[s.reglages.systeme ?? 'nissho']?.grades.find((g) => g.id === String(s.reglages.grade))).filter(Boolean);
-  return (sp) => grades.some((g) => (['addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'].includes(sp.type) ? !!g.mul?.decimales
-    : sp.type === 'negatif' ? g.mitori?.rangNegatif != null : Number(g.id) <= 6));
+  return (sp) => dan || grades.some((g) => (['addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'].includes(sp.type) ? !!g.mul?.decimales
+    : sp.type === 'negatif' ? g.mitori?.rangNegatif != null : Number(g.id) <= (GRADE_SYNTHESE[sp.id] ?? 0)));
 }
 
 /** Contrôle à 90 jours (0.39) : réussi, prochain dans 90 jours ; raté ou trop lent, retour en révision. */
@@ -965,7 +992,13 @@ export function seanceEnCours() {
 
 /** @param {object} [extra]  ce qui doit rester fixe toute la séance (ex. { priorite }) */
 export async function commencerSeance(extra = {}) {
-  donnees.seance = { debut: Date.now(), date: aujourdhui(), instantane: instantane(donnees, Object.keys(donnees.succes)), ...extra };
+  // 0.40 : la leçon de la décision (et celle d'une partie « fluidité ») n'est gardée que par son
+  // identifiant. Enregistrée en entier, sa liste de gestes autorisés (un Set) revenait vide à la
+  // lecture, et tous les écrans plantaient jusqu'au lendemain.
+  const x = { ...extra };
+  if (x.decision?.sp) x.decision = { ...x.decision, sp: x.decision.sp.id };
+  if (x.partie?.lecon) x.partie = { ...x.partie, lecon: x.partie.lecon.id };
+  donnees.seance = { debut: Date.now(), date: aujourdhui(), instantane: instantane(donnees, Object.keys(donnees.succes)), ...x };
   await sauver();
   return donnees.seance;
 }

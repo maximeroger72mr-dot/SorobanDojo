@@ -197,6 +197,50 @@ export function classement(d, dureeMs) {
   return r;
 }
 
+/**
+ * Temps impossibles (0.40) : un drill finit toujours sur le même nombre, que le soroban montre
+ * encore. Relancé aussitôt, il suffisait de taper ce nombre pour un passage « juste » en une
+ * seconde : record, médaille et validation à tort. Un temps est refusé s'il fait moins de 0,15 s
+ * par chiffre à poser, ou s'il est plus de 3 fois plus rapide que la médiane du drill (dès 3
+ * passages justes).
+ */
+export const SECONDES_MIN_CHIFFRE = 0.15;
+export const FACTEUR_IMPOSSIBLE = 3;
+const mediane = (xs) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : null; };
+export function tempsPlausible(d, dureeMs, tempsJustes = []) {
+  if (!(dureeMs >= SECONDES_MIN_CHIFFRE * 1000 * chiffresDrill(d))) return false;
+  const m = tempsJustes.length >= 3 ? mediane(tempsJustes) : null;
+  return m === null || dureeMs * FACTEUR_IMPOSSIBLE >= m;
+}
+/** Temps des passages justes d'un drill, dans l'historique des séances. */
+export const tempsJustesDrill = (donnees, id) => (donnees.sessions ?? []).filter((s) => s.module === 'drills' && s.mode === id && s.justes === 1 && s.dureeMs > 0).map((s) => s.dureeMs);
+
+/**
+ * Nettoyage des faux records (0.40), au chargement : un record impossible est remplacé par le
+ * meilleur temps plausible de l'historique (ou retiré) ; les passages impossibles qui avaient
+ * compté pour la validation sont retirés (le drill se referme s'il n'en reste pas assez).
+ * Pur : renvoie les corrections à appliquer.
+ * @returns {{ records: Object<string, {dureeMs:number}|null>, validations: Object<string, number> }}
+ */
+export function correctionsDrills(donnees) {
+  const records = {};
+  const validations = {};
+  for (const d of catalogueDrills()) {
+    const tous = tempsJustesDrill(donnees, d.id);
+    const ok = (t) => tempsPlausible(d, t, tous);
+    const cle = `drill-${d.id}`;
+    const rec = donnees.records?.[cle];
+    if (rec?.dureeMs != null && !ok(rec.dureeMs)) {
+      const bons = tous.filter(ok);
+      records[cle] = bons.length ? { ...rec, dureeMs: Math.min(...bons) } : null;
+    }
+    const faux = tous.filter((t) => !ok(t) && classement(d, t)).length;
+    const v = donnees.drills?.[d.id]?.validations ?? 0;
+    if (faux && v) validations[d.id] = Math.max(0, v - faux);
+  }
+  return { records, validations };
+}
+
 /** Liste des drills proposés, DANS L'ORDRE DU PARCOURS : du plus simple au plus long. */
 export function catalogueDrills() {
   const liste = [];

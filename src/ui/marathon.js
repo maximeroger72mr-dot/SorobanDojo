@@ -27,6 +27,7 @@ const DIRECTS = new Set(famille('direct'));
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
 export const TRANCHE = 5;
+/** 0.40 : sous-total toutes les 5 lignes par défaut, toutes les 10 aux stades avancés (o.tranche). */
 
 /**
  * @param {HTMLElement} conteneur
@@ -36,10 +37,19 @@ export const TRANCHE = 5;
  * @param {number} o.objectif         lignes à tenir (Infinity : jusqu'à l'erreur)
  * @param {number|null} o.recordMs    temps du record pour cet objectif (fantôme)
  * @param {boolean} [o.doigte]        rappel doigté à côté des lignes
+ * @param {number} [o.tranche]        lignes entre deux sous-totaux (5 par défaut ; 10 aux stades avancés)
+ * @param {boolean} [o.zeros]         des zéros internes dans les nombres (6e kyū et plus)
+ * @param {number} [o.chiffresMax]    longueurs mêlées de o.chiffres à o.chiffresMax (dan)
+ * @param {boolean} [o.cascade]       variante : soustractions en cascade (emprunts en chaîne)
  * @param {(bilan) => any} o.surFin   { lignes, dureeMs, complet, jokerUtilise, resultats }
  */
 export function creerMarathon(conteneur, o) {
   const c = o.contraintes;
+  const T = o.tranche ?? TRANCHE;
+  // 0.40 : longueurs mêlées (dan) et zéros internes (6e kyū et plus).
+  const ch = () => (o.chiffresMax > o.chiffres ? o.chiffres + Math.floor(Math.random() * (o.chiffresMax - o.chiffres + 1)) : o.chiffres);
+  const tiges = (v) => Math.max(String(Math.abs(v)).length, o.chiffresMax ?? o.chiffres) + 2;
+  const extra = (v) => ({ nbTiges: tiges(v), zeros: !!o.zeros });
   const memoire = creerMemoire(6);
   let valeur = 0;
   let lignesTenues = 0;
@@ -100,14 +110,14 @@ export function creerMarathon(conteneur, o) {
     const poidsLigne = Object.fromEntries(c.cibles.map((k) => [k, (poids[k] ?? 1) / (1 + (vus[k] ?? 0) % 6) ** 2]));
     let t;
     try {
-      t = genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, poids: poidsLigne, precedents });
+      t = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: c.autorises, cibles: c.cibles, poids: poidsLigne, precedents });
     } catch (e) {
       if (!(e instanceof ErreurGeneration)) throw e;
-      return genererTerme(v, { chiffres: o.chiffres, autorises: null, cibles: null, precedents });
+      return genererTerme(v, { ...extra(v), chiffres: ch(), autorises: null, cibles: null, precedents });
     }
     for (let k = 0; k < 4 && redondante(precedents, t); k++) {
       try {
-        const autre = genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles, viser: false, poids: poidsLigne, precedents });
+        const autre = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: c.autorises, cibles: c.cibles, viser: false, poids: poidsLigne, precedents });
         if (!redondante(precedents, autre)) t = autre;
       } catch (e) {
         if (!(e instanceof ErreurGeneration)) throw e;
@@ -119,7 +129,7 @@ export function creerMarathon(conteneur, o) {
 
   /** Le geste visé peut-il partir de cette valeur (sans relâcher les contraintes) ? */
   function possible(v) {
-    try { genererTerme(v, { chiffres: o.chiffres, autorises: c.autorises, cibles: c.cibles }); return true; } catch (e) {
+    try { genererTerme(v, { ...extra(v), chiffres: ch(), autorises: c.autorises, cibles: c.cibles }); return true; } catch (e) {
       if (!(e instanceof ErreurGeneration)) throw e;
       return false;
     }
@@ -137,7 +147,7 @@ export function creerMarathon(conteneur, o) {
     if (relance) {
       // Un geste direct qui change la valeur ET d'où le geste visé reste possible.
       for (let k = 0; k < 30; k++) {
-        const t = genererTerme(v0, { chiffres: o.chiffres, autorises: DIRECTS, cibles: null });
+        const t = genererTerme(v0, { ...extra(v0), chiffres: ch(), autorises: DIRECTS, cibles: null });
         if (t.resultat === v0 || !possible(t.resultat)) continue;
         lignes.push({ op: t.op, n: t.n, relance: true });
         motifs.push(...t.motifs);
@@ -145,7 +155,7 @@ export function creerMarathon(conteneur, o) {
         break;
       }
     }
-    while (lignes.length < TRANCHE) {
+    while (lignes.length < T) {
       const t = ligne(v, [{ op: '+', n: v0 }, ...lignes]);
       lignes.push({ op: t.op, n: t.n });
       motifs.push(...t.motifs);
@@ -157,7 +167,7 @@ export function creerMarathon(conteneur, o) {
   /** 5 lignes de plus, à partir de la valeur posée (la 1re tranche part de zéro). */
   function genererTranche() {
     if (valeur === 0 && lignesTenues === 0) {
-      const col = genererColonneVariee({ chiffres: o.chiffres, lignes: TRANCHE, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles) }, memoire);
+      const col = genererColonneVariee({ chiffres: o.chiffres, lignes: T, zeros: !!o.zeros, autorises: c.autorises, cibles: c.cibles, poids: poidsAdaptatifs(c.cibles) }, memoire);
       return retenir({ lignes: col.lignes, motifs: col.motifs, resultat: col.resultat, depart: 0 });
     }
     let t = null;
@@ -177,7 +187,7 @@ export function creerMarathon(conteneur, o) {
       o.doigte ? h('td', { class: 'doigte' }, '') : null,
       l.relance ? h('td', { class: 'relance', title: 'Ligne de relance (geste direct) : elle déplace le soroban pour que la suite ne tourne pas en rond.' }, 'relance') : null))));
     consigne.textContent = premiere
-      ? 'Soroban à zéro : posez la 1re ligne, calculez les 5 lignes, tapez le sous-total. Ensuite, on continue sans jamais remettre à zéro.'
+      ? `Soroban à zéro : posez la 1re ligne, calculez les ${T} lignes, tapez le sous-total. Ensuite, on continue sans jamais remettre à zéro.`
       : 'Continuez sur le soroban tel qu\'il est (sans remettre à zéro), puis tapez le nouveau sous-total.';
   }
 
@@ -225,7 +235,7 @@ export function creerMarathon(conteneur, o) {
     await noterReponse(juste);
     if (juste) {
       await noterGestes(tranche.motifs, [], t, { format: 'ruban' });
-      lignesTenues += TRANCHE;
+      lignesTenues += T;
       valeur = tranche.resultat;
       retour.className = 'retour ok';
       remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ` ${formaterNombre(valeur)} : on continue.`, course ? course.ecart(lignesTenues, dureeTotale) : null);
@@ -239,10 +249,10 @@ export function creerMarathon(conteneur, o) {
     retour.className = 'retour erreur';
     if (joker) {
       joker -= 1;
-      lignesTenues += TRANCHE;
+      lignesTenues += T;
       phase = 'corrige';
       remplir(retour, h('div', {}, h('span', { class: 'grand-signe' }, '✗'), ' Vous avez trouvé ', formaterNombre(rep), ', le sous-total est ', h('strong', {}, formaterNombre(valeur)), '.'),
-        loc ? h('div', { class: 'discret' }, `Ligne ${loc.ligne + (ex.lignes.length > TRANCHE ? 0 : 1)} : ${loc.raison}.`) : null,
+        loc ? h('div', { class: 'discret' }, `Ligne ${loc.ligne + (ex.lignes.length > T ? 0 : 1)} : ${loc.raison}.`) : null,
         h('div', {}, 'Joker utilisé : remettez votre soroban sur ', h('strong', {}, formaterNombre(valeur)), ', puis Entrée pour continuer.'));
       return;
     }

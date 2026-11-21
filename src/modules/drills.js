@@ -3,8 +3,8 @@
  * Tout se fait sur son soroban ; seul le chronomètre compte (voir ui/drill.js).
  */
 
-import { catalogueDrills, drillRepetition, drillPerso, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill } from '../core/drills.js';
-import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, etatDrill, noterDrill } from '../core/progression.js';
+import { catalogueDrills, drillRepetition, drillPerso, CLASSEMENT, VALIDATIONS_DRILL, tempsClassement, classement, chiffresDrill, tempsPlausible, tempsJustesDrill } from '../core/drills.js';
+import { enregistrerSession, proposerRecord, proposerMeilleurScore, progression, etatDrill, noterDrill, supprimerRecord } from '../core/progression.js';
 import { drillOuvert, prerequisDrill, drillValide, estValide } from '../core/parcours.js';
 import { SOUS_PALIERS } from '../core/curriculum.js';
 import { creerDrill } from '../ui/drill.js';
@@ -13,7 +13,7 @@ import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { serie81, serieTable, serieTables, produitLent, cleProduit, produitsARetravailler, serieCriblage, piresProduits, creerAcharnement, CRIBLAGE_S, ACHARNEMENT } from '../core/tables.js';
 import { noterProduit, statsTables, reglagesUtilisateur, noterVolume, modifierReglages } from '../core/progression.js';
 import { sprintQuotient, raisonnement, classementQuotient, CLASSEMENT_QUOTIENT, COUPLES_SPRINT, PENALITE_MS } from '../core/quotient.js';
-import { h, formaterDuree, remplir, raccourcis } from '../ui/dom.js';
+import { h, formaterDuree, formaterNombre, remplir, raccourcis } from '../ui/dom.js';
 
 const NOMS_FAMILLES = { petit: 'petits amis', grand: 'grands amis', mixte: 'combinaisons', cascade: 'cascades' };
 
@@ -145,7 +145,9 @@ export default {
         h('h1', {}, d.titre), h('p', {}, d.description),
         h('p', { class: 'classement-objectifs' }, CLASSEMENT.map((c) => badgeClassement(c.id, `${c.nom} ≤ ${formaterDuree(tempsClassement(d, c.id))}`)),
           d.perso ? h('span', { class: 'discret' }, o.tousLes ? ` · sous-total affiché toutes les ${o.tousLes} lignes` : '')
-            : h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)));
+            : h('span', { class: 'discret' }, ` · validation : ${VALIDATIONS_DRILL} passages justes sous le temps bronze (${Math.min(etatDrill(d.id).validations, VALIDATIONS_DRILL)} / ${VALIDATIONS_DRILL})`)),
+        !d.perso && record(d.id) ? h('p', { class: 'discret' }, `Record : ${formaterDuree(record(d.id).dureeMs)}. `,
+          h('button', { class: 'lien', onclick: async () => { if (confirm('Supprimer ce record ? Le prochain passage juste deviendra votre record.')) { await supprimerRecord(`drill-${d.id}`); changer(() => ecran(d, o)); } } }, 'Supprimer ce record')) : null);
       const drill = creerDrill(el, d, {
         record: d.perso ? undefined : record(d.id),
         tousLes: o.tousLes ?? 0,
@@ -159,6 +161,15 @@ export default {
               cl ? badgeClassement(cl.id, cl.nom) : null,
               h('span', {}, !juste ? 'Résultat faux : reprenez en suivant les sous-totaux.' : cl ? `${cl.nom} à cette allure.` : `Juste, au-dessus du temps bronze (${formaterDuree(tempsClassement(d, 'bronze'))}).`),
               h('button', { class: 'btn principal', onclick: () => changer(() => ecran(drillPerso(o.reglages), o)) }, 'Un autre, même réglage'),
+              h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'));
+          }
+          // 0.40 : un temps impossible (soroban encore sur le résultat du passage précédent) ne
+          // compte pas : ni record, ni médaille, ni validation.
+          if (juste && !tempsPlausible(d, dureeMs, tempsJustesDrill(progression(), d.id))) {
+            await enregistrerSession({ module: 'drills', mode: d.id, reglages: { priorite: !!params.priorite, impossible: true }, total: 1, justes: 0, dureeMs });
+            return h('div', { class: 'ligne', style: 'margin-top:8px' },
+              h('span', {}, `Temps impossible (${formaterDuree(dureeMs)}) : le soroban montrait sans doute encore le résultat du passage précédent. Ce passage ne compte pas. Remettez le soroban à ${formaterNombre(d.depart ?? 0)}, puis recommencez.`),
+              h('button', { class: 'btn principal', onclick: () => changer(() => ecran(d)) }, 'Recommencer'),
               h('button', { class: 'btn', onclick: () => changer(catalogue) }, 'Tous les drills'));
           }
           await enregistrerSession({ module: 'drills', mode: d.id, reglages: { priorite: !!params.priorite }, total: 1, justes: juste ? 1 : 0, dureeMs });

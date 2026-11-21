@@ -15,6 +15,7 @@
  * Les gestes sont notés sur la carte de maîtrise, au temps de la cadence imposée.
  */
 
+import { genererMitori } from '../core/epreuves.js';
 import { formatProbleme } from '../core/mesures.js';
 import { genererColonneVariee, creerMemoire, ErreurGeneration } from '../core/generateur.js';
 import { genererColonneGeste, creerMemoirePlanche } from '../core/colonneGeste.js';
@@ -43,6 +44,9 @@ const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maxi
  * @param {boolean} [o.fixe]         cadence imposée : ni accélération ni ralentissement (sprint de surcharge)
  * @param {number} [o.pas]           accélération (et ralentissement) relative : 10 % par défaut, 3 % au format du grade (0.39)
  * @param {number} [o.serie]         colonnes justes d'affilée pour accélérer : 3 par défaut, 1 au format du grade
+ * @param {number} [o.chiffresMax]   longueurs mêlées de o.chiffres à o.chiffresMax chiffres (dan, 0.40)
+ * @param {number} [o.accelLigne]    variante : la cadence raccourcit de cette part à chaque ligne de la colonne (0.40)
+ * @param {number} [o.fantome]       variante : la meilleure cadence passée, affichée en face de la vôtre (0.40)
  * @param {boolean} [o.sansNotation] ne rien inscrire sur la carte de maîtrise (cadence volontairement trop haute)
  * @param {boolean} [o.metronome]
  * @param {(cadence:number) => any} [o.surCadence]  après chaque colonne : la cadence à retenir
@@ -78,7 +82,7 @@ export function creerLievre(conteneur, o) {
   conteneur.append(racine);
   const majBouton = (t) => { remplir(btn, t, ' ', h('kbd', {}, 'Entrée')); btn.style.display = t ? '' : 'none'; };
   const majEntete = () => {
-    infoCadence.textContent = `Lièvre : ${sec(cadence)} par ligne`;
+    infoCadence.textContent = `Lièvre : ${sec(cadence)} par ligne${o.fantome ? ` · fantôme : ${sec(o.fantome)}${cadence <= o.fantome ? ' (dépassé !)' : ''}` : ''}${o.accelLigne ? ' · accélère dans la colonne' : ''}`;
     const reste = erreursMax - erreurs;
     compteur.textContent = o.fixe ? 'cadence imposée, une seule colonne' : `colonne ${k + 1} · ${justes} juste${justes > 1 ? 's' : ''} · ${reste > 1 ? `${reste} erreurs permises` : 'plus qu\'une erreur permise'}`;
   };
@@ -88,6 +92,7 @@ export function creerLievre(conteneur, o) {
     col = null;
     // Un geste : colonnes par rôles (le geste 2 fois, un piège, des directs…), variées sur la série.
     if (g) for (let e = 0; e < 5 && !col; e++) { try { col = genererColonneGeste({ ...g, chiffres: o.chiffres, lignes: o.lignes, appris: motifsAppris(progression()) }, memoireGeste); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; } }
+    if (!col && o.chiffresMax > o.chiffres) col = genererMitori({ lignes: o.lignes, min: o.chiffres, max: o.chiffresMax, soustractions: true, moins: Math.max(1, Math.floor(o.lignes / 3)) });
     col ??= genererColonneVariee({ chiffres: o.chiffres, lignes: o.lignes, autorises: o.contraintes.autorises, cibles: o.contraintes.cibles, poids: poidsAdaptatifs(o.contraintes.cibles) }, memoire);
     const lignes = col.lignes.map((l, i) => h('tr', { class: 'avenir' },
       h('td', { class: 'signe' }, i === 0 ? '' : l.op === '+' ? '+' : '−'),
@@ -114,6 +119,7 @@ export function creerLievre(conteneur, o) {
       if (i < lignes.length) metronome?.clic(i === 0);
       if (i >= lignes.length) {
         clearInterval(minuterie);
+        clearTimeout(minuterie);
         phase = 'reponse';
         saisie.disabled = false;
         saisie.focus();
@@ -123,7 +129,12 @@ export function creerLievre(conteneur, o) {
     // Un temps d'avance : la 1re ligne est visible (« suivante ») avant le premier temps.
     lignes[0].className = 'suivante';
     metronome && (metronome.ctx ??= new (window.AudioContext || window.webkitAudioContext)());
-    minuterie = setTimeout(() => { etape(); minuterie = setInterval(etape, cadence * 1000); }, 1200);
+    // Variante (0.40) : la cadence raccourcit à chaque ligne de la colonne.
+    if (o.accelLigne) {
+      let t = cadence;
+      const suite = () => { etape(); if (phase === 'defile') { minuterie = setTimeout(suite, t * 1000); t = Math.max(0.3, t * (1 - o.accelLigne)); } };
+      minuterie = setTimeout(suite, 1200);
+    } else minuterie = setTimeout(() => { etape(); minuterie = setInterval(etape, cadence * 1000); }, 1200);
   }
 
   async function action() {
@@ -137,7 +148,7 @@ export function creerLievre(conteneur, o) {
     // Carte de maîtrise : une colonne juste crédite ses gestes, au temps de la cadence imposée
     // (on l'a tenue, donc au moins aussi vite) ; une erreur n'accuse qu'un geste prouvé.
     const t = cadence / o.chiffres;
-    if (o.sansNotation) { /* surcharge : au-dessus de sa vitesse, l'erreur est attendue */ } else if (juste) await noterGestes(col.motifs, [], t, { format: formatProbleme(col) });
+    if (o.sansNotation || !col.motifs) { /* surcharge, ou longueurs mêlées sans suivi des gestes */ } else if (juste) await noterGestes(col.motifs, [], t, { format: formatProbleme(col) });
     else await noterGestes([], localiserErreur(col, rep)?.motifs ?? [], t, { format: formatProbleme(col) });
     k += 1;
     saisie.disabled = true;

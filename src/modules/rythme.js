@@ -24,6 +24,10 @@ const reglages = {
   marathon: { cible: 'lents', chiffres: 1, objectif: 30, doigte: false },
   lievre: { cible: 'appris', chiffres: 1, lignes: 5, colonnes: 6, cadence: 'auto', metronome: true, mode: 'seul' },
 };
+// 0.40 : les réglages proposés par la séance ne touchent plus ceux de l'écran libre (avant, une
+// proposition laissait ses réglages, et une proposition sans nombre de lignes reprenait le dernier
+// réglage utilisé). Les propositions partent de ces valeurs par défaut.
+const DEFAUTS = JSON.parse(JSON.stringify(reglages));
 const sec = (x) => `${x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} s`;
 
 /**
@@ -83,7 +87,9 @@ export default {
     };
     const caseA = (obj, cle, texte, titre) => h('label', { title: titre ?? '' }, h('input', { type: 'checkbox', checked: !!obj[cle], onchange: (e) => { obj[cle] = e.target.checked; } }), ` ${texte}`);
 
+    let impose = null; // réglages d'une proposition de la séance, pour cette course seulement
     function accueil() {
+      impose = null;
       courant?.detruire();
       courant = null;
       remplir(el);
@@ -119,7 +125,7 @@ export default {
 
     // ------------------------------------------------------------ marathon
     function lancerMarathon(cibles = null) {
-      const r = { ...reglages.marathon };
+      const r = { ...(impose?.marathon ?? reglages.marathon) };
       const { c, note: notePur } = contraintesDe(r, cibles);
       // Un seul geste (et son miroir) à 1 chiffre : les lignes se ressemblent forcément.
       const note = [notePur, c.cibles.length <= 2 && r.chiffres === 1
@@ -129,7 +135,7 @@ export default {
       const rec = records()[cle];
       remplir(el, h('button', { class: 'lien', onclick: () => accueil() }, voir ? `← ${voir === 'marathon' ? 'Marathon' : 'Lièvre'}` : '← Rythme et endurance'),
         h('h1', {}, `Marathon : ${c.libelle}`),
-        h('p', { class: 'discret' }, `${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} · ${Number.isFinite(r.objectif) ? `${r.objectif} lignes` : 'sans fin'}${rec ? ` · record : ${Number.isFinite(r.objectif) ? formaterDuree(rec.dureeMs) : `${rec.points} lignes`}` : ''}`),
+        h('p', { class: 'discret' }, `${r.chiffresMax ? `${r.chiffres} à ${r.chiffresMax} chiffres` : `${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''}`} · ${Number.isFinite(r.objectif) ? `${r.objectif} lignes` : 'sans fin'}${r.tranche && r.tranche !== 5 ? ` · sous-total toutes les ${r.tranche} lignes` : ''}${r.zeros ? ' · zéros internes' : ''}${r.variante === 'cascade' ? ' · soustractions en cascade' : ''}${rec ? ` · record : ${Number.isFinite(r.objectif) ? formaterDuree(rec.dureeMs) : `${rec.points} lignes`}` : ''}`),
         note ? h('p', { class: 'discret' }, note) : null);
       courant = creerMarathon(el, {
         contraintes: c,
@@ -137,6 +143,9 @@ export default {
         objectif: r.objectif,
         recordMs: Number.isFinite(r.objectif) ? rec?.dureeMs ?? null : null,
         doigte: r.doigte,
+        tranche: r.tranche,
+        zeros: r.zeros,
+        chiffresMax: r.chiffresMax,
         surFin: async (b) => {
           courant.detruire();
           courant = null;
@@ -163,7 +172,7 @@ export default {
      * rapide que le meilleur rythme de l'élève sur ce geste. Proposé seulement sur un plateau.
      */
     function lancerLievre(cibles = null, accelere = false, surcharge = null, format = null) {
-      const r = { ...reglages.lievre };
+      const r = { ...(impose?.lievre ?? reglages.lievre) };
       if (surcharge) Object.assign(r, { chiffres: 1, lignes: Math.min(30, Math.max(8, Math.round(DUREE_SURCHARGE_S / surcharge.cadence))), cadence: surcharge.cadence });
       // 0.39 : colonnes AU FORMAT du grade (ex. 10 lignes de 3 chiffres), au tempo imposé : départ à
       // 100 % de la vitesse mesurée au format, +3 % après chaque colonne juste.
@@ -189,6 +198,8 @@ export default {
         metronome: r.metronome,
         ...(surcharge ? { fixe: true, sansNotation: true, colonnes: 1, erreursMax: 99 } : {}),
         ...(format ? { pas: 0.03, serie: 1, colonnes: format.colonnes ?? 6 } : {}),
+        ...(!format && !surcharge && impose?.lievre ? { colonnes: r.colonnes, chiffresMax: r.chiffresMax,
+          ...(r.variante === 'accelere' ? { accelLigne: 0.03 } : {}), ...(r.variante === 'fantome' && (records()[cle]?.dureeMs ?? gardee) ? { fantome: records()[cle]?.dureeMs ? records()[cle].dureeMs / 1000 : gardee } : {}) } : {}),
         surCadence: (x) => (surcharge || format ? null : memoriserLievre(cleMemoire, x)),
         surFin: async (b) => {
           await enregistrerSession({ module: 'rythme', mode: surcharge ? 'surcharge' : 'lievre', reglages: { ...r, cibles: c.cibles, ...(format ? { format: 'grade', proposition: format.proposition ?? null } : {}) }, total: b.total, justes: b.justes, dureeMs: b.total * r.lignes * cadence * 1000 });
@@ -205,7 +216,7 @@ export default {
             h('p', {}, `Départ : ${sec(b.cadenceDepart)} par ligne`, b.meilleureCadence !== null ? ` · meilleure colonne réussie : ${sec(b.meilleureCadence)} par ligne` : '', ` · la prochaine fois : ${sec(b.cadenceFin)}`),
             nouveau ? h('p', { class: 'retour ok' }, 'Nouvelle meilleure cadence !') : null,
             h('div', { class: 'ligne' },
-              h('button', { class: 'btn principal', onclick: () => { reglages.lievre.cadence = b.cadenceFin; lancerLievre(cibles); } }, 'Repartir à cette cadence'),
+              h('button', { class: 'btn principal', onclick: () => { (impose?.lievre ?? reglages.lievre).cadence = b.cadenceFin; lancerLievre(cibles); } }, 'Repartir à cette cadence'),
               h('button', { class: 'btn', onclick: () => accueil() }, 'Retour'))));
         },
       });
@@ -213,13 +224,12 @@ export default {
     }
 
     if (params.voir || params.jeu) voir = params.voir ?? params.jeu;
+    const choisis = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null));
     if (params.jeu === 'marathon') {
-      if (params.lignes) reglages.marathon.objectif = params.lignes;
-      if (params.chiffres) reglages.marathon.chiffres = params.chiffres;
+      impose = { marathon: { ...DEFAUTS.marathon, ...choisis({ objectif: params.lignes, chiffres: params.chiffres, chiffresMax: params.chiffresMax, tranche: params.tranche, zeros: params.zeros, variante: params.variante }) } };
       lancerMarathon(params.cibles ?? null);
     } else if (params.jeu === 'lievre') {
-      if (params.chiffres) reglages.lievre.chiffres = params.chiffres;
-      reglages.lievre.cadence = 'auto';
+      impose = { lievre: { ...DEFAUTS.lievre, cadence: 'auto', ...choisis({ chiffres: params.chiffres, chiffresMax: params.chiffresMax, lignes: params.lignes, colonnes: params.colonnes, variante: params.variante }) } };
       lancerLievre(params.cibles ?? null, !!params.accelere, params.surcharge ? { cadence: params.surcharge } : null, params.format ?? null);
     } else accueil();
     return () => courant?.detruire();

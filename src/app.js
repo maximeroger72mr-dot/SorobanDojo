@@ -132,7 +132,9 @@ const barreSeance = h('div', { class: 'barre-seance', hidden: true });
 zone.before(barreSeance);
 let ecranCourant = null;
 function majBarreSeance() {
-  const e = ecranCourant && ecranCourant !== 'seance' ? etatSeance() : null;
+  // 0.40 : la barre de séance ne doit jamais empêcher un écran de s'afficher.
+  let e = null;
+  try { e = ecranCourant && ecranCourant !== 'seance' ? etatSeance() : null; } catch (err) { console.error('Barre de séance :', err); }
   barreSeance.hidden = !e;
   if (!e) return;
   // On est déjà sur l'étape à faire : on l'indique, et on propose la suivante.

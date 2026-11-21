@@ -537,14 +537,17 @@ export default {
           : photo ? { duree: photo.secondes } : sp.type === 'lire' ? { rang: etatPalier(sp.id).reps } : {});
         const majBandeau = () => {
           const et = etatPalier(sp.id);
+          // 0.40 : le bouton du mini-test a sa place fixe, en tête ; les textes qui changent ont une
+          // largeur stable (avant, il sautait d'une ligne à l'autre à chaque exercice).
+          const btnTest = (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null;
           remplir(bandeau, ...[
+            h('div', { class: 'bandeau-action' }, btnTest),
             h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * et.reps) / sp.repetitions)}%` })),
             h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
-            h('span', { class: 'discret' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
+            h('span', { class: 'discret bandeau-texte' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
             sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${reglagesUtilisateur().anzanSansImage ? 'sans image d\'aide' : imageAnzan(sp, et.justes).nom}`) : null,
             photo ? h('span', { class: 'discret' }, `· image visible ${photo.secondes.toLocaleString('fr-FR')} s (elle raccourcit quand vous enchaînez les bonnes réponses)`) : null,
-            (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null,
           ].filter(Boolean));
         };
         majBandeau();

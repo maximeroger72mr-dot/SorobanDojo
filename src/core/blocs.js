@@ -16,6 +16,7 @@
  * Fonctions pures.
  */
 
+import { formatRythme } from './rythmeStade.js';
 import { nomMotif } from './motifs.js';
 import { evaluer } from './maitrise.js';
 import { libellesModes, gesteTravaillable } from './colonneGeste.js';
@@ -41,7 +42,6 @@ export function jourVitesse(d, date) {
   return new Set(avant(d, date).map((s) => s.date)).size % 2 === 1;
 }
 
-const lignesMarathon = (d, minutes) => Math.max(20, Math.min(60, Math.round((minutes * 60) / (secondesParChiffre(d) * 1.3) / 5) * 5));
 
 /**
  * Toutes les variantes d'un genre, prêtes à lancer, avec de quoi savoir si elles ont été faites.
@@ -63,9 +63,15 @@ function variantes(d, genre, c) {
   const rythme = (id, jeu, cibles, titre, detail, p, minutes, pourquoi) => ({ id, titre, detail, pourquoi, minutes,
     aller: ['rythme', { jeu, cibles, auto: true, ...p }], fait: (s) => s.module === 'rythme' && s.mode === (p.surcharge ? 'surcharge' : jeu) && (s.reglages?.cibles ?? []).includes(cibles[0]) && (cibles.length > 1) === ((s.reglages?.cibles ?? []).length > 1) });
   const v = [];
+  // 0.40 : lièvre et marathon au stade de l'élève (voir core/rythmeStade.js), environ 3 min 30.
+  const fm = formatRythme(d, c.date, 'marathon');
+  const fl = formatRythme(d, c.date, 'lievre');
+  const txtM = (x) => `${x.chiffresMax ? `${x.chiffres} à ${x.chiffresMax} chiffres` : `${x.chiffres} chiffre${x.chiffres > 1 ? 's' : ''}`}, sous-total toutes les ${x.tranche} lignes${x.zeros ? ', zéros internes' : ''}`;
+  const txtL = (x) => `${x.colonnes} colonnes de ${x.lignes} lignes à ${x.chiffresMax ? `${x.chiffres} à ${x.chiffresMax}` : x.chiffres} chiffre${x.chiffres > 1 ? 's' : ''}${x.variante === 'accelere' ? ', le lièvre accélère dans la colonne' : x.variante === 'fantome' ? ', contre votre fantôme (votre meilleure cadence)' : ''}`;
+  const pM = (x, avecVariante) => ({ lignes: x.lignes, chiffres: x.chiffres, chiffresMax: x.chiffresMax, tranche: x.tranche, zeros: x.zeros, ...(avecVariante ? { variante: x.variante } : {}) });
+  const pL = (x, geste) => ({ chiffres: geste ? Math.min(x.chiffres, CHIFFRES_GESTE_MAX) : x.chiffres, ...(geste ? {} : { chiffresMax: x.chiffresMax }), lignes: x.lignes, colonnes: x.colonnes, variante: x.variante, accelere: true });
   if (genre === 'volume-isole' && g) {
-    const lignes = lignesMarathon(d, 4);
-    v.push(rythme(`marathon:${g}`, 'marathon', [g], `Volume · ${nom}`, `${lignes} lignes de marathon sur ${nom}, sans remettre à zéro`, { lignes }, 4, 'Le volume sur un seul geste installe le mouvement jusqu\'au réflexe.'));
+    v.push(rythme(`marathon:${g}`, 'marathon', [g], `Volume · ${nom}`, `${fm.lignes} lignes de marathon sur ${nom}, ${txtM({ ...fm, chiffresMax: null })}, sans remettre à zéro`, pM({ ...fm, chiffres: Math.min(fm.chiffres, CHIFFRES_GESTE_MAX), chiffresMax: null }, false), 4, 'Le volume sur un seul geste installe le mouvement jusqu\'au réflexe.'));
     if (c.planches && gesteTravaillable(g)) v.push(planche(`bloc-seul:${g}`, `Planche · ${libellesModes(g).seul}`, (n) => `${n} colonnes : le geste 2 fois par colonne, des gestes directs et un piège`, { cible: g, mode: 'seul', ...geste }, 'Le geste répété, mais jamais à l\'aveugle : le piège oblige à regarder la tige.'));
   }
   if (genre === 'volume-melange') {
@@ -74,8 +80,10 @@ function variantes(d, genre, c) {
       pourquoi: 'Mélangé, le geste doit être CHOISI, comme dans un vrai calcul : c\'est ce qui le rend durable.',
       aller: ['planches', { ancrage: true, auto: true }], fait: (s) => s.module === 'planches' && s.mode === 'ancrage' });
     if (mix.length > 1) {
-      const lignes = lignesMarathon(d, 4);
-      v.push(rythme('marathon-mix', 'marathon', mix, 'Volume mélangé · marathon', `${lignes} lignes qui mélangent vos derniers gestes`, { lignes }, 4, 'De longues séries mélangées : la main enchaîne sans se poser la question.'));
+      const cascade = fm.variante === 'cascade';
+      v.push(rythme('marathon-mix', 'marathon', cascade ? fm.cibles : mix, cascade ? 'Volume · marathon de soustractions en cascade' : 'Volume mélangé · marathon',
+        cascade ? `${fm.lignes} lignes, ${txtM(fm)} : des emprunts en chaîne (1 000 − 1…)` : `${fm.lignes} lignes qui mélangent vos derniers gestes, ${txtM(fm)}`, pM(fm, true), 4,
+        cascade ? 'Les emprunts en chaîne sont les plus longs à poser : en série, ils deviennent un seul mouvement.' : 'De longues séries mélangées : la main enchaîne sans se poser la question.'));
     }
   }
   if (genre === 'vitesse-isole' && g) {
@@ -84,10 +92,10 @@ function variantes(d, genre, c) {
       const cadence = Math.max(0.5, Math.round((Math.min(p.avant, p.maintenant) / SURCHARGE) * 100) / 100);
       v.push(rythme(`surcharge:${g}`, 'lievre', [g], `Vitesse · sprint de surcharge sur ${nom}`, `20 s à ${Math.round(SURCHARGE * 100)} % de votre meilleur rythme : ${nom} stagne, on force la cadence`, { surcharge: cadence }, 2, 'Habituer la main à une vitesse qu\'elle ne connaît pas casse le plateau.'));
     }
-    v.push(rythme(`lievre:${g}`, 'lievre', [g], `Vitesse · ${nom}`, `le lièvre accélère tant que vous tenez, colonnes à 1 chiffre`, { chiffres: 1, accelere: true }, 3, 'Moins de chiffres, plus vite : le geste doit partir sans réfléchir.'));
+    v.push(rythme(`lievre:${g}`, 'lievre', [g], `Vitesse · ${nom}`, `le lièvre accélère tant que vous tenez : ${txtL({ ...fl, chiffres: Math.min(fl.chiffres, CHIFFRES_GESTE_MAX), chiffresMax: null })}`, pL(fl, true), 3, 'Le geste doit partir sans réfléchir, au rythme du surligneur.'));
   }
   if (genre === 'vitesse-melange') {
-    if (mix.length) v.push(rythme('lievre-mix', 'lievre', mix, 'Vitesse mélangée · lièvre', 'le lièvre accélère sur vos derniers gestes mélangés', { chiffres: 1, accelere: true }, 3, 'La vitesse qui compte est celle qu\'on garde au milieu des autres gestes.'));
+    if (mix.length) v.push(rythme('lievre-mix', 'lievre', mix, 'Vitesse mélangée · lièvre', `vos derniers gestes mélangés : ${txtL(fl)}`, pL(fl, false), 3, 'La vitesse qui compte est celle qu\'on garde au milieu des autres gestes.'));
     const k = format.court;
     if (c.planches) v.push(planche('bloc-rapide', 'Vitesse mélangée · planche courte', (n) => `${n} colonnes courtes de ${k.lignes} lignes à ${k.chiffres} chiffre${k.chiffres > 1 ? 's' : ''}, le plus vite possible sans erreur`, { cible: 'appris', chiffres: k.chiffres, lignes: k.lignes }, 'Des colonnes courtes laissent toute la place à la cadence.'));
   }
@@ -119,7 +127,7 @@ export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minute
   // Sans « ami » appris (étape des gestes directs) : le mélange se fait sur les gestes directs.
   const amis = cibles.filter((x) => !x.endsWith(':direct'));
   // Les planches s'ouvrent avec « Le 5 et la pincée » ; avant, le bloc se fait au marathon et au lièvre.
-  const ctx = { g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, format: formatsPlanche(d), chiffresAncrage: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
+  const ctx = { date, g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, format: formatsPlanche(d), chiffresAncrage: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
   const aujourdhui = du(d, date);
   const pris = new Set(exclure);
   const parGenre = Object.fromEntries([...new Set(genres)].map((x) => [x, moinsRecente(d, date, variantes(d, x, ctx))]));

@@ -1,7 +1,7 @@
 import { catalogueDrills, famillesDrill, chiffresDrill, classement, tempsClassement, tigesFausses } from '../src/core/drills.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { grade, drillEchauffement, defiSemaine, motifsAppris } from '../src/core/parcours.js';
+import { grade, drillEchauffement, dureeEchauffement, defiSemaine, motifsAppris } from '../src/core/parcours.js';
 import { SOUS_PALIERS } from '../src/core/curriculum.js';
 
 const vide = () => ({ paliers: {}, records: {}, motifs: {}, sessions: [] });
@@ -45,13 +45,17 @@ test('échauffement : le prochain drill à valider, jamais un geste pas encore a
   const liste = catalogueDrills();
   const avant = liste.filter((x) => x.groupe === 'Avant les grands amis');
   for (const x of avant) d.drills[x.id] = { validations: 2 };
-  // Tout le groupe validé, mais pas de grands amis : on reste sur le dernier drill accessible.
-  assert.equal(drillEchauffement(d).id, 'tour-petits');
+  // Tout le groupe validé, mais pas de grands amis : le dernier drill accessible qui tient en
+  // 3 minutes (0.40 : le tour des petits amis, 16 minutes au bronze, n'est plus un échauffement).
+  assert.equal(drillEchauffement(d).id, 'pendule-4-2');
   for (const x of avant) assert.deepEqual(famillesDrill(x).filter((f) => f !== 'petit'), [], x.id);
   // Tout appris et tout validé : le plus long drill, pour améliorer son classement.
   for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
   for (const x of liste) d.drills[x.id] = { validations: 2 };
-  assert.equal(drillEchauffement(d).id, liste.at(-1).id);
+  // Tout validé : le plus long drill qui tient en 3 minutes (0.40).
+  const e = drillEchauffement(d);
+  assert.ok(dureeEchauffement(d, e) <= 3 * 60000, e.id);
+  assert.equal(e.id, liste.filter((x) => dureeEchauffement(d, x) <= 3 * 60000).at(-1).id);
 });
 
 test('classement des drills : bronze, argent, or, platine', () => {

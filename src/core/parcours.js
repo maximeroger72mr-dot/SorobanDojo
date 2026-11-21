@@ -10,7 +10,7 @@
 import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
 import { systemeChoisi, genererSujet } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
-import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill } from './drills.js';
+import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill, tempsClassement as tempsClassementDrill } from './drills.js';
 import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence, lundi as lundiDe, unites as unitesEx } from './maitrise.js';
 import { gradeDan, prochainDan } from './dan.js';
 import { gradeDanZenkoren, prochainNiveau, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN } from './danZenkoren.js';
@@ -191,9 +191,15 @@ export function drillEchauffement(d) {
   const d0 = { ...d, reglages: { ...d.reglages, decouverte: false } };
   // Les « premiers pas » ne servent plus d'échauffement une fois un drill du parcours validé.
   const avance = catalogueDrills().some((x) => !x.entree && drillValide(d, x.id));
-  const ouverts = catalogueDrills().filter((x) => faisable(d0, x) && drillOuvert(d0, x) && !(avance && x.entree && !drillValide(d, x.id)));
-  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? null;
+  const tous = catalogueDrills().filter((x) => faisable(d0, x) && drillOuvert(d0, x) && !(avance && x.entree && !drillValide(d, x.id)));
+  // 0.40 : un échauffement de 3 minutes au plus (votre record, à défaut le temps bronze avec marge) ;
+  // avant, un drill long pouvait prendre 6 minutes, 20 % d'une séance de 30.
+  const ouverts = tous.filter((x) => dureeEchauffement(d, x) <= ECHAUFFEMENT_MAX_MS);
+  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? [...tous].sort((a, b) => dureeEchauffement(d, a) - dureeEchauffement(d, b))[0] ?? null;
 }
+export const ECHAUFFEMENT_MAX_MS = 3 * 60000;
+/** Durée attendue d'un drill d'échauffement : le record de l'élève, sinon le temps bronze + 30 %. */
+export const dureeEchauffement = (d, x) => d.records?.[`drill-${x.id}`]?.dureeMs ?? tempsClassementDrill(x, 'bronze') * 1.3;
 
 /** Gestes appris (au moins 8 essais réussis) les plus lents : à accélérer. */
 export function gestesLents(d, nombre = 3) {
@@ -366,8 +372,11 @@ export function plateaux(d, date) {
   // sur l'allure du grade (ou du dan) visé : le platine n'est pas l'allure du 1er kyū ni d'un dan.
   const vise = allureVisee(d);
   const sansMarge = (ev, famille) => ev.niveau.id !== 'expert' || (vise && ev.temps != null && ev.temps > (famille === 'muldiv' ? vise.parProduit : vise.parChiffre) * (1 - MARGE_PLATEAU));
+  // 0.40 : à 5 chiffres et plus, les gestes de base (petits amis) ne sont plus suivis : un élève
+  // très avancé recevait encore des sprints sur +4 petit ami.
+  const avance = chiffresAppris(d) >= 5;
   for (const [cle, f] of Object.entries(d.motifs)) {
-    if (cle.endsWith(':direct') || !sansMarge(evaluer(f.hist ?? []), 'addsub')) continue;
+    if (cle.endsWith(':direct') || (avance && cle.endsWith(':petit')) || !sansMarge(evaluer(f.hist ?? []), 'addsub')) continue;
     const p = plateauFiche(f, date);
     if (p) liste.push({ type: 'geste', cle, nom: nomMotif(cle), ...p });
   }

@@ -56,6 +56,7 @@ function ecartChiffres(lu, attendu) {
  * (o.tousLes : sous-total affiché d'office toutes les N opérations, comme sur les feuilles japonaises)
  * @param {{ record?: {dureeMs:number}|null, surFin?: (r:{juste:boolean, dureeMs:number}) => any }} o
  */
+export const GARDE_ENTREE_MS = 1000;
 export function creerDrill(conteneur, d, o = {}) {
   const depart0 = d.depart ?? 0; // nombre déjà posé au départ (descente : soustractions seules)
   const ctrl = controles(d.operations, depart0);
@@ -127,7 +128,11 @@ export function creerDrill(conteneur, d, o = {}) {
     for (const b of [btnVerifier, btnPerdu]) b.style.display = etat === 'verification' ? '' : 'none';
   }
 
-  function action() {
+  // 0.40 : Entrée est ignorée la première seconde (un appui qui relance le drill ne le démarre pas
+  // aussitôt, avec le soroban encore sur le résultat du passage précédent).
+  const pretDepuis = performance.now();
+  function action(viaClavier = false) {
+    if (etat === 'pret' && viaClavier && performance.now() - pretDepuis < GARDE_ENTREE_MS) return;
     if (etat === 'pret') {
       etat = 'course';
       racine.dataset.enCours = '1';
@@ -202,13 +207,15 @@ export function creerDrill(conteneur, d, o = {}) {
   }, 100);
 
   const sansRaccourcis = raccourcis({
-    Enter: () => (etat === 'pret' || etat === 'course' ? action() : etat === 'verification' ? lireSoroban() : false),
+    Enter: () => (etat === 'pret' || etat === 'course' ? action(true) : etat === 'verification' ? lireSoroban() : false),
     ' ': () => (etat === 'course' ? arreter() : false),
   });
 
   dessiner();
   majBouton();
-  if (depart0) remplir(retour, h('strong', {}, `Avant de démarrer, posez ${formaterNombre(depart0)} sur votre soroban. `), 'Le chrono ne part qu\'à « Démarrer ».');
+  // 0.40 : un drill finit toujours sur le même nombre : on rappelle de remettre le soroban au départ.
+  remplir(retour, h('strong', {}, `Avant de démarrer, posez ${formaterNombre(depart0)} sur votre soroban${depart0 ? '' : ' (effacez-le)'}. `),
+    d.perso ? 'Le chrono ne part qu\'à « Démarrer ».' : `Ce drill finit toujours sur ${formaterNombre(d.resultat)} : partez bien de ${formaterNombre(depart0)}, sinon le passage ne compte pas. Le chrono ne part qu'à « Démarrer ».`);
   return {
     detruire() {
       metronome.arreter();
