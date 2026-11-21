@@ -4,7 +4,7 @@ import { examenDeLaSemaine, prekyuObtenu, PREKYU, kyuPasse, cleBlanc, prochainJa
 import { SYSTEMES } from '../src/core/epreuves.js';
 import { SOUS_PALIERS, sousPalier } from '../src/core/curriculum.js';
 import { PREREQUIS, verificationVitesse, placementDuJour } from '../src/core/parcours.js';
-import { exercicesBloc, MAX_ISOLES } from '../src/core/blocs.js';
+import { exercicesBloc, MAX_ISOLES, gesteExercice } from '../src/core/blocs.js';
 import { planchesPossibles, plafonner, minutesPlanche, MINUTES_PLANCHE_MAX } from '../src/core/propositions.js';
 import { bilanHebdo } from '../src/core/bilan.js';
 import { frise } from '../src/modules/grades.js';
@@ -70,12 +70,16 @@ test('bloc : deux exercices au plus sur le geste seul, le suivant est mélangé 
   const ids = ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2'];
   const d = valide(ids, { sessions: [{ date: '2026-11-10', module: 'lecons', total: 10, justes: 10 }], motifs: { '+4:petit': { hist: h(1.2) }, '+3:petit': { hist: h(2.6) } } });
   const genres = ['volume-isole', 'vitesse-isole', 'volume-melange', 'vitesse-melange'];
-  const b = exercicesBloc(d, '2026-11-11', { genres, cibles: ['+4:petit', '+3:petit'], minutes: 25 });
+  const b = exercicesBloc(d, '2026-11-11', { genres, cibles: ['+4:petit', '+3:petit'], minutes: 25, unParGeste: false });
   assert.equal(b.filter((x) => x.genre.endsWith('-isole')).length, MAX_ISOLES);
   assert.ok(b.filter((x) => x.genre.endsWith('-melange')).length >= 2);
   // Un exercice isolé déjà pris par le bloc « automatiser » compte dans la limite.
-  const c = exercicesBloc(d, '2026-11-11', { genres, cibles: ['+4:petit', '+3:petit'], minutes: 25, isolesDeja: 1, exclure: [b[0].id] });
+  const c = exercicesBloc(d, '2026-11-11', { genres, cibles: ['+4:petit', '+3:petit'], minutes: 25, isolesDeja: 1, exclure: [b[0].id], unParGeste: false });
   assert.equal(c.filter((x) => x.genre.endsWith('-isole')).length, 1);
+  // 0.41 : hors bloc « automatiser », un geste déjà travaillé dans la séance n'a plus d'exercice.
+  const g = gesteExercice(b[0].id);
+  const c2 = exercicesBloc(d, '2026-11-11', { genres, cibles: ['+4:petit', '+3:petit'], minutes: 25, exclure: [b[0].id] });
+  assert.ok(g && c2.every((x) => gesteExercice(x.id) !== g), c2.map((x) => x.id).join());
   // Débutant (gestes directs, planches pas encore ouvertes) : le bloc n'est pas vide, isolé ET mélangé.
   const deb = valide(['p1-1', 'p1-2'], { sessions: [{ date: '2026-11-10', module: 'lecons', total: 10, justes: 10 }] });
   const e = exercicesBloc(deb, '2026-11-11', { genres, cibles: sousPalier('p1-2').cibles, minutes: 10 });

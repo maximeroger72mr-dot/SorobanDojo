@@ -15,12 +15,19 @@
  *    Montée et endurance : retour en référence au bout de 12 colonnes quoi qu'il arrive.
  *  Leçons « 2 et 3 chiffres » : la référence alterne 2 et 3 chiffres (une colonne sur deux) ;
  *    montée et endurance à 3 chiffres.
- *  Colonnes d'endurance (p8, p9, 10 lignes) : 6 lignes, 8 lignes, puis 10 lignes (la référence).
- *  Filet : 2 colonnes fausses d'affilée → 3 colonnes au format de référence, doigté affiché (aide :
- *    hors médaille), puis retour à la phase en cours.
+ *  Colonnes d'endurance (p8, p9, 10 lignes) : une RAMPE, faite une seule fois : 6 lignes, 8 lignes,
+ *    puis 10 lignes (la référence), où l'on reste (0.41 ; avant, le cycle renvoyait aux 6 lignes et
+ *    une leçon p9 passait de 20 à près de 80 colonnes). Rampe sautée quand la leçon d'endurance
+ *    précédente est validée à l'argent ou mieux.
+ *  Filet : 2 colonnes fausses d'affilée SUR UN GESTE VISÉ (0.41) → 3 colonnes au format le plus
+ *    simple de la leçon (la référence pour les amis ; 6 lignes pour l'endurance, 0.41), doigté
+ *    affiché (aide : hors médaille), puis retour à la phase en cours.
  *  Pas de cascades à 2 chiffres et plus tant que la leçon des cascades (p5-4) n'est pas validée.
  *  Le volume se compte en GESTES VISÉS réalisés (pas en colonnes) : une longue colonne avance plus.
- *  Mini-test : jauge de gestes pleine ET au moins 20 colonnes de référence.
+ *  Jauge pleine : on ne remonte plus, la fin de la leçon se fait au format du mini-test (0.41 ; avant,
+ *    l'élève parfait faisait la leçon la plus longue, à remonter sans cesse).
+ *  Mini-test : jauge de gestes pleine ET au moins 40 % des répétitions en colonnes de référence
+ *    (20 pour p2 à p4, 12 pour p8, 8 pour p9).
  * Fonctions pures.
  */
 
@@ -31,7 +38,9 @@ export const SORTIE = 12;
 export const REFERENCE_RETOUR = 6;
 export const FILET = 3;
 export const ERREURS_FILET = 2;
-export const REFERENCE_MIN_TEST = 20;
+export const PART_REFERENCE = 0.4;
+/** Colonnes de référence à faire avant le mini-test : 40 % des répétitions de la leçon (0.41). */
+export const referenceMin = (sp) => Math.max(1, Math.round(PART_REFERENCE * (sp.repetitions ?? 0)));
 
 /** Le plan de phases d'une leçon de colonnes, ou null (leçon sans phases : × ÷, anzan, lecture…). */
 export function phasesLecon(sp) {
@@ -49,7 +58,7 @@ export function phasesLecon(sp) {
   }
   if (['p8', 'p9'].includes(pal) && sp.lignes >= 10) {
     const f = (lignes) => ({ chiffres: sp.chiffres, ...(sp.chiffresMax ? { chiffresMax: sp.chiffresMax } : {}), lignes });
-    return { genre: 'endurance', ordre: [
+    return { genre: 'endurance', rampe: true, ordre: [
       { id: 'six', titre: '6 lignes', passage: 'argent', format: f(6) },
       { id: 'huit', titre: '8 lignes', passage: 'justes', format: f(8) },
       { id: 'reference', reference: true, titre: `${sp.lignes} lignes (référence)`, format: null },
@@ -60,44 +69,65 @@ export function phasesLecon(sp) {
 
 export const indexReference = (plan) => plan.ordre.findIndex((x) => x.reference);
 
-/** État de départ ; `deuxChiffres` : « Je connais déjà : commencer à 2 chiffres » (la montée). */
-export function etatInitial(plan, deuxChiffres = false) {
-  const i = deuxChiffres ? plan.ordre.findIndex((x) => x.id === 'montee') : 0;
+/** La leçon d'endurance (à rampe) qui précède `sp` dans la liste des leçons, ou null. */
+export function enduranceAvant(sp, liste) {
+  const i = liste.findIndex((x) => x.id === sp.id);
+  for (let j = i - 1; j >= 0; j--) if (phasesLecon(liste[j])?.rampe) return liste[j];
+  return null;
+}
+
+/**
+ * État de départ ; `deuxChiffres` : « Je connais déjà : commencer à 2 chiffres » (la montée) ;
+ * `sansRampe` : endurance, la leçon d'endurance précédente est validée à l'argent (on part en référence).
+ */
+export function etatInitial(plan, deuxChiffres = false, { sansRampe = false } = {}) {
+  const i = deuxChiffres ? plan.ordre.findIndex((x) => x.id === 'montee') : sansRampe && plan.rampe ? indexReference(plan) : 0;
   return { i: Math.max(0, i), n: 0, suite: 0, justes: 0, debut: !deuxChiffres, filet: 0, erreurs: 0 };
 }
 
-/** La phase en cours (le filet compte comme la référence, doigté affiché). */
+/** Format du filet : le plus simple de la leçon (la référence ; la première marche de la rampe). */
+const phaseFilet = (plan) => plan.ordre[plan.rampe ? 0 : indexReference(plan)];
+
+/** La phase en cours (le filet : format le plus simple, doigté affiché). */
 export function phaseCourante(plan, e) {
-  if (e.filet > 0) return { ...plan.ordre[indexReference(plan)], id: 'filet', titre: 'Filet', filet: true, reference: false };
+  if (e.filet > 0) return { ...phaseFilet(plan), id: 'filet', titre: 'Filet', filet: true, reference: false };
   return plan.ordre[e.i];
 }
 
 /**
  * Après une colonne de la phase en cours.
- * @param {{ juste: boolean, rapide: boolean }} r  rapide : à l'allure argent ou mieux
+ * @param {{ juste: boolean, rapide: boolean, erreurVisee?: boolean, jaugePleine?: boolean }} r
+ *   rapide : à l'allure argent ou mieux ; erreurVisee : l'erreur porte (ou peut porter) sur un geste
+ *   visé ; jaugePleine : la jauge de gestes est pleine (on ne remonte plus)
  * @returns {object}  nouvel état (pur)
  */
-export function apresColonne(plan, e0, { juste, rapide }) {
+export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaugePleine = false }) {
   const e = { ...e0 };
   if (e.filet > 0) {
     e.filet -= 1;
     if (e.filet === 0) Object.assign(e, { n: 0, suite: 0, justes: 0, erreurs: 0 });
     return e;
   }
-  e.erreurs = juste ? 0 : e.erreurs + 1;
+  // Seules les erreurs sur un geste visé mènent au filet ; une erreur ailleurs ne compte pas.
+  if (juste) e.erreurs = 0;
+  else if (erreurVisee) e.erreurs += 1;
   if (e.erreurs >= ERREURS_FILET) return { ...e, filet: FILET, erreurs: 0 };
   const ph = plan.ordre[e.i];
   e.n += 1;
   e.suite = juste && (ph.passage !== 'argent' && !ph.reference ? true : rapide) ? e.suite + 1 : 0;
   if (juste) e.justes += 1;
   const suivante = () => ({ ...e, i: (e.i + 1) % plan.ordre.length, n: 0, suite: 0, justes: 0, debut: false });
+  const versReference = () => ({ ...e, i: indexReference(plan), n: 0, suite: 0, justes: 0, debut: false });
+  // Endurance : la rampe ne se refait pas ; jauge pleine : on finit au format du mini-test.
+  if (ph.reference && (plan.rampe || jaugePleine)) return e;
+  if (!ph.reference && jaugePleine) return versReference();
   if (ph.reference) {
     // Au départ : 6 colonnes justes d'affilée à l'allure argent ; après un retour : 6 colonnes.
     if (e.debut ? e.suite >= PASSAGE : e.n >= REFERENCE_RETOUR) return suivante();
     return e;
   }
   if (ph.passage === 'argent' ? e.suite >= PASSAGE : e.justes >= PASSAGE) return suivante();
-  if (e.n >= SORTIE) return { ...e, i: indexReference(plan), n: 0, suite: 0, justes: 0, debut: false };
+  if (e.n >= SORTIE) return plan.rampe ? suivante() : versReference();
   return e;
 }
 

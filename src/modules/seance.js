@@ -31,7 +31,7 @@ import { gesteTravaillable } from '../core/colonneGeste.js';
 import { ajouterJours, MELANGE_MAX, calculsMelange, ordreRevisions } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
 import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
-import { exercicesBloc, jourVitesse, gesteDuJour } from '../core/blocs.js';
+import { exercicesBloc, jourVitesse, gesteDuJour, gesteExercice } from '../core/blocs.js';
 import { hakariActif, partieDuJour, calculsHakari, NOMS_PARTIES } from '../core/hakari.js';
 import { gradeOperation } from '../core/formatKyu.js';
 import { chargeGrade } from '../core/allure.js';
@@ -252,7 +252,7 @@ export function plan(d, debut, seance0 = null) {
   } else if (decision.type === 'automatiser') {
     const cibles = gestesLecon(decision.sp);
     const items = cibles.length
-      ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon, geste: seance?.gesteBloc })
+      ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon, geste: seance?.gesteBloc, unParGeste: false })
       : [];
     if (!items.length) items.push({ id: 'lecon', titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, fait: decisionFaite(decision) });
     isolesBloc3 = items.filter((it) => it.genre?.endsWith('-isole')).length;
@@ -536,7 +536,7 @@ export function plan(d, debut, seance0 = null) {
   const socle = socleEnBonus ? [{ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: false,
     detail: `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade : à tenter quand vous voulez, d'ici dimanche`,
     pourquoi: 'Le socle ne prend la place de la leçon qu\'un jour par semaine : les autres jours, il attend ici, sans pression.' }] : [];
-  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, ciblesBloc.slice(0, 1))];
+  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }
@@ -564,6 +564,23 @@ export const ORDRE_BLOCS = ['echauffement', 'revision', 'lecon', 'volume', 'anza
 const NOMS_BLOCS = { echauffement: 'Échauffement', revision: 'Révision', lecon: 'Leçon', volume: 'Volume, vitesse, réflexes', anzan: 'Anzan' };
 
 /** Une leçon se révise-t-elle dans une série mélangée ? (pas les placements ni les lectures) */
+/**
+ * 0.41 : les gestes précis déjà travaillés par la séance (ses exercices, et ceux reportés). Les
+ * planches « pour compléter » les évitent : un seul exercice par geste et par séance (avant, +4 petit
+ * ami recevait un sprint de surcharge, un lièvre et une planche, 9 minutes sur un seul geste).
+ */
+function gestesSeance(items, ciblesBloc) {
+  const s = new Set(ciblesBloc.slice(0, 1));
+  for (const it of items) {
+    const g = gesteExercice(it.id);
+    if (g) s.add(g);
+    const p = it.aller?.[1];
+    if (typeof p?.cible === 'string') s.add(p.cible);
+    if (p?.cibles?.length === 1) s.add(p.cibles[0]);
+  }
+  return [...s];
+}
+
 const melangeable = (sp) => !['placement', 'lire', 'complement', 'theorie', 'photo', 'tenir'].includes(sp.type);
 
 /** Le thème du jour, en une phrase : ce qu'on vient faire aujourd'hui. */

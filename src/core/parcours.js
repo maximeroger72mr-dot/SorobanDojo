@@ -366,15 +366,27 @@ export function placementDuJour(d, aujourdhuiDate, prochain) {
  * (voir maitrise.plateau). Les gestes déjà au niveau expert ne sont pas concernés.
  * @returns {Array<{ type: 'geste'|'lecon', cle: string, nom: string, avant: number, maintenant: number, semaines: number }>}
  */
+/** Au-delà de ce nombre de chiffres de travail, les plateaux des gestes de base ne sont plus suivis. */
+export const CHIFFRES_GESTES_BASE = 4;
+/**
+ * Chiffres de travail : le plus grand des formats des leçons validées et du grade visé (0.41 ; un
+ * élève positionné haut n'a pas forcément validé les leçons à 5 chiffres).
+ */
+export function chiffresTravail(d) {
+  let vise = 0;
+  try { vise = formatExamen(d).chiffres ?? 0; } catch { vise = 0; }
+  return Math.max(chiffresAppris(d), vise);
+}
+
 export function plateaux(d, date) {
   const liste = [];
   // 0.39 : au-delà du platine, la détection reste active tant que le geste n'a pas 10 % de marge
   // sur l'allure du grade (ou du dan) visé : le platine n'est pas l'allure du 1er kyū ni d'un dan.
   const vise = allureVisee(d);
   const sansMarge = (ev, famille) => ev.niveau.id !== 'expert' || (vise && ev.temps != null && ev.temps > (famille === 'muldiv' ? vise.parProduit : vise.parChiffre) * (1 - MARGE_PLATEAU));
-  // 0.40 : à 5 chiffres et plus, les gestes de base (petits amis) ne sont plus suivis : un élève
-  // très avancé recevait encore des sprints sur +4 petit ami.
-  const avance = chiffresAppris(d) >= 5;
+  // 0.40-0.41 : au-delà de 4 chiffres de travail, les gestes de base (petits amis) ne sont plus
+  // suivis : un élève très avancé recevait encore des sprints sur +4 petit ami.
+  const avance = chiffresTravail(d) > CHIFFRES_GESTES_BASE;
   for (const [cle, f] of Object.entries(d.motifs)) {
     if (cle.endsWith(':direct') || (avance && cle.endsWith(':petit')) || !sansMarge(evaluer(f.hist ?? []), 'addsub')) continue;
     const p = plateauFiche(f, date);

@@ -1267,3 +1267,29 @@ Défauts signalés après la 0.38.1.
   ouvert avec la jauge pleine ET au moins 20 colonnes de référence.
 - Leçons « 2 et 3 chiffres » : une colonne sur deux à 3 chiffres, en alternance (mini-test compris),
   au lieu d'un tirage au hasard.
+
+## Version 0.40.1
+
+### Leçons à phases (`core/phases.js`)
+- **Minimum de colonnes de référence** avant le mini-test : 40 % des répétitions de la leçon (20 pour
+  p2 à p4, 12 pour p8, 8 pour p9) au lieu de 20 partout (une leçon p9 de 20 colonnes passait à près
+  de 80).
+- **Leçons d'endurance** (p8, p9) : la rampe 6 lignes → 8 lignes → 10 lignes est faite UNE fois, puis
+  on reste à 10 lignes (la référence) ; une rampe jamais réussie avance d'une marche au bout de
+  12 colonnes. Rampe sautée quand la leçon d'endurance précédente est validée à l'argent ou mieux.
+- **Filet** au format le plus simple de la leçon : la référence pour les amis, 6 lignes pour
+  l'endurance (avant : 10 lignes, plus dur que la phase remplacée). Il se déclenche après 2 erreurs
+  de suite SUR UN GESTE VISÉ (erreur localisée sur un autre geste : ne compte pas ; erreur non
+  localisée : compte si la colonne contient un geste visé).
+- **Jauge pleine** : on ne remonte plus ; la fin de la leçon se fait au format du mini-test (avant,
+  l'élève parfait faisait la leçon la plus longue).
+- Coupe-file : les 15 premières colonnes de référence, quel que soit le nombre de colonnes faites.
+- La ligne du bouton du mini-test est réservée dès le début (« Le mini-test s'ouvrira ici. »).
+
+### Séance
+- **Un seul exercice par geste et par séance** hors bloc « automatiser » : sur un geste en plateau,
+  le sprint de surcharge remplace le lièvre ; un geste déjà travaillé (ou reporté) n'a plus de bloc
+  ni de planche « pour compléter ».
+- Plateaux des petits amis ignorés au-delà de 4 chiffres de travail : le plus grand des formats des
+  leçons validées et du grade visé (un élève positionné haut n'a pas forcément validé les leçons à
+  5 chiffres).

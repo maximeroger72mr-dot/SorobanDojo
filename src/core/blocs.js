@@ -88,11 +88,12 @@ function variantes(d, genre, c) {
   }
   if (genre === 'vitesse-isole' && g) {
     const p = c.plateau;
+    // 0.41 : sur un geste en plateau, le sprint de surcharge REMPLACE le lièvre (avant, les deux
+    // s'enchaînaient sur le même geste).
     if (p && p.type === 'geste' && p.cle === g) {
       const cadence = Math.max(0.5, Math.round((Math.min(p.avant, p.maintenant) / SURCHARGE) * 100) / 100);
       v.push(rythme(`surcharge:${g}`, 'lievre', [g], `Vitesse · sprint de surcharge sur ${nom}`, `20 s à ${Math.round(SURCHARGE * 100)} % de votre meilleur rythme : ${nom} stagne, on force la cadence`, { surcharge: cadence }, 2, 'Habituer la main à une vitesse qu\'elle ne connaît pas casse le plateau.'));
-    }
-    v.push(rythme(`lievre:${g}`, 'lievre', [g], `Vitesse · ${nom}`, `le lièvre accélère tant que vous tenez : ${txtL({ ...fl, chiffres: Math.min(fl.chiffres, CHIFFRES_GESTE_MAX), chiffresMax: null })}`, pL(fl, true), 3, 'Le geste doit partir sans réfléchir, au rythme du surligneur.'));
+    } else v.push(rythme(`lievre:${g}`, 'lievre', [g], `Vitesse · ${nom}`, `le lièvre accélère tant que vous tenez : ${txtL({ ...fl, chiffres: Math.min(fl.chiffres, CHIFFRES_GESTE_MAX), chiffresMax: null })}`, pL(fl, true), 3, 'Le geste doit partir sans réfléchir, au rythme du surligneur.'));
   }
   if (genre === 'vitesse-melange') {
     if (mix.length) v.push(rythme('lievre-mix', 'lievre', mix, 'Vitesse mélangée · lièvre', `vos derniers gestes mélangés : ${txtL(fl)}`, pL(fl, false), 3, 'La vitesse qui compte est celle qu\'on garde au milieu des autres gestes.'));
@@ -112,13 +113,19 @@ function moinsRecente(d, date, liste) {
 /** Exercices sur le geste seul, au plus, dans une séance. */
 export const MAX_ISOLES = 2;
 
+/** Le geste précis travaillé par un exercice de bloc (« lievre:+4:petit » → « +4:petit »), ou null. */
+export const gesteExercice = (id) => (typeof id === 'string' && /^(marathon|bloc-seul|bloc-famille|surcharge|lievre):/.test(id) ? id.slice(id.indexOf(':') + 1) : null);
+
 /**
  * Exercices du jour pour un bloc : une suite de genres (ex. isolé puis mélangé), chacun dans sa
  * variante la moins récente ; on remplit jusqu'à `minutes`, sans répéter une variante.
  * @param {string[]} genres  ordre des genres à alterner
+ * @param {boolean} [o.unParGeste]  0.41 : un seul exercice par geste précis dans la séance (les
+ *   gestes des exercices de `exclure` comptent) ; le bloc « automatiser » (qui remplace la leçon)
+ *   peut, lui, en mettre plusieurs sur son geste.
  * @returns {Array<{ id, titre, detail, minutes, aller, fait: boolean, pourquoi, genre }>}
  */
-export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [], isolesDeja = 0, geste = null }) {
+export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minutes, exclure = [], isolesDeja = 0, geste = null, unParGeste = true }) {
   // `geste` : geste du jour FIGÉ au début de la séance (sinon, une fois travaillé, un autre geste
   // devient « le plus lent » et de nouveaux exercices apparaissent sans fin).
   const g = geste && cibles.includes(geste) ? geste : gesteDuJour(d, cibles, difficiles);
@@ -130,6 +137,7 @@ export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minute
   const ctx = { date, g, mix: mix.length ? mix : amis.length ? amis : cibles, planches: estValide(d, 'p1-3') || !!d.reglages?.decouverte, format: formatsPlanche(d), chiffresAncrage: Math.min(3, chiffresAppris(d)), plateau: plateaux(d, date)[0] ?? null };
   const aujourdhui = du(d, date);
   const pris = new Set(exclure);
+  const gestesPris = new Set(exclure.map(gesteExercice).filter(Boolean));
   const parGenre = Object.fromEntries([...new Set(genres)].map((x) => [x, moinsRecente(d, date, variantes(d, x, ctx))]));
   const res = [];
   let total = 0;
@@ -145,11 +153,12 @@ export function exercicesBloc(d, date, { genres, cibles, difficiles = [], minute
       const reste = minutes - total;
       if (reste < 2 && res.length) break;
       if (genre.endsWith('-isole') && isoles >= MAX_ISOLES) continue;
-      const libres = parGenre[genre].filter((y) => !pris.has(y.id));
+      const libres = parGenre[genre].filter((y) => !pris.has(y.id) && !(unParGeste && gestesPris.has(gesteExercice(y.id))));
       const x = libres.find((y) => y.minutes <= reste + 1) ?? (res.length ? null : libres[0]);
       if (!x) continue;
       if (genre.endsWith('-isole')) isoles += 1;
       pris.add(x.id);
+      if (gesteExercice(x.id)) gestesPris.add(gesteExercice(x.id));
       res.push({ id: x.id, titre: x.titre, detail: x.detail, minutes: x.minutes, aller: x.aller, fait: aujourdhui.some(x.fait), pourquoi: x.pourquoi, genre });
       total += x.minutes;
       avance = true;
