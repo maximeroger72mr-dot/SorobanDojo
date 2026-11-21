@@ -205,7 +205,8 @@ export function plan(d, debut, seance0 = null) {
   // Budget de chaque bloc, sur l'objectif : la leçon garde une part fixe (5 à 10 min) ; le temps
   // en plus va au volume / vitesse et à l'anzan.
   const partLecon = Math.max(5, Math.min(10, Math.round(objectif * 0.35)));
-  const minutesAnzan = Math.max(2, Math.min(6, Math.round(objectif * 0.1)));
+  // 0.40.4 : 5 minutes au moins (un bloc plus court ne laisse pas le temps de s'installer).
+  const minutesAnzan = Math.max(BLOC_MIN, Math.min(8, Math.round(objectif * 0.15)));
   const exclus = [];
   let isolesBloc3 = 0;
   // Trois premiers grades préparatoires, pas encore obtenus : le socle (10 colonnes, sans chrono).
@@ -499,7 +500,7 @@ export function plan(d, debut, seance0 = null) {
   const reportes = [];
   let cumul = 0;
   const garde = [];
-  // L'anzan (en dernier) garde sa place : son temps est réservé dès le début.
+  // L'anzan garde sa place : son temps est réservé dès le début.
   // Séance en cours : les exercices des blocs « automatiser » et « volume / vitesse » sont ceux
   // prévus AU DÉBUT, pas un de plus. Sans cela, chaque exercice fait libérait du temps (ou changeait
   // le geste le plus lent) et un nouvel exercice prenait sa place : la séance ne finissait jamais.
@@ -520,6 +521,18 @@ export function plan(d, debut, seance0 = null) {
     }
     reportes.push(it);
   }
+  // Les 5 blocs de la séance : chaque point appartient à l'un d'eux (dans cet ordre).
+  for (const it of garde) {
+    it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
+      : it.examen || it.garder || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
+  }
+  // 0.40.4 : un bloc de volume / vitesse de moins de 5 minutes (rien n'y est encore fait) passe dans
+  // « Pour compléter » : trop court pour s'installer dans le travail ; la leçon reprend le temps.
+  // (L'anzan a 5 minutes au moins ; l'échauffement, les révisions dues et la leçon ne sont pas concernés.)
+  const volume = garde.filter((it) => it.blocSeance === 'volume');
+  if (volume.length && !volume.some((it) => it.fait) && volume.reduce((t, it) => t + it.minutes, 0) < BLOC_MIN) {
+    for (const it of volume) reportes.unshift(...garde.splice(garde.indexOf(it), 1));
+  }
   // Il reste de la place (rien d'autre à proposer à ce niveau) : la leçon coupée la reprend.
   const libre = objectif - garde.reduce((t, it) => t + it.minutes, 0);
   const lecon = garde.find((it) => it.decision && it.dureeEntiere > it.minutes && !it.fait);
@@ -528,11 +541,6 @@ export function plan(d, debut, seance0 = null) {
     const entiere = m >= lecon.dureeEntiere;
     garde[garde.indexOf(lecon)] = { ...lecon, minutes: m, detail: entiere ? lecon.detailCourt : `${lecon.detailCourt} (${m} min aujourd'hui, une partie seulement : la suite demain)`,
       fait: entiere ? lecon.commencee : lecon.tempsLecon >= m * 60000 };
-  }
-  // Les 5 blocs de la séance : chaque point appartient à l'un d'eux (dans cet ordre).
-  for (const it of garde) {
-    it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
-      : it.examen || it.garder || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
   }
   // 0.38 : séance courte (moins de 20 min) : 3 blocs au plus, la leçon et la révision d'abord, puis
   // le volume ou l'anzan, un jour sur deux. Le reste passe dans « Pour compléter ».
@@ -574,15 +582,20 @@ export const OBJECTIFS = [5, 10, 15, 20, 25, 30, 45, 60];
 export const OBJECTIF_EXAMEN_BLANC = 20;
 export const OBJECTIF_EXAMEN_COMPLET = 30;
 export const BLOCS_SEANCE_COURTE = 3;
+/** Durée minimale d'un bloc (anzan, volume / vitesse), en minutes (0.40.4). */
+export const BLOC_MIN = 5;
 const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 
-/** Les 5 blocs de la séance, dans l'ordre, et leur nom. */
-export const ORDRE_BLOCS = ['echauffement', 'revision', 'lecon', 'volume', 'anzan'];
+/**
+ * Les 5 blocs de la séance, dans l'ordre, et leur nom. 0.40.4 : l'anzan vient juste après
+ * l'échauffement, l'attention encore fraîche (avant, il fermait la séance).
+ */
+export const ORDRE_BLOCS = ['echauffement', 'anzan', 'revision', 'lecon', 'volume'];
 const NOMS_BLOCS = { echauffement: 'Échauffement', revision: 'Révision', lecon: 'Leçon', volume: 'Volume, vitesse, réflexes', anzan: 'Anzan' };
 
 /** Une leçon se révise-t-elle dans une série mélangée ? (pas les placements ni les lectures) */
 /**
- * 0.41 : les gestes précis déjà travaillés par la séance (ses exercices, et ceux reportés). Les
+ * 0.40.1 : les gestes précis déjà travaillés par la séance (ses exercices, et ceux reportés). Les
  * planches « pour compléter » les évitent : un seul exercice par geste et par séance (avant, +4 petit
  * ami recevait un sprint de surcharge, un lièvre et une planche, 9 minutes sur un seul geste).
  */

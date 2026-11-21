@@ -553,17 +553,20 @@ export async function memoriserChaine(id, lignes) {
 }
 
 /**
- * Coupe-file de maîtrise : les 15 premiers exercices d'une leçon tous justes et rapides
+ * Coupe-file de maîtrise : au moins 14 des 15 premiers exercices d'une leçon justes, et rapides
  * (temps médian ≤ seuil « Acquis confirmé ») ouvrent le mini-test sans attendre le volume prévu.
  * @returns {boolean} true si le coupe-file vient d'être accordé
  */
+export const COUPE_FILE_JUSTES = 14;
 export async function verifierCoupeFile(id, repetitions, famille) {
   const e = donnees.paliers[id];
   if (!e || e.coupeFile || e.valide || e.reps >= repetitions || (e.hist?.length ?? 0) < 15) return false;
+  // 0.40.4 : 14 justes sur 15 suffisent (une faute de frappe isolée ne fait plus perdre le
+  // coupe-file) ; médiane des temps à l'allure de l'or.
   const quinze = e.hist.slice(0, 15);
   const t = quinze.map((x) => x.t).sort((a, b) => a - b)[7];
   const seuil = NIVEAUX.find((n) => n.id === 'confirme').temps[famille];
-  if (!quinze.every((x) => x.ok) || t > seuil) return false;
+  if (quinze.filter((x) => x.ok).length < COUPE_FILE_JUSTES || t > seuil) return false;
   e.coupeFile = aujourdhui();
   await sauver();
   return true;

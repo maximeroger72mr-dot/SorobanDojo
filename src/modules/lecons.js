@@ -570,8 +570,9 @@ export default {
           if (!planPh) return;
           const ph = phaseCourante(planPh, etatPh);
           const debut = planPh.genre === 'amis' && ph.reference && etatPh.debut && etatPh.n === 0 && !etatPalier(sp.id).valide;
+          const montee1 = planPh.ordre.find((x) => x.id === 'montee')?.format?.chiffres === 1;
           remplir(zonePhase, message ? h('strong', {}, `${message} `) : null, `Phase : ${decrire(ph)}.`,
-            debut ? h('button', { class: 'lien', style: 'margin-left:8px', onclick: async () => { etatPh = etatInitial(planPh, true); await noterPhaseLecon(sp.id, { etat: etatPh }); majPhase('Vous commencez à 2 chiffres.'); } }, 'Je connais déjà : commencer à 2 chiffres') : null);
+            debut ? h('button', { class: 'lien', style: 'margin-left:8px', onclick: async () => { etatPh = etatInitial(planPh, true); await noterPhaseLecon(sp.id, { etat: etatPh }); majPhase(montee1 ? 'Vous commencez aux colonnes longues.' : 'Vous commencez à 2 chiffres.'); } }, montee1 ? 'Je connais déjà : commencer aux colonnes longues' : 'Je connais déjà : commencer à 2 chiffres') : null);
         };
         const majBandeau = () => {
           const et = etatPalier(sp.id);
@@ -606,7 +607,7 @@ export default {
           await compterRepetition(sp.id, juste, t, ex ? formatProbleme(ex) : null);
           // Pas de coupe-file pour une leçon auto-évaluée (« Tenir une image ») : aucun temps mesuré.
           if (!['tenir', 'lire', 'complement'].includes(sp.type) && await verifierCoupeFile(sp.id, phasesLecon(sp) ? Infinity : sp.repetitions, famille(sp))) {
-            notifier('Coupe-file : mini-test débloqué', '15 premiers exercices justes et rapides : vous pouvez passer le mini-test dès maintenant.');
+            notifier('Coupe-file : mini-test débloqué', '14 justes sur vos 15 premiers exercices, et rapides : vous pouvez passer le mini-test dès maintenant.');
           }
           lot.total += 1;
           if (juste) lot.justes += 1;
@@ -708,7 +709,7 @@ export default {
           zone.append(h('div', { class: 'carte' },
             h('p', {}, phasesLecon(sp) ? `Le mini-test s'ouvre une fois la jauge pleine (${objectifLecon(sp)} gestes visés ; vous en êtes à ${et.gestesVises ?? 0}) et après ${referenceMin(sp)} colonnes au format du mini-test (${et.colonnesRef ?? 0} faites)${enduranceExigee(phasesLecon(sp)) ? `, dont ${enduranceExigee(phasesLecon(sp))} en endurance (${et.colonnesEnd ?? 0} faites)` : ''}.`
               : `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
-            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil or), le mini-test s\'ouvre tout de suite.'),
+            h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si au moins 14 de vos 15 premiers exercices sont justes, et rapides (seuil or), le mini-test s\'ouvre tout de suite.'),
             h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement')));
           return null;
         }

@@ -29,7 +29,7 @@ import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { rendreEnonce } from '../ui/enonce.js';
 import { GRADES_FLASH, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH, JUSTES_PRESQUE_FLASH, periodeGrade, libelleGradeFlash, meilleurGradeFlash, prochainGradeFlash, gradeFlashOuvert, cleGradeFlash, questionFlash, verdictFlash } from '../core/flashGrades.js';
 import { nombreEnMots } from '../core/motsNombre.js';
-import { cadencer, afficherNombreFlash, decompteFlash, PROFILS_VITESSE, periodesProfil } from '../ui/cadence.js';
+import { cadencer, afficherNombreFlash, masquerNombreFlash, decompteFlash, PROFILS_VITESSE, periodesProfil, dureeImage, ecranTropLent } from '../ui/cadence.js';
 import { h, raccourcis, formaterNombre, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Vitesse automatique : après chaque réponse, la durée par nombre change de ce facteur. */
@@ -219,6 +219,9 @@ export default {
       const saisie = h('input', { type: 'text', inputmode: 'numeric', class: 'saisie-nombre', placeholder: 'Somme', autocomplete: 'off', style: 'display:none' });
       const btn = h('button', { class: 'btn principal', onclick: () => action() });
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
+      // 0.40.4 : écran trop lent pour la vitesse (moins de 2 images d'écran vide entre deux nombres) :
+      // un avertissement, jamais un blocage.
+      const avisEcran = h('p', { class: 'discret avis-ecran', hidden: true });
       const pastilles = h('div', { class: 'pastilles' });
       // Mode normal (sans image d'aide) : un grand écran vide, le nombre seul en son centre.
       ecran.classList.add('centre');
@@ -267,7 +270,7 @@ export default {
         taire();
         parler(nombreEnMots(x), { debit: Math.min(1.6, Math.max(0.9, 1.3 / r.duree)) });
       };
-      zone.append(h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), info), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour, eclats);
+      zone.append(h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }), info), ecran, r.mode === 'image' ? zoneImage : '', h('div', { class: 'ligne' }, saisie, btn), retour, avisEcran, eclats);
       // Image d'aide : le TOTAL qui évolue (ce qu'on doit voir dans sa tête), plus ou moins estompé.
       zoneImage.style.opacity = String(Math.min(Number(r.image) || 0, 0.45));
       let vue = null;
@@ -288,6 +291,12 @@ export default {
         // Sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
         if (r.mode !== 'image') ecran.classList.add('plein');
         else ecran.scrollIntoView({ block: 'center', behavior: 'instant' });
+        const imageMs = await dureeImage();
+        const plusCourte = Math.min(...periodes());
+        if (!['tapis', 'efface', 'instantane'].includes(r.mode)) {
+          avisEcran.hidden = !ecranTropLent(plusCourte, imageMs);
+          avisEcran.textContent = `Votre écran semble rafraîchi environ ${Math.round(1000 / imageMs)} fois par seconde : à cette vitesse, l'écran vide entre deux nombres ne dure qu'une image ou deux. L'exercice reste possible ; un écran à 120 Hz ou plus le rend plus confortable.`;
+        }
         await decompteFlash(ecran, 400, arrete);
         if (arrete()) return;
         distraire(true);
@@ -319,7 +328,7 @@ export default {
             parasite(l.n);
             sorobanImage?.definirValeur(Math.max(0, totaux[k]));
           },
-          surMasquer: () => { ecran.textContent = ''; },
+          surMasquer: () => masquerNombreFlash(ecran),
         });
         distraire(false);
         taire();

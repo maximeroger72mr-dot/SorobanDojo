@@ -41,7 +41,7 @@ const DUREE_ENONCE_MENTAL_MS = 4000;
 const attenduTexte = (ex) => ex.attendu ?? valeur(ex, ex.resultat);
 const explicable = (ex) => !['photo', 'tenir', 'quotidien'].includes(ex.type) && !ex.negatif;
 import { ouvrirExplication } from './explication.js';
-import { cadencer, afficherNombreFlash, decompteFlash } from './cadence.js';
+import { cadencer, afficherNombreFlash, masquerNombreFlash, decompteFlash } from './cadence.js';
 import { ouvrirDemo } from './panneauDemo.js';
 import { h, raccourcis, formaterDuree, formaterNombre, remplir } from './dom.js';
 
@@ -311,7 +311,7 @@ export function creerSerie(conteneur, o) {
           // L'image suit le total, sans s'effacer entre deux nombres.
           sorobanImage?.definirValeur(totaux[k]);
         },
-        surMasquer: () => { ecran.textContent = ''; },
+        surMasquer: () => masquerNombreFlash(ecran),
       });
       vueImage?.detruire();
       remplir(zoneEnonce, ecran);

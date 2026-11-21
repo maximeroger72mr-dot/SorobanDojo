@@ -274,7 +274,7 @@ export function motDuProf(d, date, decision, o = {}) {
   if (theme) phrases.push(theme);
   // L'examen a pris la place de la leçon : on dit où elle est passée (0.38.4).
   if (leconEnBonus) phrases.push(`La leçon du jour${decision.detail ? ` (« ${decision.detail} »)` : ''} n'est pas oubliée : elle vous attend en tête de « Pour compléter », après l'examen.`);
-  if (absence === null) phrases.push('Bienvenue ! Chaque jour, une séance à la durée de votre objectif : échauffement, révision, leçon, volume ou vitesse, anzan.');
+  if (absence === null) phrases.push('Bienvenue ! Chaque jour, une séance à la durée de votre objectif : échauffement, anzan, révision, leçon, volume ou vitesse.');
   else {
     const veille = d.sessions.filter((s) => s.date < date);
     const derniereDate = veille.at(-1)?.date;

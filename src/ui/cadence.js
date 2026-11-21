@@ -4,8 +4,9 @@
  * s'additionnent. À 0,3 s par nombre, une dérive de 16 ms par nombre fait 5 % d'écart ; ici
  * l'écart ne se cumule pas.
  *
- * Le changement d'affichage est calé sur le rafraîchissement de l'écran (requestAnimationFrame)
- * quand il existe ; sinon (tests, onglet en arrière-plan) sur une minuterie.
+ * À l'écran (0.40.4), la cadence se compte en images de l'écran (une seule boucle
+ * requestAnimationFrame, au moins une image vide entre deux nombres) ; sans affichage (tests,
+ * onglet en arrière-plan), sur une minuterie calée sur l'horloge.
  */
 
 const horloge = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -37,6 +38,12 @@ function jusqua(t) {
  * @returns {Promise<{ fini:boolean, ecartMaxMs:number }>}  écart le plus grand entre une échéance et son affichage réel
  */
 export async function cadencer({ periodeMs, periodesMs = null, nombre, partVisible = 0.85, surAfficher, surMasquer, interrompu = () => false }) {
+  // 0.40.4 : à l'écran, la cadence se compte en IMAGES (rafraîchissements), avec au moins une image
+  // vide entre deux nombres ; la minuterie ne sert plus que sans affichage (tests, onglet caché).
+  if (imagesDisponibles()) {
+    const imageMs = await dureeImage();
+    return cadencerImages({ periodes: periodesMs ?? Array(nombre).fill(periodeMs), partVisible, surAfficher, surMasquer, interrompu, imageMs });
+  }
   if (periodesMs) return cadencerProfil({ periodesMs, partVisible, surAfficher, surMasquer, interrompu });
   const depart = horloge();
   let ecartMaxMs = 0;
@@ -56,19 +63,33 @@ export async function cadencer({ periodeMs, periodesMs = null, nombre, partVisib
 /**
  * Affiche un nombre du flash, toujours CENTRÉ au même endroit : le signe moins est posé à gauche
  * du nombre sans le décaler (l'œil n'a pas à se recaler d'un nombre à l'autre).
+ * 0.40.4 : les éléments sont créés une fois par écran puis réutilisés ; pendant le flash, seuls le
+ * texte et la visibilité changent (pas d'allocation ni de remise en page à chaque nombre).
  */
 export function afficherNombreFlash(ecran, texte, negatif = false) {
-  const doc = ecran.ownerDocument;
-  const nombre = doc.createElement('span');
-  nombre.className = 'flash-nombre';
-  if (negatif) {
+  let f = ecran.__flash;
+  if (!f || f.nombre.parentNode !== ecran || ecran.childNodes.length !== 1) {
+    const doc = ecran.ownerDocument;
+    const nombre = doc.createElement('span');
+    nombre.className = 'flash-nombre';
     const signe = doc.createElement('span');
     signe.className = 'flash-signe';
     signe.textContent = '−';
-    nombre.append(signe);
+    const chiffres = doc.createTextNode('');
+    nombre.append(signe, chiffres);
+    ecran.replaceChildren(nombre);
+    f = ecran.__flash = { nombre, signe, chiffres };
   }
-  nombre.append(texte);
-  ecran.replaceChildren(nombre);
+  f.signe.style.display = negatif ? '' : 'none';
+  f.chiffres.data = texte;
+  f.nombre.style.visibility = 'visible';
+}
+
+/** Masque le nombre du flash sans le retirer (il resservira au nombre suivant). */
+export function masquerNombreFlash(ecran) {
+  const f = ecran.__flash;
+  if (f && f.nombre.parentNode === ecran) f.nombre.style.visibility = 'hidden';
+  else ecran.textContent = '';
 }
 
 /**
@@ -84,6 +105,101 @@ export async function decompteFlash(ecran, pasMs = 400, interrompu = () => false
   }
   ecran.classList.remove('decompte');
   ecran.textContent = '';
+}
+
+// ---- Cadence en images (0.40.4) -------------------------------------------------------------
+// La fréquence mesurée par le navigateur n'est pas fiable à 100 % : elle ne sert qu'à convertir les
+// durées voulues en NOMBRES D'IMAGES. Ce qui est garanti l'est en images : au moins une image vide
+// réellement affichée entre deux nombres, quelle que soit la fréquence.
+
+/** Images vides au minimum entre deux nombres. */
+export const IMAGES_VIDES_MIN = 1;
+/** En dessous de 2 images d'écran vide voulues, l'écran est trop lent pour la vitesse : avertissement. */
+export const IMAGES_VIDES_CONFORT = 2;
+
+const imagesDisponibles = () => typeof requestAnimationFrame !== 'undefined' && !(typeof document !== 'undefined' && document.hidden);
+
+let imageMsMesuree = null;
+/**
+ * Durée d'une image de l'écran (ms), mesurée une fois : médiane de 20 intervalles entre deux
+ * rafraîchissements, bornée entre 4 ms (240 Hz) et 50 ms. Sans affichage : 1000 / 60.
+ */
+export function dureeImage() {
+  if (imageMsMesuree) return Promise.resolve(imageMsMesuree);
+  if (!imagesDisponibles()) return Promise.resolve(1000 / 60);
+  return new Promise((ok) => {
+    const t = [];
+    const pas = (x) => {
+      t.push(x);
+      if (t.length < 21) { requestAnimationFrame(pas); return; }
+      const d = t.slice(1).map((v, i) => v - t[i]).sort((a, b) => a - b);
+      imageMsMesuree = Math.max(4, Math.min(50, d[Math.floor(d.length / 2)]));
+      ok(imageMsMesuree);
+    };
+    requestAnimationFrame(pas);
+  });
+}
+
+/**
+ * Découpe une période en images : affichées, puis vides (au moins IMAGES_VIDES_MIN si
+ * partVisible < 1). Pur.
+ * @returns {{ total:number, visibles:number, vides:number }}
+ */
+export function decoupageImages(periodeMs, partVisible, imageMs) {
+  const total = Math.max(1, Math.round(periodeMs / imageMs));
+  if (partVisible >= 1) return { total, visibles: total, vides: 0 };
+  const vides = Math.max(IMAGES_VIDES_MIN, Math.round((periodeMs * (1 - partVisible)) / imageMs));
+  const visibles = Math.max(1, total - vides);
+  return { total: visibles + vides, visibles, vides };
+}
+
+/**
+ * Écran trop lent pour cette vitesse ? (moins de IMAGES_VIDES_CONFORT images d'écran vide voulues
+ * entre deux nombres). Simple avertissement : l'exercice reste possible.
+ */
+export function ecranTropLent(periodeMs, imageMs, partVisible = 0.85) {
+  return partVisible < 1 && (periodeMs * (1 - partVisible)) / imageMs < IMAGES_VIDES_CONFORT;
+}
+
+/**
+ * Une seule boucle de rafraîchissement : chaque appel est une image. Une image sautée (onglet
+ * chargé) compte quand même, pour ne pas ralentir la série ; mais un nombre n'apparaît jamais dans
+ * l'image même où le précédent a été masqué : l'écran vide est toujours réellement affiché.
+ */
+function cadencerImages({ periodes, partVisible, surAfficher, surMasquer, interrompu, imageMs }) {
+  const plans = periodes.map((p) => decoupageImages(p, partVisible, imageMs));
+  return new Promise((fin) => {
+    let i = 0;
+    let k = 0;
+    let visible = false;
+    let t0 = null;
+    let tPrec = 0;
+    let ideal = 0;
+    let ecartMaxMs = 0;
+    const afficher = (t) => {
+      ecartMaxMs = Math.max(ecartMaxMs, t - (t0 + ideal));
+      surAfficher(i);
+      visible = true;
+    };
+    const pas = (t) => {
+      if (interrompu()) { fin({ fini: false, ecartMaxMs }); return; }
+      if (t0 === null) { t0 = t; tPrec = t; afficher(t); requestAnimationFrame(pas); return; }
+      k += Math.max(1, Math.round((t - tPrec) / imageMs));
+      tPrec = t;
+      const p = plans[i];
+      let masqueIci = false;
+      if (visible && k >= p.visibles && (p.vides > 0 || k >= p.total)) { surMasquer(i); visible = false; masqueIci = p.vides > 0; }
+      if (k >= p.total && !masqueIci) {
+        ideal += periodes[i];
+        k -= p.total;
+        i += 1;
+        if (i >= plans.length) { fin({ fini: !interrompu(), ecartMaxMs }); return; }
+        afficher(t);
+      }
+      requestAnimationFrame(pas);
+    };
+    requestAnimationFrame(pas);
+  });
 }
 
 /** Même principe, avec une durée propre à chaque élément (échéances cumulées depuis le départ). */

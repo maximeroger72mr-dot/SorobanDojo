@@ -12,6 +12,9 @@
  *                                                           retour, après 6 colonnes, justes ou non
  *    Montée     2 chiffres, 7 à 8 lignes                    → Endurance après 6 colonnes justes
  *    Endurance  2 chiffres, 10 lignes                       → Référence après 6 colonnes justes
+ *    0.40.4 : leçons d'introduction à 1 chiffre (p2-1, p3-1…) : la montée et l'endurance ALLONGENT
+ *    la colonne (7 à 8 lignes, puis 10) sans passer à 2 chiffres ; les leçons à 2 chiffres et plus
+ *    (« 2 et 3 chiffres », synthèses) gardent leur nombre de chiffres.
  *    Montée et endurance : retour en référence au bout de 12 colonnes quoi qu'il arrive.
  *  Leçons « 2 et 3 chiffres » : la référence alterne 2 et 3 chiffres (une colonne sur deux) ;
  *    montée et endurance à 3 chiffres.
@@ -58,7 +61,7 @@ export function phasesLecon(sp) {
   const pal = sp.palier?.id;
   const deuxTrois = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre);
   if (['p2', 'p3', 'p4'].includes(pal) || deuxTrois) {
-    const c = deuxTrois ? 3 : Math.max(2, sp.chiffres);
+    const c = deuxTrois ? 3 : sp.chiffres;
     const depart = sp.departChiffres ? { departChiffres: sp.departChiffres } : {};
     return { genre: deuxTrois ? 'deuxTrois' : 'amis', ordre: [
       { id: 'reference', reference: true, titre: 'Référence', format: null },
@@ -87,7 +90,7 @@ export function enduranceAvant(sp, liste) {
 }
 
 /**
- * État de départ ; `deuxChiffres` : « Je connais déjà : commencer à 2 chiffres » (la montée) ;
+ * État de départ ; `deuxChiffres` : « Je connais déjà » (on commence par la montée) ;
  * `sansRampe` : endurance, la leçon d'endurance précédente est validée à l'argent (on part en référence).
  */
 export function etatInitial(plan, deuxChiffres = false, { sansRampe = false } = {}) {

@@ -75,3 +75,14 @@ test('0.40.3 : feuille de la semaine dans la séance une fois par semaine, même
   d.sessions.push({ date: '2026-11-24', module: 'defis', mode: 'semaine', total: 10, justes: 9, dureeMs: 300000 });
   assert.ok(!titres().includes('Feuille de la semaine'));
 });
+
+test('0.40.4 : coupe-file à 14 justes sur 15 ; anzan juste après l\'échauffement ; blocs de 5 minutes', async () => {
+  const d = p.progression();
+  d.paliers['p3-1'] = { reps: 15, justes: 14, hist: Array.from({ length: 15 }, (_, i) => ({ ok: i === 7 ? 0 : 1, t: 1 })) };
+  assert.ok(await p.verifierCoupeFile('p3-1', 50, 'addsub'));
+  d.paliers['p3-2'] = { reps: 15, justes: 13, hist: Array.from({ length: 15 }, (_, i) => ({ ok: i < 2 ? 0 : 1, t: 1 })) };
+  assert.ok(!(await p.verifierCoupeFile('p3-2', 50, 'addsub')), '13 sur 15 : non');
+  const { ORDRE_BLOCS, BLOC_MIN } = await import('../src/modules/seance.js');
+  assert.deepEqual(ORDRE_BLOCS.slice(0, 2), ['echauffement', 'anzan']);
+  assert.equal(BLOC_MIN, 5);
+});

@@ -1320,3 +1320,44 @@ Défauts signalés après la 0.38.1.
   dimanche), sauf si elle est déjà faite cette semaine. Elle garde sa place même avec un objectif court
   (le calibrage la renvoyait dans « Pour compléter »). En 0.40.2, elle n'y entrait que si l'examen
   hebdomadaire était proposé à part.
+
+## Version 0.40.4
+
+### Flash anzan (`ui/cadence.js`)
+- À l'écran, la cadence se compte en IMAGES : une seule boucle de rafraîchissement
+  (requestAnimationFrame), chaque appel est une image ; une image sautée compte quand même (la série
+  ne ralentit pas). La fréquence de l'écran est mesurée une fois (médiane de 20 intervalles), mais ne
+  sert qu'à convertir les durées voulues en nombres d'images : ce qui est garanti l'est en images.
+- Au moins 1 image vide entre deux nombres, réellement affichée (un nombre n'apparaît jamais dans
+  l'image où le précédent a été masqué). Au 20e dan à 60 Hz : 100 ms = 6 images, 5 affichées, 1 vide.
+- Pendant le flash, aucun élément n'est créé : le nombre et son signe sont créés une fois par écran,
+  seuls le texte et la visibilité changent.
+- Écran trop lent pour la vitesse (moins de 2 images d'écran vide voulues entre deux nombres, par
+  exemple 60 Hz à 200 ms par nombre et en dessous) : un avertissement sous l'exercice, jamais un blocage.
+- Sans affichage (tests, onglet en arrière-plan) : minuterie calée sur l'horloge, comme avant.
+
+### Examens et contenus
+- Mitorizan : les lignes à 1 chiffre vont de 1 à 9 (le 1 n'apparaissait jamais : le tirage
+  commençait à 2, comme pour × et ÷).
+- × ÷ du 3e au 1er kyū : 60 % de décimaux dans la seconde moitié (montants arrondis à l'unité), au lieu
+  de la moitié. L'allure du 1er kyū en devient un peu plus serrée : le platine de l'échelle avancée
+  passe à 0,51 s par chiffre et 1,02 s par produit (0,52 et 1,05 avant).
+- Dictée de tête : paliers jusqu'à 3 chiffres × 10 nombres, puis 4 chiffres × 3 et × 5.
+- Anzan des gestes directs (p1-a) : tous les gestes directs, en addition et en soustraction, le 5 et
+  la pincée (6 à 9) compris (avant : +1 à +4 seulement).
+
+### Leçons
+- Phases : sur une leçon d'introduction à 1 chiffre (p2-1, p3-1…), la montée (7 à 8 lignes) et
+  l'endurance (10 lignes) allongent la colonne SANS passer à 2 chiffres ; les leçons à 2 chiffres et
+  plus (« 2 et 3 chiffres », synthèses) gardent leur format. « Je connais déjà : commencer aux
+  colonnes longues » sur ces leçons.
+- Coupe-file : 14 justes sur les 15 premiers exercices (au lieu de 15 sur 15), médiane à l'allure de
+  l'or.
+
+### Séance
+- Ordre des blocs : échauffement, ANZAN, révision, leçon, volume / vitesse.
+- Blocs de 5 minutes au moins : l'anzan dure 5 à 8 minutes (15 % de l'objectif) ; un bloc de volume /
+  vitesse de moins de 5 minutes (rien n'y est encore fait) passe dans « Pour compléter », la leçon
+  reprend le temps. L'échauffement (3 min au plus), les révisions dues et la leçon ne sont pas
+  concernés.
+- Plus de jeu dans « Pour compléter » à partir du 6e kyū (les jeux restent dans le menu).

@@ -195,6 +195,9 @@ export function feuilleSemaine(d, date) {
 }
 
 export function jeuPropose(d, date) {
+  // 0.40.4 : à partir du 6e kyū, plus de jeu proposé (le cœur de séance reste sur les feuilles,
+  // les marches et l'anzan) ; les jeux restent accessibles depuis le menu.
+  if (sixiemeKyuPasse(d)) return null;
   const du = sessionsDu(d, date);
   // (0.38.3 : la feuille de la semaine a sa propre proposition, chaque jour : feuilleSemaine.)
   const f = famillesApprises(d);

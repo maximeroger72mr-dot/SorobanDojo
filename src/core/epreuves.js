@@ -198,10 +198,16 @@ function longueursLignes(f) {
   return Array.from({ length: f.lignes }, () => entier(f.min, f.max));
 }
 
+/**
+ * Un nombre de mitorizan à k chiffres. À 1 chiffre : de 1 à 9 (0.40.4 ; `facteur` commence à 2,
+ * pour éviter × 1 et ÷ 1, et le 1 n'apparaissait jamais dans les lignes à 1 chiffre).
+ */
+export const nombreLigne = (k) => (k === 1 ? entier(1, 9) : facteur(k));
+
 /** Un problème de mitorizan, sans total partiel négatif ni deux nombres égaux de suite. */
 export function genererMitori(f) {
   for (;;) {
-    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: facteur(k) }));
+    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: nombreLigne(k) }));
     if (f.soustractions) for (const i of lignesMoins(f)) lignes[i].op = '-';
     let v = 0;
     let ok = true;
@@ -223,7 +229,7 @@ export function genererMitori(f) {
 export function genererMitoriNegatif(f) {
   const k = 10 ** f.max;
   for (;;) {
-    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: facteur(k) }));
+    const lignes = longueursLignes(f).map((k) => ({ op: '+', n: nombreLigne(k) }));
     // Examen : les lignes négatives d'un problème mixte (4 au 1er kyū) ; sinon une sur deux.
     const indices = f.moins ? lignesMoins(f) : new Set();
     while (!f.moins && indices.size < Math.ceil(f.lignes / 2)) indices.add(entier(1, f.lignes - 1));
@@ -257,10 +263,11 @@ export function arrondiDuProbleme(f, i) {
 }
 
 /**
- * Du 1er au 3e kyū, environ un problème sur deux est en décimaux (sujet modèle du 3e kyū) ; les
- * autres sont des entiers au résultat exact. Les facteurs peuvent finir par 0, comme à l'examen.
+ * Du 1er au 3e kyū, 60 % des problèmes sont en décimaux (0.40.4 ; la moitié avant) ; les autres
+ * sont des entiers au résultat exact. Les facteurs peuvent finir par 0, comme à l'examen.
  */
-const enDecimaux = (arrondi) => arrondi !== null && Math.random() < 0.5;
+export const PART_DECIMAUX = 0.6;
+const enDecimaux = (arrondi) => arrondi !== null && Math.random() < (arrondi === 0 ? PART_DECIMAUX : 0.5);
 
 export function genererMulGrade(f, arrondi = null) {
   const [m, n] = f.formes ? f.formes[entier(0, f.formes.length - 1)] : decouper(f.total, f.court);

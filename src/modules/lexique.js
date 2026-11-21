@@ -12,7 +12,7 @@ export const MOTS = [
   ['Boule céleste, boules terrestres', 'La céleste (au-dessus de la barre) vaut 5 ; chacune des 4 terrestres (en dessous) vaut 1. Une boule compte quand elle touche la barre.'],
   ['Cascade', 'Une retenue (ou un emprunt) qui se propage sur plusieurs tiges d\'un coup, par exemple 999 + 1.'],
   ['CPM (chiffres par minute)', 'La cadence : 60 divisé par le temps par chiffre. Plus c\'est haut, plus c\'est rapide. Repères : 20 CPM (argent, allure du 6e kyū), 40 CPM (or, 4e kyū), 75 CPM (platine, 2e kyū).'],
-  ['Coupe-file', 'Accès anticipé au mini-test d\'une leçon, quand les 15 premiers exercices sont tous justes et déjà au niveau or.'],
+  ['Coupe-file', 'Accès anticipé au mini-test d\'une leçon, quand au moins 14 des 15 premiers exercices sont justes et déjà au niveau or.'],
   ['Doigté', 'Quel doigt fait quel geste : le pouce monte les terrestres, l\'index les descend et manœuvre la céleste. La « pincée » fait les deux à la fois.'],
   ['Drill', 'Suite classique d\'opérations à enchaîner sur son soroban (ex. 123 456 789 ajouté 9 fois), chronométrée, avec médailles bronze, argent, or et platine.'],
   ['Fantôme', 'Votre propre record, rejoué en même temps que vous : une barre montre où vous en étiez à ce moment-là.'],

@@ -23,6 +23,12 @@ export const PALIERS_DICTEE = [
   { chiffres: 2, nombres: 5, debit: 1, pause: 0.6, soustractions: true },
   { chiffres: 2, nombres: 7, debit: 1, pause: 0.6, soustractions: true },
   { chiffres: 3, nombres: 3, debit: 0.85, pause: 1.2, soustractions: true },
+  // 0.40.4 : au-delà de 3 chiffres × 3 nombres (avancés et dan).
+  { chiffres: 3, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 3, nombres: 7, debit: 0.85, pause: 1, soustractions: true },
+  { chiffres: 3, nombres: 10, debit: 1, pause: 0.8, soustractions: true },
+  { chiffres: 4, nombres: 3, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 4, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
 ];
 
 /**
