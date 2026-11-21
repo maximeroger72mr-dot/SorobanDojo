@@ -9,6 +9,8 @@
  *    suggestion pour demain. On peut ensuite continuer à s'entraîner librement.
  */
 
+import { phasesLecon, objectifGestes } from '../core/phases.js';
+import { genererExercice } from '../core/curriculum.js';
 import { plateauOperation, formatExamen, reculs, dureeEchauffement } from '../core/parcours.js';
 import { vitesseEleve } from '../core/allure.js';
 import { leconsFluidite } from '../core/fluidite.js';
@@ -65,7 +67,9 @@ function dureeDecision(d, decision, parExo) {
   if (decision.type !== 'lecon' || !decision.sp) return dureeActivite(d, decision.aller);
   const sp = decision.sp;
   const e = d.paliers[sp.id] ?? {};
-  const reste = Math.max(0, (sp.repetitions ?? 20) - (e.reps ?? 0));
+  // 0.40 : leçon à phases : ce qui reste se lit sur la jauge de gestes visés.
+  const reste = phasesLecon(sp) ? Math.max(0, Math.round((sp.repetitions ?? 20) * (1 - (e.gestesVises ?? 0) / objectifGestes(sp, () => genererExercice(sp)))))
+    : Math.max(0, (sp.repetitions ?? 20) - (e.reps ?? 0));
   // Mini-test long (0.38) : une série de 5 par séance, pas le test entier.
   const test = testEnSeries(sp) ? CALCULS_SERIE : (sp.testNombre ?? 15);
   return Math.max(5, Math.ceil(((reste + test) * parExo) / 60) + (e.reps ? 0 : 3));

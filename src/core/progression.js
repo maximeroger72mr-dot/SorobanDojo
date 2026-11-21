@@ -367,7 +367,7 @@ export function gestesAnzanFaibles(d, n = 3) {
   return mesures.filter((x) => x.taux >= Math.max(0.15, 1.5 * moyenne) && !x.cle.endsWith(':direct')).sort((a, b) => b.taux - a.taux).slice(0, n).map((x) => ({ ...x, moyenne }));
 }
 
-export async function noterGestes(reussis, rates, t, { confirme = false, format = null } = {}) {
+export async function noterGestes(reussis, rates, t, { confirme = false, format = null, horsReference = false } = {}) {
   // Vitesse « isolée » : mesurée dans une colonne où le geste n'a pour voisins que des gestes de
   // sa famille (colonne de gestes directs seuls, ou colonne dont tous les amis sont de la même
   // famille). Sert à vérifier une vitesse incohérente (voir parcours.verificationVitesse).
@@ -383,8 +383,11 @@ export async function noterGestes(reussis, rates, t, { confirme = false, format 
     const f = fiche(c);
     f.essais += 1;
     f.dette = Math.max(0, f.dette - 0.5);
-    ajouterEssai(f.hist, true, t);
-    ajouterSemaine(f, t, aujourdhui(), format);
+    // 0.40 : hors du format de référence d'une leçon (phases), la colonne compte pour la justesse du
+    // geste et pour sa mesure par format, mais son temps n'entre pas dans l'historique (médaille,
+    // geste du bloc, cadence du lièvre).
+    ajouterEssai(f.hist, true, horsReference ? null : t);
+    ajouterSemaine(f, t, aujourdhui(), format, horsReference);
     if (t != null && familleColonne === familleDe(c)) {
       (f.isole ??= []).push(Math.round(t * 100) / 100);
       if (f.isole.length > 40) f.isole.shift();
@@ -588,6 +591,18 @@ export async function preparerSeriesTest(id, plan) {
  * Avant, le plan était effacé : la série suivante en tirait un nouveau et effaçait celle-ci.
  * @param {{ morceau?: number, taille?: number }} [o]  rang du morceau du plan fait, taille d'une série
  */
+/**
+ * Leçon à phases (0.40, voir core/phases.js) : gestes visés réalisés, colonnes au format de
+ * référence, et l'état du cycle (gardé d'une séance à l'autre).
+ */
+export async function noterPhaseLecon(id, { etat, gestes = 0, reference = false }) {
+  const e = palier(id);
+  e.gestesVises = (e.gestesVises ?? 0) + gestes;
+  if (reference) e.colonnesRef = (e.colonnesRef ?? 0) + 1;
+  e.phase = etat;
+  await sauver();
+}
+
 /** Mesures de vitesse d'une vraie feuille (0.39, voir core/mesures.js). */
 export async function noterMesures(mesures) {
   if (!mesures?.length) return;

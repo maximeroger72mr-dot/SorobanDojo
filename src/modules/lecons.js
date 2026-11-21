@@ -10,6 +10,18 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
+import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, REFERENCE_MIN_TEST } from '../core/phases.js';
+import { NIVEAUX } from '../core/maitrise.js';
+import { noterPhaseLecon } from '../core/progression.js';
+import { estValide } from '../core/parcours.js';
+
+/** Objectif en gestes visés d'une leçon à phases (0.40). */
+const objectifLecon = (sp) => objectifGestes(sp, () => genererExercice(sp));
+/** Le mini-test est-il ouvert ? Leçon à phases : jauge de gestes pleine ET 20 colonnes de référence. */
+function testOuvertLecon(sp, e) {
+  if (!phasesLecon(sp)) return (e.reps ?? 0) >= sp.repetitions;
+  return (e.gestesVises ?? 0) >= objectifLecon(sp) && (e.colonnesRef ?? 0) >= REFERENCE_MIN_TEST;
+}
 import { etapesRattrapage } from '../core/multiplication.js';
 import { PONTS_ANZAN } from '../core/conseils.js';
 import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
@@ -169,8 +181,8 @@ export default {
           else if (e.valide) { icone = '✓'; statut = e.carte?.acquise ? 'Validé · acquis, sorti des révisions' : e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = raisonVerrou(sp); }
-          else if (e.reps >= sp.repetitions || e.coupeFile) { icone = '●'; statut = e.coupeFile && e.reps < sp.repetitions ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
-          else { icone = '○'; statut = `${e.reps} / ${sp.repetitions}`; }
+          else if (testOuvertLecon(sp, e) || e.coupeFile) { icone = '●'; statut = e.coupeFile && !testOuvertLecon(sp, e) ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
+          else { icone = '○'; statut = phasesLecon(sp) ? `${e.gestesVises ?? 0} / ${objectifLecon(sp)} gestes` : `${e.reps} / ${sp.repetitions}`; }
           const ligne = h('button', {
             class: `ligne-palier${e.valide ? ' valide' : ''}`, disabled: !ouvert,
             onclick: () => changer(() => vueSousPalier(sp)),
@@ -535,15 +547,36 @@ export default {
         const ctxAnzan = () => { if (sp.type !== 'anzan') return null; const rendre = rappelImage; rappelImage = false; return { lignes: chaine.lignes, image: rendre ? Math.max(0.15, opaciteAnzan()) : opaciteAnzan() }; };
         const ctxExercice = () => (sp.type === 'anzan' ? ctxAnzan()
           : photo ? { duree: photo.secondes } : sp.type === 'lire' ? { rang: etatPalier(sp.id).reps } : {});
+        // 0.40 : leçon à phases (voir core/phases.js) : référence, montée, endurance, filet.
+        const planPh = phasesLecon(sp);
+        let etatPh = planPh ? (etatPalier(sp.id).phase ?? etatInitial(planPh)) : null;
+        const cascadesOk = estValide(progression(), 'p5-4');
+        const ctxPhase = () => {
+          if (!planPh) return {};
+          const ph = phaseCourante(planPh, etatPh);
+          return ph.format ? { format: { ...ph.format, autorises: autorisesPhase(sp, cascadesOk) } } : {};
+        };
+        const zonePhase = h('div', { class: 'discret phase-lecon' });
+        const decrire = (ph) => (ph.filet ? 'filet : 3 colonnes au format de la leçon, doigté affiché' : ph.format ? `${ph.titre.toLowerCase()} : ${ph.format.chiffresMax ? `${ph.format.chiffres} à ${ph.format.chiffresMax}` : ph.format.chiffres} chiffres, ${ph.format.lignesMax ? `${ph.format.lignes} à ${ph.format.lignesMax}` : ph.format.lignes} lignes` : `référence : le format du mini-test (${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}, ${sp.lignes} lignes), celui qui compte pour la médaille`);
+        const majPhase = (message = null) => {
+          if (!planPh) return;
+          const ph = phaseCourante(planPh, etatPh);
+          const debut = planPh.genre === 'amis' && ph.reference && etatPh.debut && etatPh.n === 0 && !etatPalier(sp.id).valide;
+          remplir(zonePhase, message ? h('strong', {}, `${message} `) : null, `Phase : ${decrire(ph)}.`,
+            debut ? h('button', { class: 'lien', style: 'margin-left:8px', onclick: async () => { etatPh = etatInitial(planPh, true); await noterPhaseLecon(sp.id, { etat: etatPh }); majPhase('Vous commencez à 2 chiffres.'); } }, 'Je connais déjà : commencer à 2 chiffres') : null);
+        };
         const majBandeau = () => {
           const et = etatPalier(sp.id);
           // 0.40 : le bouton du mini-test a sa place fixe, en tête ; les textes qui changent ont une
           // largeur stable (avant, il sautait d'une ligne à l'autre à chaque exercice).
-          const btnTest = (et.reps >= sp.repetitions || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && et.reps < sp.repetitions ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null;
+          const pret = testOuvertLecon(sp, et);
+          const btnTest = (pret || et.coupeFile) && !et.valide ? h('button', { class: 'btn principal', onclick: () => afficher('test') }, et.coupeFile && !pret ? 'Coupe-file : passer le mini-test →' : 'Passer le mini-test →') : null;
+          const obj = planPh ? objectifLecon(sp) : sp.repetitions;
+          const fait = planPh ? et.gestesVises ?? 0 : et.reps;
           remplir(bandeau, ...[
             h('div', { class: 'bandeau-action' }, btnTest),
-            h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * et.reps) / sp.repetitions)}%` })),
-            h('span', {}, `Entraînement : ${Math.min(et.reps, sp.repetitions)} / ${sp.repetitions}`),
+            h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * fait) / obj)}%` })),
+            h('span', {}, planPh ? `Entraînement : ${Math.min(fait, obj)} / ${obj} gestes visés · ${Math.min(et.colonnesRef ?? 0, REFERENCE_MIN_TEST)} / ${REFERENCE_MIN_TEST} colonnes de référence` : `Entraînement : ${Math.min(fait, obj)} / ${obj}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret bandeau-texte' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
             sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${reglagesUtilisateur().anzanSansImage ? 'sans image d\'aide' : imageAnzan(sp, et.justes).nom}`) : null,
@@ -551,6 +584,8 @@ export default {
           ].filter(Boolean));
         };
         majBandeau();
+        bandeau.after(zonePhase);
+        majPhase();
         let lot = { total: 0, justes: 0, dureeMs: 0 };
         const enregistrerLot = () => {
           if (!lot.total) return;
@@ -578,13 +613,18 @@ export default {
             // Tranches de 10 exercices équilibrées : tous les gestes de la leçon y passent.
             const suivant = fluxEquilibre(sp, 10, () => poidsDe(sp));
             courant = creerExercices(sp, zoneTravail, {
-              generer: () => suivant(ctxExercice()),
+              generer: () => {
+                const ex = suivant({ ...ctxExercice(), ...ctxPhase() });
+                return planPh ? { ...ex, phase: phaseCourante(planPh, etatPh).id } : ex;
+              },
               filtreDiagnostic: sp.autorises,
               evaluation: () => evaluerPalier(sp.id, famille(sp)),
               doigteMasque: () => evaluerPalier(sp.id, famille(sp)).index >= 2,
+              doigteForce: (ex) => ex?.phase === 'filet',
+              horsReference: (ex) => !!ex?.phase && ex.phase !== 'reference',
               // Aide « Je suis bloqué » ou réponse auto-évaluée (mode Espace) : compte pour le
               // volume d'entraînement, pas pour le niveau.
-              surExercice: (res, ex) => {
+              surExercice: async (res, ex) => {
                 n += 1;
                 if (sp.type === 'anzan') {
                   chaine.noter(res.juste); memoriserChaine(sp.id, chaine.lignes);
@@ -597,6 +637,17 @@ export default {
                 }
                 if (photo) { photo.noter(res.juste); memoriserDureePhoto(sp.id, photo.secondes); }
                 if (n % 5 === 0) majConseil();
+                if (planPh && ex?.phase) {
+                  // Hors référence : la colonne compte pour la justesse et le volume, pas pour la médaille.
+                  const ref = ex.phase === 'reference';
+                  const avant = phaseCourante(planPh, etatPh);
+                  const rapide = res.t != null && res.t <= NIVEAUX.find((x) => x.id === 'debutant').temps.addsub;
+                  etatPh = apresColonne(planPh, etatPh, { juste: res.juste && !res.aide, rapide });
+                  await noterPhaseLecon(sp.id, { etat: etatPh, gestes: res.juste && !res.aide ? gestesVises(sp, ex) : 0, reference: ref });
+                  const apres = phaseCourante(planPh, etatPh);
+                  majPhase(apres.id !== avant.id ? (apres.filet ? 'Deux erreurs de suite : trois colonnes plus simples, avec le doigté.' : `Nouvelle phase : ${apres.titre.toLowerCase()}.`) : null);
+                  return compter(res.juste && !res.aide, res.dureeMs, ref && !res.aide && !res.autoEvalue ? res.t : undefined, ex);
+                }
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t, ex);
               },
             });
@@ -634,9 +685,10 @@ export default {
       // 3. Mini-test --------------------------------------------------
       function miniTest() {
         const et = etatPalier(sp.id);
-        if (et.reps < sp.repetitions && !et.coupeFile) {
+        if (!testOuvertLecon(sp, et) && !et.coupeFile) {
           zone.append(h('div', { class: 'carte' },
-            h('p', {}, `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
+            h('p', {}, phasesLecon(sp) ? `Le mini-test s'ouvre une fois la jauge pleine (${objectifLecon(sp)} gestes visés ; vous en êtes à ${et.gestesVises ?? 0}) et après ${REFERENCE_MIN_TEST} colonnes au format du mini-test (${et.colonnesRef ?? 0} faites).`
+              : `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
             h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil or), le mini-test s\'ouvre tout de suite.'),
             h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement')));
           return null;

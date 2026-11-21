@@ -199,7 +199,7 @@ const TEMPS_PAR_SEMAINE = 60;
  * Garde les temps des essais RÉUSSIS, semaine par semaine (pour repérer un plateau sur la durée,
  * ce que l'historique des 30 derniers essais ne permet pas).
  */
-export function ajouterSemaine(fiche, t, date, format = null) {
+export function ajouterSemaine(fiche, t, date, format = null, seulementFormat = false) {
   if (t == null) return;
   const ranger = (sem) => {
     const s = (sem[lundi(date)] ??= []);
@@ -208,7 +208,7 @@ export function ajouterSemaine(fiche, t, date, format = null) {
     const cles = Object.keys(sem).sort();
     for (const k of cles.slice(0, Math.max(0, cles.length - SEMAINES_GARDEES))) delete sem[k];
   };
-  ranger((fiche.sem ??= {}));
+  if (!seulementFormat) ranger((fiche.sem ??= {}));
   // 0.39 : aussi PAR FORMAT (lignes × chiffres de la colonne) : un temps par chiffre sur 10 lignes de
   // 3 chiffres ne se compare pas à celui de 5 lignes d'un chiffre.
   if (format) ranger(((fiche.semF ??= {})[format] ??= {}));

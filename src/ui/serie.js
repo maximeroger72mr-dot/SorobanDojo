@@ -76,6 +76,9 @@ export function encadreDiagnostic(filtre = null, max = 2) {
  * @param {(bilan) => void} [o.surFin]      { justes, total, dureeMs, resultats: [{ex, reponse, juste, dureeMs}] }
  * @param {(i) => string} [o.compteur]
  * @param {() => boolean} [o.doigteMasque]  vrai : rappel doigté masqué (geste déjà acquis)
+ * @param {(ex) => boolean} [o.doigteForce]  vrai : doigté affiché d'office (filet d'une leçon à phases, 0.40)
+ * @param {(ex) => boolean} [o.horsReference]  vrai : colonne hors du format de référence (0.40) : ses
+ *   temps n'entrent pas dans l'historique des gestes
  */
 export function creerSerie(conteneur, o) {
   const opts = { nombre: Infinity, chrono: false, defi: false, filtreDiagnostic: null, evaluation: null, fantome: null, ...o };
@@ -108,7 +111,8 @@ export function creerSerie(conteneur, o) {
   const caseDoigte = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().doigte });
   caseDoigte.addEventListener('change', () => { modifierReglages({ doigte: caseDoigte.checked }); afficherEnonce(); saisie.focus(); });
   const choixDoigte = h('label', { class: 'mode-espace', title: 'Rappelle à côté de chaque ligne quels doigts bougent. Masqué quand le geste est acquis.' }, caseDoigte, ' Rappel doigté');
-  const doigteActif = () => caseDoigte.checked && !opts.defi && ex?.type === 'addsub' && !ex.flash && !ex.decimales && !ex.negatif && !opts.doigteMasque?.();
+  const doigteForce = () => !!opts.doigteForce?.(ex);
+  const doigteActif = () => (caseDoigte.checked || doigteForce()) && !opts.defi && ex?.type === 'addsub' && !ex.flash && !ex.decimales && !ex.negatif && (doigteForce() || !opts.doigteMasque?.());
   // Annoncé aux lecteurs d'écran : juste / faux, résultat attendu.
   const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const zoneDiag = h('div', {});
@@ -398,7 +402,7 @@ export function creerSerie(conteneur, o) {
     // Gestes : une réussite crédite chaque geste de l'exercice ; une erreur n'accuse un geste que
     // si le résultat le prouve (sinon l'élève peut désigner la ligne lui-même).
     const localisation = juste ? null : localiserErreur(ex, reponse);
-    const bilanGestes = ex.motifs && !aideUtilisee ? await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t, { format: formatProbleme(ex) }) : [];
+    const bilanGestes = ex.motifs && !aideUtilisee ? await noterGestes(juste ? ex.motifs : [], localisation?.motifs ?? [], t, { format: formatProbleme(ex), horsReference: !!opts.horsReference?.(ex) }) : [];
     await noterReponse(juste);
     await opts.surExercice?.({ juste, reponse, dureeMs, t, aide: aideUtilisee }, ex, i);
     majDiag();

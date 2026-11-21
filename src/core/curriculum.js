@@ -784,13 +784,19 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
     // dans les niveaux des gestes sur soroban (voir progression.noterGestesAnzan).
     return { ...col, motifs: undefined, gestesAnzan: col.motifs, flash: { duree: sp.duree, image: ctx.image ?? 0 } };
   }
-  // Les sous-paliers « 2 et 3 chiffres » alternent les deux longueurs.
-  let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? (Math.random() < 0.5 ? 2 : 3) : sp.chiffres;
+  // Les sous-paliers « 2 et 3 chiffres » ALTERNENT les deux longueurs, une colonne sur deux (0.40 ;
+  // avant : au hasard), au mini-test comme à l'entraînement.
+  const m = memoireDe(sp.id);
+  let chiffres = sp.chiffres === 2 && /2 et 3 chiffres/.test(sp.titre) ? ((m.alterne = !m.alterne) ? 3 : 2) : sp.chiffres;
   if (sp.chiffresMax) chiffres = entre(sp.chiffres, sp.chiffresMax);
+  // Phase de la leçon (0.40, voir core/phases.js) : un autre format que la référence.
+  const f = ctx.format;
+  if (f) chiffres = f.chiffresMax ? entre(f.chiffres, f.chiffresMax) : f.chiffres;
+  const lignes = f ? entre(f.lignes, f.lignesMax) : entre(sp.lignes, sp.lignesMax);
   // Après les grands amis (toutes les retenues apprises), les colonnes à plusieurs chiffres suivent
   // le format d'examen : premier nombre à la longueur annoncée.
   const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
-  return genererColonneVariee({ chiffres, lignes: entre(sp.lignes, sp.lignesMax), autorises: sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: sp.departChiffres }, memoireDe(sp.id));
+  return genererColonneVariee({ chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres }, m);
 }
 
 /**

@@ -93,3 +93,64 @@ test('0.40 : lièvre et marathon au stade de l\'élève, 3 à 4 minutes, variant
   assert.deepEqual([0, 1, 2].map((n) => formatRythme({ ...dan, sessions: jours(n) }, '2026-11-21', 'lievre').variante), ['normal', 'accelere', 'fantome']);
   assert.equal(formatRythme({ ...dan, sessions: jours(1) }, '2026-11-21', 'marathon').variante, 'cascade');
 });
+
+test('0.40 : phases des leçons, cycle référence → montée → endurance, sorties et filet', async () => {
+  const { phasesLecon, etatInitial, apresColonne, phaseCourante, PASSAGE, SORTIE, FILET } = await import('../src/core/phases.js');
+  const plan = phasesLecon(sp('p3-1'));
+  assert.deepEqual(plan.ordre.map((x) => x.id), ['reference', 'montee', 'endurance']);
+  assert.equal(phasesLecon(sp('p6-1')), null, '× : pas de phases');
+  let e = etatInitial(plan);
+  const col = (juste, rapide = true) => { e = apresColonne(plan, e, { juste, rapide }); return phaseCourante(plan, e).id; };
+  // Au départ : 6 justes d'affilée À L'ALLURE ARGENT ; une lente remet le compte à zéro.
+  for (let k = 0; k < 5; k++) col(true);
+  col(true, false);
+  assert.equal(phaseCourante(plan, e).id, 'reference');
+  for (let k = 0; k < PASSAGE - 1; k++) col(true);
+  assert.equal(col(true), 'montee');
+  // Montée : 6 justes d'affilée à l'argent → endurance.
+  for (let k = 0; k < PASSAGE; k++) col(true);
+  assert.equal(phaseCourante(plan, e).id, 'endurance');
+  // Endurance jamais réussie : retour en référence au bout de 12 colonnes (une juste sur deux, pas de filet).
+  for (let k = 0; k < SORTIE; k++) col(k % 2 === 0);
+  assert.equal(phaseCourante(plan, e).id, 'reference');
+  // Après un retour : 6 colonnes en référence, justes ou non, puis la montée reprend.
+  for (let k = 0; k < 6; k++) col(k % 2 === 0);
+  assert.equal(phaseCourante(plan, e).id, 'montee');
+  // Filet : 2 erreurs de suite → 3 colonnes de filet, puis retour à la phase.
+  col(false); assert.equal(col(false), 'filet');
+  for (let k = 0; k < FILET - 1; k++) col(true);
+  assert.equal(col(true), 'montee');
+  // « Je connais déjà » : on commence à 2 chiffres.
+  assert.equal(phaseCourante(plan, etatInitial(plan, true)).id, 'montee');
+  // Endurance p8 : 6, 8 puis 10 lignes (la référence).
+  const pe = phasesLecon(sp('p8-1'));
+  assert.deepEqual(pe.ordre.map((x) => x.format?.lignes ?? 'ref'), [6, 8, 'ref']);
+});
+
+test('0.40 : formats des phases, sans cascades avant p5-4 ; 2 et 3 chiffres en alternance ; jauge en gestes', async () => {
+  const { genererExercice } = await import('../src/core/curriculum.js');
+  const { phasesLecon, autorisesPhase, objectifGestes } = await import('../src/core/phases.js');
+  const lecon = sp('p4-3') ?? sp('p4-1');
+  const f = { ...phasesLecon(lecon).ordre[1].format, autorises: autorisesPhase(lecon, false) };
+  for (let k = 0; k < 40; k++) {
+    const ex = genererExercice(lecon, {}, { format: f });
+    assert.ok([7, 8].includes(ex.lignes.length));
+    assert.ok(Math.max(...ex.lignes.map((l) => String(l.n).length)) <= 3);
+    assert.ok(!ex.motifs.some((m) => m.startsWith('cascade')), ex.motifs.join());
+  }
+  const deux = SOUS_PALIERS.find((s) => s.chiffres === 2 && /2 et 3 chiffres/.test(s.titre));
+  if (deux) {
+    const longueurs = Array.from({ length: 6 }, () => Math.max(...genererExercice(deux).lignes.slice(1).map((l) => String(l.n).length)));
+    assert.ok(longueurs.every((x, i) => i === 0 || x !== longueurs[i - 1]), `alternance : ${longueurs}`);
+  }
+  assert.ok(objectifGestes(lecon, () => genererExercice(lecon)) >= lecon.repetitions);
+});
+
+test('0.40 : hors référence, le temps d\'une colonne n\'entre pas dans l\'historique du geste', async () => {
+  await p.noterGestes(['+7:grand'], [], 1.1, { format: '7x2', horsReference: true });
+  await p.noterGestes(['+7:grand'], [], 2.2, { format: '5x1' });
+  const f = p.progression().motifs['+7:grand'];
+  assert.deepEqual(f.hist.map((x) => x.t), [null, 2.2]);
+  assert.ok(f.semF['7x2'] && f.semF['5x1']);
+  assert.equal(Object.values(f.sem).flat().length, 1, 'semaines toutes formats : la référence seule');
+});

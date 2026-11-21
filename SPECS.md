@@ -1214,3 +1214,56 @@ Défauts signalés après la 0.38.1.
 - **Fiche facultative « deux mains »** en bas des épreuves, à partir de la préparation du 3e kyū,
   sans seuil ni incitation.
 - Écartés à la demande : dictée jusqu'à 10 chiffres, tranches de 3 chiffres surlignées.
+
+## Version 0.40.0
+
+### Bugs
+- **Écrans vides après un rechargement** (le jour où une leçon était commencée) : la séance
+  n'enregistre plus que l'identifiant de la leçon, retrouvée ensuite dans le curriculum (sa liste de
+  gestes autorisés revenait vide à la lecture) ; une séance enregistrée illisible est recalculée, et
+  la barre de séance ne peut plus empêcher un écran de s'afficher.
+- **Faux records des drills** : un temps de moins de 0,15 s par chiffre, ou plus de 3 fois plus
+  rapide que la médiane du drill, ne compte pas (ni record, ni médaille, ni validation) ; Entrée est
+  ignorée la première seconde après l'ouverture du drill ; l'écran rappelle de remettre le soroban au
+  nombre de départ (le drill finit toujours sur le même nombre). Au chargement, les faux records sont
+  recalculés depuis l'historique (meilleur temps plausible) et les validations à tort retirées ;
+  bouton « Supprimer ce record ».
+- **Bouton « Passer le mini-test »** : place fixe, en tête du bandeau ; largeurs stables.
+- Les réglages proposés par la séance (lièvre, marathon) ne restent plus dans l'écran libre ;
+  une proposition part des valeurs par défaut.
+- **Échauffement** : 3 minutes au plus (record de l'élève, sinon temps bronze + 30 %).
+- **Plateaux** : à 5 chiffres et plus, les petits amis ne sont plus suivis.
+- **Entre deux grades préparatoires** (le suivant pas encore ouvert) : l'examen de la semaine sur les
+  leçons validées, avec un score, au lieu de repasser le grade obtenu ou de rien.
+- **Contrôle à 90 jours** : chaque synthèse est reliée au grade qui contient son format (p5-5 :
+  10e kyū ; p8-3 : 3e kyū ; p9-4 et p9-6 : 1er kyū ; un examen de dan contient tout).
+
+### Lièvre et marathon qui grandissent (`core/rythmeStade.js`)
+- Directs et petits amis : lièvre 1 chiffre × 5 lignes, marathon 1 chiffre (30 à 40 lignes) ;
+  grands amis : 2 chiffres × 7 lignes, marathon 2 chiffres ; 10e kyū : lièvre 2 ou 3 chiffres × 10
+  lignes, marathon 3 chiffres avec sous-total toutes les 10 lignes ; 6e kyū : lièvre au format du
+  grade moins 1 chiffre, marathon 4 ou 5 chiffres avec zéros internes ; dan : lièvre 5 à 7 chiffres
+  mêlés, marathon 5 à 10 chiffres mêlés, 20 lignes au moins.
+- Durée fixe d'environ 3 min 30 : le nombre de lignes (marathon) ou de colonnes (lièvre) suit la
+  vitesse mesurée.
+- Variantes tournées d'une séance à l'autre : lièvre qui accélère dans la colonne, lièvre contre son
+  fantôme (sa meilleure cadence) ; marathon de soustractions en cascade (après p5-4).
+
+### Progression à l'intérieur des leçons (`core/phases.js`)
+- Petits et grands amis (p2 à p4), leçons « 2 et 3 chiffres », colonnes d'endurance (p8, p9) :
+  un cycle de formats autour du format de RÉFÉRENCE (celui du mini-test, inchangé).
+  - Référence → montée (2 chiffres, 7 à 8 lignes ; 3 chiffres pour les « 2 et 3 chiffres ») après
+    6 colonnes justes d'affilée à l'allure argent au départ, après 6 colonnes (justes ou non) au
+    retour → endurance (10 lignes) après 6 colonnes justes → retour en référence après 6 colonnes
+    justes ; montée et endurance rendent la main à la référence au bout de 12 colonnes.
+  - Endurance p8, p9 : 6 lignes, 8 lignes, puis 10 lignes (la référence).
+  - Filet : 2 colonnes fausses d'affilée → 3 colonnes au format de référence, doigté affiché.
+  - Pas de cascades à 2 chiffres et plus avant p5-4 ; option « Je connais déjà : commencer à 2
+    chiffres ».
+- Seules les colonnes de référence comptent pour la médaille, le coupe-file (15 premières colonnes
+  de référence justes au niveau or) et les temps des gestes ; hors référence, une colonne compte
+  pour la justesse et la mesure par format.
+- Jauge en gestes visés (répétitions × gestes visés moyens d'une colonne de référence) ; mini-test
+  ouvert avec la jauge pleine ET au moins 20 colonnes de référence.
+- Leçons « 2 et 3 chiffres » : une colonne sur deux à 3 chiffres, en alternance (mini-test compris),
+  au lieu d'un tirage au hasard.
