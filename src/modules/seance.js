@@ -229,14 +229,19 @@ export function plan(d, debut, seance0 = null) {
       detail: format === 'long' ? 'un sujet de 20 minutes sur tout ce que vous savez, en conditions d\'examen' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son verdict`,
       pourquoi: 'L\'examen de la semaine se passe d\'un bloc : il prend la place de la séance du jour.' };
   }
-  // 0.40.2 : entre deux grades préparatoires, l'examen de la semaine part « à part » avec un objectif
-  // court : la séance principale n'avait plus rien de chronométré. Au premier jour du créneau, la
-  // feuille de la semaine y entre (5 min).
-  const feuilleHebdo = exam?.id === 'hebdo' && examVoulu && !examEssentiel && !passeAujourdhui && premierJourExamen && estValide(d, 'p1-3');
+  // 0.40.2-0.40.3 : une semaine sans examen dans la séance principale (examen proposé à part avec un
+  // objectif court, ou pas d'examen blanc disponible, entre deux grades préparatoires) n'avait rien
+  // de chronométré. Au premier jour pratiqué du créneau (le vendredi si l'on s'entraîne ce jour-là),
+  // la feuille de la semaine entre dans la séance (5 min), et y garde sa place (le calibrage la
+  // renvoyait dans « Pour compléter » avec un objectif court). Pas si elle est déjà faite cette semaine.
+  const semaine = semaineISO(date).cle;
+  const feuilleAvant = d.sessions.some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode) && s.date < date && semaineISO(s.date).cle === semaine);
+  const examSemaine = !!examFait || !!complet?.fait || passeAujourdhui || completAujourdhui;
+  const feuilleHebdo = premierJourExamen && !examEssentiel && !completDansSeance && !examSemaine && !feuilleAvant && estValide(d, 'p1-3');
   if (feuilleHebdo) {
-    essentiel.push({ titre: 'Feuille de la semaine', minutes: 5, aller: ['defis', { semaine: true }],
+    essentiel.push({ titre: 'Feuille de la semaine', minutes: 5, aller: ['defis', { semaine: true }], garder: true,
       fait: fait((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode)),
-      detail: 'le même sujet chronométré toute la semaine : votre mesure de la semaine (l\'examen blanc reste proposé à part)',
+      detail: `le même sujet chronométré toute la semaine : votre mesure de la semaine${seanceLongue ? ' (l\'examen blanc reste proposé à part)' : ''}`,
       pourquoi: 'Une fois par semaine, un sujet chronométré dans la séance : c\'est lui qui montre si la vitesse progresse.' });
   }
   if (completDansSeance) {
@@ -507,7 +512,7 @@ export function plan(d, debut, seance0 = null) {
     // L'examen blanc garde TOUJOURS sa place (c'est lui, la séance du jour), même s'il dépasse
     // l'objectif ; l'anzan lui cède alors la sienne.
     const anzanGarde = it === itemAnzan && !(examEssentiel && cumul >= objectif);
-    if (it.fait || i === 0 || anzanGarde || it.examen || it.minutes <= reste) { garde.push(it); cumul += it.minutes; continue; } // un point fait garde son temps : il ne libère pas de place
+    if (it.fait || i === 0 || anzanGarde || it.examen || it.garder || it.minutes <= reste) { garde.push(it); cumul += it.minutes; continue; } // un point fait garde son temps : il ne libère pas de place
     if (it.decision && reste >= 3) {
       garde.push({ ...it, minutes: reste, detail: `${it.detailCourt ?? it.detail} (${reste} min aujourd'hui, la suite demain si besoin)` });
       cumul += reste;
@@ -527,7 +532,7 @@ export function plan(d, debut, seance0 = null) {
   // Les 5 blocs de la séance : chaque point appartient à l'un d'eux (dans cet ordre).
   for (const it of garde) {
     it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
-      : it.examen || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
+      : it.examen || it.garder || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
   }
   // 0.38 : séance courte (moins de 20 min) : 3 blocs au plus, la leçon et la révision d'abord, puis
   // le volume ou l'anzan, un jour sur deux. Le reste passe dans « Pour compléter ».

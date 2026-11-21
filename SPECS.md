@@ -1311,3 +1311,12 @@ Défauts signalés après la 0.38.1.
   travail ; mode libre de 1 à 10 chiffres.
 - **Entre deux grades préparatoires**, objectif court : au premier jour du créneau (vendredi au
   dimanche), la feuille de la semaine entre dans la séance (l'examen blanc reste proposé à part).
+
+## Version 0.40.3
+
+- **Feuille de la semaine dans la séance principale** : une semaine sans examen dans la séance
+  (examen blanc proposé à part, ou aucun examen blanc disponible), la feuille de la semaine y entre au
+  premier jour pratiqué du créneau (le vendredi si l'on s'entraîne ce jour-là, sinon samedi ou
+  dimanche), sauf si elle est déjà faite cette semaine. Elle garde sa place même avec un objectif court
+  (le calibrage la renvoyait dans « Pour compléter »). En 0.40.2, elle n'y entrait que si l'examen
+  hebdomadaire était proposé à part.

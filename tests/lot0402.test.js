@@ -50,3 +50,28 @@ test('0.40.2 : entre deux grades préparatoires, objectif court : la feuille de 
   assert.ok(s.essentiel.some((it) => it.titre === 'Feuille de la semaine'), s.essentiel.map((it) => it.titre).join(' | '));
   assert.ok(!s.bonus.some((it) => it.titre === 'Feuille de la semaine'), 'pas en double dans « Pour compléter »');
 });
+
+test('0.40.3 : feuille de la semaine dans la séance une fois par semaine, même sans examen blanc disponible, et gardée par le calibrage', async () => {
+  const { plan } = await import('../src/modules/seance.js');
+  const { examenDeLaSemaine } = await import('../src/core/examen.js');
+  const d = p.progression();
+  for (const k of Object.keys(d.paliers)) delete d.paliers[k];
+  for (const k of Object.keys(d.records)) delete d.records[k];
+  for (const id of ['p0-2', 'p1-1', 'p1-2', 'p1-3']) d.paliers[id] = { valide: '2026-11-10', hist: [] };
+  d.reglages.objectifMinutes = 10;
+  const titres = () => plan(d, 0, null).essentiel.map((it) => it.titre);
+  const { PREKYU } = await import('../src/core/examen.js');
+  for (const g of PREKYU) d.records[`prekyu-${g.id}`] = { reussi: true };
+  assert.equal(examenDeLaSemaine(d).id, 'hebdo', 'grade obtenu, le suivant pas ouvert');
+  assert.ok(titres().includes('Feuille de la semaine'), titres().join(' | '));
+  // Déjà pratiqué au premier jour du créneau (jeudi exclu) : plus le lendemain.
+  d.sessions.push({ date: '2026-11-20', module: 'lecons', total: 10, justes: 10, dureeMs: 60000 });
+  mock.timers.setTime(new Date('2026-11-21T10:00:00').getTime());
+  assert.ok(!titres().includes('Feuille de la semaine'), 'samedi, après une séance le vendredi');
+  // Vendredi suivant : de retour.
+  mock.timers.setTime(new Date('2026-11-27T10:00:00').getTime());
+  assert.ok(titres().includes('Feuille de la semaine'));
+  // Faite plus tôt dans la semaine : pas de doublon.
+  d.sessions.push({ date: '2026-11-24', module: 'defis', mode: 'semaine', total: 10, justes: 9, dureeMs: 300000 });
+  assert.ok(!titres().includes('Feuille de la semaine'));
+});
