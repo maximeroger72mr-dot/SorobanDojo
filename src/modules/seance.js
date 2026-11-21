@@ -13,7 +13,7 @@ import { phasesLecon, objectifGestes } from '../core/phases.js';
 import { genererExercice } from '../core/curriculum.js';
 import { plateauOperation, formatExamen, reculs, dureeEchauffement } from '../core/parcours.js';
 import { vitesseEleve } from '../core/allure.js';
-import { leconsFluidite } from '../core/fluidite.js';
+import { leconsFluidite, forceVitesse } from '../core/fluidite.js';
 import {
   progression, aujourdhui, revisionsDues, seanceEnCours, commencerSeance, finirSeance,
   minutesAujourdhui, prendreAvis, reglagesUtilisateur, modifierReglages, motifsEnDifficulte, versionNavigateur, erreursARejouer,
@@ -229,6 +229,16 @@ export function plan(d, debut, seance0 = null) {
       detail: format === 'long' ? 'un sujet de 20 minutes sur tout ce que vous savez, en conditions d\'examen' : `deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son verdict`,
       pourquoi: 'L\'examen de la semaine se passe d\'un bloc : il prend la place de la séance du jour.' };
   }
+  // 0.40.2 : entre deux grades préparatoires, l'examen de la semaine part « à part » avec un objectif
+  // court : la séance principale n'avait plus rien de chronométré. Au premier jour du créneau, la
+  // feuille de la semaine y entre (5 min).
+  const feuilleHebdo = exam?.id === 'hebdo' && examVoulu && !examEssentiel && !passeAujourdhui && premierJourExamen && estValide(d, 'p1-3');
+  if (feuilleHebdo) {
+    essentiel.push({ titre: 'Feuille de la semaine', minutes: 5, aller: ['defis', { semaine: true }],
+      fait: fait((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode)),
+      detail: 'le même sujet chronométré toute la semaine : votre mesure de la semaine (l\'examen blanc reste proposé à part)',
+      pourquoi: 'Une fois par semaine, un sujet chronométré dans la séance : c\'est lui qui montre si la vitesse progresse.' });
+  }
   if (completDansSeance) {
     // (déjà dans l'essentiel)
   } else if (examEssentiel && (examSocle || (aSocle(exam) && examFait?.socle && passeAujourdhui))) {
@@ -405,7 +415,9 @@ export function plan(d, debut, seance0 = null) {
   // ses gestes passent en tête du bloc, en vitesse, jusqu'à l'or (la « dette de vitesse »).
   const fluide = decision.type === 'automatiser' ? null : leconsFluidite(d).find((x) => gestesLecon(x).length) ?? null;
   if (fluide) ciblesBloc = [...new Set([...gestesLecon(fluide), ...ciblesBloc])];
-  const enVitesse = vitesse || !!fluide;
+  // 0.40.2 : seule une leçon marquée lente en révision force la vitesse (avant, toute leçon validée
+  // sans l'or la forçait : plus aucun jour de volume).
+  const enVitesse = vitesse || forceVitesse(d, fluide);
   const genres = decision.type === 'automatiser'
     ? (enVitesse ? ['vitesse-melange', 'volume-melange', 'vitesse-isole', 'volume-isole'] : ['volume-melange', 'vitesse-isole', 'volume-isole', 'vitesse-melange'])
     : (enVitesse ? ['vitesse-isole', 'vitesse-melange', 'volume-melange'] : ['volume-melange', 'volume-isole', 'vitesse-melange']);
@@ -536,7 +548,7 @@ export function plan(d, debut, seance0 = null) {
   const socle = socleEnBonus ? [{ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: false,
     detail: `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade : à tenter quand vous voulez, d'ici dimanche`,
     pourquoi: 'Le socle ne prend la place de la leçon qu\'un jour par semaine : les autres jours, il attend ici, sans pression.' }] : [];
-  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc))];
+  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc)).filter((x) => !(feuilleHebdo && x.type === 'defi' && x.titre === 'Feuille de la semaine'))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }

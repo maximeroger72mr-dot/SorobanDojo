@@ -94,7 +94,8 @@ test('dictée sur soroban, à son niveau : pas plus de chiffres que dans les le�
   const { paliersSoroban, PALIERS_DICTEE_SOROBAN, libellePalier: lib } = await import('../src/core/dicteeAnzan.js');
   assert.ok(paliersSoroban(1).every((p) => p.chiffres === 1) && paliersSoroban(1).length === 3);
   assert.equal(paliersSoroban(2).length, 6);
-  assert.equal(paliersSoroban(6).length, PALIERS_DICTEE_SOROBAN.length);
+  assert.equal(paliersSoroban(10).length, PALIERS_DICTEE_SOROBAN.length);
+  assert.ok(paliersSoroban(6).length < PALIERS_DICTEE_SOROBAN.length && Math.max(...PALIERS_DICTEE_SOROBAN.map((p) => p.chiffres)) === 10, '0.40.2 : paliers jusqu\'à 10 chiffres');
   assert.equal(palierSuivant(5, 5, 5, paliersSoroban(2).length), 5, 'on ne dépasse pas le dernier palier ouvert');
   assert.match(lib(3, PALIERS_DICTEE_SOROBAN), /5 nombres à 2 chiffres/);
 });

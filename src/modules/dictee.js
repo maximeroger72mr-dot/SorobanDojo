@@ -4,14 +4,14 @@
  * But : travailler à l'oreille. Débit, pause entre les nombres et voix réglables.
  *
  * Lecture : « On commence. », puis chaque nombre (« moins … » pour une soustraction),
- * puis « C'est tout. ». Les nombres restent dictables : 1 à 6 chiffres (4 avant la 0.38).
+ * puis « C'est tout. ». Les nombres restent dictables : 1 à 10 chiffres (4 avant la 0.38, 6 avant la 0.40.2).
  */
 
 import { genererColonne, genererColonneVariee, creerMemoire } from '../core/generateur.js';
 
 const memoire = creerMemoire(6);
 import { famille } from '../core/motifs.js';
-import { motifsAppris, chiffresAppris } from '../core/parcours.js';
+import { motifsAppris, chiffresTravail } from '../core/parcours.js';
 import { progression, enregistrerSession, noterReponse, modifierReglages, reglagesUtilisateur } from '../core/progression.js';
 import { PALIERS_DICTEE, DICTEES_PAR_SERIE, palierSuivant, libellePalier, paliersSoroban } from '../core/dicteeAnzan.js';
 import { lireReponse } from '../core/nombres.js';
@@ -75,7 +75,7 @@ export default {
     // Dictée anzan : de tête, par paliers (les réglages de longueur et de débit suivent le palier).
     // Deux échelles de paliers : de tête (dictée anzan), ou sur le soroban à son niveau (pas plus
     // de chiffres que dans les leçons validées). Chacune garde son palier.
-    const paliers = () => (reglages.support === 'tete' ? PALIERS_DICTEE : paliersSoroban(chiffresAppris(progression())));
+    const paliers = () => (reglages.support === 'tete' ? PALIERS_DICTEE : paliersSoroban(chiffresTravail(progression())));
     const clePalier = () => (reglages.support === 'tete' ? 'palierDictee' : 'palierDicteeSoroban');
     const palier = () => Math.min(paliers().length - 1, reglagesUtilisateur()[clePalier()] ?? 0);
     const infoPalier = h('p', { class: 'carte', style: 'margin-bottom:12px' });
@@ -95,7 +95,7 @@ export default {
       infoPalier,
       h('div', { class: 'reglages' },
         selSupport,
-        libre(select('chiffres', [1, 2, 3, 4, 5, 6].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`]))),
+        libre(select('chiffres', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [n, `${n} chiffre${n > 1 ? 's' : ''}`]))),
         libre(select('nombres', [3, 5, 7, 10].map((n) => [n, `${n} nombres`]))),
         libre(h('label', {}, 'Débit', select('debit', [[0.7, 'lent'], [0.85, 'posé'], [1, 'normal'], [1.2, 'rapide'], [1.4, 'très rapide']]))),
         libre(h('label', {}, 'Pause', select('pause', [[0.3, '0,3 s'], [0.6, '0,6 s'], [0.8, '0,8 s'], [1.2, '1,2 s'], [2, '2 s']]))),

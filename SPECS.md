@@ -1293,3 +1293,21 @@ Défauts signalés après la 0.38.1.
 - Plateaux des petits amis ignorés au-delà de 4 chiffres de travail : le plus grand des formats des
   leçons validées et du grade visé (un élève positionné haut n'a pas forcément validé les leçons à
   5 chiffres).
+
+## Version 0.40.2
+
+- **Jauge des leçons à phases** : les gestes visés des colonnes fausses comptent aussi, comme les
+  anciennes répétitions.
+- **Endurance de p2 à p4** (et des leçons « 2 et 3 chiffres ») : le mini-test demande 6 colonnes
+  faites en endurance (2 chiffres, 10 lignes ; justes ou fausses). Garde : gestes suffisants sans
+  endurance faite, la référence passe à l'endurance au bout de 6 colonnes (et la montée tout de
+  suite), sans devoir réussir la montée.
+- **Dette de vitesse** (`core/fluidite.js`) : une leçon de colonnes sort de la liste quand tous ses
+  gestes sont en or (les blocs de vitesse les entraînent ; la médaille de la leçon n'avance qu'en
+  leçon : avant, une leçon sortie à l'argent y restait pour toujours). Seule une leçon marquée lente
+  en révision force la séance en vitesse (avant, n'importe quelle leçon validée sans l'or la forçait :
+  plus aucun jour de volume).
+- **Dictée** : paliers sur soroban jusqu'à 10 chiffres (5, 6, 8, 10), ouverts selon les chiffres de
+  travail ; mode libre de 1 à 10 chiffres.
+- **Entre deux grades préparatoires**, objectif court : au premier jour du créneau (vendredi au
+  dimanche), la feuille de la semaine entre dans la séance (l'examen blanc reste proposé à part).

@@ -41,15 +41,32 @@ export function verdictFlash(sp, etat, b, { plafondMedaille = true } = {}) {
   return t <= limite ? { reussi: true, lent: false, t, limite } : { reussi: false, lent: true, t, limite };
 }
 
+/** Gestes d'une leçon de colonnes (sans les directs, sauf s'il n'y a qu'eux). */
+const gestesColonnes = (sp) => {
+  if ((sp.type ?? 'addsub') !== 'addsub') return [];
+  const amis = (sp.cibles ?? []).filter((c) => !c.endsWith(':direct'));
+  return amis.length ? amis : (sp.cibles ?? []);
+};
+/** Tous les gestes de la leçon sont-ils en or ? (leçons de colonnes seulement) */
+export function gestesEnOr(d, sp) {
+  const g = gestesColonnes(sp);
+  return g.length > 0 && g.every((c) => evaluer(d.motifs?.[c]?.hist ?? [], 'addsub').index >= 3);
+}
+/** La leçon force-t-elle la séance en vitesse ? Seulement marquée lente en révision (0.40.2). */
+export const forceVitesse = (d, sp) => !!sp && !!d.paliers?.[sp.id]?.fluidite;
+
 const LECON_SOROBAN = (sp) => !sp.mental && !['theorie', 'placement', 'lire', 'complement', 'photo', 'tenir'].includes(sp.type);
 
 /**
  * Leçons à la fluidité à reprendre, la plus prioritaire d'abord : marquées au test flash (la plus
  * récente d'abord), puis sorties d'une étape terminée sans l'or (la plus récente d'abord).
- * Une leçon passée en or n'y est plus.
+ * Une leçon passée en or n'y est plus ; ni (0.40.2) une leçon de colonnes dont TOUS les gestes sont
+ * en or : ce sont eux que les blocs de vitesse entraînent (la médaille de la leçon, elle, n'avance
+ * qu'en leçon ; avant, une leçon sortie à l'argent restait dans la liste pour toujours).
+ * Seules les leçons MARQUÉES (révision lente) forcent la séance en vitesse : voir `forceVitesse`.
  */
 export function leconsFluidite(d) {
-  const enOr = (sp) => evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)).index >= 3;
+  const enOr = (sp) => evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)).index >= 3 || gestesEnOr(d, sp);
   const marquees = SOUS_PALIERS.filter((sp) => d.paliers[sp.id]?.fluidite && LECON_SOROBAN(sp) && !enOr(sp))
     .sort((a, b) => String(d.paliers[b.id].fluidite).localeCompare(String(d.paliers[a.id].fluidite)));
   // Étape terminée : une leçon d'une étape SUIVANTE est déjà validée.

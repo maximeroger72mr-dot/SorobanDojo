@@ -43,6 +43,15 @@ export const PALIERS_DICTEE_SOROBAN = [
   { chiffres: 4, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
   { chiffres: 4, nombres: 7, debit: 1, pause: 0.8, soustractions: true },
   { chiffres: 4, nombres: 10, debit: 1.2, pause: 0.6, soustractions: true },
+  // 0.40.2 : au-delà de 4 chiffres (l'examen lit jusqu'à 10 chiffres).
+  { chiffres: 5, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 5, nombres: 10, debit: 1, pause: 0.8, soustractions: true },
+  { chiffres: 6, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 6, nombres: 10, debit: 1, pause: 0.8, soustractions: true },
+  { chiffres: 8, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 8, nombres: 10, debit: 1, pause: 0.8, soustractions: true },
+  { chiffres: 10, nombres: 5, debit: 0.85, pause: 1.2, soustractions: true },
+  { chiffres: 10, nombres: 10, debit: 1, pause: 0.8, soustractions: true },
 ];
 
 /** Paliers de la dictée sur soroban ouverts à l'élève : pas plus de chiffres que dans ses leçons validées. */

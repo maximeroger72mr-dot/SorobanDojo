@@ -595,10 +595,11 @@ export async function preparerSeriesTest(id, plan) {
  * Leçon à phases (0.40, voir core/phases.js) : gestes visés réalisés, colonnes au format de
  * référence, et l'état du cycle (gardé d'une séance à l'autre).
  */
-export async function noterPhaseLecon(id, { etat, gestes = 0, reference = false }) {
+export async function noterPhaseLecon(id, { etat, gestes = 0, reference = false, endurance = false }) {
   const e = palier(id);
   e.gestesVises = (e.gestesVises ?? 0) + gestes;
   if (reference) e.colonnesRef = (e.colonnesRef ?? 0) + 1;
+  if (endurance) e.colonnesEnd = (e.colonnesEnd ?? 0) + 1;
   e.phase = etat;
   await sauver();
 }

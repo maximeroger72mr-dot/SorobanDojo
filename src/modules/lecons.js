@@ -10,7 +10,7 @@
  * Un sous-palier validé entre dans les révisions espacées (voir revisions.js).
  */
 
-import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, referenceMin, enduranceAvant } from '../core/phases.js';
+import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, referenceMin, enduranceAvant, enduranceExigee } from '../core/phases.js';
 import { NIVEAUX } from '../core/maitrise.js';
 import { noterPhaseLecon } from '../core/progression.js';
 import { estValide } from '../core/parcours.js';
@@ -22,8 +22,9 @@ const objectifLecon = (sp) => objectifGestes(sp, () => genererExercice(sp));
  * colonnes de référence (0.41 ; avant, 20 pour toutes les leçons).
  */
 function testOuvertLecon(sp, e) {
-  if (!phasesLecon(sp)) return (e.reps ?? 0) >= sp.repetitions;
-  return (e.gestesVises ?? 0) >= objectifLecon(sp) && (e.colonnesRef ?? 0) >= referenceMin(sp);
+  const plan = phasesLecon(sp);
+  if (!plan) return (e.reps ?? 0) >= sp.repetitions;
+  return (e.gestesVises ?? 0) >= objectifLecon(sp) && (e.colonnesRef ?? 0) >= referenceMin(sp) && (e.colonnesEnd ?? 0) >= enduranceExigee(plan);
 }
 import { etapesRattrapage } from '../core/multiplication.js';
 import { PONTS_ANZAN } from '../core/conseils.js';
@@ -585,7 +586,7 @@ export default {
           remplir(bandeau, ...[
             et.valide ? null : h('div', { class: 'bandeau-action' }, btnTest ?? h('span', { class: 'discret' }, 'Le mini-test s\'ouvrira ici.')),
             h('div', { class: 'jauge' }, h('div', { style: `width:${Math.min(100, (100 * fait) / obj)}%` })),
-            h('span', {}, planPh ? `Entraînement : ${Math.min(fait, obj)} / ${obj} gestes visés · ${Math.min(et.colonnesRef ?? 0, referenceMin(sp))} / ${referenceMin(sp)} colonnes de référence` : `Entraînement : ${Math.min(fait, obj)} / ${obj}`),
+            h('span', {}, planPh ? `Entraînement : ${Math.min(fait, obj)} / ${obj} gestes visés · ${Math.min(et.colonnesRef ?? 0, referenceMin(sp))} / ${referenceMin(sp)} colonnes de référence${enduranceExigee(planPh) ? ` · ${Math.min(et.colonnesEnd ?? 0, enduranceExigee(planPh))} / ${enduranceExigee(planPh)} en endurance` : ''}` : `Entraînement : ${Math.min(fait, obj)} / ${obj}`),
             badgeNiveau(evaluerPalier(sp.id, famille(sp))),
             h('span', { class: 'discret bandeau-texte' }, texteEvaluation(evaluerPalier(sp.id, famille(sp)), famille(sp))),
             sp.type === 'anzan' ? h('span', { class: 'discret' }, `· chaîne de ${chaine.lignes} nombres · ${reglagesUtilisateur().anzanSansImage ? 'sans image d\'aide' : imageAnzan(sp, et.justes).nom}`) : null,
@@ -652,13 +653,16 @@ export default {
                   const avant = phaseCourante(planPh, etatPh);
                   const rapide = res.t != null && res.t <= NIVEAUX.find((x) => x.id === 'debutant').temps.addsub;
                   const juste = res.juste && !res.aide;
-                  const gestes = juste ? gestesVises(sp, ex) : 0;
+                  // 0.40.2 : la jauge compte aussi les colonnes fausses (comme les anciennes répétitions).
+                  const gestes = gestesVises(sp, ex);
                   // Filet : seulement sur une erreur qui porte (ou peut porter) sur un geste visé.
                   const loc = juste || res.reponse == null ? null : localiserErreur(ex, res.reponse);
                   const erreurVisee = !juste && (loc ? loc.motifs.some((m) => sp.cibles.includes(m)) : gestesVises(sp, ex) > 0);
-                  const jaugePleine = (etatPalier(sp.id).gestesVises ?? 0) + gestes >= objectifLecon(sp);
-                  etatPh = apresColonne(planPh, etatPh, { juste, rapide, erreurVisee, jaugePleine });
-                  await noterPhaseLecon(sp.id, { etat: etatPh, gestes, reference: ref });
+                  const endu = ex.phase === 'endurance';
+                  const gestesPleins = (etatPalier(sp.id).gestesVises ?? 0) + gestes >= objectifLecon(sp);
+                  const enduFaite = (etatPalier(sp.id).colonnesEnd ?? 0) + (endu ? 1 : 0) >= enduranceExigee(planPh);
+                  etatPh = apresColonne(planPh, etatPh, { juste, rapide, erreurVisee, jaugePleine: gestesPleins && enduFaite, versEndurance: gestesPleins && !enduFaite });
+                  await noterPhaseLecon(sp.id, { etat: etatPh, gestes, reference: ref, endurance: endu });
                   const apres = phaseCourante(planPh, etatPh);
                   majPhase(apres.id !== avant.id ? (apres.filet ? 'Deux erreurs de suite sur le geste visé : trois colonnes plus simples, avec le doigté.' : `Nouvelle phase : ${apres.titre.toLowerCase()}.`) : null);
                   return compter(res.juste && !res.aide, res.dureeMs, ref && !res.aide && !res.autoEvalue ? res.t : undefined, ex);
@@ -702,7 +706,7 @@ export default {
         const et = etatPalier(sp.id);
         if (!testOuvertLecon(sp, et) && !et.coupeFile) {
           zone.append(h('div', { class: 'carte' },
-            h('p', {}, phasesLecon(sp) ? `Le mini-test s'ouvre une fois la jauge pleine (${objectifLecon(sp)} gestes visés ; vous en êtes à ${et.gestesVises ?? 0}) et après ${referenceMin(sp)} colonnes au format du mini-test (${et.colonnesRef ?? 0} faites).`
+            h('p', {}, phasesLecon(sp) ? `Le mini-test s'ouvre une fois la jauge pleine (${objectifLecon(sp)} gestes visés ; vous en êtes à ${et.gestesVises ?? 0}) et après ${referenceMin(sp)} colonnes au format du mini-test (${et.colonnesRef ?? 0} faites)${enduranceExigee(phasesLecon(sp)) ? `, dont ${enduranceExigee(phasesLecon(sp))} en endurance (${et.colonnesEnd ?? 0} faites)` : ''}.`
               : `Le mini-test s'ouvre après ${sp.repetitions} exercices d'entraînement. Il en reste ${sp.repetitions - et.reps}.`),
             h('p', { class: 'discret' }, 'C\'est la répétition du geste sur le soroban qui le rend automatique, pas la compréhension seule. Coupe-file : si vos 15 premiers exercices sont tous justes et rapides (seuil or), le mini-test s\'ouvre tout de suite.'),
             h('button', { class: 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement')));

@@ -24,6 +24,12 @@
  *    affiché (aide : hors médaille), puis retour à la phase en cours.
  *  Pas de cascades à 2 chiffres et plus tant que la leçon des cascades (p5-4) n'est pas validée.
  *  Le volume se compte en GESTES VISÉS réalisés (pas en colonnes) : une longue colonne avance plus.
+ *  Petits et grands amis, 2 et 3 chiffres (0.40.2) : la jauge n'est pleine qu'après 6 colonnes faites
+ *    en ENDURANCE (justes ou fausses). Garde : gestes suffisants sans endurance faite, la référence
+ *    passe directement à l'endurance au bout de 6 colonnes (sans réussir la montée), sinon un élève
+ *    qui ne réussit jamais la montée ne finirait jamais la leçon.
+ *  Jauge : les gestes visés des colonnes fausses comptent aussi (0.40.2), comme les anciennes
+ *    répétitions.
  *  Jauge pleine : on ne remonte plus, la fin de la leçon se fait au format du mini-test (0.41 ; avant,
  *    l'élève parfait faisait la leçon la plus longue, à remonter sans cesse).
  *  Mini-test : jauge de gestes pleine ET au moins 40 % des répétitions en colonnes de référence
@@ -39,6 +45,10 @@ export const REFERENCE_RETOUR = 6;
 export const FILET = 3;
 export const ERREURS_FILET = 2;
 export const PART_REFERENCE = 0.4;
+/** Colonnes à faire en endurance (2 chiffres, 10 lignes) pour les leçons d'amis (0.40.2). */
+export const ENDURANCE_MIN = 6;
+/** Colonnes d'endurance exigées par une leçon à phases (0 pour les leçons d'endurance à rampe). */
+export const enduranceExigee = (plan) => (plan && !plan.rampe && plan.ordre.some((x) => x.id === 'endurance') ? ENDURANCE_MIN : 0);
 /** Colonnes de référence à faire avant le mini-test : 40 % des répétitions de la leçon (0.41). */
 export const referenceMin = (sp) => Math.max(1, Math.round(PART_REFERENCE * (sp.repetitions ?? 0)));
 
@@ -96,12 +106,13 @@ export function phaseCourante(plan, e) {
 
 /**
  * Après une colonne de la phase en cours.
- * @param {{ juste: boolean, rapide: boolean, erreurVisee?: boolean, jaugePleine?: boolean }} r
+ * @param {{ juste: boolean, rapide: boolean, erreurVisee?: boolean, jaugePleine?: boolean, versEndurance?: boolean }} r
  *   rapide : à l'allure argent ou mieux ; erreurVisee : l'erreur porte (ou peut porter) sur un geste
- *   visé ; jaugePleine : la jauge de gestes est pleine (on ne remonte plus)
+ *   visé ; jaugePleine : la jauge est pleine, endurance comprise (on ne remonte plus) ;
+ *   versEndurance : gestes suffisants mais endurance pas faite (on y va sans passer par la montée)
  * @returns {object}  nouvel état (pur)
  */
-export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaugePleine = false }) {
+export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaugePleine = false, versEndurance = false }) {
   const e = { ...e0 };
   if (e.filet > 0) {
     e.filet -= 1;
@@ -118,6 +129,13 @@ export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaug
   if (juste) e.justes += 1;
   const suivante = () => ({ ...e, i: (e.i + 1) % plan.ordre.length, n: 0, suite: 0, justes: 0, debut: false });
   const versReference = () => ({ ...e, i: indexReference(plan), n: 0, suite: 0, justes: 0, debut: false });
+  const iEnd = plan.ordre.findIndex((x) => x.id === 'endurance');
+  const versEnd = () => ({ ...e, i: iEnd, n: 0, suite: 0, justes: 0, debut: false });
+  if (versEndurance && !plan.rampe && iEnd >= 0) {
+    if (ph.id === 'montee') return versEnd();
+    if (ph.reference && e.n >= REFERENCE_RETOUR) return versEnd();
+    if (ph.reference) return e;
+  }
   // Endurance : la rampe ne se refait pas ; jauge pleine : on finit au format du mini-test.
   if (ph.reference && (plan.rampe || jaugePleine)) return e;
   if (!ph.reference && jaugePleine) return versReference();
