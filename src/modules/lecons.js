@@ -673,6 +673,9 @@ export default {
             });
           } else {
             const problemes = Array.from({ length: 10 }, () => genererExercice(sp, poidsDe(sp)));
+            // 0.40.5 : rien ne compte avant « Corriger » ; le dire, pour qu'une feuille abandonnée ne
+            // surprenne pas.
+            zoneTravail.append(h('p', { class: 'discret' }, 'Les colonnes de la feuille comptent au moment de « Corriger » : une feuille abandonnée avant ne compte pas.'));
             courant = creerFeuille(zoneTravail, {
               titre: `${sp.titre} · feuille d'entraînement`,
               historique: { cle: `lecon-${sp.id}`, libelle: sp.titre },
@@ -687,12 +690,19 @@ export default {
                     const loc = r.juste || r.reponse === null ? null : localiserErreur(r.ex, r.reponse);
                     // Vitesse des gestes : seulement si la leçon ne vise qu'un geste (moyenne de feuille).
                     if (r.ex.motifs) await noterGestes(r.juste ? r.ex.motifs : [], loc?.motifs ?? [], sp.cibles?.length === 1 ? t : null, { format: formatProbleme(r.ex) });
+                    // 0.40.5 : la feuille est au format du mini-test : chaque colonne entre dans la
+                    // jauge (gestes visés, colonnes fausses comprises) et compte comme colonne de
+                    // référence. Avant, seul le mode « Une par une » remplissait la jauge.
+                    if (planPh) await noterPhaseLecon(sp.id, { etat: etatPh, gestes: gestesVises(sp, r.ex), reference: true });
                   }
                   majBandeau();
                 })();
+                const enduReste = planPh ? Math.max(0, enduranceExigee(planPh) - (etatPalier(sp.id).colonnesEnd ?? 0)) : 0;
+                const fEndu = planPh?.ordre.find((x) => x.id === 'endurance')?.format;
                 return h('div', { class: 'carte bilan' },
                   h('div', { class: 'grand' }, `${b.justes} / ${b.total}`),
                   h('p', {}, `Temps : ${formaterDuree(b.dureeMs)}`),
+                  planPh ? h('p', { class: 'discret' }, `Les ${b.total} colonnes comptent dans la jauge et comme colonnes de référence (le format du mini-test).${enduReste ? ` La feuille n'a pas de colonnes d'endurance : les ${enduReste} qui restent (${fEndu.chiffres} chiffre${fEndu.chiffres > 1 ? 's' : ''}, ${fEndu.lignes} lignes) se font en mode « Une par une ».` : ''}`) : null,
                   h('button', { class: 'btn principal', onclick: () => lancer() }, 'Nouvelle feuille'));
               },
             });

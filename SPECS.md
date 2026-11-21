@@ -1361,3 +1361,14 @@ Défauts signalés après la 0.38.1.
   reprend le temps. L'échauffement (3 min au plus), les révisions dues et la leçon ne sont pas
   concernés.
 - Plus de jeu dans « Pour compléter » à partir du 6e kyū (les jeux restent dans le menu).
+
+## Version 0.40.5
+
+- **Feuille de 10 d'une leçon à phases** : au « Corriger », chaque colonne entre dans la jauge comme
+  en mode « Une par une » (gestes visés, colonnes fausses comprises) et compte comme colonne de
+  référence (la feuille est au format du mini-test). Avant, la feuille comptait partout (statistiques,
+  réussite, vitesse, coupe-file, gestes) sauf dans la jauge et les compteurs de colonnes.
+- La feuille n'a pas de colonnes d'endurance : sous le bilan, un message dit combien il en reste et
+  qu'elles se font en mode « Une par une ».
+- Au-dessus de la feuille : « Les colonnes de la feuille comptent au moment de « Corriger » : une
+  feuille abandonnée avant ne compte pas. »
