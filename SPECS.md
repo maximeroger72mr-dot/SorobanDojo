@@ -1418,3 +1418,19 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - Planches ciblées : jamais deux colonnes de même forme sur une planche (les niveaux de repli du
   générateur pouvaient en redonner une ; le robot le relevait environ une fois sur 20 avant la 0.40.7) ;
   niveaux de repli sans répétition et sans ligne de dizaines avant d'autoriser une forme répétée.
+
+## Version 0.40.8
+
+- **Quota de lignes inverses dans les planches ciblées** : atteint (25 % des lignes), plus de ligne
+  de dizaines ni de ligne directe inverse favorisée. Les planches de petits amis à 1 chiffre, qui
+  avaient déjà beaucoup de soustractions d'elles-mêmes, passent de 36-46 % à 25-35 % de lignes
+  inverses (le mode « famille » garde ses autres amis, qui portent leurs propres soustractions).
+  Dans les leçons, la ligne de dizaines compte dans la part inverse et n'est pas ajoutée quand la
+  part est atteinte ; une ligne de préparation de sens inverse compte aussi.
+- **Planches de soustraction à 2 chiffres et plus** : le nombre de départ a toujours une tige de plus
+  en tête, haute (5 à 9) : −9 grand ami à 2 chiffres passe de 36-45 % à 27-31 % d'additions.
+- **Places des lignes inverses uniformes** : le plan (nombre et places des lignes inverses) est tiré
+  UNE fois par colonne et gardé d'un essai à l'autre (`planInverses`). Retiré à chaque essai, il
+  favorisait les places les plus faciles : en p3-2 et p3-3, la 3e ligne recevait deux fois plus de
+  lignes inverses que les autres. Les premiers essais exigent chaque ligne inverse à sa place ; en
+  dernier recours seulement, elle est reportée plus loin.

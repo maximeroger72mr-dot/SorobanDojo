@@ -17,7 +17,7 @@
  * Les règles de qualité de colonneValide s'appliquent en plus.
  */
 
-import { analyserOperation, colonneValide, ErreurGeneration, horsDelai, DIZAINES } from './generateur.js';
+import { analyserOperation, colonneValide, ErreurGeneration, horsDelai, DIZAINES, PART_INVERSE } from './generateur.js';
 import { analyserMotif, famille } from './motifs.js';
 
 const DIRECTS = new Set(famille('direct'));
@@ -103,6 +103,7 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     // 0.40.7 : à 1 chiffre, une ligne directe (au hasard) devient, si possible, une ligne de dizaines.
     const iZ = chiffres === 1 && avecDizaine ? roles.map((r, i) => (r === 'D' ? i : -1)).filter((i) => i > 0) : [];
     const posZ = iZ.length ? iZ[entier(0, iZ.length - 1)] : -1;
+    const quotaInverse = Math.floor(PART_INVERSE * (lignes - 1) + Math.random());
 
     const convient = (role, a) => {
       const ms = a.motifs;
@@ -126,7 +127,11 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     // Premier nombre posé : le premier rôle doit y être possible ; jamais deux fois le même.
     let depart = null;
     for (let k = 0; k < 60 && depart === null; k++) {
-      const v = chiffres === 1 ? (Math.random() < 0.75 ? entier(1, 9) * 10 : 0) + entier(0, 9) : entier(10 ** (chiffres - 1), 10 ** chiffres - 1) + (Math.random() < 0.5 ? entier(1, 9) * 10 ** chiffres : 0);
+      // 0.40.8 : planche de soustraction à 2 chiffres et plus : toujours une tige de plus en tête, et
+      // haute (5 à 9) ; sinon le total s'épuisait vite et il fallait le remonter par des additions
+      // (−9 grand ami à 2 chiffres : 36 à 45 % d'additions).
+      const tete = opG === '-' && chiffres >= 2 ? entier(5, 9) * 10 ** chiffres : Math.random() < 0.5 ? entier(1, 9) * 10 ** chiffres : 0;
+      const v = chiffres === 1 ? (Math.random() < 0.75 ? entier(1, 9) * 10 : 0) + entier(0, 9) : entier(10 ** (chiffres - 1), 10 ** chiffres - 1) + tete;
       if (v < 1 || memoire.premiers.has(v)) continue;
       if (possible(v, roles[0])) depart = v;
     }
@@ -139,7 +144,12 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     for (const [i, role0] of roles.entries()) {
       const prec = liste.length > 1 ? liste.at(-1) : null;
       const prec2 = liste.length > 2 ? liste.at(-2) : null;
-      const role = i === posZ && prec?.op !== inverse && ligneDe(valeur, 'Z').length ? 'Z' : role0;
+      // 0.40.8 : quota de lignes de sens inverse (PART_INVERSE des lignes) : atteint, plus de ligne de
+      // dizaines ni de ligne directe inverse favorisée (petits amis : beaucoup de soustractions
+      // venaient déjà d'elles-mêmes, la ligne de dizaines s'y ajoutait, et le geste visé se diluait).
+      const inv = liste.slice(1).filter((l) => l.op === inverse).length;
+      const quotaAtteint = inv >= quotaInverse;
+      const role = i === posZ && !quotaAtteint && prec?.op !== inverse && ligneDe(valeur, 'Z').length ? 'Z' : role0;
       const cands = ligneDe(valeur, role).filter((c) => {
         const v = `${c.op}${c.n}`;
         if (prec && prec.n === c.n) return false; // ni répétition, ni annulation (+2 −2)
@@ -153,7 +163,7 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       // le piège changent de forme dans la colonne quand c'est possible (−2, −12, −20…).
       // 0.40.7 : les lignes directes changent plus souvent de sens que le geste (soustraction sur une
       // planche d'addition…), mais jamais deux lignes de sens inverse de suite.
-      const sensD = (c) => (c.op !== inverse ? 1 : prec?.op === inverse ? 0.1 : 2.5);
+      const sensD = (c) => (c.op !== inverse ? 1 : prec?.op === inverse || quotaAtteint ? 0.1 : 2.5);
       const poids = cands.map((c) => (role === 'D' ? sensD(c) / (1 + (memoire.valeurs[`${c.op}${c.n}`] ?? 0)) ** 2 : valeursCol[`${c.op}${c.n}`] ? 0.1 : 1));
       let choisi = null;
       for (let k = 0; k < 8 && !choisi; k++) {

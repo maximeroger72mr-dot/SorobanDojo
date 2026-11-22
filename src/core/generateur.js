@@ -274,6 +274,22 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
 export const PART_INVERSE = 0.25;
 /** Lignes de dizaines (±10 à ±40) : hors format de référence, à 1 chiffre, une par colonne au plus. */
 export const DIZAINES = [10, 20, 30, 40];
+/**
+ * Plan des lignes inverses d'une colonne : leur nombre (part visée, arrondi au hasard) et leurs places,
+ * tirées au hasard parmi les lignes 3 et suivantes, jamais côte à côte. Tiré UNE fois par colonne et
+ * gardé d'un essai à l'autre : retiré à chaque essai, il favorisait les places les plus faciles (une
+ * soustraction est moins souvent possible juste après un premier grand ami) : la 3e ligne en recevait
+ * deux fois plus que les autres.
+ */
+export function planInverses(lignes, partInverse = PART_INVERSE) {
+  const nb = Math.floor(partInverse * (lignes - 1) + Math.random());
+  const places = [];
+  for (const p of melangerListe([...Array(Math.max(0, lignes - 2)).keys()].map((k) => k + 2))) {
+    if (places.length < nb && !places.includes(p - 1) && !places.includes(p + 1)) places.push(p);
+  }
+  return { nb, places };
+}
+
 /** Sens unique des gestes visés ('+' ou '-'), ou null (leçon mixte). */
 export function sensUnique(cibles, ops = ['+', '-']) {
   if (!cibles?.length || !ops.includes('+') || !ops.includes('-')) return null;
@@ -291,12 +307,14 @@ export function sensUnique(cibles, ops = ['+', '-']) {
 export function genererColonne(params) {
   // Règles de qualité strictes d'abord ; si ce geste ne le permet pas, règles assouplies
   // (seulement pas de ligne répétée ni de ping-pong), et la colonne le signale (assoupli).
+  const planImpose = sensUnique(params.cibles, params.ops) ? planInverses(params.lignes, params.partInverse ?? PART_INVERSE) : null;
   for (const niveau of ['strict', 'assoupli', 'libre']) {
     for (let tentative = 0; tentative < (niveau === 'strict' ? 40 : 20); tentative++) {
       if (horsDelai()) throw new ErreurGeneration('délai dépassé');
       let col;
       try {
-        col = colonneSimple(params);
+        // 0.40.8 : les premiers essais exigent chaque ligne inverse à sa place tirée au hasard.
+        col = colonneSimple({ ...params, planImpose, exigerPlaces: niveau === 'strict' && tentative < 25 });
       } catch (e) {
         if (!(e instanceof ErreurGeneration)) throw e;
         continue;
@@ -344,14 +362,23 @@ export function colonneValide(col, cibles = [], strict = true) {
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false, exigerPlaces = false, planImpose = null }) {
   // 0.40.7 : sens inverse (voir PART_INVERSE) ; total plafonné à une tige au-dessus du format (avant,
   // jusqu'à trois), sauf format d'examen ; une ligne de dizaines au plus (hors référence, 1 chiffre).
   const sens = sensUnique(cibles, ops);
   const inverse = sens === '+' ? '-' : sens === '-' ? '+' : null;
   const plafond = longueurFixe || !ops.includes('-') ? null : 10 ** (Math.max(chiffres, departChiffres ?? 0) + 1);
   const posDizaine = dizaines && inverse && chiffres === 1 && lignes >= 4 ? entier(2, lignes - 1) : null;
-  const nbInverses = Math.floor(partInverse * (lignes - 1) + Math.random());
+  // 0.40.8 : lignes inverses placées dès le départ (voir planInverses), le même plan d'un essai à
+  // l'autre de la colonne ; impossible à sa place après les premiers essais : report plus loin.
+  const plan = planImpose ?? planInverses(lignes, partInverse);
+  const nbInverses = plan.nb;
+  const placesInverses = new Set(plan.places);
+  const reporter = (p) => {
+    placesInverses.delete(p);
+    const plus = [...Array(Math.max(0, lignes - p - 1)).keys()].map((k) => k + p + 1).filter((x) => !placesInverses.has(x) && !placesInverses.has(x - 1) && !placesInverses.has(x + 1));
+    if (plus.length) placesInverses.add(plus[Math.floor(Math.random() * plus.length)]);
+  };
   let liste;
   let motifs;
   let valeur;
@@ -416,9 +443,11 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     const equilibre = Math.max(...pb) <= 1.3 * Math.min(...pb);
     const libre = cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25;
     let t = null;
+    const faites = liste.slice(1).filter((l) => l.op === inverse).length;
     // Ligne de dizaines (−10 à −40 dans une leçon d'addition, +10 à +40 en soustraction), à sa
     // position tirée au hasard ; impossible ici (tige des dizaines trop basse…) : la suivante.
-    if (posDizaine !== null && liste.length >= posDizaine && !liste.some((l) => l.dizaine)) {
+    // 0.40.8 : elle compte dans la part inverse, et n'est pas ajoutée quand la part est déjà atteinte.
+    if (posDizaine !== null && liste.length >= posDizaine && !liste.some((l) => l.dizaine) && faites < nbInverses) {
       for (const k of melangerListe(DIZAINES)) {
         const a = analyserOperation(valeur, inverse, k, tigesPour(chiffres) + 1);
         if (a && a.resultat >= 0 && respecte(a.motifs, autorises) && (!plafond || a.resultat < plafond) && liste.at(-1).op !== inverse) { t = { op: inverse, n: k, resultat: a.resultat, motifs: a.motifs, dizaine: true }; break; }
@@ -428,10 +457,17 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // nombre de lignes inverses de la colonne est fixé au départ (part visée, arrondi au hasard) et
     // réparti sur les lignes restantes : ni toujours la même ligne, ni en dessous de la part visée
     // (une ligne inverse n'est pas toujours possible sans emprunt).
-    const faites = liste.slice(1).filter((l) => l.op === inverse).length;
-    const pInverse = (nbInverses - faites) / Math.max(1, lignes - liste.length);
-    if (!t && inverse && liste.length >= 2 && liste.at(-1).op !== inverse && Math.random() < pInverse) {
-      try { t = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops: [inverse], zeros, precedents: liste, plafond }); } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; t = null; }
+    if (!t && inverse && placesInverses.has(liste.length)) {
+      if (faites < nbInverses && liste.at(-1).op !== inverse) {
+        try { t = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops: [inverse], zeros, precedents: liste, plafond }); } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; t = null; }
+      }
+      if (t) placesInverses.delete(liste.length);
+      else if (faites < nbInverses) {
+        // Impossible à sa place : la colonne est retirée (genererColonne en tire une autre), pour que
+        // les lignes inverses restent réparties également ; en dernier recours seulement, report.
+        if (exigerPlaces) throw new ErreurGeneration('ligne inverse impossible à sa place');
+        reporter(liste.length);
+      } else placesInverses.delete(liste.length);
     }
     if (!t) {
       try {
@@ -439,6 +475,9 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
         // (sinon les amis « naturellement » fréquents, comme +4, passeraient devant les autres).
         // Leçon d'addition : jamais deux soustractions de suite (une ligne de préparation pouvait en
         // tirer une). Leçon de soustraction : les soustractions s'enchaînent librement.
+        // Une ligne de préparation peut être de sens inverse (elle fait redescendre une tige pour
+        // rendre le geste visé possible ; sans elle, la cible se raréfie) : elle compte alors dans
+        // la part inverse, et les places prévues suivantes tombent (0.40.8).
         const sensLigne = inverse && (libre || (sens === '+' && liste.at(-1).op === inverse)) ? [sens] : ops;
         t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops: sensLigne, zeros, precedents: liste, plafond });
       } catch (e) {
