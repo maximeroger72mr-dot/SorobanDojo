@@ -161,8 +161,12 @@ export function genererPlancheGeste(spec, graine) {
       if (horsDelai()) return null;
       const n = Math.max(4, lignes + entier(-1, 1)); // longueurs mélangées autour du réglage
       let col = null;
+      // 0.40.7 : jamais deux colonnes de même forme sur la planche (les niveaux de repli du
+      // générateur pouvaient en redonner une).
+      const forme = (c) => c.lignes.slice(1).map((l) => `${l.op}${l.n}`).join();
       for (let e = 0; e < 20 && !col; e++) {
         try { col = genererColonneGeste({ cible, mode, chiffres, lignes: n, appris }, memoire); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; }
+        if (col && e < 19 && cols.some((x) => forme(x) === forme(col))) col = null;
       }
       for (let e = 0; e < 10 && !col; e++) {
         try {

@@ -178,7 +178,7 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
   // Une forme de colonne ne revient pas sur la planche ; à 1 chiffre, les formes possibles sont
   // peu nombreuses : au plus deux fois, puis sans limite plutôt qu'une planche incomplète.
   // 0.40.7 : la ligne de dizaines est un plus : les derniers niveaux s'en passent.
-  const niveaux = [[true, true, 1, 60, true], [true, true, 2, 40, true], [false, true, 2, 30, true], [false, false, 2, 30, false], [false, false, Infinity, 30, false], [true, true, Infinity, 60, false]];
+  const niveaux = [[true, true, 1, 60, true], [true, true, 1, 40, false], [false, true, 1, 30, false], [true, true, 2, 40, true], [false, true, 2, 30, true], [false, false, 2, 30, false], [false, false, Infinity, 30, false], [true, true, Infinity, 60, false]];
   for (const [avecPiege, avecFamille, repetMax, essais, avecDizaine] of niveaux) {
     for (let k = 0; k < essais; k++) {
       const r = essayer(avecPiege, avecFamille, repetMax, avecDizaine);

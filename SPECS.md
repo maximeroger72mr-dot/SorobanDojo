@@ -1415,3 +1415,6 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   12 à 27 % ; aucune soustraction consécutive en p3 ; aucun total sous zéro. La jauge : moins de gestes
   visés par colonne (p3-1 : 2,28 → 1,75) ; l'objectif de la jauge est calculé sur le même générateur,
   il baisse d'autant : la leçon garde à peu près le même nombre de colonnes.
+- Planches ciblées : jamais deux colonnes de même forme sur une planche (les niveaux de repli du
+  générateur pouvaient en redonner une ; le robot le relevait environ une fois sur 20 avant la 0.40.7) ;
+  niveaux de repli sans répétition et sans ligne de dizaines avant d'autoriser une forme répétée.
