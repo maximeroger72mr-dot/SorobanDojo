@@ -22,6 +22,7 @@ import { analyserMotif } from './motifs.js';
 import { entier } from './aleatoire.js';
 
 const hasard = (liste) => liste[Math.floor(Math.random() * liste.length)];
+const melangerListe = (l) => { const x = [...l]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 const ZERO_A_NEUF = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export class ErreurGeneration extends Error {}
@@ -209,9 +210,10 @@ export function scoreVariete(op, n, precedents, libre = true) {
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
  */
-export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [], viser = true }) {
+export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [], viser = true, plafond = null }) {
   const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
   let meilleur = null;
+  let secours = null; // au-dessus du plafond : gardé seulement si rien d'autre n'est possible
   let valides = 0;
   for (let essai = 0; essai < 2500 && valides < 15; essai++) {
     if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
@@ -250,6 +252,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     if (!a || !respecte(a.motifs, autorises)) continue;
     if (cible && !a.motifs.includes(cible)) continue;
     if (preparer && !permet(a.resultat, preparer, chiffres)) continue;
+    if (plafond && a.resultat >= plafond) { secours ??= { op, n, resultat: a.resultat, motifs: a.motifs, score: 0 }; continue; }
     valides += 1;
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
@@ -257,8 +260,25 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     const score = (cibles ? (viser ? 1 : 0.3) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
+  if (!meilleur && secours) return secours;
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');
   return meilleur;
+}
+
+/**
+ * 0.40.7 : part des lignes « de sens inverse » dans une leçon ou une planche dont tous les gestes
+ * visés vont dans le même sens (soustractions dans une leçon d'addition, additions dans une leçon de
+ * soustraction). Avant, chaque ligne visée suivait le sens des gestes visés : en p3-4 (grands amis en
+ * addition), 1 % de soustractions, et des colonnes qui gonflaient jusqu'à 4 000.
+ */
+export const PART_INVERSE = 0.25;
+/** Lignes de dizaines (±10 à ±40) : hors format de référence, à 1 chiffre, une par colonne au plus. */
+export const DIZAINES = [10, 20, 30, 40];
+/** Sens unique des gestes visés ('+' ou '-'), ou null (leçon mixte). */
+export function sensUnique(cibles, ops = ['+', '-']) {
+  if (!cibles?.length || !ops.includes('+') || !ops.includes('-')) return null;
+  const s = new Set(cibles.map((c) => analyserMotif(c).op));
+  return s.size === 1 ? [...s][0] : null;
 }
 
 /**
@@ -324,7 +344,14 @@ export function colonneValide(col, cibles = [], strict = true) {
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false }) {
+  // 0.40.7 : sens inverse (voir PART_INVERSE) ; total plafonné à une tige au-dessus du format (avant,
+  // jusqu'à trois), sauf format d'examen ; une ligne de dizaines au plus (hors référence, 1 chiffre).
+  const sens = sensUnique(cibles, ops);
+  const inverse = sens === '+' ? '-' : sens === '-' ? '+' : null;
+  const plafond = longueurFixe || !ops.includes('-') ? null : 10 ** (Math.max(chiffres, departChiffres ?? 0) + 1);
+  const posDizaine = dizaines && inverse && chiffres === 1 && lignes >= 4 ? entier(2, lignes - 1) : null;
+  const nbInverses = Math.floor(partInverse * (lignes - 1) + Math.random());
   let liste;
   let motifs;
   let valeur;
@@ -388,22 +415,44 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     const pb = cibles.map((c) => poids[c] ?? 1);
     const equilibre = Math.max(...pb) <= 1.3 * Math.min(...pb);
     const libre = cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25;
-    let t;
-    try {
-      // Ligne libre : aucun ami visé, mais l'équilibre entre les amis compte toujours dans le score
-      // (sinon les amis « naturellement » fréquents, comme +4, passeraient devant les autres).
-      t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops, zeros, precedents: liste });
-    } catch (e) {
-      if (!(e instanceof ErreurGeneration) || !libre) throw e;
-      t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste });
+    let t = null;
+    // Ligne de dizaines (−10 à −40 dans une leçon d'addition, +10 à +40 en soustraction), à sa
+    // position tirée au hasard ; impossible ici (tige des dizaines trop basse…) : la suivante.
+    if (posDizaine !== null && liste.length >= posDizaine && !liste.some((l) => l.dizaine)) {
+      for (const k of melangerListe(DIZAINES)) {
+        const a = analyserOperation(valeur, inverse, k, tigesPour(chiffres) + 1);
+        if (a && a.resultat >= 0 && respecte(a.motifs, autorises) && (!plafond || a.resultat < plafond) && liste.at(-1).op !== inverse) { t = { op: inverse, n: k, resultat: a.resultat, motifs: a.motifs, dizaine: true }; break; }
+      }
+    }
+    // Ligne de sens inverse : jamais deux de suite ; dans les gestes permis, sans viser d'ami. Le
+    // nombre de lignes inverses de la colonne est fixé au départ (part visée, arrondi au hasard) et
+    // réparti sur les lignes restantes : ni toujours la même ligne, ni en dessous de la part visée
+    // (une ligne inverse n'est pas toujours possible sans emprunt).
+    const faites = liste.slice(1).filter((l) => l.op === inverse).length;
+    const pInverse = (nbInverses - faites) / Math.max(1, lignes - liste.length);
+    if (!t && inverse && liste.length >= 2 && liste.at(-1).op !== inverse && Math.random() < pInverse) {
+      try { t = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops: [inverse], zeros, precedents: liste, plafond }); } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; t = null; }
+    }
+    if (!t) {
+      try {
+        // Ligne libre : aucun ami visé, mais l'équilibre entre les amis compte toujours dans le score
+        // (sinon les amis « naturellement » fréquents, comme +4, passeraient devant les autres).
+        // Leçon d'addition : jamais deux soustractions de suite (une ligne de préparation pouvait en
+        // tirer une). Leçon de soustraction : les soustractions s'enchaînent librement.
+        const sensLigne = inverse && (libre || (sens === '+' && liste.at(-1).op === inverse)) ? [sens] : ops;
+        t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops: sensLigne, zeros, precedents: liste, plafond });
+      } catch (e) {
+        if (!(e instanceof ErreurGeneration) || !libre) throw e;
+        t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste, plafond });
+      }
     }
     // Jamais de redondance qu'on devine sans calculer : le même nombre deux fois de suite
     // (+9 +9), ou un ping-pong (+4 −1 +4 −1). On remplace alors la ligne par une ligne libre
     // (gestes permis, sans viser l'ami) quand c'est possible.
-    if (redondante(liste, t)) {
+    if (redondante(liste, t) && !t.dizaine) {
       for (let k = 0; k < 4; k++) {
         try {
-          const autre = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops, zeros, precedents: liste });
+          const autre = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops: inverse ? [t.op] : ops, zeros, precedents: liste, plafond });
           if (!redondante(liste, autre)) { t = autre; break; }
         } catch (e) {
           if (!(e instanceof ErreurGeneration)) throw e;
@@ -412,7 +461,7 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
       }
     }
     compterVus(t.motifs);
-    liste.push({ op: t.op, n: t.n });
+    liste.push(t.dizaine ? { op: t.op, n: t.n, dizaine: true } : { op: t.op, n: t.n });
     motifs.push(...t.motifs);
     motifsLignes.push(t.motifs);
     valeur = t.resultat;
@@ -458,7 +507,9 @@ export function genererColonneVariee(params, memoire) {
     // Une ligne de plus, choisie pour donner un résultat nouveau.
     for (let essai = 0; essai < 20; essai++) {
       try {
-        const t = genererTerme(col.resultat, { ...params, poids: params.poids ?? {}, precedents: col.lignes });
+        const sens = sensUnique(params.cibles, params.ops);
+        const opsLigne = sens === '+' && col.lignes.at(-1).op === '-' ? ['+'] : params.ops;
+        const t = genererTerme(col.resultat, { ...params, ops: opsLigne, poids: params.poids ?? {}, precedents: col.lignes });
         if (memoire.resultats.includes(t.resultat) || uniteUsee(t.resultat)) continue;
         col = { ...col, lignes: [...col.lignes, { op: t.op, n: t.n }], resultat: t.resultat, motifs: [...col.motifs, ...t.motifs] };
         break;

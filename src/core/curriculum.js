@@ -776,7 +776,8 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
     let col;
     for (let i = 0; i < 20; i++) {
       col = genererColonneVariee({
-        chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true,
+        // 0.40.7 : pas de lignes de sens inverse en anzan (chaînes courtes : elles raréfiaient les gestes rares).
+        chiffres: sp.chiffres, lignes: ctx.lignes ?? sp.lignes, autorises: sp.autorises, cibles: sp.cibles, poids, premierCourt: true, partInverse: 0,
       }, memoireDe(sp.id));
       if (!col.lignes.some((l, k) => k > 0 && l.n === col.lignes[k - 1].n)) break;
     }
@@ -796,7 +797,8 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // Après les grands amis (toutes les retenues apprises), les colonnes à plusieurs chiffres suivent
   // le format d'examen : premier nombre à la longueur annoncée.
   const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
-  return genererColonneVariee({ chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres }, m);
+  // 0.40.7 : hors format de référence (montée, endurance), une ligne de dizaines au plus (±10 à ±40).
+  return genererColonneVariee({ chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
 }
 
 /**

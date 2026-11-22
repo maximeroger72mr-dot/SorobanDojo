@@ -17,7 +17,7 @@
  * Les règles de qualité de colonneValide s'appliquent en plus.
  */
 
-import { analyserOperation, colonneValide, ErreurGeneration, horsDelai } from './generateur.js';
+import { analyserOperation, colonneValide, ErreurGeneration, horsDelai, DIZAINES } from './generateur.js';
 import { analyserMotif, famille } from './motifs.js';
 
 const DIRECTS = new Set(famille('direct'));
@@ -78,9 +78,10 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
   // Pièges : le même signe et le même chiffre, fait par un autre geste déjà connu (direct d'abord).
   const pieges = ['direct', 'petit', 'grand', 'mixte'].filter((r) => r !== regle).map((r) => `${opG}${dG}:${r}`).filter((c) => DIRECTS.has(c) || appris.has(c));
   const permisP = new Set(pieges);
+  const inverse = opG === '+' ? '-' : '+';
   const permisF = new Set(autresFamille);
 
-  const essayer = (avecPiege, avecFamille, repetMax) => {
+  const essayer = (avecPiege, avecFamille, repetMax, avecDizaine = true) => {
     const ops = lignes - 1;
     // Le geste 2 fois ; 3 sur une colonne de 7 lignes à 2 chiffres et plus. À 1 chiffre, toujours
     // 2 : le piège porte la même valeur (« −2 »), il faut lui laisser de la place.
@@ -99,6 +100,9 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       if (r.every((x, i) => !(x === 'G' && r[i - 1] === 'G'))) roles = r;
     }
     if (!roles) return null;
+    // 0.40.7 : à 1 chiffre, une ligne directe (au hasard) devient, si possible, une ligne de dizaines.
+    const iZ = chiffres === 1 && avecDizaine ? roles.map((r, i) => (r === 'D' ? i : -1)).filter((i) => i > 0) : [];
+    const posZ = iZ.length ? iZ[entier(0, iZ.length - 1)] : -1;
 
     const convient = (role, a) => {
       const ms = a.motifs;
@@ -110,6 +114,8 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       return ms.every((m) => DIRECTS.has(m) && !permisP.has(m));
     };
     const ligneDe = (valeur, role) => {
+      // 0.40.7 : ligne de dizaines (−10 à −40 sur une planche d'addition, +10 à +40 en soustraction).
+      if (role === 'Z') return DIZAINES.map((n) => ({ op: inverse, n, a: analyserOperation(valeur, inverse, n, nbTiges) })).filter((c) => c.a && c.a.resultat >= 0 && convient('D', c.a));
       const opR = role === 'G' || role === 'P' ? opG : null;
       return candidats(chiffres, opR, role === 'G' || role === 'P' ? dG : undefined)
         .map((c) => ({ ...c, a: analyserOperation(valeur, c.op, c.n, nbTiges) }))
@@ -130,9 +136,10 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     const motifsLignes = [[]];
     const valeursCol = {};
     let valeur = depart;
-    for (const [i, role] of roles.entries()) {
+    for (const [i, role0] of roles.entries()) {
       const prec = liste.length > 1 ? liste.at(-1) : null;
       const prec2 = liste.length > 2 ? liste.at(-2) : null;
+      const role = i === posZ && prec?.op !== inverse && ligneDe(valeur, 'Z').length ? 'Z' : role0;
       const cands = ligneDe(valeur, role).filter((c) => {
         const v = `${c.op}${c.n}`;
         if (prec && prec.n === c.n) return false; // ni répétition, ni annulation (+2 −2)
@@ -144,7 +151,10 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       if (!cands.length) return null;
       // Poids : les valeurs directes déjà très vues sur la planche passent derrière ; le geste et
       // le piège changent de forme dans la colonne quand c'est possible (−2, −12, −20…).
-      const poids = cands.map((c) => (role === 'D' ? 1 / (1 + (memoire.valeurs[`${c.op}${c.n}`] ?? 0)) ** 2 : valeursCol[`${c.op}${c.n}`] ? 0.1 : 1));
+      // 0.40.7 : les lignes directes changent plus souvent de sens que le geste (soustraction sur une
+      // planche d'addition…), mais jamais deux lignes de sens inverse de suite.
+      const sensD = (c) => (c.op !== inverse ? 1 : prec?.op === inverse ? 0.1 : 2.5);
+      const poids = cands.map((c) => (role === 'D' ? sensD(c) / (1 + (memoire.valeurs[`${c.op}${c.n}`] ?? 0)) ** 2 : valeursCol[`${c.op}${c.n}`] ? 0.1 : 1));
       let choisi = null;
       for (let k = 0; k < 8 && !choisi; k++) {
         let x = Math.random() * poids.reduce((s, w) => s + w, 0);
@@ -167,10 +177,11 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
   // Strict d'abord ; puis sans piège, puis sans famille (le geste ne le permet pas toujours).
   // Une forme de colonne ne revient pas sur la planche ; à 1 chiffre, les formes possibles sont
   // peu nombreuses : au plus deux fois, puis sans limite plutôt qu'une planche incomplète.
-  const niveaux = [[true, true, 1, 60], [true, true, 2, 40], [false, true, 2, 30], [false, false, 2, 30], [false, false, Infinity, 30]];
-  for (const [avecPiege, avecFamille, repetMax, essais] of niveaux) {
+  // 0.40.7 : la ligne de dizaines est un plus : les derniers niveaux s'en passent.
+  const niveaux = [[true, true, 1, 60, true], [true, true, 2, 40, true], [false, true, 2, 30, true], [false, false, 2, 30, false], [false, false, Infinity, 30, false], [true, true, Infinity, 60, false]];
+  for (const [avecPiege, avecFamille, repetMax, essais, avecDizaine] of niveaux) {
     for (let k = 0; k < essais; k++) {
-      const r = essayer(avecPiege, avecFamille, repetMax);
+      const r = essayer(avecPiege, avecFamille, repetMax, avecDizaine);
       if (!r) continue;
       memoire.formes.set(r.forme, (memoire.formes.get(r.forme) ?? 0) + 1);
       memoire.premiers.add(r.col.lignes[0].n);

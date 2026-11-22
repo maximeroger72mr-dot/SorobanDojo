@@ -1383,3 +1383,35 @@ Défauts signalés après la 0.38.1.
   dans la jauge.
 - Sur une feuille, le temps se répartit entre les colonnes au prorata de leur longueur (avant : à
   parts égales, ce qui faussait la vitesse d'une feuille aux colonnes de longueurs différentes).
+
+## Version 0.40.7 : variété des colonnes (sens des lignes)
+
+Constat (mesuré) : le générateur construisait déjà chaque ligne tige par tige à partir du total en
+cours, dans les gestes autorisés ; le biais venait du SENS des lignes : une ligne qui vise un geste de
+la leçon prend son sens, et en p3 tous les gestes visés sont des additions. En p3-4 : 1 % de
+soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, aucune sur les dizaines.
+
+- **Part de sens inverse** (`PART_INVERSE` = 25 %, réglage du générateur `partInverse`) dans une
+  leçon ou une planche dont tous les gestes visés vont dans le même sens : soustractions dans une
+  leçon d'addition (p3, +9 grand ami…), additions dans une leçon de soustraction (p4, −2 petit ami…).
+  Le nombre de lignes inverses d'une colonne est fixé au départ et réparti au hasard sur les lignes
+  restantes (pas toujours la même ligne). Leçons mixtes et de synthèse : rien ne change. Anzan : rien
+  ne change (chaînes courtes).
+  - Leçon d'addition : jamais deux soustractions de suite (lignes de préparation et ligne ajoutée
+    pour varier le résultat comprises).
+  - Leçon de soustraction : les soustractions s'enchaînent librement ; jamais sous zéro.
+  - Format de référence à 1 chiffre : la ligne inverse se fait sur les unités, sans emprunt (−1 à −4,
+    −5 direct…) ; impossible à cet endroit : la ligne garde le sens de la leçon.
+- **Lignes de dizaines** (−10 à −40 dans une leçon d'addition, +10 à +40 en soustraction) : hors
+  format de référence seulement (montée, endurance, planches à 1 chiffre), une par colonne au plus, à
+  une position tirée au hasard. Planches ciblées : une ligne directe devient, si possible, une ligne
+  de dizaines (les derniers niveaux de repli s'en passent).
+- Planches ciblées : les lignes directes changent plus souvent de sens que le geste, jamais deux
+  lignes de sens inverse de suite (sauf repli).
+- **Total plafonné** à une tige au-dessus du format de la colonne (avant : trois) ; le format d'examen
+  garde sa règle. Plafond « souple » : une ligne au-dessus n'est prise que si aucune autre n'est
+  possible.
+- Mesures (200 colonnes) : soustractions en p3-1 de 10 à 24 %, p3-4 de 1 à 24 % ; p4-1, additions de
+  12 à 27 % ; aucune soustraction consécutive en p3 ; aucun total sous zéro. La jauge : moins de gestes
+  visés par colonne (p3-1 : 2,28 → 1,75) ; l'objectif de la jauge est calculé sur le même générateur,
+  il baisse d'autant : la leçon garde à peu près le même nombre de colonnes.

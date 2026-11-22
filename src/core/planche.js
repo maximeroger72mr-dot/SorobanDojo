@@ -80,7 +80,8 @@ export function genererPlanche(spec, graine) {
     const { chiffres, lignes, colonnes: nb, autorises = null, cibles, poids = {}, zeros = false, profil = 'rampe', ops, longueurFixe = false } = spec;
     // ops : ['+'] pour une planche d'additions seules (les gestes visés sont alors ceux d'addition).
     // longueurFixe : premier nombre à la longueur annoncée (format d'examen, après les grands amis).
-    const base = { chiffres, lignes, autorises, cibles, zeros, longueurFixe, ...(ops ? { ops } : {}) };
+    // 0.40.7 : planches à 1 chiffre : une ligne de dizaines au plus par colonne (voir generateur.js).
+    const base = { chiffres, lignes, autorises, cibles, zeros, longueurFixe, dizaines: chiffres === 1, ...(ops ? { ops } : {}) };
     const realisables = ciblesRealisables(base);
     const vus = {};
     // Un geste pas encore vu sur la planche passe devant ; un geste déjà vu recule.
