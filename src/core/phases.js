@@ -66,7 +66,8 @@ export function phasesLecon(sp) {
     return { genre: deuxTrois ? 'deuxTrois' : 'amis', ordre: [
       { id: 'reference', reference: true, titre: 'Référence', format: null },
       { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart } },
-      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: c, lignes: 10, ...depart } },
+      // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (`amis`).
+      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: c, lignes: 10, amis: true, ...depart } },
     ] };
   }
   if (['p8', 'p9'].includes(pal) && sp.lignes >= 10) {

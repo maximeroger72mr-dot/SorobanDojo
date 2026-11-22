@@ -1434,3 +1434,15 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   favorisait les places les plus faciles : en p3-2 et p3-3, la 3e ligne recevait deux fois plus de
   lignes inverses que les autres. Les premiers essais exigent chaque ligne inverse à sa place ; en
   dernier recours seulement, elle est reportée plus loin.
+
+## Version 0.40.9 : les autres amis en endurance
+
+- **Format de référence inchangé** (mini-test, médaille) ; **montée et planches « seul »** : les lignes
+  sans geste visé restent des gestes directs (le geste en cours d'apprentissage reste le seul qui
+  demande une décision).
+- **Endurance** (leçons d'amis et « 2 et 3 chiffres ») : une ligne au plus par colonne avec un AUTRE
+  ami déjà appris (petits amis dans une leçon de grands amis, grands amis des leçons précédentes…), à
+  une place tirée au hasard. Il ne compte pas dans la jauge (pas un geste visé) ; une erreur sur lui ne
+  déclenche pas le filet. Première leçon de petits amis : aucun autre ami, rien ne change.
+- **Jamais de combinaison de deux amis ni de cascade avant p5**, dans aucune phase (garanti par les
+  gestes autorisés, vérifié par un test sur toutes les leçons de p1 à p4).

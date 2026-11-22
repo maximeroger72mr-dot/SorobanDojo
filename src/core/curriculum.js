@@ -584,7 +584,8 @@ export const SOUS_PALIERS = (() => {
       }
       // Anzan : les gestes vus jusqu'à la leçon soroban qu'il suit.
       if (type === 'anzan') autorises = new Set(vusApres[sp.apres] ?? vus);
-      liste.push({ type, ops: ['+', '-'], ...sp, autorises, palier, mental, ordre: liste.length });
+      // `appris` : tous les gestes vus jusqu'à cette leçon comprise (0.40.9, ligne d'un autre ami en endurance).
+      liste.push({ type, ops: ['+', '-'], ...sp, autorises, appris: type === 'addsub' ? new Set(vus) : null, palier, mental, ordre: liste.length });
       vusApres[sp.id] = new Set(vus);
     }
   }
@@ -798,7 +799,21 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // le format d'examen : premier nombre à la longueur annoncée.
   const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
   // 0.40.7 : hors format de référence (montée, endurance), une ligne de dizaines au plus (±10 à ±40).
-  return genererColonneVariee({ chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
+  // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (voir amisAppris).
+  const amis = f?.amis ? amisAppris(sp) : null;
+  return genererColonneVariee({ ...(amis ? { ligneAmi: amis } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
+}
+
+/**
+ * Autres amis déjà appris à cette leçon (0.40.9) : ni gestes directs, ni gestes visés par la leçon ;
+ * jamais de combinaison de deux amis (mixte) ni de cascade avant les combinaisons (p5). Null s'il
+ * n'y en a pas (première leçon de petits amis).
+ */
+export function amisAppris(sp) {
+  const avantP5 = ['p2', 'p3', 'p4'].includes(sp.palier?.id);
+  const l = [...(sp.appris ?? [])].filter((m) => !m.endsWith(':direct') && !sp.cibles?.includes(m)
+    && !(avantP5 && (m.endsWith(':mixte') || m.startsWith('cascade'))));
+  return l.length ? l : null;
 }
 
 /**
