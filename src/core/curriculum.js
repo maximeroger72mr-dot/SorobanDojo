@@ -800,8 +800,9 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
   // 0.40.7 : hors format de référence (montée, endurance), une ligne de dizaines au plus (±10 à ±40).
   // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (voir amisAppris).
+  // 0.40.10 : à partir des grands amis, une part d'autres amis tirée par colonne (`partAmis`).
   const amis = f?.amis ? amisAppris(sp) : null;
-  return genererColonneVariee({ ...(amis ? { ligneAmi: amis } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
+  return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
 }
 
 /**

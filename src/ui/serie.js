@@ -116,6 +116,7 @@ export function creerSerie(conteneur, o) {
   // Annoncé aux lecteurs d'écran : juste / faux, résultat attendu.
   const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
   const zoneDiag = h('div', {});
+  const ligneSaisie = h('div', { class: 'ligne ligne-saisie' }, btnSigne, saisie, btnValider, btnBloque);
   const racine = h('div', { class: 'serie' },
     // Options repliées : pendant le calcul, seuls la colonne, la saisie et un petit chrono restent.
     h('div', { class: 'ligne' }, pastilles, h('span', { style: 'flex:1' }),
@@ -123,7 +124,7 @@ export function creerSerie(conteneur, o) {
       fantome, chrono, compteur),
     course?.el ?? null,
     h('div', { class: 'disposition-enonce' }, zoneEnonce, chronoExo),
-    h('div', { class: 'ligne ligne-saisie' }, btnSigne, saisie, btnValider, btnBloque),
+    ligneSaisie,
     zoneAide, retour, zoneDiag);
   conteneur.append(racine);
   saisie.addEventListener('input', () => {
@@ -242,7 +243,23 @@ export function creerSerie(conteneur, o) {
       }, DUREE_ENONCE_MENTAL_MS);
     }
     if (ex.flash) jouerFlash(ex);
-    else saisie.focus();
+    else {
+      saisie.focus({ preventScroll: true });
+      cadrer();
+      if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(cadrer); // après la mise en page
+    }
+  }
+
+  /**
+   * Colonne longue (0.40.10) : la saisie restait sous le bas de l'écran (la case déjà active ne
+   * fait pas défiler la page). On descend juste assez pour voir la colonne entière et la saisie,
+   * sans cacher le haut de la série.
+   */
+  function cadrer() {
+    if (typeof window === 'undefined' || !racine.isConnected || !ligneSaisie.scrollIntoView) return;
+    if (ligneSaisie.getBoundingClientRect().bottom <= window.innerHeight) return;
+    ligneSaisie.scrollIntoView({ block: 'end', behavior: 'instant' });
+    if (racine.getBoundingClientRect().top < 0) racine.scrollIntoView({ block: 'start', behavior: 'instant' });
   }
 
   /**

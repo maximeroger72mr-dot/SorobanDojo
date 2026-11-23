@@ -69,7 +69,9 @@ export function rendreEnonce(ex, o = {}) {
     if (!avant || avant[i] < 0) return null;
     return h('td', { class: 'doigte' }, i === 0 ? 'poser' : doigte(avant[i], l.op, l.n).join(' / '));
   };
-  return h('table', { class: `colonne${o.compact ? ' compacte' : ''}` },
+  // Colonne longue (9 lignes et plus) : lignes resserrées, pour la voir en entier avec la saisie.
+  const longue = !o.compact && ex.lignes.length >= 9;
+  return h('table', { class: `colonne${o.compact ? ' compacte' : ''}${longue ? ' longue' : ''}` },
     ex.lignes.map((l, i) => h('tr', { class: `${o.surLigne ? 'cliquable' : ''}${o.surligne === i ? ' ligne-probable' : ''}`, onclick: o.surLigne ? () => o.surLigne(i) : null },
       o.numeros ? h('td', { class: 'num' }, i + 1) : null,
       h('td', { class: 'signe' }, i === 0 ? '' : signe(l.op)),

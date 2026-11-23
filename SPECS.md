@@ -1446,3 +1446,20 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   déclenche pas le filet. Première leçon de petits amis : aucun autre ami, rien ne change.
 - **Jamais de combinaison de deux amis ni de cascade avant p5**, dans aucune phase (garanti par les
   gestes autorisés, vérifié par un test sur toutes les leçons de p1 à p4).
+
+## Version 0.40.10 : plus d'autres amis à partir des grands amis, colonnes longues cadrées
+
+- **À partir des grands amis (p3, p4)**, montée et endurance : les lignes sans geste visé deviennent
+  des AUTRES amis déjà appris (petits amis, grands amis des leçons précédentes) chaque fois que la tige
+  le permet, au lieu de gestes directs de remplissage. Le nombre d'autres amis est tiré pour CHAQUE
+  colonne : 20 à 40 % des lignes en montée, 45 à 65 % en endurance (plafond : pas de proportion fixe).
+  Ils ne prennent jamais la place du geste visé (sa part ne baisse pas, la leçon ne s'allonge pas) ; de
+  préférence un ami après lequel le geste visé reste possible. En leçon d'addition, quand seul le sens
+  inverse permet un ami, une soustraction de plus au plus est admise (≈ 30 % au lieu de 25 %) ;
+  jamais deux soustractions de suite. En leçon de soustraction, les additions restent à 25 %. Mesure (1 chiffre, endurance) : environ 30 % de
+  geste visé, 35 à 50 % d'autres amis, le reste en directs (dont la ligne de dizaines) : à 1 chiffre,
+  une tige vide (0) ou presque pleine n'admet souvent aucun autre ami.
+- **Référence, mini-test, planches « seul »** : inchangés. **Petits amis (p2)** : inchangé (une ligne
+  au plus en endurance) : trop peu d'amis appris.
+- **Colonnes longues** (9 lignes et plus) : lignes resserrées, et la page se cale d'elle-même pour
+  montrer la colonne entière et la saisie (la case déjà active ne faisait pas défiler la page).

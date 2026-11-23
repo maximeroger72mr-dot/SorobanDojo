@@ -20,14 +20,16 @@ test('0.40.9 : pas de combinaison de deux amis ni de cascade avant p5, dans aucu
   }
 });
 
-test('0.40.9 : un autre ami déjà appris, une ligne au plus, en endurance seulement', () => {
+test('0.40.9 : un autre ami déjà appris, une ligne au plus, en endurance seulement (petits amis)', () => {
   assert.equal(amisAppris(sp('p2-1')), null, 'première leçon de petits amis : aucun autre');
-  const am = amisAppris(sp('p3-2'));
-  assert.ok(am.includes('+4:petit') && am.includes('+9:grand') && !am.includes('+7:grand'));
-  const plan = phasesLecon(sp('p3-2'));
+  const am3 = amisAppris(sp('p3-2'));
+  assert.ok(am3.includes('+4:petit') && am3.includes('+9:grand') && !am3.includes('+7:grand'));
+  // 0.40.10 : à partir des grands amis, voir lot0410 ; ici, les petits amis (p2).
+  const am = amisAppris(sp('p2-5'));
+  const plan = phasesLecon(sp('p2-5'));
   const nb = (c) => c.motifsLignes.slice(1).filter((ms) => ms.some((m) => am.includes(m))).length;
   for (const ph of plan.ordre) {
-    const cols = Array.from({ length: 40 }, () => genererExercice(sp('p3-2'), {}, ph.format ? { format: ph.format } : {}));
+    const cols = Array.from({ length: 40 }, () => genererExercice(sp('p2-5'), {}, ph.format ? { format: ph.format } : {}));
     if (ph.id === 'endurance') {
       assert.ok(cols.every((c) => nb(c) <= 1));
       assert.ok(cols.filter((c) => nb(c) === 1).length >= 30);

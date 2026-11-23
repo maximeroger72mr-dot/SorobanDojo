@@ -55,6 +55,9 @@ export const enduranceExigee = (plan) => (plan && !plan.rampe && plan.ordre.some
 /** Colonnes de référence à faire avant le mini-test : 40 % des répétitions de la leçon (0.41). */
 export const referenceMin = (sp) => Math.max(1, Math.round(PART_REFERENCE * (sp.repetitions ?? 0)));
 
+/** Part des lignes d'autres amis (à partir des grands amis), tirée pour chaque colonne (0.40.10). */
+export const PART_AMIS = { montee: [0.2, 0.4], endurance: [0.45, 0.65] };
+
 /** Le plan de phases d'une leçon de colonnes, ou null (leçon sans phases : × ÷, anzan, lecture…). */
 export function phasesLecon(sp) {
   if (!sp || sp.type !== 'addsub' || sp.mental || !sp.cibles?.length) return null;
@@ -63,11 +66,17 @@ export function phasesLecon(sp) {
   if (['p2', 'p3', 'p4'].includes(pal) || deuxTrois) {
     const c = deuxTrois ? 3 : sp.chiffres;
     const depart = sp.departChiffres ? { departChiffres: sp.departChiffres } : {};
+    // 0.40.10 : à partir des grands amis (p3), les lignes sans geste visé piochent largement dans
+    // les autres amis appris, part tirée pour chaque colonne : 20 à 40 % en montée, 45 à 65 % en
+    // endurance. Petits amis (p2) : une ligne au plus en endurance (0.40.9), trop peu d'amis appris.
+    const grands = pal !== 'p2';
+    const amisMontee = grands ? { amis: true, partAmis: PART_AMIS.montee } : {};
+    const amisEndurance = grands ? { amis: true, partAmis: PART_AMIS.endurance } : { amis: true };
     return { genre: deuxTrois ? 'deuxTrois' : 'amis', ordre: [
       { id: 'reference', reference: true, titre: 'Référence', format: null },
-      { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart } },
+      { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart, ...amisMontee } },
       // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (`amis`).
-      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: c, lignes: 10, amis: true, ...depart } },
+      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: c, lignes: 10, ...depart, ...amisEndurance } },
     ] };
   }
   if (['p8', 'p9'].includes(pal) && sp.lignes >= 10) {

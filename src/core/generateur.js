@@ -362,7 +362,7 @@ export function colonneValide(col, cibles = [], strict = true) {
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false, exigerPlaces = false, planImpose = null, ligneAmi = null }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false, exigerPlaces = false, planImpose = null, ligneAmi = null, partAmis = null }) {
   // 0.40.7 : sens inverse (voir PART_INVERSE) ; total plafonné à une tige au-dessus du format (avant,
   // jusqu'à trois), sauf format d'examen ; une ligne de dizaines au plus (hors référence, 1 chiffre).
   const sens = sensUnique(cibles, ops);
@@ -376,7 +376,13 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
   // 0.40.9 : une ligne au plus avec un autre ami déjà appris (endurance), à une place tirée au hasard
   // (à partir de la 3e ligne) ; impossible à cet endroit : la suivante.
   const autorisesAmi = ligneAmi ? new Set([...(autorises ?? []), ...ligneAmi]) : null;
-  const posAmi = ligneAmi && lignes >= 4 ? entier(2, lignes - 1) : null;
+  // 0.40.10 : à partir des grands amis, plusieurs lignes d'autres amis : leur nombre est tiré pour
+  // CHAQUE colonne dans la fourchette `partAmis` (ex. 45 à 65 % des lignes en endurance). Elles
+  // prennent la place des lignes directes (préparation, ligne inverse), jamais celle du geste visé ;
+  // le nombre tiré est un plafond (la tige ne permet pas toujours un autre ami).
+  const posAmi = ligneAmi && !partAmis && lignes >= 4 ? entier(2, lignes - 1) : null;
+  let amisRestants = ligneAmi && partAmis && lignes >= 4
+    ? Math.min(lignes - 2, Math.round((partAmis[0] + Math.random() * (partAmis[1] - partAmis[0])) * (lignes - 1))) : 0;
   const placesInverses = new Set(plan.places);
   const reporter = (p) => {
     placesInverses.delete(p);
@@ -436,6 +442,25 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
   const vus = {};
   const compterVus = (ms) => ms.forEach((m) => { vus[m] = (vus[m] ?? 0) + 1; });
   compterVus(premiere.motifs);
+  // Ligne d'un autre ami appris, dans les sens donnés ; null si impossible ici. Les amis peu vus
+  // dans la colonne passent devant (variété).
+  // De préférence une ligne après laquelle un geste visé reste possible (elle remplace souvent une
+  // ligne de préparation).
+  const EXTRA_INVERSE_AMI = 1;
+  const ciblesSens = cibles.filter((c) => ops.includes(analyserMotif(c).op));
+  const ligneAutreAmi = (sensVoulus) => {
+    const poidsAmi = Object.fromEntries(ligneAmi.map((c) => [c, 1 / (1 + (vus[c] ?? 0)) ** 2]));
+    let repli = null;
+    for (let k = 0; k < 4; k++) {
+      try {
+        const a = genererTerme(valeur, { chiffres, autorises: autorisesAmi, cibles: ligneAmi, poids: poidsAmi, ops: sensVoulus, zeros, precedents: liste, plafond });
+        if (!a.motifs.some((m) => ligneAmi.includes(m))) continue;
+        if (ouvertures(a.resultat, ciblesSens, chiffres) > 0) return { ...a, ami: true };
+        repli ??= { ...a, ami: true };
+      } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; break; }
+    }
+    return repli;
+  };
   while (liste.length < lignes) {
     const poidsLigne = Object.fromEntries(cibles.map((c) => [c, (poids[c] ?? 1) / (1 + (vus[c] ?? 0)) ** 2]));
     // Colonne mélangée (au moins 3 gestes visés) : une ligne sur quatre environ est « libre »
@@ -461,13 +486,14 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // nombre de lignes inverses de la colonne est fixé au départ (part visée, arrondi au hasard) et
     // réparti sur les lignes restantes : ni toujours la même ligne, ni en dessous de la part visée
     // (une ligne inverse n'est pas toujours possible sans emprunt).
-    if (!t && posAmi !== null && liste.length >= posAmi && !liste.some((l) => l.ami)) {
-      try {
-        const opsAmi = sens === '+' && liste.at(-1).op === inverse ? ['+'] : ops;
-        const a = genererTerme(valeur, { chiffres, autorises: autorisesAmi, cibles: ligneAmi, poids: {}, ops: opsAmi, zeros, precedents: liste, plafond });
-        if (a.motifs.some((m) => ligneAmi.includes(m))) t = { ...a, ami: true };
-      } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; }
-    }
+    const ici = liste.length;
+    // Petits amis (p2, 0.40.9) : une ligne au plus, de sens libre (sauf deux soustractions de suite).
+    if (!t && posAmi !== null && liste.length >= posAmi && !liste.some((l) => l.ami)) t = ligneAutreAmi(sens === '+' && liste.at(-1).op === inverse ? ['+'] : ops);
+    // 0.40.10 : à une place inverse, la ligne inverse est un autre ami quand c'est possible.
+    if (!t && amisRestants > 0 && ici >= 2 && inverse && placesInverses.has(ici) && faites < nbInverses && liste.at(-1).op !== inverse) t = ligneAutreAmi([inverse]);
+    // Ligne d'ami tombée à une place inverse : elle compte si elle est de sens inverse, sinon la
+    // ligne inverse est reportée plus loin.
+    if (t?.ami && inverse && placesInverses.has(ici)) { if (t.op === inverse) placesInverses.delete(ici); else reporter(ici); }
     if (!t && inverse && placesInverses.has(liste.length)) {
       if (faites < nbInverses && liste.at(-1).op !== inverse) {
         try { t = genererTerme(valeur, { chiffres, autorises, cibles, viser: false, poids: poidsLigne, ops: [inverse], zeros, precedents: liste, plafond }); } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; t = null; }
@@ -496,6 +522,16 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
         t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste, plafond });
       }
     }
+    // 0.40.10 : une ligne sans geste visé (préparation, ligne inverse) devient un autre ami, dans le même sens.
+    if (amisRestants > 0 && ici >= 2 && !t.ami && !t.dizaine && !t.motifs.some((m) => cibles.includes(m))) {
+      let a = ligneAutreAmi([t.op]);
+      // Sinon un ami de sens inverse, au plus une ligne au-delà de la part inverse (25 %), en leçon
+      // d'addition seulement : à 1 chiffre, après une tige vide ou pleine, seul le sens inverse permet
+      // souvent un autre ami. En soustraction, les additions restent à 25 % (déjà assez d'amis).
+      if (!a && inverse && t.op === sens && liste.at(-1).op !== inverse && faites < nbInverses + (sens === '+' ? EXTRA_INVERSE_AMI : 0)) a = ligneAutreAmi([inverse]);
+      if (a) t = a;
+    }
+    if (t.ami && amisRestants > 0) amisRestants--;
     // Jamais de redondance qu'on devine sans calculer : le même nombre deux fois de suite
     // (+9 +9), ou un ping-pong (+4 −1 +4 −1). On remplace alors la ligne par une ligne libre
     // (gestes permis, sans viser l'ami) quand c'est possible.

@@ -239,6 +239,10 @@ table.colonne tr.cliquable { cursor: pointer; }
 table.colonne tr.cliquable:hover { background: var(--surligne); }
 table.colonne td.jouer { font-size: 0.5em; color: var(--accent); }
 table.colonne.compacte { font-size: 1.15rem; margin: 4px 0; }
+table.colonne.longue { line-height: 1.1; }
+table.colonne.longue td { padding-top: 0; padding-bottom: 0; }
+/* Cadrage automatique d'une colonne longue (ui/serie.js) : un peu d'air sous la saisie. */
+.serie .ligne-saisie { scroll-margin-bottom: 16px; }
 table.colonne.compacte td { padding: 0 4px; }
 .operation { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 10px 0 14px; }
 .operation.compacte { font-size: 1.15rem; margin: 4px 0; }
