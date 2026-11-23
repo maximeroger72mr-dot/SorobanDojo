@@ -620,6 +620,37 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
   return { type: 'addsub', lignes: liste.slice(0, Math.max(lignes, 2)), resultat: valeur, motifs, motifsLignes };
 }
 
+/**
+ * 0.40.13 (marathon) : tige au-dessus des lignes bloquée. Avec des grands amis en addition, chaque
+ * retenue monte d'un cran la tige des dizaines (lignes à 1 chiffre) ; arrivée à 9, la retenue suivante
+ * serait une cascade (interdite avant p5) : plus aucun grand ami possible, le marathon finissait en
+ * petits mouvements sur les unités (18 marathons de 40 lignes sur 30 sans grand ami sur les 20
+ * dernières lignes). Une ligne de dizaines débloque la tige : de préférence un ami appris SUR cette
+ * tige (+60 à +90 : la retenue ouvre une 3e tige, les centaines), sinon un geste direct qui la fait
+ * redescendre (−10 à −90). Symétrique pour les grands amis en soustraction (tige à 0 : emprunt en
+ * cascade). Jamais deux de suite. Null si la tige n'est pas bloquée.
+ */
+export function ligneDizainesDeblocage(v, precedents, { chiffres, cibles, autorises = null, nbTiges = tigesPour(chiffres) + 1 }) {
+  const retenue = cibles.some((k) => /^\+\d:(grand|mixte)$/.test(k));
+  const emprunt = cibles.some((k) => /^-\d:(grand|mixte)$/.test(k));
+  if ((!retenue && !emprunt) || precedents.at(-1)?.deblocage) return null;
+  const p = 10 ** chiffres;
+  const tige = Math.floor(v / p) % 10;
+  if (!((retenue && tige === 9) || (emprunt && tige === 0 && v >= 10 * p))) return null;
+  const candidats = [];
+  for (const op of ['+', '-']) {
+    for (let k = 1; k <= 9; k++) {
+      const a = analyserOperation(v, op, k * p, nbTiges);
+      if (!a || a.resultat < 0 || !respecte(a.motifs, autorises) || Math.floor(a.resultat / p) % 10 === tige) continue;
+      candidats.push({ op, n: k * p, resultat: a.resultat, motifs: a.motifs, deblocage: true, poids: a.motifs.some((m) => !m.endsWith(':direct')) ? 3 : 1 });
+    }
+  }
+  if (!candidats.length) return null;
+  let x = Math.random() * candidats.reduce((s, t) => s + t.poids, 0);
+  for (const t of candidats) { x -= t.poids; if (x <= 0) return t; }
+  return candidats.at(-1);
+}
+
 /** Ligne redondante : même nombre que la précédente, ou ping-pong (+a −b +a −b). */
 export function redondante(liste, t) {
   const p1 = liste.at(-1);

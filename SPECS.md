@@ -1505,3 +1505,15 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - Départ à 2 chiffres (et non 3) en leçon d'addition à 2 chiffres ; un chiffre de plus en soustraction.
 
 **Filet** : en endurance, une erreur qu'on ne sait pas localiser ne déclenche plus le filet.
+
+## Version 0.40.13 : marathon, la tige des dizaines ne bloque plus les grands amis
+
+- Marathon à longueur fixe avec des grands amis : chaque retenue monte la tige au-dessus des lignes
+  (les dizaines à 1 chiffre) ; arrivée à 9, la retenue suivante serait une cascade (interdite avant
+  p5) : plus aucun grand ami possible, le marathon finissait en petits mouvements sur les unités
+  (18 marathons de 40 lignes sur 30 sans grand ami sur les 20 dernières lignes). Désormais une LIGNE
+  DE DIZAINES la débloque, marquée « dizaines » : de préférence un ami appris sur cette tige (+60 à
+  +90 : la retenue ouvre une 3e tige, les centaines), sinon un geste direct qui la fait redescendre
+  (−10 à −90). Symétrique pour les grands amis en soustraction (tige à 0). Jamais deux de suite.
+  Mesure : 0 marathon sur 30 sans grand ami en fin de parcours, 5,7 grands amis en moyenne sur les
+  20 dernières lignes, environ 2 lignes de dizaines par marathon, aucune cascade.

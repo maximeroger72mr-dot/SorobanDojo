@@ -12,7 +12,7 @@
  * chaque sous-total, comme partout.
  */
 
-import { genererColonneVariee, genererTerme, creerMemoire, ErreurGeneration, redondante } from '../core/generateur.js';
+import { genererColonneVariee, genererTerme, creerMemoire, ErreurGeneration, redondante, ligneDizainesDeblocage } from '../core/generateur.js';
 import { localiserErreur } from '../core/diagnostic.js';
 import { tempsParUnite } from '../core/maitrise.js';
 import { noterGestes, noterReponse, poidsAdaptatifs, noterVolume, noterRythme, MESSAGE_RYTHME } from '../core/progression.js';
@@ -106,6 +106,8 @@ export function creerMarathon(conteneur, o) {
    * une autre ligne est possible.
    */
   function ligne(v, precedents = []) {
+    const deblocage = ligneDeblocage(v, precedents);
+    if (deblocage) return deblocage;
     const poids = poidsAdaptatifs(c.cibles);
     const poidsLigne = Object.fromEntries(c.cibles.map((k) => [k, (poids[k] ?? 1) / (1 + (vus[k] ?? 0) % 6) ** 2]));
     let t;
@@ -125,6 +127,12 @@ export function creerMarathon(conteneur, o) {
       }
     }
     return t;
+  }
+
+  /** 0.40.13 : tige au-dessus des lignes pleine (ou vide) : une ligne de dizaines la débloque (voir core). */
+  function ligneDeblocage(v, precedents) {
+    if (o.chiffresMax > o.chiffres || o.cascade) return null;
+    return ligneDizainesDeblocage(v, precedents, { chiffres: o.chiffres, cibles: c.cibles, autorises: c.autorises, nbTiges: tiges(v) + 1 });
   }
 
   /** Le geste visé peut-il partir de cette valeur (sans relâcher les contraintes) ? */
@@ -157,7 +165,7 @@ export function creerMarathon(conteneur, o) {
     }
     while (lignes.length < T) {
       const t = ligne(v, [{ op: '+', n: v0 }, ...lignes]);
-      lignes.push({ op: t.op, n: t.n });
+      lignes.push(t.deblocage ? { op: t.op, n: t.n, deblocage: true } : { op: t.op, n: t.n });
       motifs.push(...t.motifs);
       v = t.resultat;
     }
@@ -185,7 +193,8 @@ export function creerMarathon(conteneur, o) {
       h('td', { class: 'signe' }, premiere && i === 0 ? '' : l.op === '+' ? '+' : '−'),
       h('td', { class: 'nombre' }, formaterNombre(l.n)),
       o.doigte ? h('td', { class: 'doigte' }, '') : null,
-      l.relance ? h('td', { class: 'relance', title: 'Ligne de relance (geste direct) : elle déplace le soroban pour que la suite ne tourne pas en rond.' }, 'relance') : null))));
+      l.relance ? h('td', { class: 'relance', title: 'Ligne de relance (geste direct) : elle déplace le soroban pour que la suite ne tourne pas en rond.' }, 'relance') : null,
+      l.deblocage ? h('td', { class: 'relance', title: 'Ligne de dizaines : la tige au-dessus était pleine (ou vide), plus aucun grand ami n\'était possible sans cascade. Elle la débloque.' }, 'dizaines') : null))));
     consigne.textContent = premiere
       ? `Soroban à zéro : posez la 1re ligne, calculez les ${T} lignes, tapez le sous-total. Ensuite, on continue sans jamais remettre à zéro.`
       : 'Continuez sur le soroban tel qu\'il est (sans remettre à zéro), puis tapez le nouveau sous-total.';
