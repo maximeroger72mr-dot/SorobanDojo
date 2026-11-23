@@ -15,7 +15,7 @@ import { lireReponse, egal, milliersCorrects } from '../core/nombres.js';
 import { poidsProbleme, ecartAllure, allureGrade } from '../core/allure.js';
 import { rendreEnonce } from './enonce.js';
 import { ouvrirExplication } from './explication.js';
-import { h, formaterDuree, formaterNombre, remplir } from './dom.js';
+import { h, formaterDuree, formaterNombre, remplir, raccourcis } from './dom.js';
 
 /**
  * Liasse de bordereaux (denpyōzan, 伝票算) : un bordereau à la fois, qu'on tourne avec les boutons
@@ -229,7 +229,12 @@ export function creerFeuille(conteneur, o) {
     demande = h('div', { class: 'carte avis confirmation-fin', role: 'alertdialog', 'aria-label': 'Terminer la feuille ?' },
       h('strong', {}, section === null ? 'Avez-vous terminé ? ' : 'Avez-vous terminé cette épreuve ? (on ne revient pas en arrière) '), vides ? `${vides} réponse${vides > 1 ? 's' : ''} vide${vides > 1 ? 's' : ''}. ` : 'Toutes les réponses sont remplies. ',
       limiteMs ? 'Le chrono continue. ' : '', h('div', { class: 'ligne', style: 'margin-top:8px' }, oui, non));
-    demande.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); depuis.focus(); } });
+    demande.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); depuis.focus(); }
+      // 0.40.13 : Entrée sur « Oui » traitée ici (avant : l'activation par défaut du bouton, qu'un
+      // raccourci d'un autre écran resté actif pouvait annuler) ; « Non » garde son propre Entrée.
+      if (e.key === 'Enter' && e.target !== non) { e.preventDefault(); e.stopPropagation(); fermer(); action(); }
+    });
     depuis.closest('.probleme')?.after(demande) ?? racine.append(demande);
     oui.focus();
   }
@@ -326,11 +331,25 @@ export function creerFeuille(conteneur, o) {
     return ligne;
   }
 
+  // 0.40.13 : Entrée hors d'une case (focus perdu après un clic, un défilement) : la question de fin
+  // s'ouvre quand toutes les cases sont remplies, et Entrée y répond « Oui ».
+  const sansRaccourcis = raccourcis({
+    Enter: (e) => {
+      if (fini || !racine.isConnected || e.target?.closest?.('.feuille input, button, select, textarea, a')) return false;
+      if (demande) { demande.querySelector('.btn.principal')?.click(); return undefined; }
+      const actives = cases.filter((c) => !c.input.disabled);
+      if (!actives.length || actives.some((c) => c.input.value.trim() === '')) return false;
+      demanderFin(actives.at(-1).inputReste ?? actives.at(-1).input, parEpreuve && courante < o.sections.length - 1 ? passerEpreuve : corriger, parEpreuve ? courante : null);
+      return undefined;
+    },
+  });
+
   return {
     corriger,
     detruire() {
       fini = true;
       clearInterval(minuterie);
+      sansRaccourcis();
       racine.remove();
     },
   };

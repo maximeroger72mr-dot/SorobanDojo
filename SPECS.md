@@ -1517,3 +1517,10 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   (−10 à −90). Symétrique pour les grands amis en soustraction (tige à 0). Jamais deux de suite.
   Mesure : 0 marathon sur 30 sans grand ami en fin de parcours, 5,7 grands amis en moyenne sur les
   20 dernières lignes, environ 2 lignes de dizaines par marathon, aucune cascade.
+
+## Version 0.40.14 : Entrée pour finir une feuille
+
+- Feuilles (planches, feuille de 10, examens) : Entrée sur la question « Avez-vous terminé ? » est
+  traitée par la question elle-même (avant : l'activation par défaut du bouton « Oui », qu'un
+  raccourci clavier resté actif d'un autre écran pouvait annuler). Entrée hors d'une case (focus perdu
+  après un clic ou un défilement) ouvre la question quand toutes les cases sont remplies, et y répond.
