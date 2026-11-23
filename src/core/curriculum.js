@@ -802,7 +802,7 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (voir amisAppris).
   // 0.40.10 : à partir des grands amis, une part d'autres amis tirée par colonne (`partAmis`).
   const amis = f?.amis ? amisAppris(sp) : null;
-  return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
+  return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null, premierLibre: !!f.partAmis } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
 }
 
 /**

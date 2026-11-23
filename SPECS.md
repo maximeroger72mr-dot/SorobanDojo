@@ -1463,3 +1463,16 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   au plus en endurance) : trop peu d'amis appris.
 - **Colonnes longues** (9 lignes et plus) : lignes resserrées, et la page se cale d'elle-même pour
   montrer la colonne entière et la saisie (la case déjà active ne faisait pas défiler la page).
+
+## Version 0.40.11 : endurance à 2 chiffres, première ligne au hasard, pas de 11 à 99
+
+- **Endurance à 2 chiffres** pour les leçons de grands amis à 1 chiffre (p3-1 à p3-3, p4-1 à p4-3) ;
+  la montée reste à 1 chiffre (7 à 8 lignes). Les lignes sans aucun ami deviennent rares, le geste
+  visé tombe sur l'une ou l'autre tige ; un grand ami peut porter sur les deux tiges (jamais de
+  cascade avant p5). Petits amis (p2), « 2 et 3 chiffres » et synthèses : inchangés.
+- **Première ligne tirée comme les autres** en montée et en endurance (départ quelconque, puis geste
+  visé si la tige le permet, sinon un autre ami ou un direct). Avant, la 1re ligne portait le geste
+  visé dans 100 % des colonnes, et la 2e presque jamais. Référence (mini-test) inchangée.
+- **Nombres à chiffres identiques** (11, 22 … 99, 333) : écartés au tirage partout (lignes, départ,
+  première opération), gardés seulement quand rien d'autre n'est possible ; un au plus par colonne
+  dès 2 chiffres (avant : dès 3). À 2 chiffres, ils faisaient 13 à 26 % des nombres.

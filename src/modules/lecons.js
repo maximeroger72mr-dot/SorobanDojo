@@ -565,7 +565,7 @@ export default {
           return ph.format ? { format: { ...ph.format, autorises: autorisesPhase(sp, cascadesOk) } } : {};
         };
         const zonePhase = h('div', { class: 'discret phase-lecon' });
-        const decrire = (ph) => (ph.filet ? `filet : 3 colonnes plus simples (${ph.format ? `${ph.format.lignes} lignes` : 'format de la leçon'}), doigté affiché` : ph.format ? `${ph.titre.toLowerCase()} : ${ph.format.chiffresMax ? `${ph.format.chiffres} à ${ph.format.chiffresMax}` : ph.format.chiffres} chiffres, ${ph.format.lignesMax ? `${ph.format.lignes} à ${ph.format.lignesMax}` : ph.format.lignes} lignes` : `référence : le format du mini-test (${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}, ${sp.lignes} lignes), celui qui compte pour la médaille`);
+        const decrire = (ph) => (ph.filet ? `filet : 3 colonnes plus simples (${ph.format ? `${ph.format.lignes} lignes` : 'format de la leçon'}), doigté affiché` : ph.format ? `${ph.titre.toLowerCase()} : ${ph.format.chiffresMax ? `${ph.format.chiffres} à ${ph.format.chiffresMax} chiffres` : `${ph.format.chiffres} chiffre${ph.format.chiffres > 1 ? 's' : ''}`}, ${ph.format.lignesMax ? `${ph.format.lignes} à ${ph.format.lignesMax}` : ph.format.lignes} lignes` : `référence : le format du mini-test (${sp.chiffres} chiffre${sp.chiffres > 1 ? 's' : ''}, ${sp.lignes} lignes), celui qui compte pour la médaille`);
         const majPhase = (message = null) => {
           if (!planPh) return;
           const ph = phaseCourante(planPh, etatPh);

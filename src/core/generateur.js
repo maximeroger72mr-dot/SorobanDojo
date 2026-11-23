@@ -138,6 +138,8 @@ function essayerCible(cible, chiffres, autorises, cibles, zeros = false) {
     if (depart < departMin) continue;
     const n = Number(chiffresN.join(''));
     if (zeros && (!aUnZero(n) || !aUnZero(depart))) continue;
+    // 0.40.11 : ni départ ni première ligne à chiffres identiques (99, 444), sauf dans les derniers essais.
+    if (essai < 2000 && (chiffresIdentiques(n) || chiffresIdentiques(depart))) continue;
     const a = analyserOperation(depart, op, n, nbTiges);
     if (!a || !respecte(a.motifs, autorises) || !a.motifs.includes(cible)) continue;
     valides += 1;
@@ -188,6 +190,11 @@ function scoreEquilibre(analyse, cibles, poids, chiffres) {
  * À cumuler avec scoreEquilibre : les amis restent fréquents, mais mélangés.
  * @param {Array<{op, n}>} precedents  lignes déjà posées (la 1re comprise)
  */
+/** Nombre d'au moins 2 chiffres, tous identiques (11, 22 … 99, 333). */
+// 0.40.11 : écartés autant que possible (ils se lisent sans calculer ; à 2 chiffres, le geste visé
+// tiré sur deux tiges en faisait 13 à 26 % des nombres). Voir genererTerme et colonneValide.
+export const chiffresIdentiques = (n) => n >= 11 && new Set(String(n)).size === 1;
+
 export function scoreVariete(op, n, precedents, libre = true) {
   if (!precedents.length) return 0;
   const prec = precedents.at(-1);
@@ -214,6 +221,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
   const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
   let meilleur = null;
   let secours = null; // au-dessus du plafond : gardé seulement si rien d'autre n'est possible
+  let identique = null; // chiffres identiques (0.40.11) : idem, avant le dépassement du plafond
   let valides = 0;
   for (let essai = 0; essai < 2500 && valides < 15; essai++) {
     if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
@@ -253,6 +261,8 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     if (cible && !a.motifs.includes(cible)) continue;
     if (preparer && !permet(a.resultat, preparer, chiffres)) continue;
     if (plafond && a.resultat >= plafond) { secours ??= { op, n, resultat: a.resultat, motifs: a.motifs, score: 0 }; continue; }
+    // 0.40.11 : chiffres tous identiques (44, 99, 333) : gardé seulement si rien d'autre n'est possible.
+    if (chiffresIdentiques(n)) { identique ??= { op, n, resultat: a.resultat, motifs: a.motifs, score: 0 }; continue; }
     valides += 1;
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
@@ -260,6 +270,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     const score = (cibles ? (viser ? 1 : 0.3) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
+  if (!meilleur && identique) return identique;
   if (!meilleur && secours) return secours;
   if (!meilleur) throw new ErreurGeneration('Impossible de générer une ligne');
   return meilleur;
@@ -337,7 +348,8 @@ export function genererColonne(params) {
  *  5. un geste choisi seul (une seule cible) jamais deux lignes de suite ;
  *  6. à 2 chiffres et plus : aucun passage par zéro (un sous-total nul se lit sans calculer) ;
  *  7. à 2 chiffres et plus : pas trois lignes de suite avec le même chiffre des unités ;
- *  8. à 3 chiffres et plus : un seul nombre à chiffres tous identiques (333) par colonne.
+ *  8. à 2 chiffres et plus : un seul nombre à chiffres tous identiques (44, 333) par colonne, départ
+ *     compris (0.40.11 ; avant : à 3 chiffres seulement).
  * strict = false : seulement les règles 1 et 2.
  */
 export function colonneValide(col, cibles = [], strict = true) {
@@ -358,11 +370,12 @@ export function colonneValide(col, cibles = [], strict = true) {
   // À 1 chiffre, les colonnes possibles sont trop peu nombreuses pour interdire le passage par zéro.
   if (large >= 2 && sousTotaux(col.lignes).some((v) => v === 0)) return false;
   if (large >= 2) for (let i = 2; i < N.length; i++) if (N[i] % 10 === N[i - 1] % 10 && N[i] % 10 === N[i - 2] % 10) return false;
-  if (large >= 3 && N.filter((n) => n >= 100 && new Set(String(n)).size === 1).length > 1) return false;
+  // 0.40.11 : dès 2 chiffres (avant : 3), un seul nombre à chiffres identiques (44, 333) par colonne.
+  if (large >= 2 && col.lignes.map((l) => l.n).filter(chiffresIdentiques).length > 1) return false;
   return true;
 }
 
-function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false, exigerPlaces = false, planImpose = null, ligneAmi = null, partAmis = null }) {
+function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {}, ops = ['+', '-'], zeros = false, premierCourt = false, longueurFixe = false, departChiffres = null, partInverse = PART_INVERSE, dizaines = false, exigerPlaces = false, planImpose = null, ligneAmi = null, partAmis = null, premierLibre = false }) {
   // 0.40.7 : sens inverse (voir PART_INVERSE) ; total plafonné à une tige au-dessus du format (avant,
   // jusqu'à trois), sauf format d'examen ; une ligne de dizaines au plus (hors référence, 1 chiffre).
   const sens = sensUnique(cibles, ops);
@@ -381,6 +394,7 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
   // prennent la place des lignes directes (préparation, ligne inverse), jamais celle du geste visé ;
   // le nombre tiré est un plafond (la tige ne permet pas toujours un autre ami).
   const posAmi = ligneAmi && !partAmis && lignes >= 4 ? entier(2, lignes - 1) : null;
+  const debutAmis = premierLibre ? 1 : 2;
   let amisRestants = ligneAmi && partAmis && lignes >= 4
     ? Math.min(lignes - 2, Math.round((partAmis[0] + Math.random() * (partAmis[1] - partAmis[0])) * (lignes - 1))) : 0;
   const placesInverses = new Set(plan.places);
@@ -428,6 +442,17 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
       if (!choix || score > choix.score) choix = { v, score };
     }
     valeur = choix?.v ?? entier(10 ** (chiffres - 1), 10 ** chiffres - 1);
+    liste = [{ op: '+', n: valeur }];
+    motifs = [];
+    motifsLignes = [[]];
+  } else if (premierLibre) {
+    // 0.40.11 (montée, endurance) : un départ quelconque, puis la 1re ligne tirée comme les autres
+    // (geste visé si la tige le permet, sinon un autre ami ou un direct). Avant, la 1re ligne portait
+    // le geste visé dans 100 % des colonnes, et la 2e presque jamais (tige redescendue trop bas).
+    // Départ à un chiffre de plus que les lignes : assez haut en leçon de soustraction (les emprunts),
+    // assez bas en leçon d'addition (le plafond).
+    const u = 10 ** chiffres;
+    do valeur = sens === '-' ? entier(3 * u, 9 * u) : sens === '+' ? entier(u / 10, 4 * u) : entier(u / 10, 6 * u); while (chiffresIdentiques(valeur));
     liste = [{ op: '+', n: valeur }];
     motifs = [];
     motifsLignes = [[]];
@@ -490,7 +515,7 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // Petits amis (p2, 0.40.9) : une ligne au plus, de sens libre (sauf deux soustractions de suite).
     if (!t && posAmi !== null && liste.length >= posAmi && !liste.some((l) => l.ami)) t = ligneAutreAmi(sens === '+' && liste.at(-1).op === inverse ? ['+'] : ops);
     // 0.40.10 : à une place inverse, la ligne inverse est un autre ami quand c'est possible.
-    if (!t && amisRestants > 0 && ici >= 2 && inverse && placesInverses.has(ici) && faites < nbInverses && liste.at(-1).op !== inverse) t = ligneAutreAmi([inverse]);
+    if (!t && amisRestants > 0 && ici >= debutAmis && inverse && placesInverses.has(ici) && faites < nbInverses && liste.at(-1).op !== inverse) t = ligneAutreAmi([inverse]);
     // Ligne d'ami tombée à une place inverse : elle compte si elle est de sens inverse, sinon la
     // ligne inverse est reportée plus loin.
     if (t?.ami && inverse && placesInverses.has(ici)) { if (t.op === inverse) placesInverses.delete(ici); else reporter(ici); }
@@ -523,7 +548,7 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
       }
     }
     // 0.40.10 : une ligne sans geste visé (préparation, ligne inverse) devient un autre ami, dans le même sens.
-    if (amisRestants > 0 && ici >= 2 && !t.ami && !t.dizaine && !t.motifs.some((m) => cibles.includes(m))) {
+    if (amisRestants > 0 && ici >= debutAmis && !t.ami && !t.dizaine && !t.motifs.some((m) => cibles.includes(m))) {
       let a = ligneAutreAmi([t.op]);
       // Sinon un ami de sens inverse, au plus une ligne au-delà de la part inverse (25 %), en leçon
       // d'addition seulement : à 1 chiffre, après une tige vide ou pleine, seul le sens inverse permet

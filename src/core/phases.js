@@ -76,7 +76,9 @@ export function phasesLecon(sp) {
       { id: 'reference', reference: true, titre: 'Référence', format: null },
       { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart, ...amisMontee } },
       // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (`amis`).
-      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: c, lignes: 10, ...depart, ...amisEndurance } },
+      // 0.40.11 : endurance à 2 chiffres pour les leçons de grands amis à 1 chiffre (les lignes sans
+      // aucun ami deviennent rares ; le geste visé tombe sur l'une ou l'autre tige).
+      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: grands && c === 1 ? 2 : c, lignes: 10, ...depart, ...amisEndurance } },
     ] };
   }
   if (['p8', 'p9'].includes(pal) && sp.lignes >= 10) {
