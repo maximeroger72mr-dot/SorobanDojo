@@ -32,6 +32,7 @@
 
 import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
+import { phasesLecon } from './phases.js';
 import {
   genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
   genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale, genererMarche, avecZeroFinal } from './multiplication.js';
@@ -802,7 +803,13 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (voir amisAppris).
   // 0.40.10 : à partir des grands amis, une part d'autres amis tirée par colonne (`partAmis`).
   const amis = f?.amis ? amisAppris(sp) : null;
-  return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null, premierLibre: !!f.partAmis } : {}), chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
+  // 0.40.12 : départ libre aussi en référence (et donc au mini-test) des leçons d'amis à 1 chiffre :
+  // la 1re ligne ne porte plus toujours le geste visé (et la 2e presque jamais). Au moins 1 ligne avec
+  // le geste visé (en exiger 2 sur 4 opérations recréait des places fixes : lignes 1 et 4).
+  // Petits amis (p2) compris, dans toutes les phases (en montée et en endurance, la 1re ligne portait
+  // le geste visé dans 100 % des colonnes, les 2e et 3e jamais).
+  const departLibre = !!f?.partAmis || (sp.chiffres === 1 && !sp.departChiffres && phasesLecon(sp)?.genre === 'amis');
+  return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null } : {}), premierLibre: departLibre, minVises: f?.minVises ?? 1, chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
 }
 
 /**

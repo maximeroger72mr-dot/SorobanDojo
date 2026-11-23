@@ -658,7 +658,9 @@ export default {
                   const gestes = gestesVises(sp, ex);
                   // Filet : seulement sur une erreur qui porte (ou peut porter) sur un geste visé.
                   const loc = juste || res.reponse == null ? null : localiserErreur(ex, res.reponse);
-                  const erreurVisee = !juste && (loc ? loc.motifs.some((m) => sp.cibles.includes(m)) : gestesVises(sp, ex) > 0);
+                  // 0.40.12 : en endurance, une erreur qu'on ne sait pas localiser ne déclenche plus le filet
+                  // (10 lignes de 2 chiffres, pleines d'autres amis : deux fautes d'inattention suffisaient).
+                  const erreurVisee = !juste && (loc ? loc.motifs.some((m) => sp.cibles.includes(m)) : ex.phase !== 'endurance' && gestesVises(sp, ex) > 0);
                   const endu = ex.phase === 'endurance';
                   const gestesPleins = (etatPalier(sp.id).gestesVises ?? 0) + gestes >= objectifLecon(sp);
                   const enduFaite = (etatPalier(sp.id).colonnesEnd ?? 0) + (endu ? 1 : 0) >= enduranceExigee(planPh);

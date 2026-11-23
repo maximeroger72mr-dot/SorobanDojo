@@ -257,7 +257,9 @@ export function creerSerie(conteneur, o) {
    */
   function cadrer() {
     if (typeof window === 'undefined' || !racine.isConnected || !ligneSaisie.scrollIntoView) return;
-    if (ligneSaisie.getBoundingClientRect().bottom <= window.innerHeight) return;
+    // La marge de défilement compte (barre de menu en bas sur téléphone, 0.40.12).
+    const marge = parseFloat(getComputedStyle(ligneSaisie).scrollMarginBottom) || 0;
+    if (ligneSaisie.getBoundingClientRect().bottom <= window.innerHeight - marge) return;
     ligneSaisie.scrollIntoView({ block: 'end', behavior: 'instant' });
     if (racine.getBoundingClientRect().top < 0) racine.scrollIntoView({ block: 'start', behavior: 'instant' });
   }

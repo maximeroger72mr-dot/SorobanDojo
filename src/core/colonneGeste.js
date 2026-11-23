@@ -17,7 +17,7 @@
  * Les règles de qualité de colonneValide s'appliquent en plus.
  */
 
-import { analyserOperation, colonneValide, ErreurGeneration, horsDelai, DIZAINES, PART_INVERSE } from './generateur.js';
+import { analyserOperation, colonneValide, ErreurGeneration, horsDelai, DIZAINES, PART_INVERSE, chiffresIdentiques } from './generateur.js';
 import { analyserMotif, famille } from './motifs.js';
 
 const DIRECTS = new Set(famille('direct'));
@@ -60,6 +60,8 @@ function candidats(chiffres, op, d) {
       if (t[0] === '0') t[0] = String(d || 1);
       n = Number(t.join(''));
     }
+    // 0.40.12 : pas de 44, 88, 999 (le chiffre du geste copié sur toutes les tiges en faisait souvent).
+    if (chiffresIdentiques(n)) continue;
     res.push({ op: hasard(ops), n });
   }
   return res;

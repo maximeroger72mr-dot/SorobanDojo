@@ -74,11 +74,12 @@ export function phasesLecon(sp) {
     const amisEndurance = grands ? { amis: true, partAmis: PART_AMIS.endurance } : { amis: true };
     return { genre: deuxTrois ? 'deuxTrois' : 'amis', ordre: [
       { id: 'reference', reference: true, titre: 'Référence', format: null },
-      { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart, ...amisMontee } },
+      // 0.40.12 : au moins 2 lignes avec le geste visé en montée et en endurance (3 à 2 chiffres).
+      { id: 'montee', titre: 'Montée', passage: 'argent', format: { chiffres: c, lignes: 7, lignesMax: 8, ...depart, ...amisMontee, minVises: 2 } },
       // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (`amis`).
       // 0.40.11 : endurance à 2 chiffres pour les leçons de grands amis à 1 chiffre (les lignes sans
       // aucun ami deviennent rares ; le geste visé tombe sur l'une ou l'autre tige).
-      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: grands && c === 1 ? 2 : c, lignes: 10, ...depart, ...amisEndurance } },
+      { id: 'endurance', titre: 'Endurance', passage: 'justes', format: { chiffres: grands && c === 1 ? 2 : c, lignes: 10, ...depart, ...amisEndurance, minVises: grands && c === 1 ? 3 : 2 } },
     ] };
   }
   if (['p8', 'p9'].includes(pal) && sp.lignes >= 10) {

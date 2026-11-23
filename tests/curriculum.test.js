@@ -36,7 +36,8 @@ test('chaque sous-palier génère des exercices stricts ; ses démos sont valide
         continue;
       }
       // Anzan à 1 chiffre : la colonne commence par un seul chiffre.
-      if (sp.type === 'anzan' && sp.chiffres === 1) assert.ok(ex.lignes[0].n <= 9, `${sp.id} départ ${ex.lignes[0].n}`);
+      // 0.40.12 : sauf grands amis en soustraction (p4-a) : aucun geste visé possible depuis 1 à 9.
+      if (sp.type === 'anzan' && sp.chiffres === 1 && !sp.cibles.every((c) => /^-\d:grand$/.test(c))) assert.ok(ex.lignes[0].n <= 9, `${sp.id} départ ${ex.lignes[0].n}`);
       if (ex.echelles) {
         const somme = ex.lignes.reduce((v, l, k) => v + (l.op === '+' ? ex.echelles[k] : -ex.echelles[k]), 0);
         assert.equal(somme / 10 ** ex.decimales, ex.resultat, sp.id);

@@ -1476,3 +1476,32 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - **Nombres à chiffres identiques** (11, 22 … 99, 333) : écartés au tirage partout (lignes, départ,
   première opération), gardés seulement quand rien d'autre n'est possible ; un au plus par colonne
   dès 2 chiffres (avant : dès 3). À 2 chiffres, ils faisaient 13 à 26 % des nombres.
+
+## Version 0.40.12 : corrections de l'audit 0.40.11, places réservées aux autres amis
+
+**Bugs**
+- p4-4 en endurance (10 lignes) : le départ valait 999 dans 100 % des colonnes (borne basse mal
+  plafonnée). Il est tiré entre 600 et 999, jamais à chiffres identiques.
+- Anzan p4-a (grands amis en soustraction) à 2 nombres : départ à 1 chiffre, aucun grand ami possible
+  → toutes les chaînes en mode dégradé. Départ à 2 chiffres quand aucun geste visé n'est possible de 1 à 9.
+- Autres amis : décomptés sur la ligne gardée (avant : avant le remplacement d'une ligne redondante).
+- Lignes inverses : une ligne inverse posée hors de sa place (dizaines, ami, préparation) libère la
+  place prévue et repousse celle d'après (colonnes rejetées pour rien, places favorisées).
+- Ligne ajoutée pour un résultat neuf : liste des gestes par ligne à jour, ni répétition ni total nul.
+- Planches « seul » et « famille » à 2 chiffres : plus de 44, 88 (le chiffre du geste recopié sur
+  toutes les tiges). Départ au format d'examen : pas de chiffres identiques non plus.
+- Téléphone : le cadrage d'une colonne longue tient compte de la barre de menu du bas (84 px).
+- Générateur : sortie plus tôt de la boucle quand seul un repli est possible.
+
+**Colonnes**
+- Autres amis (p3, p4) : PLACES RÉSERVÉES tirées au hasard (45 à 65 % en endurance, 20 à 40 % en
+  montée), où l'on ne vise pas le geste visé ; une ligne de préparation devenue ami prend une place
+  réservée tirée au hasard. Avant, le geste visé passait toujours devant (60 à 70 % des lignes en
+  p3-1 et p4-1 à 2 chiffres).
+- Au moins 2 lignes avec le geste visé en montée et en endurance (3 en endurance à 2 chiffres).
+- Départ libre aussi en référence (donc au mini-test) et dans toutes les phases des leçons d'amis à
+  1 chiffre, petits amis compris : la 1re ligne ne porte plus toujours le geste visé. Au moins 1 ligne
+  visée en référence (en exiger 2 sur 4 opérations recréait des places fixes).
+- Départ à 2 chiffres (et non 3) en leçon d'addition à 2 chiffres ; un chiffre de plus en soustraction.
+
+**Filet** : en endurance, une erreur qu'on ne sait pas localiser ne déclenche plus le filet.

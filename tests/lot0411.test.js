@@ -18,7 +18,7 @@ test('0.40.11 : endurance à 2 chiffres pour les grands amis, montée à 1 chiff
   assert.equal(format('p4-5', 'endurance').chiffres, 3);
 });
 
-test('0.40.11 : la 1re ligne ne porte plus toujours le geste visé (montée, endurance) ; référence inchangée', () => {
+test('0.40.11 : la 1re ligne ne porte plus toujours le geste visé (montée, endurance, référence 0.40.12)', () => {
   for (const id of ['p3-2', 'p4-3']) {
     const s = sp(id);
     for (const ph of ['montee', 'endurance']) {
@@ -29,8 +29,10 @@ test('0.40.11 : la 1re ligne ne porte plus toujours le geste visé (montée, end
       // La 2e ligne n'est plus (presque) jamais vide de geste visé.
       assert.ok(cols.filter((c) => vise(s, c, 2)).length >= 4, `${id} ${ph} : 2e ligne`);
     }
+    // 0.40.12 : la référence aussi (leçons d'amis à 1 chiffre), au moins un geste visé par colonne.
     const ref = Array.from({ length: 30 }, () => genererExercice(s, {}, {}));
-    assert.ok(ref.every((c) => vise(s, c, 1)), `${id} référence : 1re ligne toujours le geste visé`);
+    assert.ok(ref.filter((c) => vise(s, c, 1)).length < 28, `${id} référence : 1re ligne`);
+    assert.ok(ref.every((c) => c.motifs.some((m) => s.cibles.includes(m))), `${id} référence : geste visé`);
   }
 });
 
