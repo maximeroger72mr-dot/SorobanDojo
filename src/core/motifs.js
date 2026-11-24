@@ -28,10 +28,19 @@ export const TOUS_LES_MOTIFS = (() => {
 })();
 
 /** Décompose une clé : { op, d, regle }  (d = null pour les cascades). */
+// 0.40.17 : en mémoire (appelée des millions de fois par le générateur ; l'expression régulière coûtait
+// un quart du temps de création des colonnes d'endurance). Objets gelés : à ne pas modifier.
+const memoMotifs = new Map();
 export function analyserMotif(cle) {
-  if (cle.startsWith('cascade')) return { op: cle.at(-1), d: null, regle: 'cascade' };
-  const [, op, d, regle] = cle.match(/^([+-])(\d):(\w+)$/);
-  return { op, d: Number(d), regle };
+  let r = memoMotifs.get(cle);
+  if (r) return r;
+  if (cle.startsWith('cascade')) r = { op: cle.at(-1), d: null, regle: 'cascade' };
+  else {
+    const [, op, d, regle] = cle.match(/^([+-])(\d):(\w+)$/);
+    r = { op, d: Number(d), regle };
+  }
+  memoMotifs.set(cle, Object.freeze(r));
+  return r;
 }
 
 /** Clés de motifs pour une opération, des chiffres et une règle : D('+', [1,2], 'petit'). */

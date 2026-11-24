@@ -15,7 +15,7 @@ import { TOUS_LES_MOTIFS, famille, nomMotif, analyserMotif, PINCEES } from '../c
 import { enregistrerSession, proposerRecord, poidsAdaptatifs, motifsEnDifficulte, noterGestes, progression, memoriserPlanche, plancheMemorisee } from '../core/progression.js';
 import { motifsAppris as motifsApprisDe, gestesLents, ancrageDuJour, estValide } from '../core/parcours.js';
 import { sousPalier } from '../core/curriculum.js';
-import { formatsPlanche } from '../core/propositions.js';
+import { formatsPlanche, secondesParChiffre } from '../core/propositions.js';
 import { systemeChoisi } from '../core/epreuves.js';
 import { allureGrade, SURCOUT_PROBLEME_S } from '../core/allure.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, NIVEAUX, formaterCadence } from '../core/maitrise.js';
@@ -29,7 +29,7 @@ import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 // 0.40.16 : 2 s (avant 1 s) : à 1 chiffre, ±1 petit ami « seul » demande 0,5 à 0,8 s sur un ordinateur rapide.
 const DELAI_PLANCHE_MS = 2000;
 
-const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
+const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, duree: 0, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
 
 /** Motifs des leçons validées (plus les gestes directs). */
@@ -105,6 +105,11 @@ export function contraintes(valeur) {
     libelle = nomMotif(valeur);
   }
   // Strict : uniquement les gestes directs et les amis choisis.
+  // 0.40.17 : cascades : une cascade naît d'un grand ami (ou d'une combinaison) qui tombe sur une tige
+  // à 9 (ou à 0), et il faut d'autres gestes pour y amener la tige : avec les seuls directs, aucune
+  // colonne ne se formait (planche toujours impossible). Tous les gestes appris y sont permis.
+  // (les grands amis toujours, même pas encore appris : sans eux, pas de cascade)
+  if (cibles.length && cibles.every((x) => x.startsWith('cascade'))) return { autorises: new Set([...DIRECT, ...motifsAppris(), ...famille('grand'), ...cibles]), cibles, libelle };
   return { autorises: new Set([...DIRECT, ...cibles]), cibles, libelle };
 }
 
@@ -136,6 +141,37 @@ function historiqueFeuilles() {
   return h('div', {}, h('h2', {}, 'Mes feuilles'),
     h('p', { class: 'discret' }, 'Cadence en chiffres par minute (CPM : plus c\'est haut, mieux c\'est ; lecture et écriture des réponses déduites), par type de feuille : seules des feuilles du même type se comparent. La couleur suit les niveaux : bronze, argent, or, platine.'),
     h('table', {}, h('tr', {}, ['Type de feuille', 'Feuilles', 'Dernière', 'Moyenne (10 dernières)', 'Meilleure', 'Tendance'].map((x) => h('th', {}, x))), lignes));
+}
+
+/** Colonnes d'une planche minutée, d'après la vitesse mesurée (3 à 40). */
+function colonnesPourDuree(r) {
+  const parColonne = r.lignes * r.chiffres * secondesParChiffre(progression()) + 5;
+  return Math.max(3, Math.min(40, Math.round((r.duree * 60) / parColonne)));
+}
+
+/** Gestes que les statistiques font tomber plus souvent dans une planche minutée : lents, puis fragiles. */
+function gestesStats(cibles) {
+  const lents = gestesLents(progression(), 3).map((g) => g.cle).filter((c) => cibles.includes(c));
+  const fragiles = motifsEnDifficulte().map((m) => m.cle).filter((c) => cibles.includes(c));
+  return { lents, fragiles };
+}
+
+/** Poids d'une planche minutée : l'équilibre habituel, ×2,5 pour un geste lent, ×3 pour un geste fragile. */
+function poidsStats(cibles) {
+  const poids = poidsAdaptatifs(cibles);
+  const { lents, fragiles } = gestesStats(cibles);
+  for (const c of lents) poids[c] = (poids[c] ?? 1) * 2.5;
+  for (const c of fragiles) poids[c] = (poids[c] ?? 1) * 3;
+  return poids;
+}
+
+function resumeDuree(r, cibles) {
+  const s = secondesParChiffre(progression());
+  const { lents, fragiles } = gestesStats(cibles ?? []);
+  const plus = [...fragiles.map((c) => `${nomMotif(c)} (erreurs)`), ...lents.filter((c) => !fragiles.includes(c)).map((c) => `${nomMotif(c)} (lent)`)];
+  return h('div', { class: 'carte' },
+    h('p', {}, h('strong', {}, `Planche de ${r.duree} min : `), `${r.colonnes} colonnes, à votre allure actuelle (${s.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s par chiffre, d'après vos dernières feuilles).`),
+    h('p', { class: 'discret' }, plus.length ? `D'après vos statistiques, il tombera plus souvent : ${plus.join(', ')}. Le reste de vos gestes reste présent, en proportion.` : 'Aucun geste lent ou fragile repéré dans cette sélection : tous vos gestes y tombent à part égale.'));
 }
 
 /**
@@ -262,6 +298,9 @@ export default {
         h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
         select('colonnes', [[5, '5 colonnes'], [10, '10 colonnes'], [20, '20 colonnes'], [30, '30 colonnes']], Number),
+        // 0.40.17 : planche minutée : le nombre de colonnes suit la vitesse mesurée (vos dernières feuilles),
+        // et le contenu vos statistiques (gestes lents et fragiles plus fréquents).
+        (() => { const x = select('duree', [[0, 'Durée : au nombre de colonnes'], [3, 'Planche de 3 min'], [5, 'Planche de 5 min'], [10, 'Planche de 10 min'], [15, 'Planche de 15 min']], Number); x.title = 'Le nombre de colonnes suit votre vitesse mesurée ; vos gestes lents et fragiles y tombent plus souvent.'; return x; })(),
         (() => { const x = select('pyramide', [['non', 'Taille fixe'], ['chiffres', 'Pyramide : de plus en plus de chiffres'], ['lignes', 'Pyramide : de plus en plus de lignes']], String); x.title = 'La planche monte en trois paliers jusqu\'au réglage choisi : on commence court, on finit long.'; return x; })(),
         (() => { const x = select('pyramideDepart', [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `pyramide : départ à ${n}`]), Number); x.dataset.role = 'pyramide-depart'; x.title = 'Premier palier de la pyramide : nombre de chiffres (ou de lignes, 3 au moins) des premières colonnes.'; return x; })(),
         (() => { const x = select('partMoins', [[0, 'aucune colonne avec soustractions'], [0.2, '1 colonne sur 5 avec soustractions'], [0.4, '2 colonnes sur 5 avec soustractions'], [0.7, '7 colonnes sur 10 avec soustractions'], [1, 'toutes avec soustractions']], Number); x.dataset.role = 'part-moins'; return x; })(),
@@ -289,6 +328,8 @@ export default {
       feuille?.detruire();
       remplir(zone);
       const r = rejeu ? { ...rejeu.reglages } : { ...reglages };
+      // 0.40.17 : planche minutée : colonnes d'après la vitesse (calcul + 5 s pour écrire chaque réponse).
+      if (!rejeu && r.duree > 0 && !r.proposition) r.colonnes = colonnesPourDuree(r);
       let c = rejeu ? { cibles: rejeu.cibles, libelle: rejeu.libelle } : contraintes(r.cible);
       if (r.proposition && params.objectif) zone.append(h('div', { class: 'carte objectif-planche' }, h('strong', {}, 'Objectif : '), params.objectif));
       let planche = rejeu;
@@ -330,7 +371,7 @@ export default {
           }
         }
         if (!planche) {
-          const poids = poidsAdaptatifs(c.cibles);
+          const poids = r.duree > 0 ? poidsStats(c.cibles) : poidsAdaptatifs(c.cibles);
           for (const f of c.favoris ?? []) poids[f] = (poids[f] ?? 1) * 3;
           // Création de la planche : jamais vide, jamais deux colonnes identiques. Si ces réglages ne
           // permettent pas de colonne (cascades à 1 chiffre…), repli explicite : 2 chiffres, puis
@@ -343,7 +384,11 @@ export default {
             // (additions seules : le repli reste sans soustraction, avec moins de lignes s'il le faut)
             c.ops ? [{ ...config, lignes: Math.min(3, r.lignes), chiffres: Math.max(2, r.chiffres) }, 'Avec les gestes appris, des additions seules ne tiennent pas sur autant de lignes (il faudrait des retenues, donc les grands amis) : planche à 3 lignes.'] : [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
           ];
+          // 0.40.17 : cascades à 1 chiffre : le total plafonne sous 100, une retenue en cascade n'y passe
+          // presque jamais (1 à 2 s de recherche) : directement à 2 chiffres.
+          const cascades = c.cibles.length && c.cibles.every((x) => x.startsWith('cascade'));
           for (const [p, message] of replis) {
+            if (cascades && p.chiffres < 2 && p.cibles.every((x) => x.startsWith('cascade'))) continue;
             try {
               planche = avecDelai(DELAI_PLANCHE_MS, () => genererPlanche(p, graine));
               if (message) zone.append(h('p', { class: 'retour' }, message));
@@ -383,6 +428,7 @@ export default {
           : 'Le geste 2 fois par colonne, des gestes directs, et un piège : le même chiffre, mais en geste direct. Regardez la tige avant d\'agir.'));
       }
       zone.append(resumePlanche(planche, !!rejeu));
+      if (r.duree > 0 && !r.proposition) zone.append(resumeDuree(r, c.cibles));
       const suffixe = planche.parRoles ? `-${mode}` : '';
       const genre = `${r.genre && r.genre !== 'gestes' ? r.genre : r.cible}${r.pyramide && r.pyramide !== 'non' ? `-pyr-${r.pyramide}` : ''}`;
       const cleRecord = `planche-${r.chiffres}-${r.lignes}-${r.colonnes}-${genre}${suffixe}`;

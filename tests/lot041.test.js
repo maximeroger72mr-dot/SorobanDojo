@@ -11,7 +11,7 @@ const pas = (plan, e, o) => apresColonne(plan, e, { rapide: true, ...o });
 test('0.41 : minimum de colonnes de référence à 40 % des répétitions', () => {
   assert.equal(referenceMin(sp('p3-1')), 20);
   assert.equal(referenceMin(sp('p8-1')), 12);
-  assert.equal(referenceMin(sp('p9-2')), 8);
+  assert.equal(referenceMin(sp('p9-2')), 6); // 0.40.17 : 14 répétitions (avant 20)
 });
 
 test('0.41 : endurance, rampe faite une fois puis référence ; filet à 6 lignes ; rampe sautée après une leçon d\'endurance à l\'argent', () => {

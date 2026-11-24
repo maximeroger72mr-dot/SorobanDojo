@@ -1560,3 +1560,46 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   saisie reste visible après une erreur.
 - **Feuille de 10 d'une leçon** : colonnes de référence tirées en série équilibrée (chaque geste visé y
   passe), comme en « Une par une ».
+
+## Version 0.40.17 : corrections de l'audit 0.40.16
+
+- **Planches « seul » et « famille » à plusieurs chiffres** : nombres construits TIGE PAR TIGE (une tige
+  reçoit le geste du rôle, les autres un chiffre qui y fait un geste direct ; une ligne sur deux amène
+  une tige là où le geste suivant sera possible). Avant : 50 nombres au hasard par ligne ; « +1 petit ami,
+  3 chiffres, 10 lignes » ne se formait pas en 10 s. Banc de 1 632 planches (34 gestes × 2 façons × 1 à
+  6 chiffres × 5, 7, 10 lignes) : 0 planche impossible (14 % avant), médiane 13 ms, pire cas 0,75 s.
+- **Planches à 1 chiffre** : la fin de la colonne est vérifiée faisable avant chaque ligne (recherche en
+  profondeur), tirage pondéré sans remise, une valeur directe peut revenir une fois en dernier recours ;
+  les colonnes suivantes partent du niveau de repli où la précédente a abouti. Colonnes allongées :
+  35 % → moins de 2 % ; une ligne de moins est essayée avant une de plus. Résultats : un même total
+  deux fois au plus tant que c'est possible ; fin sur le geste évitée à partir de 6 lignes.
+- **Planches** : nombres ronds à 2 chiffres pénalisés (±1 grand ami : 31 % → 24 %, les autres 4 à 10 %) ;
+  planches d'addition courtes : la ligne inverse passe devant quand il ne reste qu'elle pour tenir la
+  part ; planches de soustraction à 7 lignes et plus : jamais deux additions de suite (35-46 % → 29-34 %).
+- **Planche « cascades »** : tous les gestes appris permis (une cascade naît d'un grand ami) ; à 1 chiffre,
+  directement à 2 chiffres. Elle était toujours impossible.
+- **Leçons** : nombres ronds pénalisés (p2-3 18 % → 4 %, p2-6 17 % → 5 %, p4-4 18 % → 8 %) ; 1re ligne
+  libre et sans geste visé 4 fois sur 10 quand le départ est posé (ligne 1 visée : p3-1 75 % → 45 %, p4-1
+  75 % → 50 %, p4-4 94 % → 64 %) ; p5-4 : départ libre, souvent à 3 chiffres avec un 0 dessous
+  (cascades 221/71 → environ 250/145). Colonnes de montée et d'endurance 7 à 10 fois plus rapides à
+  créer (75-150 ms → 6-25 ms) : un autre ami impossible n'est plus cherché 2 500 fois.
+- **Marathon** : la dernière ligne de la tranche précédente compte ; 8 essais puis tout geste permis
+  pour ne jamais redonner le même nombre deux fois de suite.
+- **Filet** : une faute hors geste visé coupe la série « deux erreurs de suite sur le geste visé ».
+- **Séance** : l'anzan cède sa place quand l'examen (blanc ou complet) remplit déjà l'objectif (vendredi :
+  36-37 min → 31 min pour 30). Pas de flash anzan en complément quand la séance a son bloc d'anzan.
+- **Roulement des propositions** : planche en complément choisie à tour de rôle parmi les 4 premières
+  (une planche faite hier passe en dernier ; un geste qui se trompe garde la tête) ; 3 gestes lents
+  au lieu de 2 ; feuille de la semaine, une fois tentée, un jour sur deux. Simulation de 10 jours sur
+  une vraie sauvegarde : 4 planches différentes (avant : la même 7 jours sur 10).
+- **Téléphone** : la saisie passe avant le haut de la série ; cadrage refait après la mise en page ;
+  colonnes longues plus petites sur écran bas (moins de 820, 660, 540 px), et toutes les colonnes sous
+  560 px. À 390 × 500, 390 × 664, 390 × 844 : colonne et « Valider » visibles en entier.
+- **Planche minutée** (nouveau) : « Planche de 3, 5, 10 ou 15 min » : le nombre de colonnes suit la
+  vitesse des dernières feuilles ; les 3 gestes les plus lents (×2,5) et les gestes fragiles (×3) y
+  tombent plus souvent, annoncés avant de commencer.
+- p9-2 : 14 répétitions (56 min à l'allure de l'or avec 20). Texte « (30 CPM (2,0 s par chiffre)) »
+  sans parenthèses doublées.
+- **Tests** : un test statistique (lignes de dizaines) qui échouait une fois sur dix par hasard est rendu
+  robuste ; mini-test : 6 essais (avant 3) pour placer un geste encore absent en seconde moitié (0 mini-test
+  incomplet sur 800). Planche « cascade+ » seule à 1 chiffre : repli vers tous les gestes appris rétabli.

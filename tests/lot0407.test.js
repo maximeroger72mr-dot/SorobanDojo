@@ -40,10 +40,12 @@ test('0.40.7 : lignes de dizaines hors format de référence, une par colonne au
   const montee = plan.ordre.find((x) => x.id === 'montee').format;
   const ref = Array.from({ length: 60 }, () => genererExercice(sp('p3-1')));
   assert.ok(ref.every((c) => c.lignes.slice(1).every((l) => l.n < 10)), 'référence : 1 chiffre');
-  const m = Array.from({ length: 60 }, () => genererExercice(sp('p3-1'), {}, { format: montee }));
+  // 0.40.17 : 200 colonnes, seuil 40 % (moyenne vers 57 %) : avec 60 colonnes et un seuil à 50 %, le test
+  // échouait une fois sur dix environ, par simple hasard.
+  const m = Array.from({ length: 200 }, () => genererExercice(sp('p3-1'), {}, { format: montee }));
   const diz = m.map((c) => c.lignes.slice(1).filter((l) => l.n >= 10));
   assert.ok(diz.every((d) => d.length <= 1 && d.every((l) => l.op === '-' && l.n % 10 === 0 && l.n <= 40)));
-  assert.ok(diz.filter((d) => d.length).length > 30, 'souvent une ligne de dizaines en montée');
+  assert.ok(diz.filter((d) => d.length).length > 80, 'souvent une ligne de dizaines en montée');
   // Planche ciblée à 1 chiffre : au plus une ligne de dizaines, de sens inverse.
   const appris = new Set([...famille('direct'), ...famille('petit'), ...famille('grand')]);
   const mem = creerMemoirePlanche();

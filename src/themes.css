@@ -72,6 +72,17 @@
   table.colonne { font-size: 2.3rem; }
   kbd { display: none; }
 }
+/* 0.40.17 : écran bas (téléphone, petite fenêtre) : les colonnes longues (9 lignes et plus) rapetissent
+   pour tenir avec la saisie, sans défiler. */
+@media (max-height: 820px) { html:root table.colonne.longue, table.colonne.longue { font-size: 1.75rem; } }
+@media (max-height: 660px) { html:root table.colonne.longue, table.colonne.longue { font-size: 1.4rem; margin: 2px 0 6px; } }
+@media (max-height: 540px) { html:root table.colonne.longue, table.colonne.longue { font-size: 1.15rem; } }
+/* Très bas (téléphone à l'horizontale, 390 × 500) : toutes les colonnes et la saisie se resserrent. */
+@media (max-height: 560px) {
+  html:root:root body table.colonne:not(.compacte) { font-size: 1.6rem; margin: 2px 0 6px; }
+  html:root:root body table.colonne.longue { font-size: 1.15rem; }
+  .serie .saisie-nombre, .saisie-nombre { font-size: 1.4rem; padding-top: 4px; padding-bottom: 4px; }
+}
 /* Pas de double filet : la carte qui suit le bandeau du jour n'a pas de filet au-dessus. */
 html:root .statut-jour + .carte, html:root .carte > h2:first-child { border-top: none; }
 .mot-prof-suite summary { cursor: pointer; color: var(--discret); font-size: 0.95rem; margin: 4px 0; }

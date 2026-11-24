@@ -223,6 +223,7 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
   let secours = null; // au-dessus du plafond : gardé seulement si rien d'autre n'est possible
   let identique = null; // chiffres identiques (0.40.11) : idem, avant le dépassement du plafond
   let valides = 0;
+  const candidatesSens = viser && cibles?.length ? cibles.filter((c) => ops.includes(analyserMotif(c).op)) : [];
   for (let essai = 0; essai < 2500 && valides < 15; essai++) {
     if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
     // 0.40.12 : rien de valide après 600 essais, mais un repli existe : inutile de continuer.
@@ -230,9 +231,8 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     let op = hasard(ops);
     let cible = null;
     if (viser && cibles?.length && essai < 1800) {
-      const candidates = cibles.filter((c) => ops.includes(analyserMotif(c).op));
-      if (candidates.length) {
-        cible = tirerPondere(candidates, poids);
+      if (candidatesSens.length) {
+        cible = tirerPondere(candidatesSens, poids);
         op = analyserMotif(cible).op;
       }
     }
@@ -269,7 +269,10 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     // Score : d'abord les répétitions de la cible TIRÉE (c'est elle qui équilibre les fréquences),
     // un peu les autres cibles, puis les tiges où la cible tirée sera possible à la ligne suivante.
     // Un peu de hasard départage les candidats proches : sinon le « meilleur » chemin revient sans cesse.
-    const score = (cibles ? (viser ? 1 : 0.3) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) + Math.random() * 3;
+    // 0.40.17 : nombres ronds (+20, −400) hors leçon de zéros : pénalisés (16 à 22 % des lignes en p2-3,
+    // p2-6, p4-4 ; ils ne font travailler qu'une tige).
+    const rond = !zeros && n >= 10 && n % 10 === 0 ? 5 : 0;
+    const score = (cibles ? (viser ? 1 : 0.3) * scoreEquilibre(a, cibles, poids, chiffres) : 0) + scoreVariete(op, n, precedents, !viser || !cibles) - rond + Math.random() * 3;
     if (!meilleur || score > meilleur.score) meilleur = { op, n, resultat: a.resultat, motifs: a.motifs, score };
   }
   if (!meilleur && identique) return identique;
@@ -484,7 +487,13 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // 0.40.16 : colonne courte de soustraction à 2 chiffres et plus (référence, mini-test) : départ de la
     // longueur des lignes, haut, avec une tige de plus une fois sur deux (comme le départ visé).
     const soustraction = () => (lignes >= 8 || chiffres === 1 ? entier(3 * u, 9 * u) : entier(u / 2, u - 1) + (Math.random() < 0.5 ? entier(1, 9) * u : 0));
-    do valeur = sens === '-' ? soustraction() : chiffres === 1 ? entier(1, sens === '+' ? 40 : 60) : entier(u / 10, u - 1); while (chiffresIdentiques(valeur));
+    // 0.40.17 : leçon des cascades (sens mêlés) : trois fois sur quatre, une tige de plus au départ ; sans
+    // elle, l'emprunt en cascade (100 − 1) était rarement possible (p5-4 : 309 cascades en addition
+    // pour 45 en soustraction).
+    const tete = !sens && cibles.includes('cascade-') && Math.random() < 0.75 ? entier(1, 9) * u : 0;
+    // (la tige sous la tête à 0 une fois sur deux : 105 − 7 emprunte en cascade)
+    const corps = () => (tete && Math.random() < 0.5 ? entier(1, 9) : entier(u / 10, u - 1));
+    do valeur = sens === '-' ? soustraction() : chiffres === 1 ? entier(1, sens === '+' ? 40 : 60) : corps() + tete; while (chiffresIdentiques(valeur));
     liste = [{ op: '+', n: valeur }];
     motifs = [];
     motifsLignes = [[]];
@@ -506,6 +515,9 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
   const EXTRA_INVERSE_AMI = 1;
   const ciblesSens = cibles.filter((c) => ops.includes(analyserMotif(c).op));
   const ligneAutreAmi = (sensVoulus) => {
+    // 0.40.17 : aucun autre ami possible sur ces tiges dans ces sens : inutile de chercher (genererTerme
+    // allait jusqu'à 2 500 essais pour rien : 75 à 150 ms par colonne en montée et en endurance de p3, p4).
+    if (!ouvertures(valeur, ligneAmi.filter((c) => sensVoulus.includes(analyserMotif(c).op)), chiffres)) return null;
     const poidsAmi = Object.fromEntries(ligneAmi.map((c) => [c, 1 / (1 + (vus[c] ?? 0)) ** 2]));
     let repli = null;
     for (let k = 0; k < 4; k++) {
@@ -527,7 +539,11 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // priorité reste alors de le faire apparaître.
     const pb = cibles.map((c) => poids[c] ?? 1);
     const equilibre = Math.max(...pb) <= 1.3 * Math.min(...pb);
-    const libre = cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25;
+    // 0.40.17 : 1re ligne d'une colonne à départ posé (libre, long, examen) : libre quatre fois sur dix.
+    // Le geste visé y était possible presque toujours : il occupait la ligne 1 dans 75 à 95 % des
+    // colonnes de référence (p3-1, p3-4, p4-1, p4-4). minVises (genererColonne) garde le compte de gestes.
+    const libre1 = liste.length === 1 && !premierCourt && lignes >= 4 && Math.random() < 0.4;
+    const libre = libre1 || (cibles.length >= 3 && liste.length > 2 && equilibre && Math.random() < 0.25);
     let t = null;
     const faites = liste.slice(1).filter((l) => l.op === inverse).length;
     // Ligne de dizaines (−10 à −40 dans une leçon d'addition, +10 à +40 en soustraction), à sa
@@ -579,6 +595,12 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
         // la part inverse, et les places prévues suivantes tombent (0.40.8).
         const sensLigne = inverse && (libre || (sens === '+' && liste.at(-1).op === inverse)) ? [sens] : ops;
         t = genererTerme(valeur, { chiffres, autorises, cibles, viser: !libre, poids: poidsLigne, ops: sensLigne, zeros, precedents: liste, plafond });
+        // 1re ligne libre : sans geste visé si possible (une ligne libre le porte souvent par hasard).
+        if (libre1 && autorises && t.motifs.some((m) => cibles.includes(m))) {
+          try {
+            t = genererTerme(valeur, { chiffres, autorises: new Set([...autorises].filter((m) => !cibles.includes(m))), cibles: null, viser: false, ops: sensLigne, zeros, precedents: liste, plafond });
+          } catch (e) { if (!(e instanceof ErreurGeneration)) throw e; }
+        }
       } catch (e) {
         if (!(e instanceof ErreurGeneration) || !libre) throw e;
         t = genererTerme(valeur, { chiffres, autorises, cibles, poids: poidsLigne, ops, zeros, precedents: liste, plafond });

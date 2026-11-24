@@ -244,7 +244,9 @@ test('0.38.3 : semaines tenues (5 jours sur 7), feuille de la semaine proposée 
   assert.equal(feuilleSemaine(d, '2026-11-20').titre, 'Feuille de la semaine');
   d.sessions.push({ date: '2026-11-20', module: 'defis', mode: 'semaine', total: 10, justes: 10 });
   assert.equal(feuilleSemaine(d, '2026-11-20'), null);
-  assert.ok(feuilleSemaine(d, '2026-11-21'));
+  // 0.40.17 : déjà tentée cette semaine : pas le lendemain d'un essai, un jour sur deux.
+  assert.equal(feuilleSemaine(d, '2026-11-21'), null);
+  assert.ok(feuilleSemaine(d, '2026-11-22'));
 });
 
 test('0.38.3 : dan Zenkoren (6 matières, plus basse note, meilleur sur 3 sessions) et dan d\'anzan Zenkoren', async () => {

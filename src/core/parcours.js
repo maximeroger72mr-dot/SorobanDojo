@@ -549,7 +549,7 @@ export function verificationVitesse(d) {
     // Marge de 10 % : à vitesse égale (ou presque), rien d'incohérent, on ne vérifie pas.
     if (!suivante || medFam(fam) === null || medFam(fam) <= medFam(suivante) * MARGE_VERIFICATION) continue;
     const nom = NOMS_FAMILLES[fam];
-    const constat = `Vos ${nom} (${formaterVitesse(medFam(fam))}) paraissent plus lents que vos ${NOMS_FAMILLES[suivante]} (${formaterVitesse(medFam(suivante))}).`;
+    const constat = `Vos ${nom}, à ${formaterVitesse(medFam(fam))}, paraissent plus lents que vos ${NOMS_FAMILLES[suivante]}, à ${formaterVitesse(medFam(suivante))}.`;
     const isoles = d.vitesseFamilles?.[fam] ?? [];
     if (isoles.length < MESURES_FIABLES) {
       return { cle: `famille:${fam}`, titre: `Vérifier mes ${nom}`, detail: `20 colonnes rien qu'avec eux`,
@@ -573,7 +573,7 @@ export function verificationVitesse(d) {
         aller: ['rythme', { jeu: 'marathon', cibles: [lent.cle], lignes: 40, auto: true }] };
     }
     return { cle: `famille:${fam}`, titre: `Accélérer mes ${nom}`, detail: '20 colonnes rien qu\'avec eux, en visant la régularité',
-      pourquoi: `Même seuls, vos ${nom} restent lents (${formaterVitesse(iso)}) : il faut les travailler pour eux-mêmes.`,
+      pourquoi: `Même seuls, vos ${nom} restent lents, à ${formaterVitesse(iso)} : il faut les travailler pour eux-mêmes.`,
       aller: ['verification', { famille: fam }] };
   }
   return null;

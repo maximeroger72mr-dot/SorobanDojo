@@ -110,7 +110,9 @@ export function planchesPossibles(d, difficiles = [], date = null) {
     liste.push({ id: `renforcer:${faible.cle}`, but: 'Renforcer', titre: `Planche « ${nomMotif(faible.cle)} »`, cible: faible.cle, mode: 'seul', format: 'vise', ...pourGeste(vise),
       objectif: `Renforcer un geste qui se trompe : toutes les colonnes justes, sans chercher la vitesse.` });
   }
-  const lents = gestesLents(d, 2);
+  // 0.40.17 : les 3 gestes les plus lents (avant 2) : quand le plus lent est déjà dans la séance, il
+  // ne restait qu'un geste à proposer en complément, chaque jour le même.
+  const lents = gestesLents(d, 3);
   for (const [k, lent] of lents.entries()) {
     // La cible : le premier palier de vitesse AU-DESSUS de la vitesse actuelle (jamais en dessous).
     const suivant = NIVEAUX.filter((n) => n.temps && n.temps.addsub < lent.ev.temps).map((n) => n.temps.addsub).sort((a, b) => b - a)[0];
@@ -164,7 +166,22 @@ const versPlanche = (p) => ({
 export function prochainesPlanches(d, date, difficiles = [], n = 1, exclure = []) {
   const faites = planchesFaites(d, date);
   // Pas deux fois le même geste dans la séance (la priorité du jour le travaille déjà).
-  const restantes = planchesPossibles(d, difficiles, date).filter((p) => !faites.has(p.id) && !exclure.includes(p.cible));
+  let restantes = planchesPossibles(d, difficiles, date).filter((p) => !faites.has(p.id) && !exclure.includes(p.cible));
+  // 0.40.17 : roulement. La même planche revenait chaque jour en tête (« −1 petit ami » 7 jours sur 7 :
+  // le geste le plus lent ne change pas d'un jour à l'autre). Une planche faite hier passe en dernier ;
+  // en tête, une des 4 premières, à tour de rôle (cycle de 4 jours). Un geste qui se trompe
+  // (« Renforcer », « pincée ») garde la première place : il faut le reprendre tant qu'il se trompe.
+  if (date) {
+    const hier = planchesFaites(d, new Date(new Date(`${date}T12:00`).getTime() - 86400000).toISOString().slice(0, 10));
+    restantes = [...restantes.filter((p) => !hier.has(p.id)), ...restantes.filter((p) => hier.has(p.id))];
+    const fixe = restantes[0] && (restantes[0].but === 'Rattraper' || restantes[0].but === 'Renforcer') ? 1 : 0;
+    // (rangées par id : l'ordre de planchesPossibles change selon la parité du jour, il fausserait le tour)
+    const tete = restantes.slice(fixe, fixe + 4).sort((x, y) => (x.id < y.id ? -1 : 1));
+    if (tete.length > 1) {
+      const choisie = tete[jourNum(date) % tete.length];
+      restantes = [...restantes.slice(0, fixe), choisie, ...restantes.slice(fixe).filter((p) => p !== choisie)];
+    }
+  }
   return restantes.slice(0, n).map(versPlanche);
 }
 
@@ -188,6 +205,10 @@ export function feuilleSemaine(d, date) {
   if (sessionsDu(d, date).some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode))) return null;
   const semaine = semaineISO(date).cle;
   const tentee = d.sessions.some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode) && semaineISO(s.date).cle === semaine);
+  // 0.40.17 : déjà tentée cette semaine : un jour sur deux seulement (pas le lendemain d'un essai).
+  // Avant, elle revenait chaque jour dans « Pour compléter ».
+  const hier = new Date(new Date(`${date}T12:00`).getTime() - 86400000).toISOString().slice(0, 10);
+  if (tentee && d.sessions.some((s) => s.module === 'defis' && ['semaine', 'sans-filet'].includes(s.mode) && s.date === hier)) return null;
   const r = d.records[defiSemaine(d, date).cle];
   return { type: 'defi', titre: 'Feuille de la semaine', but: 'Se mesurer', minutes: 5,
     detail: !tentee ? 'le même sujet toute la semaine : tentez-la une première fois pour avoir votre repère' : r?.dureeMs ? `le même sujet que les autres jours : battez votre temps (${Math.round(r.dureeMs / 1000)} s)` : 'le même sujet que les autres jours : faites mieux qu\'hier',

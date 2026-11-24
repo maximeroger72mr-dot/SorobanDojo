@@ -507,12 +507,15 @@ export function plan(d, debut, seance0 = null) {
   if (seance?.blocIds) {
     for (let i = essentiel.length - 1; i >= 0; i--) if (essentiel[i].id && !seance.blocIds.includes(essentiel[i].id)) essentiel.splice(i, 1);
   }
+  const examDansSeance = examEssentiel || essentiel.some((it) => it.examen && !it.fait);
   const reserve = itemAnzan ? itemAnzan.minutes : 0;
   for (const [i, it] of essentiel.entries()) {
     const reste = objectif - cumul - (it === itemAnzan ? 0 : reserve);
     // L'examen blanc garde TOUJOURS sa place (c'est lui, la séance du jour), même s'il dépasse
     // l'objectif ; l'anzan lui cède alors la sienne.
-    const anzanGarde = it === itemAnzan && !(examEssentiel && cumul >= objectif);
+    // 0.40.17 : aussi l'examen complet (30 min, après le 6e kyū) : avec l'anzan, la séance du vendredi
+    // montait à 36-37 min pour un objectif de 30.
+    const anzanGarde = it === itemAnzan && !(examDansSeance && cumul + it.minutes > objectif);
     if (it.fait || i === 0 || anzanGarde || it.examen || it.garder || it.minutes <= reste) { garde.push(it); cumul += it.minutes; continue; } // un point fait garde son temps : il ne libère pas de place
     if (it.decision && reste >= 3) {
       garde.push({ ...it, minutes: reste, detail: `${it.detailCourt ?? it.detail} (${reste} min aujourd'hui, la suite demain si besoin)` });
@@ -561,7 +564,9 @@ export function plan(d, debut, seance0 = null) {
   const socle = socleEnBonus ? [{ titre: `Examen · ${exam.nom} : le socle`, minutes: SOCLE.minutes, aller: ['examen', { auto: true }], examen: true, fait: false,
     detail: `${SOCLE.colonnes} colonnes sans chrono, ${Math.ceil(SOCLE.colonnes * SOCLE.seuil)} justes pour obtenir le grade : à tenter quand vous voulez, d'ici dimanche`,
     pourquoi: 'Le socle ne prend la place de la leçon qu\'un jour par semaine : les autres jours, il attend ici, sans pression.' }] : [];
-  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc)).filter((x) => !(feuilleHebdo && x.type === 'defi' && x.titre === 'Feuille de la semaine'))];
+  const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc)).filter((x) => !(feuilleHebdo && x.type === 'defi' && x.titre === 'Feuille de la semaine'))
+    // 0.40.17 : pas de flash anzan en plus quand la séance a déjà son bloc d'anzan (il revenait chaque jour).
+    .filter((x) => !(x.type === 'anzan' && garde.some((it) => it.blocSeance === 'anzan')))];
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }

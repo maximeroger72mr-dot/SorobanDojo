@@ -141,8 +141,10 @@ export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaug
   // qu'en soit la cause. En montée et en endurance, plusieurs amis par colonne : l'erreur n'est
   // presque jamais localisée (0 à 3 %) ; avant, elle comptait toujours sur le geste visé en montée
   // (filet pour rien) et jamais en endurance (filet jamais déclenché).
+  // 0.40.17 : une faute hors geste visé coupe la série « visé » (visé faux, autre faux, visé faux donnait
+  // le message « deux erreurs de suite sur le geste visé »).
   if (juste) { e.erreurs = 0; e.fautes = 0; } else {
-    if (erreurVisee) e.erreurs += 1;
+    e.erreurs = erreurVisee ? e.erreurs + 1 : 0;
     e.fautes = (e.fautes ?? 0) + 1;
   }
   if (e.erreurs >= ERREURS_FILET) return { ...e, filet: FILET, erreurs: 0, fautes: 0, causeFilet: 'vise' };

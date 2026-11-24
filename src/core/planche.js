@@ -169,12 +169,13 @@ export function genererPlancheGeste(spec, graine) {
       // (« Ce geste ne permet pas de former ces colonnes »). Une forme déjà présente est acceptée au
       // 4e essai, et la colonne s'allonge d'une ou deux lignes s'il le faut.
       // Un échec du générateur a déjà parcouru tous ses niveaux de repli : on allonge vite.
-      for (const L of [n, n + 1, n + 2]) {
+      // 0.40.17 : une ligne de moins avant une de plus (dans la fourchette du réglage, ±1 ligne).
+      for (const L of [n, ...(n - 1 >= Math.max(4, lignes - 1) ? [n - 1] : []), n + 1, n + 2]) {
         for (let e = 0; e < 4 && !col; e++) {
           let echec = false;
           try { col = genererColonneGeste({ cible, mode, chiffres, lignes: L, appris }, memoire); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; echec = true; }
           if (col && e < 2 && cols.some((x) => forme(x) === forme(col))) col = null;
-          if (echec && L === n) break;
+          if (echec && L <= n) break;
         }
         if (col) break;
       }

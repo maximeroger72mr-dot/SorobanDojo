@@ -447,7 +447,7 @@ export const PALIERS = [
       { id: 'p9-5', titre: 'Division à 7 et 8 chiffres au total (diviseur de 2 à 5 chiffres)', type: 'div', nd: 4, nq: 3, formes: [[4, 3], [3, 4], [5, 2], [2, 5], [4, 4], [5, 3], [3, 5]], zerosFinaux: 0.15, repetitions: 30, corrections: true,
         pourquoi: 'On estime toujours avec le diviseur arrondi sur son premier chiffre (2 431 → 2 000, 2 780 → 3 000), puis on corrige de ±1. Avec 4 chiffres au diviseur, chaque chiffre du quotient demande 4 retraits : vérifiez l\'estimation de tête avant de poser.',
         demos: [{ a: 1110967, b: 2431 }] },
-      { id: 'p9-2', titre: '9 et 10 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 9, chiffresMax: 10, lignes: 10, repetitions: 20, cumul: true,
+      { id: 'p9-2', titre: '9 et 10 chiffres, 10 lignes', cibles: TOUS_LES_MOTIFS, chiffres: 9, chiffresMax: 10, lignes: 10, repetitions: 14, cumul: true, // 0.40.17 : 14 (avant 20 : 56 min à l'allure de l'or)
         pourquoi: 'Le format du 1er kyū : 10 lignes de 10 chiffres, soit 100 chiffres par colonne. C\'est une épreuve d\'endurance : gardez un rythme égal du premier au dernier chiffre, sans accélérer sur les lignes faciles. La main gauche suit la ligne sur la feuille pour ne pas en sauter une.',
         demos: [{ depart: 407258136, op: '+', n: 396420715 }] },
       { id: 'p9-4', titre: 'Multiplication à 10 et 11 chiffres au total (5 × 5, 6 × 4, 6 × 5, 7 × 4)', type: 'mul', m: 6, n: 5, formes: [[5, 5], [6, 4], [4, 6], [6, 5], [5, 6], [7, 4], [4, 7]], zerosFinaux: 0.15, repetitions: 30,
@@ -798,7 +798,10 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   const lignes = f ? entre(f.lignes, f.lignesMax) : entre(sp.lignes, sp.lignesMax);
   // Après les grands amis (toutes les retenues apprises), les colonnes à plusieurs chiffres suivent
   // le format d'examen : premier nombre à la longueur annoncée.
-  const longueurFixe = chiffres >= 2 && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
+  // 0.40.17 : sauf la leçon des cascades (p5-4) : un départ à 2 chiffres ne permet presque jamais l'emprunt
+  // en cascade (105 − 7) ; 221 cascades en addition pour 71 en soustraction. Départ libre (voir generateur.js).
+  const cascades = sp.cibles?.length && sp.cibles.every((c) => c.startsWith('cascade'));
+  const longueurFixe = chiffres >= 2 && !cascades && sp.ordre > (SOUS_PALIERS.find((x) => x.id === 'p4-5')?.ordre ?? Infinity);
   // 0.40.7 : hors format de référence (montée, endurance), une ligne de dizaines au plus (±10 à ±40).
   // 0.40.9 : en endurance, une ligne au plus avec un autre ami déjà appris (voir amisAppris).
   // 0.40.10 : à partir des grands amis, une part d'autres amis tirée par colonne (`partAmis`).
@@ -856,7 +859,9 @@ export function fluxEquilibre(sp, taille, poidsDe = () => ({})) {
       return [c, vus[c] ? w / (1 + vus[c]) : 4 * w];
     }));
     let meilleur = null;
-    for (let e = 0; e < (urgent ? 3 : 1); e++) {
+    // 0.40.17 : 6 essais (avant 3) quand un geste manque encore en seconde moitié : un geste pouvait
+    // rester absent d'un mini-test (rare ; un test l'attrapait de temps en temps).
+    for (let e = 0; e < (urgent ? 6 : 1); e++) {
       const ex = genererExercice(sp, poids, ctx);
       const gain = absents.filter((c) => gestes(ex).includes(c)).length;
       if (!meilleur || gain > meilleur.gain) meilleur = { ex, gain };

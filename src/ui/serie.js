@@ -247,6 +247,9 @@ export function creerSerie(conteneur, o) {
       saisie.focus({ preventScroll: true });
       cadrer();
       if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(cadrer); // après la mise en page
+      // 0.40.17 : et encore un peu après (le chrono, la jauge et la phase s'affichent ensuite : ~30 px de
+      // plus, « Valider » finissait sous la barre du bas). Sans effet si tout est déjà visible.
+      if (typeof setTimeout !== 'undefined') { setTimeout(cadrer, 200); setTimeout(cadrer, 700); }
     }
   }
 
@@ -275,7 +278,10 @@ export function creerSerie(conteneur, o) {
     const marge = parseFloat(getComputedStyle(ligneSaisie).scrollMarginBottom) || 0;
     if (ligneSaisie.getBoundingClientRect().bottom <= hauteurVisible() - marge) return;
     ligneSaisie.scrollIntoView({ block: 'end', behavior: 'instant' });
-    if (racine.getBoundingClientRect().top < 0) racine.scrollIntoView({ block: 'start', behavior: 'instant' });
+    // 0.40.17 : le haut de la série seulement si la saisie reste visible (écran bas : la saisie d'abord ;
+    // avant, « Valider » finissait à moitié caché sous la barre du bas, à 390 × 500).
+    const haut = racine.getBoundingClientRect().top;
+    if (haut < 0 && ligneSaisie.getBoundingClientRect().bottom - haut <= hauteurVisible() - marge) racine.scrollIntoView({ block: 'start', behavior: 'instant' });
   }
 
   /**

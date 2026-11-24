@@ -115,15 +115,18 @@ export function creerMarathon(conteneur, o) {
       t = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: c.autorises, cibles: c.cibles, poids: poidsLigne, precedents });
     } catch (e) {
       if (!(e instanceof ErreurGeneration)) throw e;
-      return genererTerme(v, { ...extra(v), chiffres: ch(), autorises: null, cibles: null, precedents });
+      let r = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: null, cibles: null, precedents });
+      for (let k = 0; k < 6 && redondante(precedents, r); k++) r = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: null, cibles: null, precedents });
+      return r;
     }
-    for (let k = 0; k < 4 && redondante(precedents, t); k++) {
+    // 0.40.17 : 8 essais (avant 4), puis tout geste permis : le même nombre deux fois de suite restait
+    // dans 2 % des lignes (+6 +6).
+    for (let k = 0; k < 8 && redondante(precedents, t); k++) {
       try {
-        const autre = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: c.autorises, cibles: c.cibles, viser: false, poids: poidsLigne, precedents });
+        const autre = genererTerme(v, { ...extra(v), chiffres: ch(), autorises: k < 6 ? c.autorises : null, cibles: c.cibles, viser: false, poids: poidsLigne, precedents });
         if (!redondante(precedents, autre)) t = autre;
       } catch (e) {
         if (!(e instanceof ErreurGeneration)) throw e;
-        break;
       }
     }
     return t;
@@ -163,8 +166,10 @@ export function creerMarathon(conteneur, o) {
         break;
       }
     }
+    // 0.40.17 : la dernière ligne de la tranche précédente compte (le même nombre revenait à la jonction).
+    const avant = tranche?.lignes?.at(-1);
     while (lignes.length < T) {
-      const t = ligne(v, [{ op: '+', n: v0 }, ...lignes]);
+      const t = ligne(v, [{ op: '+', n: v0 }, ...(avant && !lignes.length ? [avant] : []), ...lignes]);
       lignes.push(t.deblocage ? { op: t.op, n: t.n, deblocage: true } : { op: t.op, n: t.n });
       motifs.push(...t.motifs);
       v = t.resultat;
