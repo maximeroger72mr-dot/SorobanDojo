@@ -255,11 +255,25 @@ export function creerSerie(conteneur, o) {
    * fait pas défiler la page). On descend juste assez pour voir la colonne entière et la saisie,
    * sans cacher le haut de la série.
    */
+  /** Hauteur vraiment visible : sans le clavier virtuel quand il est ouvert (téléphone). */
+  const hauteurVisible = () => window.visualViewport?.height ?? window.innerHeight;
+  /**
+   * 0.40.16 : le message de correction (sous la saisie) reste visible après une erreur ; avant, seul le
+   * changement de colonne recadrait.
+   */
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(() => {
+      if (!retour.classList.contains('erreur') || !racine.isConnected || !retour.scrollIntoView) return;
+      const marge = parseFloat(getComputedStyle(ligneSaisie).scrollMarginBottom) || 0;
+      if (retour.getBoundingClientRect().bottom > hauteurVisible() - marge) retour.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    }).observe(retour, { childList: true });
+  }
   function cadrer() {
     if (typeof window === 'undefined' || !racine.isConnected || !ligneSaisie.scrollIntoView) return;
-    // La marge de défilement compte (barre de menu en bas sur téléphone, 0.40.12).
+    // La marge de défilement compte (barre de menu en bas sur téléphone, 0.40.12), et la hauteur
+    // vraiment visible (clavier virtuel ouvert, 0.40.16).
     const marge = parseFloat(getComputedStyle(ligneSaisie).scrollMarginBottom) || 0;
-    if (ligneSaisie.getBoundingClientRect().bottom <= window.innerHeight - marge) return;
+    if (ligneSaisie.getBoundingClientRect().bottom <= hauteurVisible() - marge) return;
     ligneSaisie.scrollIntoView({ block: 'end', behavior: 'instant' });
     if (racine.getBoundingClientRect().top < 0) racine.scrollIntoView({ block: 'start', behavior: 'instant' });
   }

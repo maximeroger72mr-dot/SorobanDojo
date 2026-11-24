@@ -808,7 +808,9 @@ function genererExerciceBrut(sp, poids = {}, ctx = {}) {
   // le geste visé (en exiger 2 sur 4 opérations recréait des places fixes : lignes 1 et 4).
   // Petits amis (p2) compris, dans toutes les phases (en montée et en endurance, la 1re ligne portait
   // le geste visé dans 100 % des colonnes, les 2e et 3e jamais).
-  const departLibre = !!f?.partAmis || (sp.chiffres === 1 && !sp.departChiffres && phasesLecon(sp)?.genre === 'amis');
+  // 0.40.16 : toutes les leçons de colonnes hors format d'examen (p1, p5-1, p5-2, « 2 et 3 chiffres »…) :
+  // ni départ imposé (p4-4), ni zéros internes, ni longueur fixe (format d'examen, qui passe devant).
+  const departLibre = !!f?.partAmis || (!sp.departChiffres && !sp.zeros && !longueurFixe);
   return genererColonneVariee({ ...(amis ? { ligneAmi: amis, partAmis: f.partAmis ?? null } : {}), premierLibre: departLibre, minVises: f?.minVises ?? 1, chiffres, lignes, autorises: f?.autorises ?? sp.autorises, cibles: sp.cibles, poids, ops: sp.ops, zeros: sp.zeros, longueurFixe, departChiffres: f ? f.departChiffres : sp.departChiffres, dizaines: !!f }, m);
 }
 

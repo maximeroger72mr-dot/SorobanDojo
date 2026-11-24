@@ -164,9 +164,19 @@ export function genererPlancheGeste(spec, graine) {
       // 0.40.7 : jamais deux colonnes de même forme sur la planche (les niveaux de repli du
       // générateur pouvaient en redonner une).
       const forme = (c) => c.lignes.slice(1).map((l) => `${l.op}${l.n}`).join();
-      for (let e = 0; e < 20 && !col; e++) {
-        try { col = genererColonneGeste({ cible, mode, chiffres, lignes: n, appris }, memoire); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; }
-        if (col && e < 19 && cols.some((x) => forme(x) === forme(col))) col = null;
+      // 0.40.16 : à 1 chiffre, certains gestes n'ont presque qu'une forme possible en 5 lignes (+1 petit
+      // ami : le geste, deux directs pour revenir à 4, le geste) : la planche dépassait le délai
+      // (« Ce geste ne permet pas de former ces colonnes »). Une forme déjà présente est acceptée au
+      // 4e essai, et la colonne s'allonge d'une ou deux lignes s'il le faut.
+      // Un échec du générateur a déjà parcouru tous ses niveaux de repli : on allonge vite.
+      for (const L of [n, n + 1, n + 2]) {
+        for (let e = 0; e < 4 && !col; e++) {
+          let echec = false;
+          try { col = genererColonneGeste({ cible, mode, chiffres, lignes: L, appris }, memoire); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; echec = true; }
+          if (col && e < 2 && cols.some((x) => forme(x) === forme(col))) col = null;
+          if (echec && L === n) break;
+        }
+        if (col) break;
       }
       for (let e = 0; e < 10 && !col; e++) {
         try {

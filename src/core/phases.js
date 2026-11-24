@@ -47,6 +47,8 @@ export const SORTIE = 12;
 export const REFERENCE_RETOUR = 6;
 export const FILET = 3;
 export const ERREURS_FILET = 2;
+/** Colonnes fausses de suite, quelle qu'en soit la cause, qui mènent aussi au filet (0.40.16). */
+export const FAUTES_FILET = 3;
 export const PART_REFERENCE = 0.4;
 /** Colonnes à faire en endurance (2 chiffres, 10 lignes) pour les leçons d'amis (0.40.2). */
 export const ENDURANCE_MIN = 6;
@@ -132,13 +134,19 @@ export function apresColonne(plan, e0, { juste, rapide, erreurVisee = true, jaug
   const e = { ...e0 };
   if (e.filet > 0) {
     e.filet -= 1;
-    if (e.filet === 0) Object.assign(e, { n: 0, suite: 0, justes: 0, erreurs: 0 });
+    if (e.filet === 0) Object.assign(e, { n: 0, suite: 0, justes: 0, erreurs: 0, fautes: 0 });
     return e;
   }
-  // Seules les erreurs sur un geste visé mènent au filet ; une erreur ailleurs ne compte pas.
-  if (juste) e.erreurs = 0;
-  else if (erreurVisee) e.erreurs += 1;
-  if (e.erreurs >= ERREURS_FILET) return { ...e, filet: FILET, erreurs: 0 };
+  // Filet : 2 erreurs de suite sur un geste visé, ou (0.40.16) 3 colonnes fausses de suite quelle
+  // qu'en soit la cause. En montée et en endurance, plusieurs amis par colonne : l'erreur n'est
+  // presque jamais localisée (0 à 3 %) ; avant, elle comptait toujours sur le geste visé en montée
+  // (filet pour rien) et jamais en endurance (filet jamais déclenché).
+  if (juste) { e.erreurs = 0; e.fautes = 0; } else {
+    if (erreurVisee) e.erreurs += 1;
+    e.fautes = (e.fautes ?? 0) + 1;
+  }
+  if (e.erreurs >= ERREURS_FILET) return { ...e, filet: FILET, erreurs: 0, fautes: 0, causeFilet: 'vise' };
+  if (e.fautes >= FAUTES_FILET) return { ...e, filet: FILET, erreurs: 0, fautes: 0, causeFilet: 'fautes' };
   const ph = plan.ordre[e.i];
   e.n += 1;
   e.suite = juste && (ph.passage !== 'argent' && !ph.reference ? true : rapide) ? e.suite + 1 : 0;

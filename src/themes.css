@@ -55,7 +55,7 @@
   }
   #navigation .titre-app, #navigation .separateur-menu, #navigation .choix-theme, #navigation .version-appli { display: none; }
   /* 0.40.12 : cadrage d'une colonne longue (ui/serie.js) au-dessus de la barre du bas (64 px). */
-  .serie .ligne-saisie { scroll-margin-bottom: 84px; }
+  .serie .ligne-saisie, .serie .retour { scroll-margin-bottom: 84px; }
   #navigation button.entree-menu { flex: 1; flex-direction: column; justify-content: center; gap: 3px; padding: 6px 2px; margin: 0; font-size: 0.72rem; text-align: center; position: relative; }
   #navigation button.entree-menu .pastille { position: absolute; top: 4px; right: 18%; margin: 0; }
   main { padding: 16px 14px 88px; }

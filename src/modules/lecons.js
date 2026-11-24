@@ -658,16 +658,18 @@ export default {
                   const gestes = gestesVises(sp, ex);
                   // Filet : seulement sur une erreur qui porte (ou peut porter) sur un geste visé.
                   const loc = juste || res.reponse == null ? null : localiserErreur(ex, res.reponse);
-                  // 0.40.12 : en endurance, une erreur qu'on ne sait pas localiser ne déclenche plus le filet
-                  // (10 lignes de 2 chiffres, pleines d'autres amis : deux fautes d'inattention suffisaient).
-                  const erreurVisee = !juste && (loc ? loc.motifs.some((m) => sp.cibles.includes(m)) : ex.phase !== 'endurance' && gestesVises(sp, ex) > 0);
+                  // 0.40.16 : en montée et en endurance (plusieurs amis par colonne), une erreur qu'on ne sait
+                  // pas localiser ne compte pas sur le geste visé ; trois colonnes fausses de suite mènent
+                  // quand même au filet (voir phases.apresColonne).
+                  const plusieursAmis = ex.phase === 'montee' || ex.phase === 'endurance';
+                  const erreurVisee = !juste && (loc ? loc.motifs.some((m) => sp.cibles.includes(m)) : !plusieursAmis && gestesVises(sp, ex) > 0);
                   const endu = ex.phase === 'endurance';
                   const gestesPleins = (etatPalier(sp.id).gestesVises ?? 0) + gestes >= objectifLecon(sp);
                   const enduFaite = (etatPalier(sp.id).colonnesEnd ?? 0) + (endu ? 1 : 0) >= enduranceExigee(planPh);
                   etatPh = apresColonne(planPh, etatPh, { juste, rapide, erreurVisee, jaugePleine: gestesPleins && enduFaite, versEndurance: gestesPleins && !enduFaite });
                   await noterPhaseLecon(sp.id, { etat: etatPh, gestes, reference: ref, endurance: endu });
                   const apres = phaseCourante(planPh, etatPh);
-                  majPhase(apres.id !== avant.id ? (apres.filet ? 'Deux erreurs de suite sur le geste visé : trois colonnes plus simples, avec le doigté.' : `Nouvelle phase : ${apres.titre.toLowerCase()}.`) : null);
+                  majPhase(apres.id !== avant.id ? (apres.filet ? `${etatPh.causeFilet === 'fautes' ? 'Trois colonnes fausses de suite' : 'Deux erreurs de suite sur le geste visé'} : trois colonnes plus simples, avec le doigté.` : `Nouvelle phase : ${apres.titre.toLowerCase()}.`) : null);
                   return compter(res.juste && !res.aide, res.dureeMs, ref && !res.aide && !res.autoEvalue ? res.t : undefined, ex);
                 }
                 return compter(res.juste && !res.aide, res.dureeMs, res.aide || res.autoEvalue ? undefined : res.t, ex);
@@ -679,7 +681,10 @@ export default {
             const fEndu = planPh?.ordre.find((x) => x.id === 'endurance')?.format ?? null;
             const enduAvant = planPh && fEndu ? Math.max(0, enduranceExigee(planPh) - (etatPalier(sp.id).colonnesEnd ?? 0)) : 0;
             const nEndu = Math.min(enduAvant, 6);
-            const refs = Array.from({ length: 10 - nEndu }, () => genererExercice(sp, poidsDe(sp)));
+            // 0.40.16 : tirées comme en « Une par une » (série équilibrée : chaque geste visé y passe ;
+            // avant, −1 grand ami pouvait manquer à toute une feuille de p4-4).
+            const fluxRef = fluxEquilibre(sp, 10 - nEndu, () => poidsDe(sp));
+            const refs = Array.from({ length: 10 - nEndu }, () => fluxRef());
             const endus = Array.from({ length: nEndu }, () => ({ ...genererExercice(sp, poidsDe(sp), { format: { ...fEndu, autorises: autorisesPhase(sp, cascadesOk) } }), phase: 'endurance' }));
             const libF = (f) => `${f.chiffres} chiffre${f.chiffres > 1 ? 's' : ''}, ${f.lignes} lignes`;
             // 0.40.5 : rien ne compte avant « Corriger » ; le dire, pour qu'une feuille abandonnée ne

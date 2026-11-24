@@ -26,7 +26,8 @@ import { carteMaitrise } from '../ui/carteMaitrise.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Temps accordé à la création d'une planche avant de se replier (l'écran ne doit jamais se figer). */
-const DELAI_PLANCHE_MS = 1000;
+// 0.40.16 : 2 s (avant 1 s) : à 1 chiffre, ±1 petit ami « seul » demande 0,5 à 0,8 s sur un ordinateur rapide.
+const DELAI_PLANCHE_MS = 2000;
 
 const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');

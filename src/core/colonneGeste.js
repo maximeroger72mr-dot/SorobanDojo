@@ -62,9 +62,27 @@ function candidats(chiffres, op, d) {
     }
     // 0.40.12 : pas de 44, 88, 999 (le chiffre du geste copié sur toutes les tiges en faisait souvent).
     if (chiffresIdentiques(n)) continue;
+    // 0.40.16 : nombres ronds (+20, −40) : 18 à 33 % des lignes à 2 chiffres (contre 6 à 13 % dans les
+    // leçons) ; trois sur quatre écartés, sauf quand le chiffre du geste est lui-même 0.
+    if (n % 10 === 0 && d !== 0 && Math.random() < 0.75) continue;
     res.push({ op: hasard(ops), n });
   }
   return res;
+}
+
+/**
+ * 0.40.16 : analyserOperation est pure et coûteuse (un soroban par appel) ; une colonne en refait des
+ * milliers sur les mêmes valeurs (à 1 chiffre, une centaine de valeurs possibles). Mémoire bornée.
+ * Avant, une planche de 10 colonnes de +1 ou +3 petit ami à 1 chiffre dépassait la seconde allouée.
+ */
+const memoOperations = new Map();
+function operationMemo(valeur, op, n, nbTiges) {
+  const cle = `${valeur}${op}${n}|${nbTiges}`;
+  if (memoOperations.has(cle)) return memoOperations.get(cle);
+  if (memoOperations.size > 200000) memoOperations.clear();
+  const a = analyserOperation(valeur, op, n, nbTiges);
+  memoOperations.set(cle, a);
+  return a;
 }
 
 /**
@@ -87,7 +105,9 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     const ops = lignes - 1;
     // Le geste 2 fois ; 3 sur une colonne de 7 lignes à 2 chiffres et plus. À 1 chiffre, toujours
     // 2 : le piège porte la même valeur (« −2 »), il faut lui laisser de la place.
-    const nG = Math.min(lignes >= 7 && chiffres >= 2 ? 3 : 2, Math.ceil(ops / 2));
+    // 0.40.16 : colonnes de 8 lignes et plus : 2 à 4 fois, au hasard (avant : toujours le même nombre).
+    const base = Math.min(lignes >= 7 && chiffres >= 2 ? 3 : 2, Math.ceil(ops / 2));
+    const nG = lignes >= 8 ? entier(Math.min(2, base), Math.max(base, Math.min(4, Math.ceil(ops / 2) - 1))) : base;
     let nP = avecPiege && pieges.length ? 1 : 0;
     // À 1 chiffre, geste et piège ont la même valeur (« −2 ») : jamais plus de la moitié des lignes.
     if (chiffres === 1 && nG + nP > Math.floor(lignes / 2)) nP = 0;
@@ -118,10 +138,10 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
     };
     const ligneDe = (valeur, role) => {
       // 0.40.7 : ligne de dizaines (−10 à −40 sur une planche d'addition, +10 à +40 en soustraction).
-      if (role === 'Z') return DIZAINES.map((n) => ({ op: inverse, n, a: analyserOperation(valeur, inverse, n, nbTiges) })).filter((c) => c.a && c.a.resultat >= 0 && convient('D', c.a));
+      if (role === 'Z') return DIZAINES.map((n) => ({ op: inverse, n, a: operationMemo(valeur, inverse, n, nbTiges) })).filter((c) => c.a && c.a.resultat >= 0 && convient('D', c.a));
       const opR = role === 'G' || role === 'P' ? opG : null;
       return candidats(chiffres, opR, role === 'G' || role === 'P' ? dG : undefined)
-        .map((c) => ({ ...c, a: analyserOperation(valeur, c.op, c.n, nbTiges) }))
+        .map((c) => ({ ...c, a: operationMemo(valeur, c.op, c.n, nbTiges) }))
         .filter((c) => c.a && c.a.resultat >= 0 && convient(role, c.a));
     };
     const possible = (valeur, role) => ligneDe(valeur, role).length > 0;
@@ -134,7 +154,9 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       // (−9 grand ami à 2 chiffres : 36 à 45 % d'additions).
       const tete = opG === '-' && chiffres >= 2 ? entier(5, 9) * 10 ** chiffres : Math.random() < 0.5 ? entier(1, 9) * 10 ** chiffres : 0;
       const v = chiffres === 1 ? (Math.random() < 0.75 ? entier(1, 9) * 10 : 0) + entier(0, 9) : entier(10 ** (chiffres - 1), 10 ** chiffres - 1) + tete;
-      if (v < 1 || memoire.premiers.has(v)) continue;
+      // 0.40.16 : premier nombre jamais deux fois sur la planche, sauf aux derniers niveaux (forme
+      // répétable) : à 1 chiffre, +1 petit ami n'a que 10 départs possibles (4, 14 … 94).
+      if (v < 1 || (repetMax !== Infinity && memoire.premiers.has(v))) continue;
       if (possible(v, roles[0])) depart = v;
     }
     if (depart === null) return null;
@@ -152,7 +174,13 @@ export function genererColonneGeste({ cible, mode = 'seul', chiffres = 1, lignes
       const inv = liste.slice(1).filter((l) => l.op === inverse).length;
       const quotaAtteint = inv >= quotaInverse;
       const role = i === posZ && !quotaAtteint && prec?.op !== inverse && ligneDe(valeur, 'Z').length ? 'Z' : role0;
+      // 0.40.16 : planche d'addition : jamais deux soustractions de suite ; quota de soustractions
+      // atteint : plus de soustraction (avant, un simple poids : 34 à 95 paires sur 120 colonnes de
+      // +9 grand ami à 10 lignes, et 34 à 42 % de lignes inverses).
+      // Planche de soustraction : les additions restent au simple poids (le total doit pouvoir remonter).
+      const interdite = (c) => opG === '+' && c.op === inverse && (prec?.op === inverse || quotaAtteint);
       const cands = ligneDe(valeur, role).filter((c) => {
+        if (interdite(c)) return false;
         const v = `${c.op}${c.n}`;
         if (prec && prec.n === c.n) return false; // ni répétition, ni annulation (+2 −2)
         if (prec2 && liste.length > 3 && `${prec2.op}${prec2.n}` === v && `${liste.at(-3).op}${liste.at(-3).n}` === `${prec.op}${prec.n}`) return false;

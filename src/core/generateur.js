@@ -481,7 +481,10 @@ function colonneSimple({ chiffres, lignes, autorises = null, cibles, poids = {},
     // d'addition, à 1 chiffre souvent une dizaine (les résultats varient), à 2 chiffres et plus la
     // même longueur que les lignes (0.40.12 ; avant, 77 % des départs avaient un chiffre de plus).
     const u = 10 ** chiffres;
-    do valeur = sens === '-' ? entier(3 * u, 9 * u) : chiffres === 1 ? entier(1, sens === '+' ? 40 : 60) : entier(u / 10, u - 1); while (chiffresIdentiques(valeur));
+    // 0.40.16 : colonne courte de soustraction à 2 chiffres et plus (référence, mini-test) : départ de la
+    // longueur des lignes, haut, avec une tige de plus une fois sur deux (comme le départ visé).
+    const soustraction = () => (lignes >= 8 || chiffres === 1 ? entier(3 * u, 9 * u) : entier(u / 2, u - 1) + (Math.random() < 0.5 ? entier(1, 9) * u : 0));
+    do valeur = sens === '-' ? soustraction() : chiffres === 1 ? entier(1, sens === '+' ? 40 : 60) : entier(u / 10, u - 1); while (chiffresIdentiques(valeur));
     liste = [{ op: '+', n: valeur }];
     motifs = [];
     motifsLignes = [[]];

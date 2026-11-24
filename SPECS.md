@@ -1534,3 +1534,29 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   les grands amis à 28 CPM. Désormais : comparaison seule contre seule quand la suivante a assez de
   mesures seules ; rien à accélérer si la famille n'est pas plus lente (à 10 % près) ou si elle est
   déjà à l'allure de l'or mesurée seule (1,5 s par chiffre).
+
+## Version 0.40.16 : corrections de l'audit 0.40.14
+
+- **Filet** (leçons à phases) : 2 erreurs de suite sur le geste visé, OU 3 colonnes fausses de suite
+  quelle qu'en soit la cause. En montée et en endurance (plusieurs amis par colonne, erreur presque
+  jamais localisée), une erreur non localisée ne compte plus sur le geste visé. Avant : en montée,
+  deux fautes quelconques menaient au filet ; en endurance, il ne se déclenchait presque jamais.
+  Message selon la cause.
+- **Planches « seul » et « famille » à 1 chiffre** : ±1 petit ami, +3 petit ami, +7 combiné en 5 lignes
+  n'avaient presque qu'une forme de colonne et dépassaient le délai (« Ce geste ne permet pas… »,
+  planche classique). Désormais : résultats d'opérations mémorisés (générateur 3 à 5 fois plus rapide),
+  premier nombre réutilisable aux derniers niveaux de repli, forme déjà présente acceptée au 3e essai,
+  colonne allongée d'une ou deux lignes s'il le faut, délai de 2 s.
+- **Planches d'addition par rôles** : jamais deux soustractions de suite, et plus de soustraction une
+  fois le quota atteint (avant : 34 à 95 paires sur 120 colonnes de +9 grand ami à 10 lignes, 34 à
+  42 % de lignes inverses ; maintenant 0 paire, 25 à 30 %).
+- **Planches à 2 chiffres** : trois nombres ronds sur quatre écartés (18 à 33 % des lignes → 10 %).
+  Colonnes de 8 lignes et plus : le geste 2 à 4 fois, au hasard (avant : toujours 2).
+- **Départ libre** étendu à toutes les leçons de colonnes hors format d'examen, hors départ imposé et
+  hors zéros (p1, p5-1, p5-2, « 2 et 3 chiffres »…) : en p5-1 et p5-2, la 1re ligne portait le geste
+  dans 100 % des colonnes, la 2e jamais. En soustraction à 2 chiffres et plus, colonne courte : départ
+  de la longueur des lignes, haut, une tige de plus une fois sur deux.
+- **Défilement** : hauteur vraiment visible (clavier virtuel), et le message de correction sous la
+  saisie reste visible après une erreur.
+- **Feuille de 10 d'une leçon** : colonnes de référence tirées en série équilibrée (chaque geste visé y
+  passe), comme en « Une par une ».
