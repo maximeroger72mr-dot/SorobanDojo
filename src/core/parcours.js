@@ -11,7 +11,7 @@ import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
 import { systemeChoisi, genererSujet } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill, tempsClassement as tempsClassementDrill } from './drills.js';
-import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, formaterVitesse, formaterCadence, lundi as lundiDe, unites as unitesEx } from './maitrise.js';
+import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, NIVEAUX, formaterVitesse, formaterCadence, lundi as lundiDe, unites as unitesEx } from './maitrise.js';
 import { gradeDan, prochainDan } from './dan.js';
 import { gradeDanZenkoren, prochainNiveau, CLE_DAN_ZENKOREN, NIVEAUX_DAN_ZENKOREN } from './danZenkoren.js';
 import { genererColonneVariee, creerMemoire } from './generateur.js';
@@ -531,6 +531,8 @@ const familleDe = (c) => (c.startsWith('cascade') ? 'cascade' : c.split(':')[1])
  * @returns {{ titre, detail, pourquoi, aller, cle }|null}
  */
 export const MARGE_VERIFICATION = 1.1;
+/** Allure de l'or (secondes par chiffre, + et −) : une famille aussi rapide seule n'est pas à accélérer. */
+const TEMPS_OR = NIVEAUX.find((n) => n.id === 'confirme').temps.addsub;
 export function verificationVitesse(d) {
   const appris = motifsAppris(d);
   const situation = {};
@@ -555,7 +557,14 @@ export function verificationVitesse(d) {
         aller: ['verification', { famille: fam }] };
     }
     const iso = mediane(isoles.slice(-20));
-    if (iso < medFam(suivante)) {
+    // 0.40.15 : la famille mesurée seule est comparée à la suivante mesurée seule quand c'est possible
+    // (avant : à sa vitesse en situation, souvent ancienne, prise dans des colonnes courtes). Pas plus
+    // lente qu'elle (à 10 % près), ou déjà à l'allure de l'or seule : rien à accélérer. Avant, des gestes
+    // directs à 50 CPM seuls (petits amis seuls : 51 CPM) étaient proposés chaque jour, devant les
+    // grands amis à 28 CPM.
+    const isoSuivante = d.vitesseFamilles?.[suivante] ?? [];
+    const repere = isoSuivante.length >= MESURES_FIABLES ? mediane(isoSuivante.slice(-20)) : medFam(suivante);
+    if (iso <= repere * MARGE_VERIFICATION || iso <= TEMPS_OR) {
       const lent = (situation[fam] ?? []).map((x) => ({ ...x, iso: (d.motifs[x.cle].isole ?? []).length >= MESURES_FIABLES ? mediane(d.motifs[x.cle].isole.slice(-20)) : null }))
         .filter((x) => x.iso !== null && x.iso > 1.25 * iso).sort((a, b) => b.iso - a.iso)[0];
       if (!lent) continue; // famille vérifiée rapide : c'est l'enchaînement avec les autres gestes qui coûte

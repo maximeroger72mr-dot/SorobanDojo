@@ -1524,3 +1524,13 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   traitée par la question elle-même (avant : l'activation par défaut du bouton « Oui », qu'un
   raccourci clavier resté actif d'un autre écran pouvait annuler). Entrée hors d'une case (focus perdu
   après un clic ou un défilement) ouvre la question quand toutes les cases sont remplies, et y répond.
+
+## Version 0.40.15 : plus de « Accélérer mes gestes directs » chaque jour
+
+- La vérification de vitesse (une famille plus lente que la suivante) comparait la famille mesurée
+  SEULE à la suivante mesurée EN SITUATION (souvent des mesures anciennes, prises dans des colonnes
+  courtes). Cas réel : directs seuls à 1,21 s par chiffre (50 CPM), petits amis seuls à 1,17 s, mais
+  petits amis en situation à 1,15 s : « Accélérer mes gestes directs » revenait chaque jour, devant
+  les grands amis à 28 CPM. Désormais : comparaison seule contre seule quand la suivante a assez de
+  mesures seules ; rien à accélérer si la famille n'est pas plus lente (à 10 % près) ou si elle est
+  déjà à l'allure de l'or mesurée seule (1,5 s par chiffre).

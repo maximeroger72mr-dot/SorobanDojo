@@ -57,6 +57,19 @@ test('vérification de vitesse : pas d\'alerte à vitesse égale (marge de 10 %)
   assert.ok(verificationVitesse(valide(ids, { motifs: motifs(1.6, 1.2) })));
 });
 
+test('0.40.15 : gestes directs aussi rapides seuls que les petits amis seuls : pas de « Accélérer » chaque jour', () => {
+  const ids = ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1', 'p2-2', 'p2-3', 'p2-4'];
+  const motifs = (tDirect, tPetit) => Object.fromEntries([...['+1', '+2', '-1', '-2'].map((g) => [`${g}:direct`, { hist: h(tDirect) }]), ...['+4', '+3', '-4'].map((g) => [`${g}:petit`, { hist: h(tPetit) }])]);
+  const iso = (t) => Array.from({ length: 20 }, () => t);
+  // Cas réel : directs 1,26 s en situation (pris dans des colonnes de grands amis), petits 1,15 s ;
+  // seuls, directs 1,21 s et petits 1,17 s : rien à accélérer.
+  assert.equal(verificationVitesse(valide(ids, { motifs: motifs(1.4, 1.15), vitesseFamilles: { direct: iso(1.21), petit: iso(1.17) } })), null);
+  // Déjà à l'allure de l'or seuls (1,5 s), même si les petits amis seuls sont plus rapides : rien.
+  assert.equal(verificationVitesse(valide(ids, { motifs: motifs(1.4, 0.9), vitesseFamilles: { direct: iso(1.45), petit: iso(0.9) } })), null);
+  // Vraiment lents seuls : toujours proposé.
+  assert.match(verificationVitesse(valide(ids, { motifs: motifs(2.2, 1.2), vitesseFamilles: { direct: iso(2.0), petit: iso(1.2) } }))?.titre ?? '', /Accélérer/);
+});
+
 test('planches proposées : jamais plus de 10 minutes, même à 6 chiffres', () => {
   const d = valide(TOUT, { motifs: { '+4:petit': { hist: h(2.6) } } });
   const p = planchesPossibles(d, [], '2026-11-11');
