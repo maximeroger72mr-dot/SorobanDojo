@@ -24,13 +24,16 @@ test('examen blanc : le grade le plus élevé dont les leçons sont validées, n
   assert.equal(examenDeLaSemaine(d6).officiel, '6');
   // Réussi (en blanc) : tous les grades d'en dessous suivent par équivalence, on passe à l'entretien.
   d6.records[cleBlanc(SYSTEMES.nissho, '6')] = { reussi: true, points: 20 };
+  // 0.41 : le kyū demande ses deux épreuves : l'examen blanc passe au Zenkoren, puis l'entretien.
+  assert.equal(examenDeLaSemaine(d6).systeme, 'zenkoren');
+  d6.records[cleBlanc(SYSTEMES.zenkoren, '6')] = { reussi: true, points: 20 };
   assert.equal(examenDeLaSemaine(d6).id, 'hebdo');
   assert.ok(PREKYU.every((x) => prekyuObtenu(d6, x)));
   const g8 = SYSTEMES.nissho.grades.find((x) => x.id === '8');
   assert.ok(kyuPasse(d6, SYSTEMES.nissho, g8));
   assert.ok(!kyuPasse(d6, SYSTEMES.nissho, SYSTEMES.nissho.grades.find((x) => x.id === '5')));
   // Un kyū officiel réussi en épreuve vaut aussi les grades officiels inférieurs sur la frise.
-  const d7 = valide(PREREQUIS[7], { records: { 'epreuve-7': { reussi: true, points: 200 } } });
+  const d7 = valide(PREREQUIS[7], { records: { 'epreuve-7': { reussi: true, points: 200 }, 'zenkoren-7': { reussi: true, points: 200 } } });
   const marches = frise(d7);
   assert.ok(marches.filter((m) => ['o10', 'o9', 'o8', 'o7', 'p20', 'p11'].includes(m.id)).every((m) => m.obtenu));
   assert.ok(!marches.find((m) => m.id === 'o6').obtenu);
@@ -42,11 +45,11 @@ test('examen blanc : le grade le plus élevé dont les leçons sont validées, n
 test('prochain grade : le suivant seulement, avec les leçons qui manquent', () => {
   const d = valide(['p1-1', 'p1-2', 'p1-3'], { records: { 'prekyu-20': { reussi: true } } });
   const j = prochainJalon(d, '2026-01-10');
-  assert.equal(j.nom, '19e kyū prép.');
+  assert.equal(j.nom, '19e kyū');
   assert.equal(j.restantes, 1);
   assert.equal(j.palier, 'p1');
   assert.equal(j.dernier.court, '20e');
-  assert.equal(prochainJalon(valide(TOUT, { records: { 'epreuve-1': { reussi: true } } }), '2026-01-10'), null);
+  assert.equal(prochainJalon(valide(TOUT, { records: { 'epreuve-1': { reussi: true }, 'zenkoren-1': { reussi: true } } }), '2026-01-10'), null);
 });
 
 test('vérification de vitesse : pas d\'alerte à vitesse égale (marge de 10 %)', () => {
@@ -131,9 +134,9 @@ test('0.33 : un kyū réussi valide ses leçons ; le test de niveau part du nive
   const { leconsParEquivalence } = await import('../src/core/examen.js');
   const { suiteTest, PALIERS_TEST, colonneTest } = await import('../src/core/positionnement.js');
   // 7e kyū réussi en épreuve, aucune leçon validée : toutes les leçons du 7e kyū (et la prise en main).
-  const ids = leconsParEquivalence(valide([], { records: { 'epreuve-7': { reussi: true } } }));
+  const ids = leconsParEquivalence(valide([], { records: { 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } } }));
   assert.ok(PREREQUIS[7].every((id) => ids.includes(id)) && ids.includes('p0-1') && !ids.includes('p6-4'));
-  assert.deepEqual(leconsParEquivalence(valide(ids, { records: { 'epreuve-7': { reussi: true } } })), []);
+  assert.deepEqual(leconsParEquivalence(valide(ids, { records: { 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } } })), []);
   assert.deepEqual(leconsParEquivalence(valide([])), []);
   // Le test : réussi, on monte ; raté, on redescend ; on ne remonte pas vers un palier déjà raté.
   assert.deepEqual(suiteTest(2, true), { suivant: 3, valides: 3 });

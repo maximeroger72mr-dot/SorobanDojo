@@ -15,6 +15,8 @@ export const COLONNES_PALIER = 8;
 export const MIN_PALIER = 7;
 
 const lecons = (...paliers) => SOUS_PALIERS.filter((sp) => paliers.includes(sp.palier.id)).map((sp) => sp.id);
+/** Leçons d'une étape jusqu'à `fin` comprise. */
+const jusqua = (palier, fin) => { const ids = lecons(palier); return ids.slice(0, ids.indexOf(fin) + 1); };
 
 /** Les paliers : exercices tirés d'une leçon représentative, leçons validées si réussi. */
 export const PALIERS_TEST = [
@@ -22,8 +24,12 @@ export const PALIERS_TEST = [
   { id: 'petits', titre: 'Petits amis', modele: 'p2-7', lecons: lecons('p2') },
   { id: 'grands', titre: 'Grands amis', modele: 'p4-5', lecons: [...lecons('p3'), ...lecons('p4')] },
   { id: 'combinaisons', titre: 'Combinaisons et cascades', modele: 'p5-5', lecons: lecons('p5') },
-  { id: 'multiplication', titre: 'Multiplication', modele: 'p6-4', lecons: lecons('p6') },
-  { id: 'division', titre: 'Division', modele: 'p7-4', lecons: lecons('p7') },
+  // 0.41 : × et ÷ en deux paliers chacun (par 1 chiffre, puis par 2 chiffres) : un adulte qui
+  // multiplie déjà ne refait pas les 13 leçons de multiplication.
+  { id: 'multiplication1', titre: 'Multiplication par 1 chiffre', modele: 'p6-2', lecons: jusqua('p6', 'p6-2') },
+  { id: 'multiplication', titre: 'Multiplication par 2 chiffres', modele: 'p6-4', lecons: lecons('p6') },
+  { id: 'division1', titre: 'Division par 1 chiffre', modele: 'p7-2', lecons: jusqua('p7', 'p7-2') },
+  { id: 'division', titre: 'Division par 2 chiffres', modele: 'p7-4', lecons: lecons('p7') },
 ];
 
 /** Une colonne du palier (gestes de la leçon modèle et tout ce qui la précède). */

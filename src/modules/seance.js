@@ -44,10 +44,12 @@ import { prochainGradeFlash, meilleurGradeFlash, libelleGradeFlash, QUESTIONS_GR
 import { semaineISO } from '../core/hasard.js';
 import { voixDisponible } from '../ui/voix.js';
 import { sorobanNombre } from '../ui/perles.js';
-import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, SOCLE, aSocle, prekyuObtenu, examenCompletHebdo } from '../core/examen.js';
+import { examenDeLaSemaine, resultatSemaine, libelleGrade, formatBlanc, minutesBlanc, MINUTES_BLANC_SPRINT, SOCLE, aSocle, prekyuObtenu, examenCompletHebdo, prochainJalon } from '../core/examen.js';
 import { bilanHebdo } from '../core/bilan.js';
 import { plateaux, chiffresAppris as chiffresApprisDe } from '../core/parcours.js';
 import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
+import { avecInfobulles } from '../ui/termes.js';
+import { equilibreSemaine, planMois } from '../core/semaine.js';
 
 /** Secondes par exercice de leçon, d'après les dernières séries (25 s par défaut). */
 function secondesParExercice(d) {
@@ -139,7 +141,7 @@ export function plan(d, debut, seance0 = null) {
     essentiel.push({ titre: 'Échauffement', detail: drill.titre, minutes: Math.max(1, Math.min(3, Math.ceil(dureeEchauffement(d, drill) / 60000))), pourquoi: 'Les doigts se réveillent sur une suite connue : on ne commence jamais à froid.',
       fait: fait((s) => s.module === 'drills' && !String(s.mode).startsWith('tables') && s.mode !== 'quotient'), aller: ['drills', { drill: drill.id }] });
   }
-  const objectif = reglagesUtilisateur().objectifMinutes;
+  const objectif = objectifDuJour();
   // ---- 2. Révision : les colonnes ratées la dernière fois, puis 10 calculs qui MÉLANGENT les
   //         leçons dues (chacune garde sa boîte de révision).
   const aRejouer = erreursARejouer(date).length;
@@ -336,7 +338,7 @@ export function plan(d, debut, seance0 = null) {
   // (et pendant « Combinaisons »), une séance sur deux, pour qu'elles soient automatiques en
   // ouvrant la multiplication : toute l'attention ira alors au placement et au geste.
   const multAtteinte = coursMultiplicationAtteint(d, sp);
-  const avantMult = !multAtteinte && !!sp && ['p4', 'p5'].includes(sp.palier.id);
+  const avantMult = (!multAtteinte && !!sp && ['p4', 'p5'].includes(sp.palier.id)) || (!!d.paliers['p6-a']?.valide && !d.paliers['p6-0']?.valide);
   const tablesFaites = fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables'));
   const quotientFait = fait((s) => s.module === 'drills' && s.mode === 'quotient');
   const aRetravailler = produitsARetravailler(d.tables ?? {}).length;
@@ -351,7 +353,9 @@ export function plan(d, debut, seance0 = null) {
     essentiel.push({ titre: 'Estimation du quotient (réflexe)', detail: '20 divisions, une touche par réponse', minutes: 3,
       pourquoi: 'Trouver d\'emblée le bon chiffre du quotient, c\'est ce qui fera la vitesse des divisions par 2 chiffres.',
       fait: quotientFait, aller: ['drills', { quotient: true }] });
-  } else if (avantMult ? (tablesFaites || !vitesse) : multAtteinte && (aRetravailler || [2, 6].includes(jourSemaine) || tablesFaites)) {
+  } else if (avantMult ? (tablesFaites || !vitesse || aRetravailler > 2) : multAtteinte && (aRetravailler || [2, 6].includes(jourSemaine) || tablesFaites)) {
+    // 0.41 : avant la multiplication, chaque jour tant que plus de 2 produits restent faux ou lents :
+    // c'est une condition d'ouverture de la multiplication sur le soroban (parcours.porteMulDiv).
     // Avant la multiplication : une séance sur deux. Ensuite : chaque jour tant qu'il reste des
     // produits faux ou lents, puis deux fois par semaine en entretien.
     essentiel.push({ titre: 'Tables (réflexe)', detail: aRetravailler ? `20 produits : vos ${aRetravailler} produits à retravailler` : '20 produits, vos plus lents en priorité', minutes: 3,
@@ -608,6 +612,25 @@ export function planSur(d, debut, seance) {
 
 /** Objectifs du jour proposés (minutes) ; 25 par défaut depuis la 0.38. */
 export const OBJECTIFS = [5, 10, 15, 20, 25, 30, 45, 60];
+/** 0.41 : ma semaine (équilibre du temps) et mon mois (4 semaines : leçons prévues, examens). */
+function carteSemaineMois(d) {
+  const date = aujourdhui();
+  const e = equilibreSemaine(d, date);
+  const mois = planMois(d, date);
+  const jour = (x) => new Date(`${x}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return h('details', { class: 'carte semaine-mois' }, h('summary', {}, h('strong', {}, 'Ma semaine et mon mois')),
+    h('p', {}, `7 derniers jours : ${e.total} min · `, e.parts.map((x) => `${x.nom} ${Math.round(x.part * 100)} %`).join(' · '), '.'),
+    e.manque.length ? h('p', { class: 'discret' }, `Peu de temps cette semaine pour : ${e.manque.join(', ')}.`) : null,
+    h('ol', { class: 'plan-mois' }, mois.map((w, k) => h('li', {}, h('strong', {}, k === 0 ? 'Cette semaine' : `Semaine du ${jour(w.du)}`), ' : ',
+      w.lecons.length ? w.lecons.map((x) => `« ${x.titre} »`).join(', ') : 'consolidation et vitesse', ` · examen de la semaine dès le ${jour(w.examen)}.`))),
+    h('p', { class: 'discret' }, 'Leçons prévues au rythme de vos 28 derniers jours (colonnes et × ÷ en alternance, une fois leurs portes passées) : une estimation, pas un engagement.'));
+}
+
+/** 0.41 : « 5 minutes seulement » aujourd'hui (séance de secours) : l'objectif du jour, sinon le réglage. */
+export function objectifDuJour() {
+  const r = reglagesUtilisateur();
+  return r.secours === aujourdhui() ? 5 : r.objectifMinutes;
+}
 export const OBJECTIF_EXAMEN_BLANC = 20;
 export const OBJECTIF_EXAMEN_COMPLET = 30;
 export const BLOCS_SEANCE_COURTE = 3;
@@ -801,13 +824,13 @@ export default {
       const dates = [...new Set(d.sessions.map((s) => s.date))];
       const serie = serieJours(dates, aujourdhui());
       const tenues = semainesTenues(dates, aujourdhui());
-      const objectif = reglagesUtilisateur().objectifMinutes;
+      const objectif = objectifDuJour();
       const minutes = minutesAujourdhui();
       const g = grade(d);
       const seance = seanceEnCours();
 
       // --- tuiles : série, objectif, grade
-      const choixObjectif = h('select', { onchange: async (e) => { await modifierReglages({ objectifMinutes: Number(e.target.value) }); afficher(bilan); } },
+      const choixObjectif = h('select', { 'aria-label': 'Objectif du jour, en minutes', onchange: async (e) => { await modifierReglages({ objectifMinutes: Number(e.target.value) }); afficher(bilan); } },
         OBJECTIFS.map((m) => h('option', { value: m }, `${m} min`)));
       choixObjectif.value = String(objectif);
       const premiereFois = !d.sessions.length && !Object.values(d.paliers).some((x) => x.valide);
@@ -828,7 +851,12 @@ export default {
                 ? h('button', { class: 'btn principal grand-bouton', onclick: async () => { await commencerSeance({}); app.aller('lecons', { sousPalier: sp?.id }); } }, `Commencer : ${sp?.titre ?? 'leçon 0'} →`)
                 : h('button', { class: 'btn principal grand-bouton', onclick: () => app.aller('seance') }, 'Aller à la séance du jour →'),
               // Les « revenants » : un test place directement au bon endroit du parcours.
-              h('button', { class: 'btn grand-bouton', onclick: () => app.aller('positionnement') }, 'J\'ai déjà pratiqué : tester mon niveau'))));
+              h('button', { class: 'btn grand-bouton', onclick: () => app.aller('positionnement') }, 'J\'ai déjà pratiqué : tester mon niveau')),
+            // 0.41 : version navigateur, nouvelle copie du fichier (« Soroban (15).html ») : la progression
+            // peut sembler perdue ; on propose tout de suite de reprendre une sauvegarde.
+            premiereFois && versionNavigateur ? h('p', { class: 'carte avis' }, h('strong', {}, 'Vous aviez déjà une progression ? '),
+              'Dans la version navigateur, une nouvelle copie du fichier repart de zéro. Reprenez votre dernière sauvegarde : ',
+              h('button', { class: 'btn', onclick: () => app.aller('reglages') }, 'Importer ma sauvegarde')) : null));
         return;
       }
       // --- plan du jour (calculé tôt : la fin de séance automatique en dépend)
@@ -845,7 +873,13 @@ export default {
       }
 
       // --- une ligne de statut compacte : série, minutes du jour (objectif réglable), grade
+      // 0.41 : où j'en suis, en une phrase : le grade préparé, ce qui reste, la séance du jour.
+      const jalon = prochainJalon(d, aujourdhui());
+      const phrase = jalon
+        ? `Vous préparez le ${jalon.nom}${jalon.restantes ? ` · encore ${jalon.restantes} leçon${jalon.restantes > 1 ? 's' : ''}` : ' · les leçons sont faites : l\'examen vous attend'}${jalon.jours ? ` (environ ${jalon.jours} jours à ce rythme)` : ''} · aujourd'hui : ${p.minutes} min.`
+        : `Aujourd'hui : ${p.minutes} min.`;
       el.append(h('h1', {}, 'Séance du jour'),
+        h('p', { class: 'ou-jen-suis' }, phrase),
         h('div', { class: 'statut-jour' },
           // La série de jours, écrite sur un petit soroban.
           // 0.38.3 : la régularité se compte en SEMAINES tenues (5 jours sur 7) ; la série de jours
@@ -854,9 +888,16 @@ export default {
             sorobanNombre(tenues.semaines, `${tenues.semaines} semaine${tenues.semaines > 1 ? 's' : ''} tenue${tenues.semaines > 1 ? 's' : ''}`),
             h('strong', {}, `${tenues.semaines} semaine${tenues.semaines > 1 ? 's' : ''}`), ` tenue${tenues.semaines > 1 ? 's' : ''} · cette semaine ${Math.min(tenues.cetteSemaine, 7)} / ${JOURS_SEMAINE_TENUE} jours${tenues.tenueCetteSemaine ? ' ✓' : ''}`),
           h('span', {}, h('strong', {}, `${Math.floor(minutes)} / `), choixObjectif, ' aujourd\'hui',
-            h('span', { class: 'jauge mini', role: 'progressbar', 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
+            h('span', { class: 'jauge mini', role: 'progressbar', 'aria-label': 'Temps de pratique aujourd\'hui', 'aria-valuetext': `${Math.floor(minutes)} minutes sur ${objectif}`, 'aria-valuemin': 0, 'aria-valuenow': Math.round(minutes), 'aria-valuemax': objectif },
               h('span', { style: `width:${Math.min(100, (100 * minutes) / objectif)}%` }))),
           h('span', { title: libelleGrade(d).detail }, 'Grade : ', h('strong', {}, libelleGrade(d).valeur))));
+      // 0.41 : séance de secours : un jour chargé, 5 minutes (échauffement, une révision, quelques
+      // colonnes) plutôt que rien ; la journée compte comme pratiquée.
+      if (!bilan && minutes < 5) {
+        el.append(h('div', { class: 'ligne', style: 'margin:4px 0 8px' }, reglagesUtilisateur().secours === aujourdhui()
+          ? h('button', { class: 'lien', onclick: async () => { await modifierReglages({ secours: null }); afficher(bilan); } }, `Séance de 5 minutes aujourd'hui · revenir à ${reglagesUtilisateur().objectifMinutes} minutes`)
+          : h('button', { class: 'lien', onclick: async () => { await modifierReglages({ secours: aujourdhui() }); afficher(bilan); } }, 'Pas le temps aujourd\'hui ? 5 minutes seulement')));
+      }
       prendreAvis().then((avis) => avis.forEach((a) => el.querySelector('.statut-jour')?.after(h('div', { class: 'carte avis' }, a))));
       // Version navigateur : rappel d'export (les données ne vivent que dans ce navigateur).
       const premiere = d.sessions[0]?.date;
@@ -888,7 +929,7 @@ export default {
         class: `ligne-palier${it.fait ? ' valide' : ''}${it.priorite ? ' priorite' : ''}`,
         onclick: async () => { if (!seanceEnCours() && !terminee) await demarrer(); app.aller(...it.aller); },
       }, h('span', { class: `icone${it.fait ? ' etat-fait' : ' numero'}` }, it.fait ? '✓' : i !== null ? String(i + 1) : '+'),
-      h('span', { class: 'titre' }, h('strong', {}, it.titre), it.but ? h('span', { class: 'but-proposition' }, ` · ${it.but}`) : null, ` · ${it.detail}`, it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, it.pourquoi) : null),
+      h('span', { class: 'titre' }, h('strong', {}, it.titre), it.but ? h('span', { class: 'but-proposition' }, ` · ${it.but}`) : null, ' · ', ...avecInfobulles(String(it.detail ?? '')), it.pourquoi && !it.fait ? h('span', { class: 'pourquoi-point' }, ...avecInfobulles(it.pourquoi)) : null),
       h('span', { class: 'statut' }, it.fait ? 'fait' : `${it.minutes} min`));
       const demarrer = () => commencerSeance({ priorite: prioriteDuJour(d, aujourdhui(), motifsEnDifficulte()), decision: p.decision, gesteBloc: p.gesteBloc, blocIds: p.blocIds, partie: p.partie });
       // Séance longue (0.38) : l'examen de la semaine, proposé à part quand l'objectif est court.
@@ -965,7 +1006,7 @@ export default {
         h('h3', { class: 'titre-plan' }, 'Pour compléter', h('span', { class: 'discret' }, resteMin > p.minutes ? ` : il vous reste du temps, piochez ici (une nouvelle planche remplace celle qui est faite)` : ' : si vous avez encore du temps')),
         h('div', { class: 'liste-paliers' }, p.bonus.map((it) => ligne(it, null))),
         h('p', { class: 'discret' }, `La séance se termine d'elle-même quand les ${p.essentiel.length} points de l'essentiel sont faits (${Math.floor(minutes)} min aujourd'hui, objectif ${objectif} min) : la liste est fixée au début de la séance, aucun exercice ne s'y ajoute en route. « Pour compléter » est facultatif.`)),
-        carteHebdo(d));
+        carteHebdo(d), carteSemaineMois(d));
     }
     afficher();
   },

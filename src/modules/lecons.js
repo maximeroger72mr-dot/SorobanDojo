@@ -13,7 +13,7 @@
 import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, referenceMin, enduranceAvant, enduranceExigee } from '../core/phases.js';
 import { NIVEAUX } from '../core/maitrise.js';
 import { noterPhaseLecon } from '../core/progression.js';
-import { estValide } from '../core/parcours.js';
+import { estValide, porteMulDiv } from '../core/parcours.js';
 
 /** Objectif en gestes visés d'une leçon à phases (0.40). */
 const objectifLecon = (sp) => objectifGestes(sp, () => genererExercice(sp));
@@ -28,7 +28,7 @@ function testOuvertLecon(sp, e) {
 }
 import { etapesRattrapage } from '../core/multiplication.js';
 import { PONTS_ANZAN } from '../core/conseils.js';
-import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto } from '../core/curriculum.js';
+import { PALIERS, SOUS_PALIERS, sousPalier, TEST, genererExercice, fluxEquilibre, familleLecon, imageAnzan, chaineAnzan, dureePhoto, pisteDe } from '../core/curriculum.js';
 import { ouvrirExplication } from '../ui/explication.js';
 import { notifier } from '../ui/toast.js';
 import { nomMotif } from '../core/motifs.js';
@@ -41,6 +41,8 @@ import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
 import { aReconnaitre, questionsReconnaitre, NOMS_REGLES, QUESTIONS_RECONNAITRE, MIN_RECONNAITRE } from '../core/reconnaitre.js';
 import { motifsAppris, PREREQUIS } from '../core/parcours.js';
 import { systemeChoisi } from '../core/epreuves.js';
+import { PREKYU } from '../core/examen.js';
+import { testCorsi } from '../ui/corsi.js';
 import { gesteMotif } from '../core/motifs.js';
 import { Soroban } from '../core/soroban.js';
 import { SorobanVue } from '../ui/sorobanVue.js';
@@ -53,7 +55,7 @@ import { localiserErreur } from '../core/diagnostic.js';
 import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
 import { ajouterJours } from '../core/revision.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
-import { leconsSousArgent } from '../core/prof.js';
+import { leconsSousArgent, colonnesPourNiveau } from '../core/prof.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision, demoColonne } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
@@ -64,9 +66,9 @@ import { conseilsVitesse, GENERAUX, ANZAN } from '../core/conseils.js';
 import { h, formaterDuree, formaterPourcent, remplir, raccourcis, formaterNombre } from '../ui/dom.js';
 
 /** Leçon précédente sur la même piste (soroban ou anzan). */
-export const precedente = (sp) => SOUS_PALIERS.slice(0, sp.ordre).reverse().find((x) => x.mental === sp.mental) ?? null;
+export const precedente = (sp) => SOUS_PALIERS.slice(0, sp.ordre).reverse().find((x) => pisteDe(x) === pisteDe(sp)) ?? null;
 /** Leçon suivante sur la même piste. */
-export const suivante = (sp) => SOUS_PALIERS.slice(sp.ordre + 1).find((x) => x.mental === sp.mental) ?? null;
+export const suivante = (sp) => SOUS_PALIERS.slice(sp.ordre + 1).find((x) => pisteDe(x) === pisteDe(sp)) ?? null;
 
 /**
  * Un sous-palier est accessible si le précédent de sa piste est validé (ou en mode découverte).
@@ -79,7 +81,9 @@ export function estDebloque(sp) {
   // Piste anzan : pas une chaîne. Chaque leçon attend sa leçon soroban et UNE leçon d'anzan qui
   // la prépare vraiment (et non la précédente de la liste).
   if (sp.mental) { const b = BASE_ANZAN[sp.id]; return !b || !!etatPalier(b).valide; }
-  const p = precedente(sp);
+  // 0.41 : piste × ÷ : sa porte (gestes maîtrisés, tables travaillées), puis la leçon d'avant de la piste.
+  if (pisteDe(sp) === 'muldiv' && !porteMulDiv(progression(), sp).ok) return false;
+  const p = sp.id === 'p6-a' ? null : precedente(sp);
   return !p || !!etatPalier(p.id).valide;
 }
 
@@ -92,6 +96,7 @@ export const BASE_ANZAN = {
 /** Pourquoi une leçon est fermée, en clair. */
 export function raisonVerrou(sp) {
   if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return `après « ${sousPalier(sp.apres).titre} » au soroban`;
+  if (pisteDe(sp) === 'muldiv') { const pm = porteMulDiv(progression(), sp); if (!pm.ok) return `attend ${pm.raisons.join(' ; ')}`; }
   const b = sp.mental ? BASE_ANZAN[sp.id] : precedente(sp)?.id;
   return b ? `après « ${sousPalier(b).titre} »` : 'Verrouillé';
 }
@@ -112,7 +117,18 @@ export function JALONS() {
 
 /** Premier sous-palier du parcours soroban non validé et accessible (pour les suggestions). */
 export function prochainSousPalier() {
-  return SOUS_PALIERS.find((sp) => !sp.mental && !etatPalier(sp.id).valide && estDebloque(sp)) ?? null;
+  // 0.41 : deux pistes sur le soroban, colonnes et × ÷. Une leçon commencée se termine ; sinon on
+  // alterne d'un jour à l'autre entre les deux pistes quand les deux ont une leçon ouverte.
+  const c = prochainDePiste('colonnes');
+  const m = prochainDePiste('muldiv');
+  if (!c || !m) return c ?? m;
+  const enCours = [c, m].find((x) => (etatPalier(x.id).reps ?? 0) > 0);
+  if (enCours) return enCours;
+  return Math.floor(Date.parse(`${jourCourant()}T12:00`) / 86400000) % 2 ? m : c;
+}
+/** Prochaine leçon ouverte d'une piste du soroban ('colonnes' ou 'muldiv'). */
+export function prochainDePiste(piste) {
+  return SOUS_PALIERS.find((sp) => !sp.mental && pisteDe(sp) === piste && !etatPalier(sp.id).valide && estDebloque(sp)) ?? null;
 }
 
 /** Prochaine leçon de la piste anzan, si elle est ouverte. */
@@ -154,6 +170,22 @@ export default {
     const changer = (f) => { nettoyerVue?.(); remplir(el); el.closest('main').scrollTop = 0; nettoyerVue = f() ?? null; };
 
     // ---------------------------------------------------------------- carte du parcours
+    let vueListe = (() => { try { return localStorage.getItem('soroban-vue-lecons') ?? 'grade'; } catch { return 'grade'; } })();
+    /** Groupes « une étape = un grade » : 20e au 11e kyū (passage de kyū), puis 10e au 1er (épreuves). */
+    function groupesParGrade() {
+      const vus = new Set();
+      const groupes = [];
+      const ajouter = (titre, ids) => {
+        const sps = ids.map((id) => sousPalier(id)).filter((x) => x && !x.mental && !vus.has(x.id)).sort((a, b) => a.ordre - b.ordre);
+        sps.forEach((x) => vus.add(x.id));
+        if (sps.length) groupes.push({ titre, sousPaliers: sps.map((x) => ({ id: x.id })) });
+      };
+      ajouter('Bien commencer', SOUS_PALIERS.filter((x) => x.palier.id === 'p0').map((x) => x.id));
+      for (const g of PREKYU) ajouter(`Vers le ${g.nom} · ${g.theme}`, g.lecons);
+      for (const g of systemeChoisi(progression()).grades) ajouter(`Vers le ${g.nom} · colonnes, ×, ÷ (épreuves Nisshō et Zenkoren)`, PREREQUIS[g.id] ?? []);
+      ajouter('Pour aller plus loin', SOUS_PALIERS.filter((x) => !x.mental).map((x) => x.id));
+      return groupes;
+    }
     function carte() {
       // Piste anzan seule (carte « Anzan et visualisation » d'Apprendre), ou tout le parcours.
       if (piste === 'anzan') {
@@ -165,6 +197,9 @@ export default {
               : 'La piste du calcul de tête est terminée : entretenez-la en flash anzan.'),
           h('div', { class: 'ligne' },
             h('button', { class: 'btn', onclick: () => app.aller('anzan') }, 'Flash anzan libre'),
+            // 0.41 : test de mémoire visuelle (empan de Corsi), facultatif : il règle le départ des chaînes.
+            h('button', { class: 'btn', onclick: () => { const z = h('div', {}); el.append(z); testCorsi(z, (empan) => modifierReglages({ empanVisuel: empan })); z.scrollIntoView({ block: 'nearest' }); } },
+              reglagesUtilisateur().empanVisuel ? `Mémoire visuelle : ${reglagesUtilisateur().empanVisuel} cases (refaire le test)` : 'Tester ma mémoire visuelle (2 min)'),
             h('button', { class: 'lien', onclick: () => { piste = null; changer(carte); } }, 'Voir tout le parcours →')));
       } else el.append(
         h('h1', {}, 'Leçons guidées'),
@@ -175,7 +210,15 @@ export default {
       if (diag) el.append(diag);
       // 0.40.18 : leçons validées restées sous l'argent (repère « à repasser en argent »).
       const aRepasser = new Set(leconsSousArgent(progression()).map((x) => x.id));
-      for (const palier of PALIERS.filter((p) => piste !== 'anzan' || p.mental)) {
+      // 0.41 : une étape = un grade. Les leçons rangées par le grade qui les demande en premier (20e au
+      // 1er kyū), avec ses trois matières ; « Par thème » garde l'ancien rangement.
+      if (piste !== 'anzan') {
+        el.append(h('div', { class: 'segments', style: 'margin:8px 0' }, [['grade', 'Par grade'], ['theme', 'Par thème']].map(([v, t]) => h('button', {
+          class: vueListe === v ? 'actif' : '', onclick: () => { vueListe = v; try { localStorage.setItem('soroban-vue-lecons', v); } catch { /* sans stockage */ } changer(carte); },
+        }, t))));
+      }
+      const groupes = piste === 'anzan' ? PALIERS.filter((p) => p.mental) : vueListe === 'grade' ? groupesParGrade() : PALIERS;
+      for (const palier of groupes) {
         el.append(h('h2', {}, palier.titre));
         if (palier.mental) el.append(h('p', { class: 'discret' }, 'Calcul de tête, à son rythme, en parallèle du soroban : chaque leçon s\'ouvre quand le geste est validé sur le vrai soroban, et ne bloque jamais le parcours. 5 minutes par jour suffisent.'));
         el.append(h('div', { class: 'liste-paliers' }, palier.sousPaliers.flatMap((brut) => {
@@ -185,7 +228,7 @@ export default {
           let statut;
           let icone;
           if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = sp.quiz ? 'Compris' : 'Lu'; }
-          else if (e.valide) { icone = '✓'; statut = e.carte?.acquise ? 'Validé · acquis, sorti des révisions' : e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; if (aRepasser.has(sp.id)) statut += ' · à repasser en argent'; }
+          else if (e.valide) { icone = '✓'; statut = e.carte?.acquise ? 'Validé · acquis, sorti des révisions' : e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; if (aRepasser.has(sp.id)) { const k = colonnesPourNiveau(progression(), sp); statut += k ? ` · argent dans environ ${Math.max(1, Math.round(k / 10))} séance${Math.round(k / 10) > 1 ? 's' : ''} (${k} colonnes justes)` : ' · à repasser en argent'; } }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = raisonVerrou(sp); }
           else if (testOuvertLecon(sp, e) || e.coupeFile) { icone = '●'; statut = e.coupeFile && !testOuvertLecon(sp, e) ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }
@@ -223,11 +266,14 @@ export default {
         sp.mental
           ? h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour bien visualiser, en résumé'), h('ul', {}, ANZAN.map((c) => h('li', {}, c))))
           : h('div', { class: 'carte vitesse' }, h('strong', {}, 'Pour aller plus vite, partout'), h('ul', {}, GENERAUX.map((c) => h('li', {}, c)))),
-        sp.quiz && !etatPalier(sp.id).valide ? quiz(sp, () => valider()) : null,
+        sp.quiz && !etatPalier(sp.id).valide ? quiz(sp, () => validerPalier(sp.id, false), () => continuer()) : null,
         sp.quiz && !etatPalier(sp.id).valide ? null : h('div', { class: 'ligne', style: 'margin-top:14px' },
           h('button', { class: 'btn principal', onclick: () => valider() }, etatPalier(sp.id).valide ? 'Continuer →' : 'J\'ai lu et compris →'))].filter(Boolean));
       async function valider() {
         await validerPalier(sp.id, false);
+        continuer();
+      }
+      function continuer() {
         changer(() => (suivant && estDebloque(suivant) ? vueSousPalier(suivant) : carte()));
       }
       return null;
@@ -237,7 +283,9 @@ export default {
      * Vérification de lecture : quelques questions à choix. Les réponses sont mélangées ; une
      * mauvaise réponse montre le passage à relire, et on peut corriger. Tout juste : leçon validée.
      */
-    function quiz(sp, surReussite) {
+    // 0.41 : la leçon est enregistrée dès « Tout est juste » (avant : seulement au clic sur « Continuer »,
+    // un autre bouton du menu la perdait) ; « Continuer » ne fait plus que naviguer.
+    function quiz(sp, enregistrer, surReussite) {
       const melange = (xs) => xs.map((x) => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => x);
       const questions = sp.quiz.map((q, i) => ({ ...q, i, ordre: melange(q.choix.map((c, k) => k)) }));
       const retour = h('div', { class: 'retour', role: 'status', 'aria-live': 'polite' });
@@ -248,7 +296,7 @@ export default {
           explication);
         return { q, bloc, explication };
       });
-      const verifier = () => {
+      const verifier = async () => {
         let justes = 0;
         for (const { q, bloc, explication } of blocs) {
           const choisi = bloc.querySelector('input:checked');
@@ -259,6 +307,7 @@ export default {
           remplir(explication, choisi && !ok ? h('span', {}, 'Pas tout à fait. ', q.pourquoi) : ok ? h('span', { class: 'discret' }, q.pourquoi) : null);
         }
         if (justes === blocs.length) {
+          enregistrer();
           retour.className = 'retour ok';
           remplir(retour, h('span', { class: 'grand-signe' }, '✓'), ' Tout est juste : leçon validée. ', h('button', { class: 'btn principal', onclick: () => surReussite() }, 'Continuer →'));
         } else {
@@ -540,7 +589,7 @@ export default {
         majConseil();
         zone.append(bandeau, ['anzan', 'photo', 'tenir', 'placement', 'table', 'lire', 'complement'].includes(sp.type) ? '' : h('div', { class: 'ligne', style: 'margin-bottom:12px' }, choixMode), zonePont, zoneTravail, ['lire', 'complement'].includes(sp.type) ? '' : conseil);
 
-        const chaine = chaineAnzan(sp, etatPalier(sp.id).chaine);
+        const chaine = chaineAnzan(sp, etatPalier(sp.id).chaine, reglagesUtilisateur().empanVisuel ?? null);
         // Anzan : chaîne du moment, et image d'aide selon les réussites dans la leçon.
         // Photo du soroban : durée d'affichage qui raccourcit avec les réussites.
         const photo = sp.type === 'photo' ? dureePhoto(sp, etatPalier(sp.id).dureePhoto) : null;
@@ -562,7 +611,18 @@ export default {
         const sansRampe = !!precEnd && !!etatPalier(precEnd.id).valide && evaluerPalier(precEnd.id, famille(precEnd)).index >= 2;
         let etatPh = planPh ? (etatPalier(sp.id).phase ?? etatInitial(planPh, false, { sansRampe })) : null;
         const cascadesOk = estValide(progression(), 'p5-4');
+        // 0.41 : endurance continue (p5-e7, p5-e8, p5-e) : la colonne grandit d'une ligne après 3 justes
+        // de suite, et raccourcit d'une ligne après une erreur, de 5 lignes jusqu'au format de la leçon.
+        // Le mini-test reste au format complet.
+        const endu = /^p5-e/.test(sp.id) ? { lignes: Math.min(sp.lignes, Math.max(5, etatPalier(sp.id).longueurEndu ?? 5)), suite: 0 } : null;
+        const noterEndu = (juste) => {
+          if (!endu) return;
+          if (juste) { endu.suite += 1; if (endu.suite >= 3 && endu.lignes < sp.lignes) { endu.lignes += 1; endu.suite = 0; } } else { endu.suite = 0; endu.lignes = Math.max(5, endu.lignes - 1); }
+          const e0 = etatPalier(sp.id);
+          if (e0) e0.longueurEndu = endu.lignes;
+        };
         const ctxPhase = () => {
+          if (endu) return { format: { chiffres: sp.chiffres, ...(sp.chiffresMax ? { chiffresMax: sp.chiffresMax } : {}), lignes: endu.lignes } };
           if (!planPh) return {};
           const ph = phaseCourante(planPh, etatPh);
           return ph.format ? { format: { ...ph.format, autorises: autorisesPhase(sp, cascadesOk) } } : {};
@@ -626,7 +686,14 @@ export default {
             let n = 0;
             // Tranches de 10 exercices équilibrées : tous les gestes de la leçon y passent.
             const suivant = fluxEquilibre(sp, 10, () => poidsDe(sp));
+            // 0.41 : mode précision. Rapide (moitié du temps de l'argent ou mieux) mais sous la justesse
+            // de l'argent : le chrono disparaît, l'élève vérifie chaque colonne (見直し) avant de valider.
+            const evP = evaluerPalier(sp.id, famille(sp));
+            const seuilT = NIVEAUX[2]?.temps?.[famille(sp)];
+            const precision = sp.type === 'addsub' && evP.essais >= 8 && evP.temps != null && seuilT && evP.temps <= seuilT / 2 && evP.index < 2;
+            if (precision) zoneTravail.append(h('div', { class: 'carte avis' }, h('strong', {}, 'Mode précision. '), `Vous allez vite (${evP.temps.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} s par chiffre) mais ${Math.round(evP.reussite * 100)} % de justes seulement : le chrono est masqué. Relisez chaque colonne avant de valider (見直し, mi-naoshi). Objectif : 10 colonnes justes d'affilée.`));
             courant = creerExercices(sp, zoneTravail, {
+              precision,
               generer: () => {
                 const ex = suivant({ ...ctxExercice(), ...ctxPhase() });
                 return planPh ? { ...ex, phase: phaseCourante(planPh, etatPh).id } : ex;
@@ -650,6 +717,7 @@ export default {
                   } else if (res.juste) remplir(zonePont);
                 }
                 if (photo) { photo.noter(res.juste); memoriserDureePhoto(sp.id, photo.secondes); }
+                if (endu && !res.aide) noterEndu(res.juste);
                 if (n % 5 === 0) majConseil();
                 if (planPh && ex?.phase) {
                   // Hors référence : la colonne compte pour la justesse et le volume, pas pour la médaille.
@@ -733,6 +801,25 @@ export default {
       }
 
       // 3. Mini-test --------------------------------------------------
+      /** Gestes visés des calculs faux d'un mini-test (0.41). */
+      function fautifs(bilan) {
+        const c = new Set();
+        for (const r of bilan.resultats ?? []) if (!r.juste) for (const m of r.ex?.motifs ?? []) if (sp.cibles?.includes(m)) c.add(m);
+        return [...c].slice(0, 4);
+      }
+      /** 5 colonnes qui reprennent ces gestes, puis retour au mini-test. */
+      function repriseCiblee(gestes) {
+        remplir(zone);
+        zone.append(h('p', { class: 'discret' }, `Reprise ciblée : 5 colonnes qui reprennent ${gestes.map(nomMotif).join(', ')}. Ensuite, le mini-test.`));
+        const poids = Object.fromEntries((sp.cibles ?? []).map((c) => [c, gestes.includes(c) ? 8 : 1]));
+        const s2 = creerExercices(sp, zone, {
+          generer: () => genererExercice(sp, poids),
+          nombre: 5,
+          chrono: true,
+          evaluation: () => evaluerPalier(sp.id, famille(sp)),
+          surFin: async () => { s2.detruire(); afficher('test'); },
+        });
+      }
       function miniTest() {
         const et = etatPalier(sp.id);
         if (!testOuvertLecon(sp, et) && !et.coupeFile) {
@@ -826,6 +913,8 @@ export default {
                   : h('p', {}, `${verdict.raison} Reprenez un peu d'entraînement, puis retentez.`),
                 h('div', { class: 'ligne' },
                   reussi && suivant && estDebloque(suivant) ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
+                  // 0.41 : raté en justesse : 5 colonnes ciblées sur les gestes fautifs, puis le test, le jour même.
+                  !reussi && fautifs(bilan).length ? h('button', { class: 'btn principal', onclick: () => repriseCiblee(fautifs(bilan)) }, `Reprise ciblée (${fautifs(bilan).map(nomMotif).join(', ')}), puis retenter →`) : null,
                   h('button', { class: 'btn', onclick: () => afficher(reussi ? 'test' : 'entrainement') }, reussi ? 'Repasser le test' : 'Retour à l\'entraînement'),
                   h('button', { class: 'btn', onclick: () => changer(carte) }, 'Toutes les leçons'))),
               // Premier mini-test de la leçon : une question de doigté (l'application ne voit pas les doigts).

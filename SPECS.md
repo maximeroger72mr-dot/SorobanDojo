@@ -1623,3 +1623,41 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   - Liste des leçons : « à repasser en argent ».
   - Médaille à jour : les calculs des révisions (test flash, révision mélangée) comptent dans
     l'historique de la leçon (avant : figée sur l'entraînement de l'apprentissage).
+
+## Version 0.41.0 : structure des cours (audit 0.40.18)
+
+- **Une seule échelle de kyū** : 20e au 11e kyū (passage de kyū de l'application, plus de « prép. »),
+  puis 10e au 1er kyū, obtenus quand les DEUX épreuves sont réussies, Nisshō et Zenkoren (frise :
+  « à moitié » quand une seule l'est ; l'examen blanc se passe dans le système qui manque). Les grades
+  de flash s'appellent « flash 17e kyū ». (Le Zenkoren a aussi des 15e à 11e kyū, avec × et ÷ dès le
+  15e : formats non reproduits, faute de source fiable.)
+- **Piste × ÷ en parallèle des colonnes**. La leçon des tables s'ouvre dès les grands amis en
+  soustraction ; la multiplication sur le soroban attend les gestes d'addition (grands amis,
+  combinaisons, cascades) en argent, la leçon des tables, le diagnostic des 81 produits et 2 produits
+  au plus encore faux ou lents (tables chaque jour d'ici là) ; la division attend aussi les gestes de
+  soustraction. Les deux pistes alternent d'un jour à l'autre ; les portes se jugent sur la piste.
+  « Stratégie d'épreuve » déplacée à la fin de la division. Test de positionnement : × et ÷ en deux
+  paliers chacun.
+- **Leçons rangées par grade** (« Vers le 16e kyū… », « Vers le 10e kyū : colonnes, ×, ÷ »), ou par thème.
+- **Portes** : seuils de justesse par CHIFFRE pour les colonnes longues (argent 0,4 %, or 0,2 %,
+  platine 0,1 % d'erreur par chiffre ; inchangé jusqu'à 15 à 25 chiffres) ; 7 jours de pratique au
+  plus derrière une porte, puis la leçon suivante s'ouvre et l'ancienne reste en rattrapage ; plus
+  d'étape à l'or obligatoire (argent avec le volume partout) ; « encore environ 12 colonnes justes,
+  soit 1 séance » ; après un mini-test raté, reprise ciblée de 5 colonnes sur les gestes fautifs ;
+  mode précision (rapide mais imprécis : chrono masqué, vérification).
+- **Endurance continue** (p5-e7, p5-e8, p5-e) : +1 ligne après 3 justes, −1 après une erreur.
+- **Révisions** : boîte à 90 jours, 8 leçons au plus par révision (avant 3), et toutes les leçons
+  contrôlées ensuite (90 jours pour les règles rares, 180 pour les autres) : aucune n'est close.
+- **Séance** : « Pas le temps ? 5 minutes seulement » ; une phrase « où j'en suis » ; ma semaine
+  (équilibre du temps, ce qui manque) et mon mois (leçons prévues, examens) ; termes japonais en
+  infobulle ; invitation à importer sa sauvegarde dans une nouvelle copie de la version navigateur.
+- **Feuilles et planches** : vérification (見直し) avant correction, chronométrée, avec les fautes
+  retrouvées ; option papier aux examens chronométrés ; impression de la feuille seule (Nom, Date,
+  Temps ; corrigé sur une page à part) ; colonnes jamais en double ; réglages impossibles grisés
+  (pincée en additions seules sans grands amis, décimaux au-delà de 6 chiffres, format des dan) ;
+  « planche ajustée : … » quand la planche diffère de la demande ; délai de création 5 s.
+- **Divers** : Leçon 0 enregistrée dès « Tout est juste » ; même compte de leçons partout ;
+  accessibilité (menu, jauge, objectif, en-têtes) ; durées arrondies ; signe moins homogène ; ÷ par
+  11 à 19 toujours à quotient de 2 chiffres ; pourcentages plus variés (bases non rondes, 12,5 %,
+  TVA 10 et 5,5 %) ; × et ÷ des petites leçons moins répétés ; test de mémoire visuelle (empan de
+  Corsi) qui règle le départ des chaînes d'anzan ; séances de plus de 180 jours fusionnées par jour.

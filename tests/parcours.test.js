@@ -13,8 +13,8 @@ test('grade : prochain conseillé et leçons manquantes', () => {
   assert.equal(g.prochain.id, '10');
   assert.ok(g.manquantes.length > 20 && !g.pret);
   for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
-  d.records['epreuve-10'] = { reussi: true };
-  d.records['epreuve-9'] = { reussi: true };
+  d.records['epreuve-10'] = { reussi: true }; d.records['zenkoren-10'] = { reussi: true };
+  d.records['epreuve-9'] = { reussi: true }; d.records['zenkoren-9'] = { reussi: true };
   assert.equal(grade(d).obtenu.id, '9');
   assert.equal(grade(d).prochain.id, '8');
   assert.ok(grade(d).pret);

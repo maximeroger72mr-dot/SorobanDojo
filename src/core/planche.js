@@ -175,6 +175,9 @@ export function genererPlancheGeste(spec, graine) {
           let echec = false;
           try { col = genererColonneGeste({ cible, mode, chiffres, lignes: L, appris }, memoire); } catch (err) { if (!(err instanceof ErreurGeneration)) throw err; echec = true; }
           if (col && e < 2 && cols.some((x) => forme(x) === forme(col))) col = null;
+          // 0.41 : jamais deux colonnes IDENTIQUES (même premier nombre), à aucun essai (43 doublons sur
+          // 1 278 planches avant).
+          if (col && cols.some((x) => signature(x) === signature(col))) col = null;
           if (echec && L <= n) break;
         }
         if (col) break;

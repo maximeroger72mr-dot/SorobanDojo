@@ -29,7 +29,7 @@ export default {
       el.append(h('h1', {}, 'Passage de kyū'),
         h('p', { class: 'discret' }, `L'examen de votre niveau, sur tout ce que vous avez appris, ${Math.round(SEUIL * 100)} % de justes pour réussir. Deux formats, en alternance d'une semaine à l'autre : un sujet de 20 minutes (tenir la concentration longtemps), puis deux sprints de ${MINUTES_BLANC_SPRINT} minutes, chacun avec son chrono et son verdict (aller vite, sans compensation). Ouvert en permanence ; la séance du jour le propose du vendredi au dimanche.`));
       if (!g) {
-        el.append(h('div', { class: 'carte' }, h('p', {}, 'Le premier examen (20e kyū prép.) s\'ouvre dès que les leçons « Ajouter 1 à 4 », « Retirer 1 à 4 » et « Le 5 et la pincée » sont validées.'),
+        el.append(h('div', { class: 'carte' }, h('p', {}, 'Le premier examen (20e kyū) s\'ouvre dès que les leçons « Ajouter 1 à 4 », « Retirer 1 à 4 » et « Le 5 et la pincée » sont validées.'),
           h('button', { class: 'btn principal', onclick: () => app.aller('lecons') }, 'Aller aux leçons')));
       } else {
         const format = formatBlanc(aujourdhui());
@@ -51,7 +51,7 @@ export default {
             h('button', { class: 'btn', onclick: () => lancer(g, autre) }, `L'autre format : ${decrire(autre)}`))));
       }
       el.append(h('h2', {}, 'Les grades préparatoires'),
-        h('p', { class: 'discret' }, 'Les « kyū prép. » (20e au 11e) sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle (Zenkoren a bien des 15e à 11e kyū, mais avec ses propres sujets, non publiés). Ils ne dépassent jamais le format du 10e kyū : 5 lignes de 2 chiffres. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
+        h('p', { class: 'discret' }, 'Les 20e au 11e kyū sont propres à cette application : ils jalonnent le parcours avant le 10e kyū, mais n\'ont aucune valeur officielle (Zenkoren a bien des 15e à 11e kyū, mais avec ses propres sujets, non publiés). Ils ne dépassent jamais le format du 10e kyū : 5 lignes de 2 chiffres. Les vrais kyū (10e au 1er), au format des examens japonais, se passent en « Épreuve officielle », depuis la page Grades.'),
         h('div', { class: 'liste-paliers' }, PREKYU.map((x) => {
           const obtenu = prekyuObtenu(d, x);
           const ouvert = prekyuAccessible(d, x);

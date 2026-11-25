@@ -7,8 +7,9 @@
  * Fonctions pures : elles reçoivent les données de progression (voir progression.js).
  */
 
-import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
-import { systemeChoisi, genererSujet } from './epreuves.js';
+import { SOUS_PALIERS, PALIERS, familleLecon, pisteDe, evaluerLecon } from './curriculum.js';
+import { diagnosticTablesFait, produitsARetravailler } from './tables.js';
+import { systemeChoisi, genererSujet, SYSTEMES } from './epreuves.js';
 import { famille, nomMotif, TOUS_LES_MOTIFS } from './motifs.js';
 import { catalogueDrills, famillesDrill, VALIDATIONS_DRILL, tigesDrill, clesDrill, tempsClassement as tempsClassementDrill } from './drills.js';
 import { evaluer, plateau, plateauFiche, mediane, MIN_ESSAIS, NIVEAUX, formaterVitesse, formaterCadence, lundi as lundiDe, unites as unitesEx } from './maitrise.js';
@@ -89,13 +90,22 @@ export const prerequis = (g) => PREREQUIS[g.id] ?? SOUS_PALIERS.filter((s) => !s
 export const gradeAccessible = (d, g) => prerequis(g).every((id) => estValide(d, id));
 
 export function grade(d) {
-  // Le système de grades choisi (Nisshō par défaut, ou Zenkoren) : ses grades et ses records.
+  // 0.41 : un kyū (10e au 1er) n'est obtenu qu'avec ses DEUX épreuves réussies, Nisshō ET Zenkoren
+  // (une épreuve plus haute réussie vaut celles d'en dessous, système par système). Le prochain kyū
+  // se prépare dans le système choisi d'abord ; celui-ci réussi, dans l'autre.
   const sys = systemeChoisi(d);
-  let obtenu = null;
-  for (const g of sys.grades) if (d.records[sys.record(g.id)]?.reussi) obtenu = g; // du 10e au 1er
-  const prochain = obtenu ? sys.grades[sys.grades.indexOf(obtenu) + 1] ?? null : sys.grades[0];
+  const autre = sys.id === 'nissho' ? SYSTEMES.zenkoren : SYSTEMES.nissho;
+  const ids = sys.grades.map((g) => g.id);
+  const reussi = (s, id) => s.grades.slice(s.grades.findIndex((x) => x.id === id)).some((x) => !!d.records[s.record(x.id)]?.reussi);
+  let i = -1;
+  while (i + 1 < ids.length && reussi(sys, ids[i + 1]) && reussi(autre, ids[i + 1])) i += 1;
+  const obtenu = i >= 0 ? sys.grades[i] : null;
+  const idProchain = ids[i + 1] ?? null;
+  const sysProchain = idProchain && reussi(sys, idProchain) ? autre : sys;
+  const prochain = idProchain ? sysProchain.grades.find((x) => x.id === idProchain) : null;
+  const epreuves = idProchain ? { [sys.id]: reussi(sys, idProchain), [autre.id]: reussi(autre, idProchain) } : null;
   const manquantes = prochain ? prerequis(prochain).filter((id) => !estValide(d, id)).map((id) => SOUS_PALIERS.find((s) => s.id === id)) : [];
-  return { obtenu, prochain, manquantes, pret: !!prochain && manquantes.length === 0 };
+  return { obtenu, prochain, manquantes, pret: !!prochain && manquantes.length === 0, epreuves };
 }
 
 /**
@@ -335,6 +345,47 @@ export function anzanAdapte(d, minutes = 2) {
 }
 
 /** L'élève est-il arrivé au cours de multiplication (ou au-delà) ? */
+/**
+ * 0.41 : porte de la piste × ÷.
+ *  - La leçon des tables (p6-a) s'ouvre dès les grands amis en soustraction validés (p4-5) : les
+ *    tables se travaillent AVANT la première multiplication sur le soroban.
+ *  - La multiplication sur le soroban (p6-0 et suite) attend : tous les gestes d'ADDITION qu'elle
+ *    emploie (grands amis, combinaisons, cascades) validés et au moins en argent, la leçon des tables
+ *    validée, le diagnostic des 81 produits fait, et 2 produits au plus encore faux ou lents.
+ *  - La division (p7-0 et suite) attend en plus les gestes de SOUSTRACTION (grands amis, combinaisons,
+ *    cascades) en argent.
+ * @returns {{ ok: boolean, raisons: string[] }}
+ */
+export const GESTES_MUL = ['p3-1', 'p3-2', 'p3-3', 'p3-4', 'p5-1', 'p5-4'];
+export const GESTES_DIV = ['p4-1', 'p4-2', 'p4-3', 'p4-4', 'p4-5', 'p5-2', 'p5-4'];
+const niveauLeconCourt = (d, sp) => {
+  const ev = evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp);
+  const g = (sp.cibles ?? []).filter((c) => !c.endsWith(':direct'));
+  const ge = g.length ? Math.min(...g.map((c) => evaluer(d.motifs?.[c]?.hist ?? [], 'addsub').index)) : 0;
+  return Math.max(ev.essais >= 8 ? ev.index : 2, ge);
+};
+export function porteMulDiv(d, sp) {
+  if (!sp || pisteDe(sp) !== 'muldiv') return { ok: true, raisons: [] };
+  const raisons = [];
+  if (sp.id === 'p6-a') {
+    if (!estValide(d, 'p4-5')) raisons.push('les grands amis en soustraction validés (« Tous les grands amis »)');
+    return { ok: !raisons.length, raisons };
+  }
+  const lecons = (ids, quoi) => {
+    const manque = ids.map((id) => SOUS_PALIERS.find((x) => x.id === id)).filter((x) => x && (!estValide(d, x.id) || niveauLeconCourt(d, x) < 2));
+    if (manque.length) raisons.push(`${quoi} en argent au moins : ${manque.map((x) => `« ${x.titre} »`).join(', ')}`);
+  };
+  lecons(GESTES_MUL, 'les gestes d\'addition');
+  if (!estValide(d, 'p6-a')) raisons.push('la leçon des tables (« 1 × 1 »)');
+  if (!diagnosticTablesFait(d.tables ?? {})) raisons.push('le diagnostic des 81 produits (Tables)');
+  else {
+    const n = produitsARetravailler(d.tables ?? {}).length;
+    if (n > 2) raisons.push(`les tables : encore ${n} produits faux ou plus lents que 2,5 s à retravailler`);
+  }
+  if (sp.type === 'div' || (sp.ordre >= (SOUS_PALIERS.find((x) => x.id === 'p7-0')?.ordre ?? Infinity) && sp.id !== 'p5-6')) lecons(GESTES_DIV, 'les gestes de soustraction');
+  return { ok: !raisons.length, raisons };
+}
+
 export function coursMultiplicationAtteint(d, prochain) {
   const debut = SOUS_PALIERS.find((s) => s.id === 'p6-a').ordre;
   return (prochain ? prochain.ordre >= debut : true) || !!d.paliers['p6-a'] || !!d.paliers['p6-0'];

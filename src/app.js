@@ -99,8 +99,8 @@ function construireNavigation() {
   nav.append(h('div', { class: 'titre-app' }, 'Soroban'));
   for (const m of MENU) {
     if (m.ecran === progressionEcran) nav.append(h('hr', { class: 'separateur-menu' }));
-    nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', 'aria-label': m.nom, onclick: () => app.aller(m.ecran.id) },
-      h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, h('span', { class: 'nom-long' }, m.nom), h('span', { class: 'nom-court', 'aria-hidden': 'true' }, m.court)), h('span', { class: 'pastille', style: 'display:none' })));
+    nav.append(h('button', { 'data-id': m.ecran.id, class: 'entree-menu', title: m.nom, onclick: () => app.aller(m.ecran.id) },
+      h('span', { class: 'icone-menu' }, pictogramme(m.picto)), h('span', { class: 'nom-menu' }, h('span', { class: 'nom-long' }, m.nom), h('span', { class: 'nom-court' }, m.court)), h('span', { class: 'pastille', style: 'display:none' })));
   }
   // Le numéro de version, sous Réglages (le thème se règle dans Réglages).
   nav.append(h('div', { class: 'version-appli' }, `Version ${VERSION_APPLI}${versionNavigateur ? ' · navigateur' : ''}`));

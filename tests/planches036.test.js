@@ -12,7 +12,7 @@ function profil(jusqua, reussis = [], objectifMinutes = 20) {
   for (const s of SOUS_PALIERS) if (!s.mental && s.ordre <= fin) paliers[s.id] = { valide: '2026-11-01', hist: [] };
   return {
     paliers, sessions: [], drills: {}, avis: [], stats: {}, succes: {},
-    records: Object.fromEntries(reussis.map((g) => [`epreuve-${g}`, { reussi: true }])),
+    records: Object.fromEntries(reussis.flatMap((g) => [[`epreuve-${g}`, { reussi: true }], [`zenkoren-${g}`, { reussi: true }]])),
     motifs: { '+3:petit': { essais: 30, erreurs: 2, hist: hist(2.4) }, '-2:petit': { essais: 30, erreurs: 2, hist: hist(2.9) } },
     reglages: { objectifMinutes }, feuilles: [{ t: 2.2 }, { t: 2.4 }],
   };
@@ -62,7 +62,7 @@ test('0.36 : toutes les planches durent à peu près autant, selon l\'objectif d
 test('0.36 : révisions qui finissent (acquise après 30 jours, ou reprise par une leçon plus avancée)', async () => {
   const { reviser, estDue } = await import('../src/core/revision.js');
   const { absorbee } = await import('../src/core/progression.js');
-  const c = reviser({ boite: 5, echeance: '2026-11-17' }, true, '2026-11-17');
+  const c = reviser({ boite: 6, echeance: '2026-11-17' }, true, '2026-11-17'); // 0.41 : boîte 6 (90 jours)
   assert.ok(c.acquise);
   assert.equal(estDue(c, '2030-01-01'), false);
   assert.equal(reviser({ boite: 5, echeance: '2026-11-17' }, false, '2026-11-17').boite, 4);

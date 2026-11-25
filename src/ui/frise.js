@@ -6,6 +6,7 @@
  */
 
 import { PALIERS } from '../core/curriculum.js';
+import { LECONS_PARCOURS } from '../core/parcours.js';
 import { h } from './dom.js';
 
 const COURT = { p0: 'Débuter', p1: 'Directs', p2: 'Petits amis', p3: 'Grands amis +', p4: 'Grands amis −', p5: 'Combinaisons', p6: '×', p7: '÷', p8: '5e-4e kyū', pd: 'Décimaux', p9: '1er kyū', pa: 'Anzan' };
@@ -30,8 +31,11 @@ export function frisePiste(d, { prochain, anzan, apres = [], jalon = null }) {
       jalon?.dernier?.palier === p.id ? h('span', { class: 'frise-grade obtenu', title: 'Dernier grade obtenu' }, `✓ ${jalon.dernier.court} kyū`) : null,
       jalon?.palier === p.id ? h('span', { class: 'frise-grade prochain', title: `Prochain grade : ${jalon.nom}` }, `→ ${jalon.court} kyū`) : null);
   };
-  const faits = soroban.flatMap((p) => p.sousPaliers).filter((sp) => valide(sp.id)).length;
-  const total = soroban.flatMap((p) => p.sousPaliers).length;
+  // 0.41 : le même compte que Progression (LECONS_PARCOURS : hors leçons à lire) ; avant, 18 / 87 ici
+  // contre 17 / 85 là-bas.
+  const parcours = new Set(LECONS_PARCOURS.map((sp) => sp.id));
+  const faits = soroban.flatMap((p) => p.sousPaliers).filter((sp) => parcours.has(sp.id) && valide(sp.id)).length;
+  const total = soroban.flatMap((p) => p.sousPaliers).filter((sp) => parcours.has(sp.id)).length;
   const nA = pa ? pa.sousPaliers.filter((sp) => valide(sp.id)).length : 0;
   return h('div', { class: 'carte frise' },
     h('div', { class: 'frise-titre' }, h('strong', {}, 'Mon parcours'), h('span', { class: 'discret' }, ` · ${faits} / ${total} leçons soroban · anzan ${nA} / ${pa?.sousPaliers.length ?? 0}`)),

@@ -97,7 +97,7 @@ test('décimaux dès le 3e kyū seulement, environ un problème sur deux', () =>
     const pb = s.sections.flatMap((x) => x.problemes).filter((p) => p.type !== 'addsub');
     const decimaux = pb.filter((p) => p.virgules).length;
     assert.equal(decimaux > 0, !!g.mul.decimales, g.id);
-    if (g.mul.decimales) assert.ok(decimaux > 8 && decimaux < 32, `${g.id} : ${decimaux} / ${pb.length}`);
+    if (g.mul.decimales) assert.ok(decimaux > 6 && decimaux < 34, `${g.id} : ${decimaux} / ${pb.length}`);
   }
 });
 

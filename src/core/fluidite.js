@@ -16,7 +16,7 @@
  */
 
 import { evaluer, mediane, tempsParUnite } from './maitrise.js';
-import { SOUS_PALIERS, PALIERS, familleLecon } from './curriculum.js';
+import { SOUS_PALIERS, PALIERS, familleLecon, evaluerLecon } from './curriculum.js';
 
 export const JUSTES_FLASH = 9;
 export const PART_VITESSE_REVISION = 0.85;
@@ -66,13 +66,13 @@ const LECON_SOROBAN = (sp) => !sp.mental && !['theorie', 'placement', 'lire', 'c
  * Seules les leçons MARQUÉES (révision lente) forcent la séance en vitesse : voir `forceVitesse`.
  */
 export function leconsFluidite(d) {
-  const enOr = (sp) => evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)).index >= 3 || gestesEnOr(d, sp);
+  const enOr = (sp) => evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp).index >= 3 || gestesEnOr(d, sp);
   const marquees = SOUS_PALIERS.filter((sp) => d.paliers[sp.id]?.fluidite && LECON_SOROBAN(sp) && !enOr(sp))
     .sort((a, b) => String(d.paliers[b.id].fluidite).localeCompare(String(d.paliers[a.id].fluidite)));
   // Étape terminée : une leçon d'une étape SUIVANTE est déjà validée.
   const ordreEtape = (sp) => PALIERS.findIndex((p) => p.id === sp.palier?.id);
   const etapeMax = Math.max(-1, ...SOUS_PALIERS.filter((sp) => !sp.mental && d.paliers[sp.id]?.valide).map(ordreEtape));
   const sorties = SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide && ordreEtape(sp) < etapeMax && !marquees.includes(sp)
-    && evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)).essais >= 8 && !enOr(sp)).sort((a, b) => b.ordre - a.ordre);
+    && evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp).essais >= 8 && !enOr(sp)).sort((a, b) => b.ordre - a.ordre);
   return [...marquees, ...sorties];
 }

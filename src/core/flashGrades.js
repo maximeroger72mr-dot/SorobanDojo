@@ -18,7 +18,8 @@
 
 import { entier } from './aleatoire.js';
 
-const g = (id, nom, chiffres, nombres, secondes, forme = null) => ({ id, nom, chiffres, nombres, secondes, forme });
+// 0.41 : « flash 17e kyū » : à ne pas confondre avec le 17e kyū du parcours (une seule échelle de kyū).
+const g = (id, nom, chiffres, nombres, secondes, forme = null) => ({ id, nom: `flash ${nom}`, chiffres, nombres, secondes, forme });
 
 export const GRADES_FLASH = [
   g('fk20', '20e kyū', 1, 3, 5, 'sans'), g('fk19', '19e kyū', 1, 3, 5, 'sans'), g('fk18', '18e kyū', 1, 5, 7, 'sans'),

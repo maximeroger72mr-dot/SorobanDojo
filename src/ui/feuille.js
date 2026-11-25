@@ -62,7 +62,29 @@ export function creerFeuille(conteneur, o) {
   const chrono = h('span', { class: 'chrono-feuille' });
   const allure = h('span', { class: 'allure-feuille', title: 'Avance ou retard sur l\'allure qui permet de traiter la part du sujet nécessaire pour réussir.' });
   const btnCorriger = h('button', { class: 'btn principal', onclick: () => (parEpreuve && courante < o.sections.length - 1 ? passerEpreuve() : corriger()) }, parEpreuve ? 'Épreuve suivante' : 'Corriger');
-  const btnImprimer = h('button', { class: 'btn', onclick: () => window.print() }, 'Imprimer');
+  // 0.41 : vérification (見直し, mi-naoshi) : une seconde passe chronométrée sur la même feuille, avant
+  // de corriger, pour s'entraîner à retrouver ses fautes. Les réponses de la 1re passe sont gardées :
+  // le bilan dit combien de fautes la vérification a trouvées, et combien de temps elle a pris.
+  let verification = null; // { debut, reponses: [] }
+  const btnVerifier = o.verification !== false && !parEpreuve ? h('button', { class: 'btn', title: 'Mi-naoshi : repasser sur ses colonnes, chronométré, avant de corriger.', onclick: () => {
+    if (verification || fini) return;
+    verification = { debut: performance.now(), reponses: cases.map((c) => c.input.value) };
+    btnVerifier.disabled = true;
+    btnVerifier.textContent = 'Vérification en cours (見直し)…';
+    racine.classList.add('en-verification');
+  } }, 'Vérifier avant de corriger (見直し)') : null;
+  // 0.41 : on n'imprime que la feuille (avant : tout l'écran, avec la charge, les gestes travaillés et
+  // le tableau « Mes feuilles ») ; le corrigé sur une page à part ; cases Nom, Date, Temps.
+  const imprimer = () => {
+    const chemin = [];
+    for (let x = racine.parentElement; x && x.tagName !== 'BODY'; x = x.parentElement) { x.classList.add('chemin-impression'); chemin.push(x); }
+    document.body.classList.add('imprime-feuille');
+    const fin = () => { document.body.classList.remove('imprime-feuille'); chemin.forEach((x) => x.classList.remove('chemin-impression')); window.removeEventListener('afterprint', fin); };
+    window.addEventListener('afterprint', fin);
+    window.print();
+    setTimeout(fin, 1000);
+  };
+  const btnImprimer = h('button', { class: 'btn', onclick: imprimer }, 'Imprimer');
   const bilan = h('div', {});
   const cases = []; // { ex, input, carte, section }
   let numero = 0;
@@ -90,7 +112,10 @@ export function creerFeuille(conteneur, o) {
     h('ol', {}, cases.map((c) => h('li', {}, formaterNombre(c.ex.resultat), c.ex.reste !== undefined ? `, reste ${formaterNombre(c.ex.reste)}` : ''))));
 
   const racine = h('div', { class: 'feuille' },
-    h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), o.allure && limiteMs ? allure : null, chrono, btnImprimer, btnCorriger),
+    h('div', { class: 'barre-feuille' }, h('strong', {}, o.titre), h('span', { style: 'flex:1' }), o.allure && limiteMs ? allure : null, chrono, btnImprimer, btnVerifier, btnCorriger),
+    // 0.41 : option papier (examens chronométrés) : le sujet s'imprime, on le fait sur papier, chrono lancé.
+    limiteMs && !parEpreuve ? h('p', { class: 'discret option-papier' }, 'Option papier : « Imprimer », faites le sujet sur la feuille pendant que le chrono tourne, puis saisissez seulement vos réponses ici.') : null,
+    h('div', { class: 'entete-impression' }, h('span', {}, 'Nom : ____________________'), h('span', {}, 'Date : ____________'), h('span', {}, 'Temps : ________')),
     sectionsEl, bilan, corrige);
   conteneur.append(racine);
   racine.dataset.enCours = '1'; // feuille en cours : on prévient avant de quitter la page
@@ -245,7 +270,9 @@ export function creerFeuille(conteneur, o) {
     fini = true;
     delete racine.dataset.enCours;
     clearInterval(minuterie);
-    const dureeMs = parEpreuve ? performance.now() - debut : Math.min(performance.now() - debut, limiteMs ?? Infinity);
+    // (vérification : la vitesse se mesure sur la 1re passe seule)
+    const fin0 = verification ? verification.debut : performance.now();
+    const dureeMs = parEpreuve ? fin0 - debut : Math.min(fin0 - debut, limiteMs ?? Infinity);
     sectionsEl.forEach((s) => s.classList.remove('epreuve-inactive'));
     btnCorriger.disabled = true;
     allure.remove();
@@ -294,8 +321,23 @@ export function creerFeuille(conteneur, o) {
       try { allure = o.mesure.grade ? allureGrade(o.mesure.grade) : null; } catch { allure = null; }
       noterMesures(mesuresFeuille(b, { source: o.mesure.source, date: aujourdhui(), grade: o.mesure.grade ?? null, allure }));
     }
+    if (verification) {
+      // Fautes de la 1re passe, corrigées pendant la vérification.
+      const avant = cases.map((c, i) => egal(lireReponse(verification.reponses[i], c.ex.decimales ?? 0), c.ex.resultat, c.ex.decimales ?? 0));
+      b.verification = {
+        fautesAvant: avant.filter((x) => !x).length,
+        trouvees: avant.filter((x, i) => !x && resultats[i].juste).length,
+        dureeMs: Math.round(performance.now() - verification.debut),
+      };
+    }
     const contenu = o.surFin?.(b);
     if (contenu) remplir(bilan, contenu);
+    if (b.verification) {
+      const v = b.verification;
+      bilan.prepend(h('div', { class: 'carte verification-bilan' }, h('strong', {}, 'Vérification (見直し) : '),
+        v.fautesAvant ? `${v.trouvees} faute${v.trouvees > 1 ? 's' : ''} retrouvée${v.trouvees > 1 ? 's' : ''} sur ${v.fautesAvant}` : 'aucune faute à retrouver : la 1re passe était juste',
+        `, en ${formaterDuree(v.dureeMs)}.`));
+    }
     // Vitesse de la feuille : la référence de toute l'application (secondes par chiffre, temps de
     // lecture et d'écriture de chaque réponse déduit), colorée selon le niveau atteint.
     if (!limiteMs) bilan.prepend(vitesseFeuille(b));

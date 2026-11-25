@@ -61,7 +61,8 @@ function profilAvance() {
   for (const c of ['+3:petit', '+4:petit', '-2:petit', '+9:grand', '-7:grand', '+6:mixte', '+1:grand', '-4:grand']) motifs[c] = { essais: 60, erreurs: 2, dette: 0, hist: hist(1.4), soupcons: [] };
   const sessions = [];
   for (let n = 20; n >= 1; n--) sessions.push({ date: jour(n), horodatage: Date.now() - n * 86400000, module: 'planches', mode: 'examen', reglages: {}, total: 10, justes: 9, dureeMs: 900000 });
-  const records = Object.fromEntries(['10', '9', '8', '7', '6'].map((g) => [`epreuve-${g}`, { reussi: true, points: 250, date: jour(25) }]));
+  // 0.41 : un kyū demande ses deux épreuves (Nisshō et Zenkoren).
+  const records = Object.fromEntries(['10', '9', '8', '7', '6'].flatMap((g) => [[`epreuve-${g}`, { reussi: true, points: 250, date: jour(25) }], [`zenkoren-${g}`, { reussi: true, points: 250, date: jour(25) }]]));
   const d = { version: 2, appli: '0.0.0', sessions, records, motifs, paliers, drills: {}, reglages: { objectifMinutes: 15, objectif25Vu: true, decouverte: true }, avis: [], stats: {}, succes: {}, seance: null };
   fs.writeFileSync(path.join(dir, 'progression.json'), JSON.stringify(d));
   return dir;

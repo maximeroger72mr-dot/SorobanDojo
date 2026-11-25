@@ -11,7 +11,8 @@
  * Les dates sont des chaînes 'AAAA-MM-JJ' en heure locale (comparables directement).
  */
 
-export const INTERVALLES = [1, 3, 7, 14, 30];
+// 0.41 : une boîte de plus, à 90 jours (avant : sortie des révisions après 30 jours).
+export const INTERVALLES = [1, 3, 7, 14, 30, 90];
 
 /** Ajoute n jours à une date 'AAAA-MM-JJ'. */
 export function ajouterJours(date, n) {
@@ -41,7 +42,7 @@ export const estDue = (carte, aujourdhui) => !!carte && !carte.acquise && carte.
  * pas d'avalanche, les autres suivent les jours d'après.
  * @param {(id: string) => object} etat  état d'une leçon (sa carte)
  */
-export const REVISIONS_SEANCE_MAX = 3;
+export const REVISIONS_SEANCE_MAX = 8; // 0.41 : 8 (avant 3 : l'arriéré montait à 10 cartes après une absence)
 export const ordreRevisions = (etat) => (a, b) => {
   const ea = etat(a.id ?? a); const eb = etat(b.id ?? b);
   return (eb.fluidite ? 1 : 0) - (ea.fluidite ? 1 : 0) || (ea.carte?.boite ?? 1) - (eb.carte?.boite ?? 1) || String(ea.carte?.echeance).localeCompare(String(eb.carte?.echeance));
@@ -58,7 +59,10 @@ export const ordreRevisions = (etat) => (a, b) => {
 export const CONTROLE_JOURS = 90;
 export const TYPES_REGLES_RARES = ['negatif', 'addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'];
 export const SYNTHESES_CONTROLE = ['p5-5', 'p8-3', 'p9-4', 'p9-6'];
-export const aControler = (sp) => !!sp && (TYPES_REGLES_RARES.includes(sp.type) || SYNTHESES_CONTROLE.includes(sp.id));
+// 0.41 : TOUTES les leçons sont contrôlées après leur sortie des révisions (aucune n'est close pour
+// toujours) : tous les 90 jours pour les règles rares et les synthèses, tous les 180 jours pour les autres.
+export const aControler = (sp) => !!sp && !sp.mental && sp.type !== 'theorie';
+const joursControle = (sp) => (TYPES_REGLES_RARES.includes(sp.type) || SYNTHESES_CONTROLE.includes(sp.id) ? CONTROLE_JOURS : 2 * CONTROLE_JOURS);
 
 /**
  * La leçon est-elle due pour son contrôle ?
@@ -67,7 +71,7 @@ export const aControler = (sp) => !!sp && (TYPES_REGLES_RARES.includes(sp.type) 
 export function controleDu(sp, carte, date, couverte = () => false) {
   if (!aControler(sp) || !carte?.acquise) return false;
   const depuis = carte.controle ?? carte.acquise;
-  return ajouterJours(depuis, CONTROLE_JOURS) <= date && !couverte(sp);
+  return ajouterJours(depuis, joursControle(sp)) <= date && !couverte(sp);
 }
 
 /** Carte après un contrôle : réussi, prochain contrôle dans 90 jours ; sinon, retour en révision (boîte 3). */
@@ -76,5 +80,6 @@ export function apresControle(carte, reussi, date) {
 }
 
 /** Révision mélangée (0.38) : 3 leçons au plus ; 5 calculs chacune à 2 leçons, 4 à 3 leçons. */
-export const MELANGE_MAX = 3;
-export const calculsMelange = (n) => n * (n <= 2 ? 5 : 4);
+// 0.41 : 8 leçons au plus (avant 3) : 5 calculs chacune à 2, 4 à 3, 3 au-delà (24 au plus).
+export const MELANGE_MAX = 8;
+export const calculsMelange = (n) => (n <= 2 ? 5 * n : n === 3 ? 12 : Math.min(24, 3 * n));

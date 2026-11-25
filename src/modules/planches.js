@@ -27,7 +27,8 @@ import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 
 /** Temps accordé à la création d'une planche avant de se replier (l'écran ne doit jamais se figer). */
 // 0.40.16 : 2 s (avant 1 s) : à 1 chiffre, ±1 petit ami « seul » demande 0,5 à 0,8 s sur un ordinateur rapide.
-const DELAI_PLANCHE_MS = 2000;
+// 0.41 : 5 s (avant 2) : sur une machine lente, la même graine donnait plus souvent une planche de repli.
+const DELAI_PLANCHE_MS = 5000;
 
 const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, duree: 0, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
@@ -292,8 +293,8 @@ export default {
       h('p', { class: 'discret' }, 'Des colonnes à calculer sur votre soroban, puis à corriger. Choisissez un ami pour en répéter le geste : la planche ne contiendra que lui et des gestes directs. Les feuilles s\'impriment.'),
       h('div', { class: 'reglages' },
         select('genre', [['gestes', 'Additions et soustractions'], ['additions', 'Additions seules'], ...Object.entries(GENRES_PLANCHE)], String),
-        select('chiffres', Array.from({ length: 10 }, (_, i) => [i + 1, `${i + 1} chiffre${i ? 's' : ''}`]), Number),
-        select('lignes', [3, 4, 5, 6, 7, 8, 10, 15, 20].map((n) => [n, `${n} lignes`]), Number),
+        (() => { const x = select('chiffres', Array.from({ length: 10 }, (_, i) => [i + 1, `${i + 1} chiffre${i ? 's' : ''}`]), Number); x.dataset.role = 'chiffres'; return x; })(),
+        (() => { const x = select('lignes', [3, 4, 5, 6, 7, 8, 10, 15, 20].map((n) => [n, `${n} lignes`]), Number); x.dataset.role = 'lignes'; return x; })(),
         h('label', {}, h('input', { type: 'checkbox', onchange: (e) => { reglages.zeros = e.target.checked; } }), ' zéros internes'),
         h('label', { title: 'Rappel des doigts à côté de chaque ligne : pouce, index, céleste.' },
           h('input', { type: 'checkbox', checked: !!reglages.doigte, onchange: (e) => { reglages.doigte = e.target.checked; } }), ' rappel doigté'),
@@ -428,6 +429,16 @@ export default {
           : 'Le geste 2 fois par colonne, des gestes directs, et un piège : le même chiffre, mais en geste direct. Regardez la tige avant d\'agir.'));
       }
       zone.append(resumePlanche(planche, !!rejeu));
+      // 0.41 : ce que la planche a changé par rapport à la demande, toujours dit.
+      if (!rejeu && !planche.speciale && (!r.pyramide || r.pyramide === 'non')) {
+        const cols = planche.colonnes.filter((c) => c.lignes);
+        const lignesReelles = [...new Set(cols.map((c) => c.lignes.length))].sort((a, b) => a - b);
+        const chiffresReels = Math.max(...cols.flatMap((c) => c.lignes.slice(1).filter((l) => !l.dizaine && !(r.chiffres === 1 && l.n % 10 === 0 && l.n <= 40)).map((l) => String(l.n).length)));
+        const ecarts = [];
+        if (lignesReelles.length && (lignesReelles[0] < r.lignes - 1 || lignesReelles.at(-1) > r.lignes + 1)) ecarts.push(`${r.lignes} lignes demandées, ${lignesReelles.length > 1 ? `${lignesReelles[0]} à ${lignesReelles.at(-1)}` : lignesReelles[0]} obtenues`);
+        if (Number.isFinite(chiffresReels) && chiffresReels > r.chiffres) ecarts.push(`${r.chiffres} chiffre${r.chiffres > 1 ? 's' : ''} demandé${r.chiffres > 1 ? 's' : ''}, nombres jusqu'à ${chiffresReels} chiffres`);
+        if (ecarts.length) zone.append(h('p', { class: 'retour' }, `Planche ajustée : ${ecarts.join(' ; ')}. Avec ces gestes, la planche demandée n'était pas réalisable telle quelle.`));
+      }
       if (r.duree > 0 && !r.proposition) zone.append(resumeDuree(r, c.cibles));
       const suffixe = planche.parRoles ? `-${mode}` : '';
       const genre = `${r.genre && r.genre !== 'gestes' ? r.genre : r.cible}${r.pyramide && r.pyramide !== 'non' ? `-pyr-${r.pyramide}` : ''}`;
@@ -506,6 +517,20 @@ export default {
       if (special) { choixMode.style.display = 'none'; zoneChoix.style.display = 'none'; } else { majMode(); majChoix(); }
       // Additions seules : pas de planche « par rôles » (elle contient des soustractions).
       if (reglages.genre === 'additions') choixMode.style.display = 'none';
+      // 0.41 : réglages sans effet ou impossibles, grisés plutôt qu'ignorés en silence.
+      //  - format des dan : 10 lignes de 5 à 10 chiffres, toujours ;
+      //  - décimaux : 6 chiffres au plus ;
+      //  - additions seules + pincée pure : impossible sans les grands amis (il faut des retenues).
+      const selCh = el.querySelector('select[data-role="chiffres"]');
+      const selLi = el.querySelector('select[data-role="lignes"]');
+      selCh.disabled = selLi.disabled = reglages.genre === 'dan';
+      selCh.title = selLi.title = reglages.genre === 'dan' ? 'Format des dan : 10 lignes de 5 à 10 chiffres, toujours.' : '';
+      for (const o of selCh.options) o.disabled = reglages.genre === 'decimaux' && Number(o.value) > 6;
+      if (reglages.genre === 'decimaux' && reglages.chiffres > 6) { reglages.chiffres = 6; selCh.value = '6'; }
+      const sansGrands = !famille('grand').some((c) => motifsAppris().has(c));
+      const optPincee = selCible.querySelector('option[value="pincee"]');
+      if (optPincee) optPincee.disabled = reglages.genre === 'additions' && sansGrands;
+      if (optPincee?.disabled && reglages.cible === 'pincee') { reglages.cible = 'appris'; selCible.value = 'appris'; }
     };
     selGenre.addEventListener('change', majGenre);
     el.querySelector('.reglages select:has(option[value="lignes"])')?.addEventListener('change', majGenre);

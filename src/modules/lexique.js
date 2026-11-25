@@ -17,7 +17,7 @@ export const MOTS = [
   ['Drill', 'Suite classique d\'opérations à enchaîner sur son soroban (ex. 123 456 789 ajouté 9 fois), chronométrée, avec médailles bronze, argent, or et platine.'],
   ['Fantôme', 'Votre propre record, rejoué en même temps que vous : une barre montre où vous en étiez à ce moment-là.'],
   ['Flash anzan', 'Des nombres affichés très brièvement, un par un, à additionner de tête.'],
-  ['Kyū (級)', 'Grade de calcul au soroban, du 10e (débutant) au 1er. Les « kyū prép. » (20e au 11e) sont propres à cette application et n\'ont pas de valeur officielle. Les deux échelles sont sur une seule frise, dans Se mesurer → Grades.'],
+  ['Kyū (級)', 'Grade de calcul au soroban, du 10e (débutant) au 1er. Les 20e au 11e kyū sont propres à cette application et n\'ont pas de valeur officielle. Les deux échelles sont sur une seule frise, dans Se mesurer → Grades.'],
 
   ['Lecture (leçon)', 'Lire un soroban d\'un coup d\'œil et poser un nombre sans hésiter : la première leçon après la leçon 0. Une erreur de lecture ressemble à une erreur de geste.'],
   ['Lièvre', 'Jeu de rythme : les nombres défilent à une cadence imposée qui accélère quand vous suivez.'],
@@ -28,7 +28,7 @@ export const MOTS = [
   ['Motif (geste)', 'Un geste précis sur une tige, par exemple « +3 petit ami » ou « −8 grand ami ». La carte de maîtrise les suit un par un.'],
   ['Niveau d\'un geste', 'À découvrir, bronze, argent, or, platine : selon la justesse ET la vitesse sur ce geste. Une seule échelle dans toute l\'application. Argent ≈ l\'allure du 6e kyū, or ≈ 4e kyū, platine ≈ 2e kyū. Une fois le 3e kyū réussi, elle monte d\'un cran : argent ≈ 4e kyū, or ≈ 2e kyū, platine = l\'allure du 1er kyū avec une marge de sécurité.'],
   ['Paires qui font 5 et 10', 'Les compléments : 1 et 4, 2 et 3 font 5 (petits amis) ; 1 et 9, 2 et 8, 3 et 7, 4 et 6, 5 et 5 font 10 (grands amis). Ils doivent venir sans réfléchir, d\'où les deux courtes leçons qui ouvrent ces étapes.'],
-  ['Passage de kyū', 'L\'examen chronométré de votre niveau, sur tout ce que vous avez appris, ouvert en permanence. Réussi (70 %), il donne le kyū prép. ; raté, il ne retire rien et se retente quand on veut.'],
+  ['Passage de kyū', 'L\'examen chronométré de votre niveau, sur tout ce que vous avez appris, ouvert en permanence. Réussi (70 %), il donne le kyū (20e au 11e) ; raté, il ne retire rien et se retente quand on veut.'],
   ['Positionnement (test)', 'Pour qui a déjà pratiqué : 4 paliers de 8 colonnes (gestes directs, petits amis, grands amis, combinaisons). Les leçons des paliers réussis sont validées, puis confirmées par une première révision à J+3.'],
   ['Pincée', 'Geste où le pouce et l\'index bougent ensemble, par exemple pour poser 6 à 9 (céleste et terrestres en même temps).'],
   ['Planche', 'Une feuille de colonnes ciblées sur un geste, à faire d\'une traite, imprimable.'],
@@ -39,6 +39,9 @@ export const MOTS = [
   ['Sous-total', 'Ce que le soroban doit afficher après une ligne de la colonne : il permet de retrouver la ligne où l\'on s\'est trompé.'],
   ['Tige des unités', 'La tige choisie pour les unités (marquée d\'un point) ; les dizaines sont à sa gauche, les décimales à sa droite.'],
   ['Yomiage (読み上げ)', 'Calcul à l\'oreille : les nombres sont lus à voix haute, on les pose au fur et à mesure.'],
+  ['Mi-naoshi (見直し)', 'La vérification : repasser sur ses colonnes pour retrouver ses fautes avant de rendre la feuille. Une compétence d\'examen à part entière, qui se travaille avec la planche de vérification.'],
+  ['Nisshō, Zenkoren', 'Les deux grands systèmes de grades japonais : Nisshō (Chambre de commerce, 日商) et Zenkoren (全国珠算教育連盟). Dans l\'application, un kyū du 10e au 1er est obtenu quand les DEUX épreuves sont réussies.'],
+  ['Dan (段)', 'Les grades au-delà du 1er kyū, du 1er au 10e dan (et au-delà au Zenkoren) : colonnes de 5 à 10 chiffres, × et ÷ longs.'],
   ['九九 (kuku)', 'La table de multiplication japonaise, récitée produit par produit (« ni san ga roku » : 2 × 3 = 6).'],
   ['両落とし, 片落とし', 'Deux façons de poser une multiplication ou une division. 両落とし (« les deux tombent ») : on ne pose aucun des deux nombres, on les lit sur la feuille ; c\'est la méthode enseignée ici.'],
 ];

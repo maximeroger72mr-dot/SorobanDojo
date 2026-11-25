@@ -136,7 +136,17 @@ export const mediane = (xs) => {
  * Évalue un historique [{ ok: 0|1, t: secondes par unité }].
  * @returns {{ niveau, index, essais, reussite, temps, prochain, manque: string[] }}
  */
-export function evaluer(hist = [], famille = 'addsub') {
+/**
+ * 0.41 : seuils de justesse par CHIFFRE pour les colonnes longues. Une colonne de c chiffres juste avec
+ * une erreur par chiffre e : (1 − e)^c. La justesse exigée d'une leçon est la plus basse de son seuil
+ * habituel (90, 95, 98 %) et de ce qu'exige ce taux par chiffre : inchangée pour les colonnes courtes
+ * (jusqu'à 15 à 25 chiffres), plus juste pour les longues. Avant : 90 % de colonnes de 55 chiffres
+ * justes demandaient 0,19 % d'erreur par chiffre, la précision d'un 2e kyū sur une leçon du 4e.
+ */
+export const ERREUR_PAR_CHIFFRE = { debutant: 0.004, confirme: 0.002, expert: 0.001 };
+export const reussiteExigee = (n, chiffres) => (chiffres && ERREUR_PAR_CHIFFRE[n.id] ? Math.min(n.reussite, (1 - ERREUR_PAR_CHIFFRE[n.id]) ** chiffres) : n.reussite);
+
+export function evaluer(hist = [], famille = 'addsub', { chiffres = null } = {}) {
   const recents = hist.slice(-FENETRE);
   const essais = recents.length;
   const reussite = essais ? recents.filter((h) => h.ok).length / essais : 0;
@@ -146,14 +156,14 @@ export function evaluer(hist = [], famille = 'addsub') {
   if (essais >= MIN_ESSAIS) {
     for (let i = 2; i < NIVEAUX.length; i++) {
       const n = NIVEAUX[i];
-      if (reussite >= n.reussite && temps !== null && n.temps[famille] != null && temps <= n.temps[famille]) index = i;
+      if (reussite >= reussiteExigee(n, chiffres) - 1e-9 && temps !== null && n.temps[famille] != null && temps <= n.temps[famille]) index = i;
     }
   }
   const prochain = NIVEAUX[index + 1] ?? null;
   const manque = [];
   if (prochain?.reussite) {
     if (essais < MIN_ESSAIS) manque.push(`${MIN_ESSAIS - essais} essai${MIN_ESSAIS - essais > 1 ? 's' : ''} de plus`);
-    if (reussite < prochain.reussite) manque.push(`réussite ≥ ${Math.round(prochain.reussite * 100)} %`);
+    if (reussite < reussiteExigee(prochain, chiffres) - 1e-9) manque.push(`réussite ≥ ${Math.round(reussiteExigee(prochain, chiffres) * 100)} %`);
     if (temps === null || temps > prochain.temps[famille]) manque.push(famille === 'addsub' ? `≥ ${cpm(prochain.temps.addsub)} CPM` : `≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
   }
   return { niveau: NIVEAUX[index], index, essais, reussite, temps, prochain, manque };

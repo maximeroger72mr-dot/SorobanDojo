@@ -16,8 +16,8 @@
  */
 
 import { matiereEntretien, matieresEntretien, maintienPur, activiteMaintien, NOMS_MATIERES } from './entretien.js';
-import { SOUS_PALIERS, familleLecon } from './curriculum.js';
-import { evaluer, NIVEAUX, mediane, semDominante } from './maitrise.js';
+import { SOUS_PALIERS, familleLecon, evaluerLecon, chiffresColonne, pisteDe } from './curriculum.js';
+import { evaluer, NIVEAUX, mediane, semDominante, reussiteExigee } from './maitrise.js';
 import { famillesApprises, planObjectif, gestesLents, defiSemaine, anzanAdapte, formatExamen, grade as gradeDe } from './parcours.js';
 import { nomMotif } from './motifs.js';
 import { examenDeLaSemaine, resultatSemaine, meilleurPrekyu } from './examen.js';
@@ -37,8 +37,9 @@ const LECON_SOROBAN = (sp) => !sp.mental && !['theorie', 'placement', 'lire', 'c
 const parValidation = (d) => (a, b) => (d.paliers[a.id].valide < d.paliers[b.id].valide ? -1 : d.paliers[a.id].valide > d.paliers[b.id].valide ? 1 : a.ordre - b.ordre);
 
 /** Dernière leçon du parcours soroban validée (la plus récente). */
-export function derniereLecon(d) {
-  return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide).sort(parValidation(d)).at(-1) ?? null;
+export function derniereLecon(d, piste = null) {
+  // 0.41 : `piste` : la dernière de cette piste (colonnes ou × ÷), pour juger la leçon d'après sur la même.
+  return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide && (!piste || pisteDe(sp) === piste)).sort(parValidation(d)).at(-1) ?? null;
 }
 
 /**
@@ -49,12 +50,32 @@ export function derniereLecon(d) {
  */
 export function leconsSousArgent(d, avant = null) {
   return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && !['photo', 'tenir'].includes(sp.type) && d.paliers[sp.id]?.valide && (!avant || sp.ordre < avant.ordre))
-    .map((sp) => ({ sp, ev: evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)) }))
+    .map((sp) => ({ sp, ev: evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp) }))
     .filter((x) => x.ev.essais >= 8 && x.ev.index < 2)
     .sort((a, b) => a.ev.index - b.ev.index || a.sp.ordre - b.sp.ordre).map((x) => x.sp);
 }
 /** Porte d'argent : au plus 20 jours de pratique avant d'avancer quand même. */
-export const JOURS_PORTE_ARGENT_MAX = 20;
+export const JOURS_PORTE_ARGENT_MAX = 7; // 0.41 : 7 (avant 20)
+/**
+ * 0.41 : combien de colonnes justes d'affilée faut-il pour passer en argent (ou au niveau visé) ?
+ * Simulation sur la fenêtre des 30 derniers essais, au temps habituel. null : hors d'atteinte en 60.
+ */
+export function colonnesPourNiveau(d, sp, cible = 2) {
+  const hist = [...(d.paliers[sp.id]?.hist ?? [])];
+  const t = evaluerLecon(hist, sp).temps;
+  for (let k = 0; k <= 60; k++) {
+    if (evaluerLecon(hist, sp).index >= cible) return k;
+    hist.push({ ok: 1, t: t ?? 1 });
+  }
+  return null;
+}
+/** « encore environ 12 colonnes justes, soit 2 séances » (0.41). */
+export function resteEnClair(d, sp, cible = 2) {
+  const k = colonnesPourNiveau(d, sp, cible);
+  if (k === null || k === 0) return '';
+  const seances = Math.max(1, Math.round(k / 10));
+  return ` Encore environ ${k} colonne${k > 1 ? 's' : ''} juste${k > 1 ? 's' : ''} d'affilée, soit ${seances} séance${seances > 1 ? 's' : ''}.`;
+}
 
 /** Avant-dernière leçon du parcours soroban validée (null s'il n'y en a qu'une). */
 export function avantDerniereLecon(d) {
@@ -66,7 +87,7 @@ export function avantDerniereLecon(d) {
  * une leçon validée mais restée en argent (acquis débutant) s'automatise d'abord ; au-delà, on
  * avance quand même (le geste est entré, la vitesse viendra en route).
  */
-export const JOURS_AUTOMATISATION_MAX = 10;
+export const JOURS_AUTOMATISATION_MAX = 7; // 0.41 : 7 jours de pratique au plus derrière une porte (avant 10)
 export const JOURS_ANCRAGE_MAX = JOURS_AUTOMATISATION_MAX;
 
 /** Jours de pratique depuis la validation de la dernière leçon (aujourd'hui non compris). */
@@ -86,7 +107,7 @@ export function joursDepuisDerniereLecon(d, date) {
  * @returns {{ index:number, essais:number, manque:string[] }}
  */
 export function niveauLecon(d, sp) {
-  const ev = evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp));
+  const ev = evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp);
   const cibles = (sp.type ?? 'addsub') === 'addsub' ? (sp.cibles ?? []).filter((c) => !c.endsWith(':direct')) : [];
   if (!cibles.length) return ev;
   const gestes = Math.min(...cibles.map((c) => evaluer(d.motifs?.[c]?.hist ?? [], 'addsub').index));
@@ -114,7 +135,9 @@ export function leconsADorer(d, palier) {
  * d'exercices sur soroban que l'étape en comptait dans ses leçons. Avant (gestes directs, petits
  * amis), la porte reste l'or.
  */
-export const ETAPES_PORTE_STRICTE = ['p0', 'p1', 'p2'];
+// 0.41 : plus d'étape stricte (l'or partout) : partout, l'argent avec le volume de l'étape suffit ;
+// l'or se travaille ensuite dans les blocs de vitesse. Avant : p0 à p2 exigeaient l'or (6 jours sur p2-1).
+export const ETAPES_PORTE_STRICTE = [];
 const MODULES_SOROBAN = ['lecons', 'planches', 'rythme', 'revisions', 'drills', 'defis', 'examen', 'muldiv', 'jeux'];
 export function volumeEtape(d, palier) {
   const lecons = palier.sousPaliers.map((x) => SOUS_PALIERS.find((sp) => sp.id === x.id)).filter((sp) => sp && LECON_SOROBAN(sp));
@@ -144,7 +167,7 @@ function ancrage(sp) {
  */
 export function decisionDuJour(d, date, prochain) {
   const absence = joursAbsence(d, date);
-  const derniere = derniereLecon(d);
+  let derniere = derniereLecon(d);
   if (prochain && (d.paliers[prochain.id]?.reps ?? 0) > 0) {
     return { type: 'lecon', titre: 'Leçon', detail: prochain.titre, raison: `Vous avez commencé « ${prochain.titre} » : on la continue.`, aller: ['lecons', { sousPalier: prochain.id }], minutes: 15, sp: prochain };
   }
@@ -152,14 +175,19 @@ export function decisionDuJour(d, date, prochain) {
     const a = ancrage(derniere);
     return { type: 'automatiser', titre: 'Reprise en douceur', ...a, raison: `${absence} jours sans soroban : pas de nouvelle leçon aujourd'hui, on réveille les gestes de « ${derniere.titre} ».`, minutes: 10, sp: derniere, reprise: true };
   }
+  // 0.41 : les portes se jugent sur la dernière leçon de la MÊME piste (colonnes, ou × ÷).
+  if (prochain) derniere = derniereLecon(d, pisteDe(prochain));
   if (derniere && prochain) {
     const ev = niveauLecon(d, derniere);
     const jours = joursDepuisDerniereLecon(d, date);
     // Sous l'argent : on ne peut pas avancer (la leçon n'est pas vraiment acquise).
-    if (ev.essais >= 8 && ev.index < 2) {
+    // 0.41 : 7 jours de pratique au plus ; ensuite la leçon suivante s'ouvre, et celle-ci reste en
+    // rattrapage (5 min un jour sur deux, voir la séance). Avant, la porte se réarmait à chaque leçon :
+    // jusqu'à 25 jours d'affilée sans rien de nouveau.
+    if (ev.essais >= 8 && ev.index < 2 && jours < JOURS_AUTOMATISATION_MAX) {
       return { type: 'automatiser', titre: 'Automatiser', ...ancrage(derniere), sp: derniere, minutes: 10, cible: 'argent',
         detail: `« ${derniere.titre} »`,
-        raison: `« ${derniere.titre} » est validée mais pas encore en argent : on l'automatise avant d'empiler. La leçon suivante attend l'argent.` };
+        raison: `« ${derniere.titre} » est validée mais pas encore en argent : on l'automatise avant d'empiler. La leçon suivante attend l'argent (${JOURS_AUTOMATISATION_MAX - jours} jour${JOURS_AUTOMATISATION_MAX - jours > 1 ? 's' : ''} au plus).${resteEnClair(d, derniere)}` };
     }
     // Fin d'étape : avant d'ouvrir l'étape suivante, toutes ses leçons passent en or (la moins
     // avancée d'abord), pendant JOURS_AUTOMATISATION_MAX jours de pratique au plus. À l'intérieur
@@ -190,11 +218,11 @@ export function decisionDuJour(d, date, prochain) {
     const bas = nouvelleEtape ? leconsSousArgent(d, prochain) : [];
     if (bas.length) {
       const sp = bas[0];
-      const ev = evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp));
+      const ev = evaluerLecon(d.paliers[sp.id]?.hist ?? [], sp);
       const pct = Math.round((ev.reussite ?? 0) * 100);
       return { type: 'automatiser', titre: 'Automatiser', aller: ['lecons', { sousPalier: sp.id, onglet: 'entrainement' }], sp, minutes: 10, cible: 'argent', porteArgent: true, cibles: sp.cibles,
         detail: `« ${sp.titre} » · porte d'argent : ${bas.length} leçon${bas.length > 1 ? 's' : ''} à repasser`,
-        raison: `Avant « ${prochain.palier?.titre ?? prochain.titre} », toutes les leçons déjà faites passent au moins en argent. « ${sp.titre} » est à ${pct} % de justes : il en faut 90. Ses gestes, seuls, vont bien ; ce sont les nombres longs (lire, garder la tige) qui coûtent des erreurs.` };
+        raison: `Avant « ${prochain.palier?.titre ?? prochain.titre} », toutes les leçons déjà faites passent au moins en argent. « ${sp.titre} » est à ${pct} % de justes : il en faut ${Math.round(100 * reussiteExigee(NIVEAUX[2], chiffresColonne(sp)))}. Ses gestes, seuls, vont bien ; ce sont les nombres longs (lire, garder la tige) qui coûtent des erreurs.${resteEnClair(d, sp)}` };
     }
   }
   if (prochain) {
@@ -357,7 +385,7 @@ export function motDuProf(d, date, decision, o = {}) {
     else if ([5, 6, 0].includes(jourSemaine)) phrases.push(v('kyu', [`L'examen blanc (${g.nom}) est ouvert jusqu'à dimanche : chronométré, sans aide. Raté, il ne vous retire rien.`,
       `Ce week-end, l'examen blanc remplace la leçon : ${g.nom}, en conditions réelles.`]));
   } else if (!meilleurPrekyu(d)) {
-    phrases.push('Le premier examen blanc (20e kyū prép.) s\'ouvrira dès que les gestes directs seront validés.');
+    phrases.push('Le premier examen blanc (20e kyū) s\'ouvrira dès que les gestes directs seront validés.');
   }
   const ob = d.reglages?.objectifGrade;
   if (ob) {

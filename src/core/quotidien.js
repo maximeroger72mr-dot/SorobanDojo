@@ -72,6 +72,9 @@ function methode(p, x) {
     50: `50 % = la moitié de ${fmt(x)}`,
     30: `10 % = ${fmt(dix)}, triplé`,
     75: `75 % = trois quarts : ${fmt(x)} moins son quart (${fmt(x / 4)})`,
+    40: `10 % = ${fmt(dix)}, quadruplé`,
+    60: `10 % = ${fmt(dix)}, sextuplé (ou la moitié plus 10 %)`,
+    12.5: `12,5 % = le huitième : la moitié de la moitié de la moitié de ${fmt(x)}`,
   }[p];
   return `${m}. Au soroban : ${fmt(x)} × ${fmt(p / 100)}.`;
 }
@@ -79,17 +82,21 @@ function methode(p, x) {
 /** Pourcentages : p % d'un prix, prix après remise, ou prix TTC. */
 export function pourcentage() {
   const sorte = hasard(['part', 'part', 'remise', 'tva']);
+  // 0.41 : plus de variété (459 énoncés distincts sur 5 000 avant) : bases non rondes, taux de 12,5,
+  // 40 et 60 %, TVA à 10 % et 5,5 %.
   if (sorte === 'tva') {
-    const ht = entier(2, 60) * 5;
-    const ttc = ht * 1.2;
+    const taux = hasard([20, 20, 10, 5.5]);
+    const ht = Math.random() < 0.5 ? entier(2, 60) * 5 : entier(120, 4800) / 10;
+    const ttc = Math.round(ht * (100 + taux)) / 100;
+    const tvaM = Math.round(ht * taux) / 100;
     return {
-      type: 'quotidien', decimales: 2, euros: true, resultat: ttc, unites: chiffres(ht) + 1,
-      texte: [`Prix hors taxes : ${ht} €`, 'TVA de 20 %', 'Prix TTC (en €) ?'],
-      astuce: `20 % de ${ht} = ${fmt(ht * 0.2)} (10 % doublé), donc ${ht} + ${fmt(ht * 0.2)} = ${fmt(ttc)}. Ou en un calcul : ${ht} × 1,2.`,
+      type: 'quotidien', decimales: 2, euros: true, resultat: ttc, unites: chiffres(Math.round(ht)) + 2,
+      texte: [`Prix hors taxes : ${fmt(ht)} €`, `TVA de ${fmt(taux)} %`, 'Prix TTC (en €) ?'],
+      astuce: `${fmt(taux)} % de ${fmt(ht)} = ${fmt(tvaM)}, donc ${fmt(ht)} + ${fmt(tvaM)} = ${fmt(ttc)}. Ou en un calcul : ${fmt(ht)} × ${fmt((100 + taux) / 100)}.`,
     };
   }
-  const p = hasard([10, 20, 25, 50, 5, 15, 30, 75]);
-  const x = entier(1, 25) * 20;
+  const p = hasard([10, 20, 25, 50, 5, 15, 30, 75, 40, 60, 12.5]);
+  const x = Math.random() < 0.5 ? entier(1, 25) * 20 : p === 12.5 ? entier(2, 60) * 8 : entier(12, 480);
   const part = (x * p) / 100;
   if (sorte === 'remise') {
     return {

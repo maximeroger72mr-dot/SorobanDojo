@@ -83,7 +83,7 @@ test('grade : les deux échelles, et le nombre de points conseillés suit l\'ess
   assert.match(libelleGrade(d).valeur, /aucun/);
   d.records['prekyu-20'] = { reussi: true }; d.records['prekyu-18'] = { reussi: true };
   const l = libelleGrade(d);
-  assert.equal(l.valeur, '18e kyū prép.');
+  assert.equal(l.valeur, '18e kyū');
   assert.match(l.detail, /Prochain grade officiel : 10e kyū/);
   // Le mot du prof commence par le thème du jour, et ne parle plus de « points » : la séance tient dans l'objectif.
   const dec = { type: 'lecon', raison: 'On avance.' };

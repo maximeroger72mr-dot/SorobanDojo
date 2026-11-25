@@ -516,7 +516,7 @@ export default {
             const reussi = verdict === 'reussi';
             await proposerMeilleurScore(cleGradeFlash(r.gradeFlash), serie.justes, { reussi });
             const suivant = GRADES_FLASH[GRADES_FLASH.indexOf(r.gradeFlash) + 1];
-            remplir(retour, reussi ? `${r.gradeFlash.nom} de flash obtenu (${serie.justes} / ${QUESTIONS_GRADE_FLASH}). ${suivant ? `Le suivant : ${libelleGradeFlash(suivant)}.` : 'C\'est le plus haut grade.'}`
+            remplir(retour, reussi ? `${r.gradeFlash.nom} obtenu (${serie.justes} / ${QUESTIONS_GRADE_FLASH}). ${suivant ? `Le suivant : ${libelleGradeFlash(suivant)}.` : 'C\'est le plus haut grade.'}`
               : verdict === 'presque' ? `Presque (${serie.justes} / ${QUESTIONS_GRADE_FLASH}) : il en faut ${JUSTES_GRADE_FLASH}. Vous y êtes presque : repassez ce grade quand vous voulez.`
                 : `Pas encore (${serie.justes} / ${QUESTIONS_GRADE_FLASH}) : il faut ${JUSTES_GRADE_FLASH} justes. Entraînez-vous en « Flash » à cette vitesse, puis retentez.`);
             if (reussi && suivant) reglages.grade = suivant.id;

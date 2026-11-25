@@ -48,7 +48,7 @@ export function carteMaitrise(o = {}) {
   const verif = verificationVitesse(d);
   const aVerifier = (cle) => !!verif && (verif.cle === cle || (verif.cle.startsWith('famille:') && cle.endsWith(`:${verif.cle.slice(8)}`)));
   const tableau = h('table', { class: `carte-maitrise${modeSelection ? ' selection' : ''}` },
-    h('tr', {}, h('th', {}), [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('th', {}, n))),
+    h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'lecteur' }, 'Geste')), [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('th', { scope: 'col' }, n))),
     lignes.map(([op, regle, libelle]) => h('tr', {}, h('th', { class: 'libelle' }, libelle),
       [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
         const cle = `${op}${n}:${regle}`;

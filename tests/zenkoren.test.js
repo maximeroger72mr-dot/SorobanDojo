@@ -31,13 +31,15 @@ test('Zenkoren : jamais plus facile que le même grade Nisshō, sans devenir irr
   }
 });
 
-test('grade : suit le système choisi, chacun garde ses résultats', () => {
+test('grade : 0.41, un kyū demande ses deux épreuves (Nisshō et Zenkoren)', () => {
   const d = { records: { 'epreuve-10': { reussi: true }, 'zenkoren-10': { reussi: false } }, paliers: {}, reglages: {} };
   assert.equal(systemeChoisi(d).id, 'nissho');
+  assert.equal(grade(d).obtenu, null, 'Nisshō seul : pas encore le 10e kyū');
+  assert.equal(grade(d).prochain.systeme, 'zenkoren', 'reste l\'épreuve Zenkoren');
+  assert.deepEqual(grade(d).epreuves, { nissho: true, zenkoren: false });
+  d.records['zenkoren-10'].reussi = true;
   assert.equal(grade(d).obtenu.id, '10');
   d.reglages.systemeGrades = 'zenkoren';
-  assert.equal(grade(d).obtenu, null);
-  d.records['zenkoren-10'].reussi = true;
   assert.equal(grade(d).obtenu.systeme, 'zenkoren');
 });
 

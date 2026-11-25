@@ -99,6 +99,8 @@ export function creerSerie(conteneur, o) {
   const course = o.fantome && Number.isFinite(o.nombre ?? Infinity) ? creerCourse({ total: o.nombre, msParUnite: o.fantome.msParExercice, nom: o.fantome.nom ?? 'votre record' }) : null;
   // Chrono discret pendant l'apprentissage ; bien visible dans les défis et les jeux.
   const chronoExo = h('div', { class: `chrono-exercice${opts.defi && !opts.pauseErreur ? ' en-avant' : ''}` });
+  // 0.41 : mode précision (rapide mais imprécis) : le temps n'est pas affiché, la justesse d'abord.
+  if (opts.precision) chronoExo.style.display = 'none';
   const pastilles = h('div', { class: 'pastilles' });
   // Énoncé masqué après quelques secondes (× et ÷ de tête).
   const caseMasque = h('input', { type: 'checkbox', checked: !!reglagesUtilisateur().enonceMasque });

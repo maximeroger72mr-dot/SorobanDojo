@@ -35,7 +35,7 @@ test('0.39 lot 1 : × et ÷ absorbés (micro-marches, petits formats) ; ordre de
   assert.equal(p.absorbee({ paliers: { 'p6-1': solide, 'p6-3': { valide: '2026-10-01', carte: { boite: 1 } } } }, 'p6-1'), false, 'plus grand pas encore solide');
   const etats = { a: { carte: { boite: 2, echeance: '2026-11-01' } }, b: { carte: { boite: 1, echeance: '2026-11-10' } }, c: { fluidite: true, carte: { boite: 4, echeance: '2026-11-15' } }, e: { carte: { boite: 1, echeance: '2026-11-02' } } };
   assert.deepEqual(['a', 'b', 'c', 'e'].sort(ordreRevisions((id) => etats[id])), ['c', 'e', 'b', 'a']);
-  assert.equal(REVISIONS_SEANCE_MAX, 3);
+  assert.equal(REVISIONS_SEANCE_MAX, 8); // 0.41
 });
 
 test('0.39 lot 1 : mesures sur de vraies feuilles (format, 70 %, entraînement / examen)', async () => {
@@ -72,7 +72,7 @@ test('0.39 lot 1 : vitesse au format du grade partout (allure, hakari, score pro
   const { GRADES_KYU } = await import('../src/core/epreuves.js');
   const g6 = GRADES_KYU.find((g) => g.id === '6');
   const motifs = Object.fromEntries(['+1:direct', '+2:direct', '+3:petit', '+4:petit', '+6:grand'].map((c) => [c, { hist: Array.from({ length: 20 }, () => ({ ok: 1, t: 0.3 })) }]));
-  const d = { paliers: valides('p7-4'), motifs, records: { 'epreuve-8': { reussi: true }, 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [], mesures: [] };
+  const d = { paliers: valides('p7-4'), motifs, records: { 'epreuve-8': { reussi: true }, 'zenkoren-8': { reussi: true }, 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } }, reglages: {}, sessions: [], mesures: [] };
   const sans = vitesseEleve(d, g6);
   assert.equal(sans.colonnesAuFormat, false);
   assert.equal(retardParties(d).find((x) => x.partie === 'colonnes').aConfirmer, true);
@@ -146,7 +146,7 @@ test('0.39 lot 2 : marches 1 et 2 dès 70 % des leçons, sur les seules parties 
   // 7e kyū réussi : on vise le 6e. Toutes ses leçons sauf les divisions.
   const req = PREREQUIS[6];
   const paliers = Object.fromEntries(req.filter((id) => sp(id).type !== 'div').map((id) => [id, { valide: '2026-11-01', hist: [] }]));
-  const d = { paliers, records: { 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
+  const d = { paliers, records: { 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
   const part = Object.keys(paliers).length / req.length;
   const e = etatMarches(d);
   if (part >= 0.7) {
@@ -193,7 +193,7 @@ test('0.39 lot 2 : plateaux au-delà du platine sans marge ; × ÷ en plateau ; 
   // Geste platine (0,7 s par chiffre), qui stagne : plateau tant que l'allure visée n'a pas 10 % de marge.
   const hist = Array.from({ length: 30 }, () => ({ ok: 1, t: 0.7 }));
   const sem = Object.fromEntries(semaines.map((k) => [k, Array(12).fill(0.7)]));
-  const d = { motifs: { '+6:grand': { hist, sem } }, paliers: valides('p9-6'), records: Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].map((id) => [`epreuve-${id}`, { reussi: true }])), reglages: {}, sessions: [] };
+  const d = { motifs: { '+6:grand': { hist, sem } }, paliers: valides('p9-6'), records: Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].flatMap((id) => [[`epreuve-${id}`, { reussi: true }], [`zenkoren-${id}`, { reussi: true }]])), reglages: {}, sessions: [] };
   const vise = allureVisee(d);
   assert.ok(vise.parChiffre * 0.9 < 0.7, `1er kyū : ${vise.parChiffre}`);
   assert.ok(plateaux(d, '2026-11-21').some((x) => x.cle === '+6:grand'), 'platine mais pas 10 % de marge sur le 1er kyū');
@@ -214,7 +214,7 @@ test('0.39 lot 2 : feuille de la semaine d\'environ 7 minutes à l\'allure ; li�
   const { defiSemaine, MINUTES_FEUILLE_SEMAINE } = await import('../src/core/parcours.js');
   const { allureGrade } = await import('../src/core/allure.js');
   const { unites } = await import('../src/core/maitrise.js');
-  const d = { paliers: valides('p8-8'), records: { 'epreuve-8': { reussi: true }, 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
+  const d = { paliers: valides('p8-8'), records: { 'epreuve-8': { reussi: true }, 'zenkoren-8': { reussi: true }, 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } }, reglages: {}, sessions: [], motifs: {} };
   const f = defiSemaine(d, '2026-11-21');
   const a = allureGrade(f.grade);
   const t = f.sections.flatMap((s) => s.problemes).reduce((s, ex) => s + unites(ex) * (ex.type === 'addsub' ? a.parChiffre : a.parProduit) + 3, 0);
@@ -226,7 +226,7 @@ test('0.39 lot 3 : entretien, matières tournées séance par séance, une sur d
   const { matiereEntretien, matieresEntretien, maintienPur, activiteMaintien } = await import('../src/core/entretien.js');
   const { entretienDuJour } = await import('../src/core/prof.js');
   const jours = (n) => Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, module: 'planches', total: 1 }));
-  const tous = Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].map((id) => [`epreuve-${id}`, { reussi: true }]));
+  const tous = Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2'].flatMap((id) => [[`epreuve-${id}`, { reussi: true }], [`zenkoren-${id}`, { reussi: true }]]));
   const d = { paliers: valides('p9-6'), motifs: {}, records: tous, reglages: {}, sessions: [], mesures: [] };
   assert.deepEqual(matieresEntretien(d), ['colonnes', 'mul', 'div', 'anzan']);
   const vus = [0, 2, 4, 6].map((n) => matiereEntretien({ ...d, sessions: jours(n) }, '2026-11-21').matiere);
@@ -234,7 +234,7 @@ test('0.39 lot 3 : entretien, matières tournées séance par séance, une sur d
   // Séance impaire : la plus en retard (× jamais mesuré = la plus loin).
   assert.equal(matiereEntretien({ ...d, sessions: jours(1) }, '2026-11-21').raison, 'retard');
   // Après le 1er kyū : colonnes au format des dan.
-  const apres = { ...d, records: { ...tous, 'epreuve-1': { reussi: true } } };
+  const apres = { ...d, records: { ...tous, 'epreuve-1': { reussi: true }, 'zenkoren-1': { reussi: true } } };
   const e = entretienDuJour({ ...apres, sessions: jours(0) }, '2026-11-21');
   assert.equal(e.aller[1].genre, 'dan');
   assert.equal(maintienPur(apres), false, 'le dan reste à viser');
@@ -245,7 +245,7 @@ test('0.39 lot 3 : entretien, matières tournées séance par séance, une sur d
 test('0.39 lot 3 : examen de la semaine en alternance (complet / 2 sprints) ; planche au format des dan', async () => {
   const { examenCompletHebdo } = await import('../src/core/examen.js');
   const { genererPlancheSpeciale } = await import('../src/core/planche.js');
-  const d = { paliers: valides('p8-8'), motifs: {}, records: { 'epreuve-6': { reussi: true }, 'epreuve-7': { reussi: true } }, reglages: {}, sessions: [] };
+  const d = { paliers: valides('p8-8'), motifs: {}, records: { 'epreuve-6': { reussi: true }, 'zenkoren-6': { reussi: true }, 'epreuve-7': { reussi: true }, 'zenkoren-7': { reussi: true } }, reglages: {}, sessions: [] };
   const a = examenCompletHebdo(d, '2026-11-20');
   const b = examenCompletHebdo(d, '2026-11-27');
   assert.deepEqual([a.format, b.format].sort(), ['long', 'sprints']);
@@ -264,7 +264,7 @@ test('0.39 lot 3 : contrôle tous les 90 jours (règles rares, 4 synthèses), sa
   const { controleDu, apresControle, aControler } = await import('../src/core/revision.js');
   const { formatCouvertParEpreuve } = await import('../src/core/progression.js');
   assert.ok(aControler(sp('pd-5')) && aControler(sp('p5-5')) && aControler(sp('p9-6')));
-  assert.equal(aControler(sp('p3-1')), false);
+  assert.equal(aControler(sp('p3-1')), true, '0.41 : toutes les leçons, tous les 180 jours');
   const carte = { boite: 5, echeance: '2026-07-01', acquise: '2026-08-01' };
   assert.equal(controleDu(sp('pd-5'), carte, '2026-11-21'), true, 'plus de 90 jours');
   assert.equal(controleDu(sp('pd-5'), carte, '2026-10-21'), false);

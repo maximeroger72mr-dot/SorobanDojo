@@ -58,7 +58,7 @@ export const CARTES = {
       info: () => { const r = JEUX.filter((j) => j.id !== 'survie').map((j) => recordJeu(j.id)).filter(Boolean); return r.length ? { texte: r[0] } : null; } },
   ],
   mesurer: [
-    { ecran: 'grades', titre: 'Grades', description: 'Votre grade sur une seule frise, du 20e au 1er kyū : le passage de kyū préparatoire et les épreuves officielles.',
+    { ecran: 'grades', titre: 'Grades', description: 'Votre grade sur une seule frise, du 20e au 1er kyū : le passage de kyū (20e au 11e), puis les épreuves Nisshō et Zenkoren (10e au 1er).',
       info: () => {
         const d = progression();
         const g = grade(d);

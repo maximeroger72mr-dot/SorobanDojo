@@ -51,6 +51,6 @@ test('0.40.4 : plus de jeu proposé à partir du 6e kyū', () => {
   const ids = SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= sp('p5-5').ordre).map((s) => s.id);
   const d = { paliers: Object.fromEntries(ids.map((id) => [id, { valide: '2026-10-01', hist: [] }])), records: {}, sessions: [], reglages: {}, motifs: {} };
   assert.ok(jeuPropose(d, '2026-11-24'));
-  for (const id of ['10', '9', '8', '7', '6']) d.records[`epreuve-${id}`] = { reussi: true };
+  for (const id of ['10', '9', '8', '7', '6']) { d.records[`epreuve-${id}`] = { reussi: true }; d.records[`zenkoren-${id}`] = { reussi: true }; }
   assert.equal(jeuPropose(d, '2026-11-24'), null);
 });

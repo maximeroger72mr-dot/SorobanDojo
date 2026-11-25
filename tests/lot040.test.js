@@ -84,7 +84,7 @@ test('0.40 : lièvre et marathon au stade de l\'élève, 3 à 4 minutes, variant
   assert.ok(m.lignes >= 30 && m.lignes <= 40, `${m.lignes}`);
   const grands = { ...base, paliers: valides('p4-5') };
   assert.equal(formatRythme(grands, '2026-11-21', 'lievre').lignes, 7);
-  const tous = Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2', '1'].map((id) => [`epreuve-${id}`, { reussi: true }]));
+  const tous = Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3', '2', '1'].flatMap((id) => [[`epreuve-${id}`, { reussi: true }], [`zenkoren-${id}`, { reussi: true }]]));
   const dan = { ...base, paliers: valides('p9-6'), records: tous };
   assert.equal(stadeRythme(dan), 'dan');
   const md = formatRythme(dan, '2026-11-21', 'marathon');

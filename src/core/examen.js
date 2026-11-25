@@ -32,16 +32,16 @@ export const SEUIL = 0.7;
 
 /** Grades préparatoires : leçons à valider, et format des colonnes de l'examen. */
 export const PREKYU = [
-  { id: '20', nom: '20e kyū prép.', lecons: ['p1-1', 'p1-2', 'p1-3'], chiffres: 1, lignes: 4, theme: 'gestes directs, 1 chiffre' },
-  { id: '19', nom: '19e kyū prép.', lecons: ['p1-4'], chiffres: 2, lignes: 4, theme: 'gestes directs, 2 chiffres' },
-  { id: '18', nom: '18e kyū prép.', lecons: ['p2-1', 'p2-2', 'p2-3'], chiffres: 2, lignes: 5, theme: 'petits amis en addition' },
-  { id: '17', nom: '17e kyū prép.', lecons: ['p2-4', 'p2-5', 'p2-6', 'p2-7'], chiffres: 2, lignes: 5, theme: 'tous les petits amis' },
-  { id: '16', nom: '16e kyū prép.', lecons: ['p3-1', 'p3-2', 'p3-3'], chiffres: 1, lignes: 5, theme: 'grands amis en addition, 1 chiffre' },
-  { id: '15', nom: '15e kyū prép.', lecons: ['p3-4'], chiffres: 2, lignes: 5, theme: 'grands amis en addition, 2 chiffres' },
-  { id: '14', nom: '14e kyū prép.', lecons: ['p4-1', 'p4-2', 'p4-3', 'p4-4'], chiffres: 2, lignes: 5, theme: 'grands amis en soustraction' },
-  { id: '13', nom: '13e kyū prép.', lecons: ['p4-5'], chiffres: 2, lignes: 5, theme: 'tous les grands amis' },
-  { id: '12', nom: '12e kyū prép.', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 5, theme: 'combinaisons' },
-  { id: '11', nom: '11e kyū prép.', lecons: ['p5-4', 'p5-5'], chiffres: 2, lignes: 5, theme: 'cascades et révision générale, au format du 10e kyū' },
+  { id: '20', nom: '20e kyū', lecons: ['p1-1', 'p1-2', 'p1-3'], chiffres: 1, lignes: 4, theme: 'gestes directs, 1 chiffre' },
+  { id: '19', nom: '19e kyū', lecons: ['p1-4'], chiffres: 2, lignes: 4, theme: 'gestes directs, 2 chiffres' },
+  { id: '18', nom: '18e kyū', lecons: ['p2-1', 'p2-2', 'p2-3'], chiffres: 2, lignes: 5, theme: 'petits amis en addition' },
+  { id: '17', nom: '17e kyū', lecons: ['p2-4', 'p2-5', 'p2-6', 'p2-7'], chiffres: 2, lignes: 5, theme: 'tous les petits amis' },
+  { id: '16', nom: '16e kyū', lecons: ['p3-1', 'p3-2', 'p3-3'], chiffres: 1, lignes: 5, theme: 'grands amis en addition, 1 chiffre' },
+  { id: '15', nom: '15e kyū', lecons: ['p3-4'], chiffres: 2, lignes: 5, theme: 'grands amis en addition, 2 chiffres' },
+  { id: '14', nom: '14e kyū', lecons: ['p4-1', 'p4-2', 'p4-3', 'p4-4'], chiffres: 2, lignes: 5, theme: 'grands amis en soustraction' },
+  { id: '13', nom: '13e kyū', lecons: ['p4-5'], chiffres: 2, lignes: 5, theme: 'tous les grands amis' },
+  { id: '12', nom: '12e kyū', lecons: ['p5-1', 'p5-2', 'p5-3'], chiffres: 2, lignes: 5, theme: 'combinaisons' },
+  { id: '11', nom: '11e kyū', lecons: ['p5-4', 'p5-5'], chiffres: 2, lignes: 5, theme: 'cascades et révision générale, au format du 10e kyū' },
 ];
 // Jamais plus dur que le 10e kyū officiel (5 lignes de 2 chiffres) : les grades préparatoires y
 // mènent, ils ne le dépassent pas (avant la 0.36, les 13e à 11e avaient 3 chiffres et 6 lignes).
@@ -101,13 +101,21 @@ export const cleBlanc = (sys, id) => `blanc-${sys.id}-${id}`;
  * plus élevé (équivalence vers le bas).
  */
 export function kyuPasse(d, sys, g) {
-  return sys.grades.slice(sys.grades.indexOf(g)).some((x) => !!d.records[sys.record(x.id)]?.reussi || !!d.records[cleBlanc(sys, x.id)]?.reussi);
+  const i = sys.grades.findIndex((x) => x.id === g.id);
+  return i >= 0 && sys.grades.slice(i).some((x) => !!d.records[sys.record(x.id)]?.reussi || !!d.records[cleBlanc(sys, x.id)]?.reussi);
 }
-/** Le 6e kyū (ou plus haut) est-il passé, dans le système choisi ? */
-export function sixiemeKyuPasse(d) {
+/** 0.41 : kyū passé dans les DEUX systèmes (Nisshō et Zenkoren), épreuve ou examen blanc. */
+export const kyuPasseDeux = (d, g) => Object.values(SYSTEMES).every((s) => kyuPasse(d, s, g));
+/** Système où ce kyū reste à passer (le choisi d'abord), ou null. */
+export function systemeAPasser(d, g) {
   const sys = systemeChoisi(d);
-  const g6 = sys.grades.find((g) => g.id === '6');
-  return !!g6 && kyuPasse(d, sys, g6);
+  if (!kyuPasse(d, sys, g)) return sys;
+  return Object.values(SYSTEMES).find((s) => !kyuPasse(d, s, g)) ?? null;
+}
+/** Le 6e kyū (ou plus haut) est-il passé, dans les deux systèmes (0.41) ? */
+export function sixiemeKyuPasse(d) {
+  const g6 = systemeChoisi(d).grades.find((g) => g.id === '6');
+  return !!g6 && kyuPasseDeux(d, g6);
 }
 
 /**
@@ -133,7 +141,7 @@ export function examenCompletHebdo(d, date) {
   const format = formatBlanc(date);
   const modeSemaine = format === 'sprints' ? `${mode}-sprints` : mode;
   const fait = [...d.sessions].reverse().find((s) => s.module === 'epreuves' && s.mode === modeSemaine && semaineISO(s.date).cle === semaine) ?? null;
-  return { grade: g, systeme: sys.id, fait, entretien: !gr.prochain, dan: !!g.dan, danZenkoren: !!g.dan && zen, format, mode };
+  return { grade: g, systeme: g.dan ? sys.id : (g.systeme ?? 'nissho'), fait, entretien: !gr.prochain, dan: !!g.dan, danZenkoren: !!g.dan && zen, format, mode };
 }
 
 /** Plus haut kyū officiel réussi en examen blanc (ou null). */
@@ -151,8 +159,10 @@ export function examenDeLaSemaine(d) {
   const sys = systemeChoisi(d);
   const haut = sys.grades.filter((g) => gradeAccessible(d, g)).at(-1);
   if (haut) {
-    if (kyuPasse(d, sys, haut)) return formatHebdo(d);
-    return { ...formatHebdo(d), id: `k${haut.id}`, nom: `${haut.nom} (blanc)`, officiel: haut.id, systeme: sys.id };
+    // 0.41 : les deux systèmes : l'examen blanc se passe dans celui où ce kyū reste à faire.
+    const s = systemeAPasser(d, haut);
+    if (!s) return formatHebdo(d);
+    return { ...formatHebdo(d), id: `k${haut.id}`, nom: `${haut.nom} (blanc${s.id === 'zenkoren' ? ' Zenkoren' : ' Nisshō'})`, officiel: haut.id, systeme: s.id };
   }
   const dernier = accessibles.at(-1);
   // Le dernier grade accessible est déjà obtenu (tout le préparatoire, ou entre deux grades : le
@@ -181,7 +191,7 @@ export function leconsParEquivalence(d) {
 }
 
 /**
- * Le PROCHAIN grade seulement (jamais un objectif lointain) : le premier, du 20e kyū prép. au
+ * Le PROCHAIN grade seulement (jamais un objectif lointain) : le premier, du 20e kyū au
  * 1er kyū, qui n'est pas encore réussi ; avec les leçons qui lui manquent, l'étape du parcours où
  * il se gagne, et une estimation en jours au rythme des 28 derniers jours (null si trop peu de
  * leçons validées récemment pour estimer, ou si c'est à plus de 60 jours).
@@ -294,10 +304,14 @@ export function joursRestants(date) {
 export function libelleGrade(d) {
   const g = grade(d);
   const prep = meilleurPrekyu(d);
-  const sys = g.obtenu?.systeme === 'zenkoren' ? ' · Zenkoren' : '';
   const blanc = meilleurBlanc(d);
-  const valeur = g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})${sys}` : blanc ? `${blanc.nom} en examen blanc` : prep ? prep.nom : 'aucun pour l\'instant';
+  // 0.41 : un kyū demande ses deux épreuves : l'une réussie, on le dit (« 10e kyū : Nisshō ✓, Zenkoren à passer »).
+  const moitie = g.prochain && g.epreuves && Object.values(g.epreuves).some(Boolean)
+    ? `${g.prochain.nom} : ${Object.entries(g.epreuves).map(([k, ok]) => `${k === 'zenkoren' ? 'Zenkoren' : 'Nisshō'} ${ok ? '✓' : 'à passer'}`).join(', ')}` : null;
+  const valeur = moitie ? (g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais}) · ${moitie}` : moitie)
+    : g.obtenu ? `${g.obtenu.nom} (${g.obtenu.japonais})` : blanc ? `${blanc.nom} en examen blanc` : prep ? prep.nom : 'aucun pour l\'instant';
   let officiel;
+  const lequel = g.prochain ? ` (épreuve ${g.prochain.systeme === 'zenkoren' ? 'Zenkoren' : 'Nisshō'} ; le kyū demande les deux)` : '';
   if (!g.prochain) officiel = 'Tous les kyū officiels sont obtenus.';
   else if (g.pret) {
     // Les leçons sont validées à 70 % de la cadence ; l'épreuve, elle, demande la cadence entière.

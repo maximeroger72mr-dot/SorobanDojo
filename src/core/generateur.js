@@ -228,6 +228,9 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
     if (essai % 64 === 0 && horsDelai()) throw new ErreurGeneration('délai dépassé');
     // 0.40.12 : rien de valide après 600 essais, mais un repli existe : inutile de continuer.
     if (essai >= 600 && !valides && (identique || secours)) break;
+    // 0.41 : espace de tirage minuscule (p1-1 : « ajouter 1 à 4 » sous 4) : quelques candidats valides
+    // suffisent, inutile d'aller jusqu'à 2 500 essais (108 ms par colonne en moyenne, 1,4 s au pire).
+    if ((essai >= 400 && valides >= 3) || (essai >= 800 && valides >= 1)) break;
     let op = hasard(ops);
     let cible = null;
     if (viser && cibles?.length && essai < 1800) {
@@ -706,13 +709,18 @@ export function genererColonneVariee(params, memoire) {
   const uniteUsee = (r) => memoire.unites.slice(-4).filter((u) => u === unite(r)).length >= 2;
   const recent = (col) => memoire.resultats.includes(col.resultat) || memoire.signatures.includes(signature(col)) || uniteUsee(col.resultat);
   let col = null;
-  for (let essai = 0; essai < 12; essai++) {
+  // 0.41 : quand les résultats possibles sont trop peu nombreux pour éviter les récents (p1-1 :
+  // totaux de 2 à 4), la mémoire le retient et on n'insiste plus (12 colonnes et 20 lignes tirées
+  // pour rien à chaque exercice : 100 ms par colonne).
+  const sature = (memoire.sature ?? 0) >= 2;
+  for (let essai = 0; essai < (sature ? 3 : 12); essai++) {
     col = genererColonne(params);
     if (!recent(col)) break;
   }
+  memoire.sature = recent(col) ? (memoire.sature ?? 0) + 1 : 0;
   if (recent(col)) {
     // Une ligne de plus, choisie pour donner un résultat nouveau.
-    for (let essai = 0; essai < 20; essai++) {
+    for (let essai = 0; essai < (sature ? 4 : 20); essai++) {
       try {
         const sens = sensUnique(params.cibles, params.ops);
         const opsLigne = sens === '+' && col.lignes.at(-1).op === '-' ? ['+'] : params.ops;

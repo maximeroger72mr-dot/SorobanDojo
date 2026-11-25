@@ -33,6 +33,7 @@
 import { D, famille, TOUS_LES_MOTIFS } from './motifs.js';
 import { genererColonne, genererColonneVariee, creerMemoire } from './generateur.js';
 import { phasesLecon } from './phases.js';
+import { evaluer } from './maitrise.js';
 import {
   genererMultiplication, genererDivision, aideDivision, genererPlacement, genererPlacementDecimal,
   genererColonneDecimale, genererMultiplicationDecimaleSimple, genererDivisionDecimaleExacte, genererDivisionDecimale, genererMultiplicationDecimale, genererMarche, avecZeroFinal } from './multiplication.js';
@@ -209,25 +210,6 @@ export const PALIERS = [
       { id: 'p5-e', titre: 'Endurance : 10 lignes de 1 à 2 chiffres', cibles: TOUS_LES_MOTIFS, chiffres: 1, chiffresMax: 2, lignes: 10, repetitions: 30, cumul: true,
         pourquoi: 'À partir du 7e kyū, une colonne d\'examen a 10 lignes (5 aux 10e et 9e kyū, 8 au 8e). Le geste ne change pas : c\'est l\'attention qui doit tenir jusqu\'au bout. Gardez le même rythme de la 1re à la 10e ligne, et lisez la ligne suivante pendant que la main finit.',
         demos: [] },
-      { id: 'p5-6', titre: 'Passer une épreuve : la stratégie', type: 'theorie', repetitions: 0,
-        pourquoi: 'Une épreuve ne se gagne pas seulement avec de bons gestes : il faut aussi savoir par où commencer, quoi laisser, et comment ne pas perdre de points en recopiant. À lire avant votre premier passage de kyū.',
-        sections: [
-          ['Un seul chronomètre', 'Le temps est donné pour TOUT le sujet (20 minutes du 10e au 7e kyū, 30 minutes ensuite) : les additions et soustractions, les multiplications, les divisions. Vous passez d\'une partie à l\'autre quand vous voulez. Il n\'y a aucun point négatif : une réponse fausse vaut zéro, comme une case vide.'],
-          ['Viser le seuil, pas la perfection', 'Il faut 60 % des points du 9e au 7e kyū (30 % au 10e), 70 % du 6e au 4e, 80 % à partir du 3e. Vous pouvez donc laisser des problèmes. Mieux vaut 8 colonnes justes que 10 colonnes bâclées : chaque colonne vaut autant, et une colonne fausse a coûté le même temps qu\'une juste.'],
-          ['Par où commencer', 'Commencez par la partie où vous êtes le plus sûr : elle rapporte vite et met la main en route. Gardez pour la fin celle qui vous coûte le plus. Fixez-vous une heure de bascule (par exemple : à mi-temps, je quitte les colonnes), et tenez-la.'],
-          ['Sauter sans regret', 'Vous perdez votre place, une ligne vous échappe, le soroban vous paraît faux : n\'essayez pas de « rattraper ». Remettez à zéro et recommencez la colonne une fois ; si cela se reproduit, passez à la suivante. S\'acharner sur un problème en coûte deux.'],
-          ['La remise à zéro compte', 'Entre deux problèmes : incliner, reposer, glisser l\'index. Deux secondes, toujours le même geste. Une boule oubliée de la colonne précédente fausse la suivante, et c\'est l\'erreur la plus bête de l\'épreuve.'],
-          ['Recopier sans se tromper', 'Lisez le résultat sur le soroban de gauche à droite, par tranches de 3 chiffres, et écrivez-le dans le même mouvement, crayon déjà en main. Vérifiez seulement le nombre de chiffres : un chiffre en trop ou en moins se voit d\'un coup d\'œil.'],
-          ['L\'allure', 'L\'écran des épreuves indique, pour chaque grade, la cadence à tenir et la vôtre. Pendant une épreuve d\'entraînement, vous pouvez afficher votre avance ou votre retard. Le jour où vous voulez vous tester pour de bon, cochez « Examen pur » : le sujet, le temps, et rien d\'autre.'],
-          ['S\'il reste du temps', 'Refaites d\'abord les problèmes sautés. Ensuite seulement, vérifiez ceux dont vous doutiez en les recalculant entièrement : relire un résultat ne détecte rien.'],
-        ],
-        quiz: [
-          { q: 'Une réponse fausse à l\'examen, c\'est :', choix: ['Zéro point, comme une case vide', 'Des points retirés', 'L\'élimination'], bonne: 0, pourquoi: 'Aucun point négatif : fausse ou vide, la case vaut zéro. On peut donc tenter, mais pas bâcler.' },
-          { q: 'Vous perdez votre place au milieu d\'une colonne. Que faire ?', choix: ['Remettre à zéro et la recommencer une fois, sinon passer', 'Essayer de retrouver où vous en étiez', 'Deviner la fin'], bonne: 0, pourquoi: 'On ne « rattrape » pas une colonne : on la refait une fois, ou on passe à la suivante (« Sauter sans regret »).' },
-          { q: 'Par quelle partie commencer ?', choix: ['Celle où vous êtes le plus sûr', 'Toujours la plus difficile', 'Peu importe'], bonne: 0, pourquoi: 'La partie la plus sûre rapporte vite et met la main en route ; la plus coûteuse se garde pour la fin.' },
-          { q: 'Il vous reste deux minutes et tout est rempli. Que faire ?', choix: ['Recalculer entièrement un problème dont vous doutiez', 'Relire les résultats écrits', 'Poser le crayon'], bonne: 0, pourquoi: 'Relire un résultat ne détecte rien : seule une colonne recalculée confirme ou corrige.' },
-        ],
-        demos: [] },
     ],
   },
   {
@@ -319,6 +301,26 @@ export const PALIERS = [
       { id: 'p7-4', titre: '÷ 2 chiffres, quotient 2 chiffres', type: 'div', nd: 2, nq: 2, repetitions: 50,
         pourquoi: 'L\'unité du quotient est 3 tiges à gauche de l\'unité du dividende (2 chiffres au diviseur + 1).',
         demos: [{ a: 156, b: 12 }] },
+      // 0.41 : la stratégie d'épreuve arrive quand les épreuves (colonnes, ×, ÷) sont à portée.
+      { id: 'p5-6', titre: 'Passer une épreuve : la stratégie', type: 'theorie', repetitions: 0,
+        pourquoi: 'Une épreuve ne se gagne pas seulement avec de bons gestes : il faut aussi savoir par où commencer, quoi laisser, et comment ne pas perdre de points en recopiant. À lire avant votre premier passage de kyū.',
+        sections: [
+          ['Un seul chronomètre', 'Le temps est donné pour TOUT le sujet (20 minutes du 10e au 7e kyū, 30 minutes ensuite) : les additions et soustractions, les multiplications, les divisions. Vous passez d\'une partie à l\'autre quand vous voulez. Il n\'y a aucun point négatif : une réponse fausse vaut zéro, comme une case vide.'],
+          ['Viser le seuil, pas la perfection', 'Il faut 60 % des points du 9e au 7e kyū (30 % au 10e), 70 % du 6e au 4e, 80 % à partir du 3e. Vous pouvez donc laisser des problèmes. Mieux vaut 8 colonnes justes que 10 colonnes bâclées : chaque colonne vaut autant, et une colonne fausse a coûté le même temps qu\'une juste.'],
+          ['Par où commencer', 'Commencez par la partie où vous êtes le plus sûr : elle rapporte vite et met la main en route. Gardez pour la fin celle qui vous coûte le plus. Fixez-vous une heure de bascule (par exemple : à mi-temps, je quitte les colonnes), et tenez-la.'],
+          ['Sauter sans regret', 'Vous perdez votre place, une ligne vous échappe, le soroban vous paraît faux : n\'essayez pas de « rattraper ». Remettez à zéro et recommencez la colonne une fois ; si cela se reproduit, passez à la suivante. S\'acharner sur un problème en coûte deux.'],
+          ['La remise à zéro compte', 'Entre deux problèmes : incliner, reposer, glisser l\'index. Deux secondes, toujours le même geste. Une boule oubliée de la colonne précédente fausse la suivante, et c\'est l\'erreur la plus bête de l\'épreuve.'],
+          ['Recopier sans se tromper', 'Lisez le résultat sur le soroban de gauche à droite, par tranches de 3 chiffres, et écrivez-le dans le même mouvement, crayon déjà en main. Vérifiez seulement le nombre de chiffres : un chiffre en trop ou en moins se voit d\'un coup d\'œil.'],
+          ['L\'allure', 'L\'écran des épreuves indique, pour chaque grade, la cadence à tenir et la vôtre. Pendant une épreuve d\'entraînement, vous pouvez afficher votre avance ou votre retard. Le jour où vous voulez vous tester pour de bon, cochez « Examen pur » : le sujet, le temps, et rien d\'autre.'],
+          ['S\'il reste du temps', 'Refaites d\'abord les problèmes sautés. Ensuite seulement, vérifiez ceux dont vous doutiez en les recalculant entièrement : relire un résultat ne détecte rien.'],
+        ],
+        quiz: [
+          { q: 'Une réponse fausse à l\'examen, c\'est :', choix: ['Zéro point, comme une case vide', 'Des points retirés', 'L\'élimination'], bonne: 0, pourquoi: 'Aucun point négatif : fausse ou vide, la case vaut zéro. On peut donc tenter, mais pas bâcler.' },
+          { q: 'Vous perdez votre place au milieu d\'une colonne. Que faire ?', choix: ['Remettre à zéro et la recommencer une fois, sinon passer', 'Essayer de retrouver où vous en étiez', 'Deviner la fin'], bonne: 0, pourquoi: 'On ne « rattrape » pas une colonne : on la refait une fois, ou on passe à la suivante (« Sauter sans regret »).' },
+          { q: 'Par quelle partie commencer ?', choix: ['Celle où vous êtes le plus sûr', 'Toujours la plus difficile', 'Peu importe'], bonne: 0, pourquoi: 'La partie la plus sûre rapporte vite et met la main en route ; la plus coûteuse se garde pour la fin.' },
+          { q: 'Il vous reste deux minutes et tout est rempli. Que faire ?', choix: ['Recalculer entièrement un problème dont vous doutiez', 'Relire les résultats écrits', 'Poser le crayon'], bonne: 0, pourquoi: 'Relire un résultat ne détecte rien : seule une colonne recalculée confirme ou corrige.' },
+        ],
+        demos: [] },
     ],
   },
   {
@@ -596,6 +598,25 @@ export const SOUS_PALIERS = (() => {
 export const sousPalier = (id) => SOUS_PALIERS.find((s) => s.id === id);
 
 /** Famille de seuils de vitesse d'une leçon (voir maitrise.js). */
+/**
+ * 0.41 : trois pistes. « colonnes » (additions et soustractions), « muldiv » (tables, × et ÷,
+ * placement, décimaux de × ÷, stratégie d'épreuve), « anzan » (calcul de tête). Chaque piste a sa
+ * propre suite de leçons : × et ÷ avancent EN PARALLÈLE des colonnes, une fois les gestes
+ * nécessaires maîtrisés et les tables travaillées (voir parcours.porteMulDiv).
+ */
+const TYPES_MULDIV = ['mul', 'div', 'table', 'placement', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'];
+export const pisteDe = (sp) => (sp.mental ? 'anzan' : TYPES_MULDIV.includes(sp.type) || sp.id === 'p5-6' ? 'muldiv' : 'colonnes');
+
+/** Chiffres d'une colonne de la leçon (lignes × chiffres, en moyenne) ; null hors colonnes. */
+export function chiffresColonne(sp) {
+  if (!sp || !['addsub', 'addsubdec', 'negatif'].includes(sp.type ?? 'addsub') || sp.mental) return null;
+  const ch = ((sp.chiffres ?? 1) + (sp.chiffresMax ?? sp.chiffres ?? 1)) / 2 + (/2 et 3 chiffres/.test(sp.titre ?? '') ? 0.5 : 0);
+  const li = ((sp.lignes ?? 5) + (sp.lignesMax ?? sp.lignes ?? 5)) / 2;
+  return Math.round(ch * li);
+}
+/** Niveau d'une leçon sur son historique, seuil de justesse par chiffre (0.41, voir maitrise.reussiteExigee). */
+export const evaluerLecon = (hist, sp) => evaluer(hist ?? [], familleLecon(sp), { chiffres: chiffresColonne(sp) });
+
 export function familleLecon(sp) {
   if (sp.type === 'placement' || sp.type === 'table') return sp.type;
   if (sp.type === 'photo' || sp.type === 'tenir' || sp.type === 'lire') return 'photo';
@@ -643,7 +664,7 @@ export function genererNegatif(chiffres, lignes) {
     const c = k + r;
     return {
       type: 'addsub', negatif: true, lignes: l, resultat: r,
-      astuce: `On emprunte un 1 imaginaire de ${k} quand la soustraction dépasse : le soroban affiche ${c}, le complément. Résultat : −(${k} − ${c}) = ${r}.`,
+      astuce: `On emprunte un 1 imaginaire de ${k} quand la soustraction dépasse : le soroban affiche ${c}, le complément. Résultat : −(${k} − ${c}) = ${String(r).replace('-', '−')}.`,
     };
   }
 }
@@ -705,14 +726,14 @@ export function genererComplement(cible, memoire) {
  * à petit espace, comme ÷ 1 chiffre et quotient 1 chiffre, en répétaient 15 sur 50). Après 30
  * essais sans calcul neuf (espace épuisé), on accepte une répétition.
  */
-const RECENTS_MULDIV = 30;
+const RECENTS_MULDIV = 60; // 0.41 : 60 (avant 30) : p6-1b et p7-1 répétaient 3 à 5 calculs par bloc de 50
 const recentsMulDiv = new Map();
 export function genererExercice(sp, poids = {}, ctx = {}) {
   if (sp.type !== 'mul' && sp.type !== 'div') return genererExerciceBrut(sp, poids, ctx);
   if (!recentsMulDiv.has(sp.id)) recentsMulDiv.set(sp.id, []);
   const recents = recentsMulDiv.get(sp.id);
   let ex;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     ex = genererExerciceBrut(sp, poids, ctx);
     if (!recents.includes(`${ex.a}|${ex.b}`)) break;
   }
@@ -925,9 +946,10 @@ export function dureePhoto(sp, sauvee) {
 }
 
 const chaines = new Map();
-export function chaineAnzan(sp, sauvee) {
+export function chaineAnzan(sp, sauvee, empan = null) {
   const min = Math.min(sp.lignesDepart ?? 2, sp.lignes);
-  const depart = sauvee ? Math.min(sp.lignes, Math.max(min, sauvee - 1)) : min;
+  // 0.41 : sans chaîne mémorisée, le départ suit l'empan visuo-spatial mesuré (test de Corsi) : empan − 2.
+  const depart = sauvee ? Math.min(sp.lignes, Math.max(min, sauvee - 1)) : empan ? Math.min(sp.lignes, Math.max(min, empan - 2)) : min;
   if (!chaines.has(sp.id)) chaines.set(sp.id, { lignes: depart, serie: 0 });
   const c = chaines.get(sp.id);
   return {

@@ -23,7 +23,7 @@ export const COMMENT_CA_MARCHE = [
   ['La séance du jour', 'L\'écran « Aujourd\'hui » propose chaque jour un plan : d\'abord l\'essentiel (échauffement, révisions, votre point faible, la leçon), puis un bonus. Chaque point se coche quand il est fait ; la séance se termine d\'elle-même.'],
   ['Une leçon en trois temps', 'Comprendre (le geste, en démonstration), s\'entraîner sur VOTRE soroban (le compteur indique le volume), puis le mini-test. Les leçons d\'amis ajoutent « Reconnaître » : choisir le bon geste avant de l\'exécuter.'],
   ['Les révisions', 'Une leçon validée revient après 1, 3, 7, 14 et 30 jours : 10 calculs pour l\'entretenir. Réussie, elle s\'espace ; ratée, elle revient plus tôt.'],
-  ['Les grades', 'Les kyū préparatoires (20e au 11e) jalonnent le parcours ; les kyū officiels (10e au 1er) suivent le format japonais. Tous deux sont dans Se mesurer → Grades, ouverts en permanence : un échec ne coûte rien.'],
+  ['Les grades', 'Une seule échelle, du 20e au 1er kyū. Du 20e au 11e : le passage de kyū de l\'application jalonne le parcours. Du 10e au 1er : un kyū est obtenu quand ses DEUX épreuves sont réussies, Nisshō et Zenkoren. Tous deux sont dans Se mesurer → Grades, ouverts en permanence : un échec ne coûte rien.'],
   ['La sauvegarde', versionNavigateur ? 'Votre progression vit dans ce navigateur : exportez-la régulièrement (ci-dessus), surtout avant de changer d\'appareil ou d\'effacer les données de navigation.' : 'Votre progression est enregistrée sur cet ordinateur, avec une copie par jour. Exportez-la pour la garder ailleurs ou changer d\'appareil.'],
 ];
 

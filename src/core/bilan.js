@@ -5,7 +5,7 @@
 
 import { evaluer, NIVEAUX } from './maitrise.js';
 import { nomMotif } from './motifs.js';
-import { SOUS_PALIERS, familleLecon } from './curriculum.js';
+import { SOUS_PALIERS, familleLecon, evaluerLecon } from './curriculum.js';
 
 /** Instantané pris au début de la séance. */
 export function instantane(d, succes) {
@@ -13,7 +13,7 @@ export function instantane(d, succes) {
     gestes: Object.fromEntries(Object.entries(d.motifs).map(([k, f]) => [k, evaluer(f.hist ?? []).index])),
     lecons: Object.fromEntries(Object.entries(d.paliers).map(([k, e]) => {
       const sp = SOUS_PALIERS.find((s) => s.id === k);
-      return [k, { niveau: sp ? evaluer(e.hist ?? [], familleLecon(sp)).index : 0, valide: !!e.valide }];
+      return [k, { niveau: sp ? evaluerLecon(e.hist ?? [], sp).index : 0, valide: !!e.valide }];
     })),
     records: JSON.parse(JSON.stringify(d.records)),
     succes: [...succes],
@@ -40,7 +40,7 @@ export function bilanSeance(avant, d, debut, succes) {
     const sp = SOUS_PALIERS.find((s) => s.id === k);
     if (!sp) continue;
     if (e.valide && !avant.lecons[k]?.valide) progres.push(`Leçon validée : ${sp.titre}`);
-    const i = evaluer(e.hist ?? [], familleLecon(sp)).index;
+    const i = evaluerLecon(e.hist ?? [], sp).index;
     if (i > (avant.lecons[k]?.niveau ?? 0) && i >= 2) progres.push(`${sp.titre} : ${NIVEAUX[i].nom}`);
   }
   const records = Object.keys(d.records).filter((k) => JSON.stringify(d.records[k]) !== JSON.stringify(avant.records[k]));

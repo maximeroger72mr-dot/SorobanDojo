@@ -53,17 +53,17 @@ test('0.38 lot 2 : absorption limitée aux leçons proches ; révision mélangé
   assert.equal(absorbee(d, 'p2-1'), true);
   const add = SOUS_PALIERS.filter((s) => s.type === 'addsub' && !s.mental && s.cibles?.length);
   assert.ok(add.filter((s) => absorbee(d, s.id)).length < 27);
-  assert.equal(MELANGE_MAX, 3);
-  assert.deepEqual([2, 3].map(calculsMelange), [10, 12]);
+  assert.equal(MELANGE_MAX, 8); // 0.41
+  assert.deepEqual([2, 3, 4, 8].map(calculsMelange), [10, 12, 12, 24]);
 });
 
 test('0.38 lot 3 : bloc de vitesse (colonnes, ×, ÷) à partir du 7e kyū ; mini-tests longs en séries', async () => {
   const { hakariActif, partieDuJour, retardParties, calculsHakari } = await import('../src/core/hakari.js');
   const { testEnSeries, bilanSeries, verdictMiniTest, seriesValables } = await import('../src/core/minitest.js');
   const valides = (jusqua) => { const fin = sp(jusqua).ordre; return Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= fin).map((s) => [s.id, { valide: '2026-11-01', hist: [] }])); };
-  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, records: { 'epreuve-9': { reussi: true } }, sessions: [] };
+  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, records: { 'epreuve-9': { reussi: true }, 'zenkoren-9': { reussi: true } }, sessions: [] };
   assert.equal(hakariActif(d), false);
-  d.records['epreuve-8'] = { reussi: true };
+  d.records['epreuve-8'] = { reussi: true }; d.records['zenkoren-8'] = { reussi: true };
   assert.equal(hakariActif(d), true);
   // Rien de mesuré : la première partie sans mesure ; le 3e jour pratiqué, la rotation.
   assert.ok(['colonnes', 'mul', 'div'].includes(partieDuJour(d, '2026-11-20').partie));
@@ -123,7 +123,7 @@ test('0.38 lot 5 : anzan guidé jusqu\'à 3 chiffres et 15 nombres ; entretien a
   const { decisionDuJour } = await import('../src/core/prof.js');
   assert.deepEqual([MARCHES_ANZAN.at(-1).chiffres, MARCHES_ANZAN.at(-1).termes], [3, 15]);
   const tous = Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental).map((s) => [s.id, { valide: '2026-01-01', hist: [] }]));
-  const records = Object.fromEntries(GRADES.filter((g) => !g.jun).map((g) => [`epreuve-${g.id}`, { reussi: true }]));
+  const records = Object.fromEntries(GRADES.filter((g) => !g.jun).flatMap((g) => [[`epreuve-${g.id}`, { reussi: true }], [`zenkoren-${g.id}`, { reussi: true }]]));
   const d = { paliers: tous, records, reglages: {}, motifs: {}, sessions: [] };
   const c = examenCompletHebdo(d, '2026-11-20');
   assert.equal(c.grade.id, 'd1'); // après le 1er kyū : l'examen de dan, vers le 初段
@@ -140,7 +140,7 @@ test('0.38 lot 6 : 10e kyū express, feuille de la semaine au format, porte « o
   assert.ok(!PREREQUIS[10].some((id) => id.startsWith('p6')), '10e kyū : colonnes seules');
   assert.ok(PREREQUIS[9].includes('p6-1'), '9e kyū : il faut des ×');
   const valides = (jusqua) => { const fin = sp(jusqua).ordre; return Object.fromEntries(SOUS_PALIERS.filter((s) => !s.mental && s.ordre <= fin).map((s) => [s.id, { valide: '2026-11-01', hist: [] }])); };
-  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, sessions: [], records: { 'epreuve-10': { reussi: true }, 'epreuve-9': { reussi: true }, 'epreuve-8': { reussi: true } } };
+  const d = { paliers: valides('p7-4'), reglages: {}, motifs: {}, sessions: [], records: { 'epreuve-10': { reussi: true }, 'zenkoren-10': { reussi: true }, 'epreuve-9': { reussi: true }, 'zenkoren-9': { reussi: true }, 'epreuve-8': { reussi: true }, 'zenkoren-8': { reussi: true } } };
   const f = defiSemaine(d, '2026-11-19');
   assert.match(f.description, /7e kyū/);
   assert.deepEqual(f.sections.map((x) => x.problemes.length), defiSemaine(d, '2026-11-20').sections.map((x) => x.problemes.length));
@@ -192,7 +192,7 @@ test('0.38 : projection Zenkoren épreuve par épreuve ; marches vers le dan apr
   assert.ok(s.epreuves.find((x) => x.cle === 'mitori').ok);
   assert.ok(['mul', 'div'].includes(s.faible.cle));
   // Après le 1er kyū : les marches visent le 初段.
-  const records = Object.fromEntries(GRADES.filter((x) => !x.jun).map((x) => [`epreuve-${x.id}`, { reussi: true }]));
+  const records = Object.fromEntries(GRADES.filter((x) => !x.jun).flatMap((x) => [[`epreuve-${x.id}`, { reussi: true }], [`zenkoren-${x.id}`, { reussi: true }]]));
   const e = etatMarches({ records, paliers: {}, motifs: {}, sessions: [], reglages: {} });
   assert.equal(e.dan, true);
   assert.equal(e.grade.japonais, '初段');

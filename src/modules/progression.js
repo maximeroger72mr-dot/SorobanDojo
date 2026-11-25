@@ -35,7 +35,7 @@ function ouJenSuis(app, d) {
   const dues = revisionsDues().length;
   const indicateurs = [
     ['Leçons validées', 'LE fil du parcours : chaque leçon se valide par un mini-test (justesse et vitesse).'],
-    ['Grade', 'Kyū prép. (20e au 11e) : jalons propres à l\'application, par le passage de kyū. Kyū officiels (10e au 1er) : épreuves au format japonais.'],
+    ['Grade', '20e au 11e kyū : jalons propres à l\'application, par le passage de kyū. 10e au 1er kyū : obtenus quand les DEUX épreuves sont réussies, Nisshō et Zenkoren.'],
     ['Niveau d\'un geste', 'À découvrir, puis bronze → platine : la justesse ET la vitesse sur un geste précis (carte de maîtrise). Sert à choisir quoi retravailler.'],
     ['Boîte de révision (1 à 5)', 'Combien de temps une leçon validée tient sans être revue. Sert à planifier les révisions.'],
     ['Médailles des drills, étoiles, records', 'Votre vitesse sur des exercices précis : pour le plaisir de progresser, sans effet sur le parcours.'],
@@ -111,7 +111,7 @@ function tableVolumeFormat(d) {
   const total = v.semaines.reduce((t, x) => t + x.colonnes + x.operations, 0);
   return h('div', { class: 'carte', style: 'margin-top:12px' },
     h('strong', {}, `Au format du ${v.grade.nom}`), h('span', { class: 'discret' }, ` (colonnes de ${v.chiffres} chiffres sur ${v.lignes} lignes, × et ÷ au format du kyū), par semaine :`),
-    total ? h('table', {}, h('tr', {}, h('th', {}, ''), v.semaines.map((x) => h('th', {}, x.semaine.split('-')[1]))),
+    total ? h('table', {}, h('tr', {}, h('th', {}, h('span', { class: 'lecteur' }, 'Semaine')), v.semaines.map((x) => h('th', {}, x.semaine.split('-')[1]))),
       h('tr', {}, h('td', {}, 'Colonnes'), v.semaines.map((x) => h('td', {}, x.colonnes || '·'))),
       h('tr', {}, h('td', {}, '× et ÷'), v.semaines.map((x) => h('td', {}, x.operations || '·'))))
       : h('p', { class: 'discret' }, 'Rien encore à ce format : les planches proposées par la séance y sont presque toutes.'));

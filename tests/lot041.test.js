@@ -74,7 +74,7 @@ test('0.41 : un seul exercice par geste ; surcharge à la place du lièvre ; pla
   assert.equal(surG.length, 1, b.map((x) => x.id).join());
   assert.equal(surG[0].id, 'surcharge:+4:petit');
   // Élève positionné haut (grade visé à 6 chiffres), leçons à 5 chiffres non validées : plus de plateau sur les petits amis.
-  const avance = { ...d, records: Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3'].map((id) => [`epreuve-${id}`, { reussi: true }])) };
+  const avance = { ...d, records: Object.fromEntries(['10', '9', '8', '7', '6', '5', '4', '3'].flatMap((id) => [[`epreuve-${id}`, { reussi: true }], [`zenkoren-${id}`, { reussi: true }]])) };
   assert.ok(chiffresTravail(avance) > 4, String(chiffresTravail(avance)));
   assert.ok(!plateaux(avance, '2026-11-21').some((x) => x.cle === '+4:petit'));
 });

@@ -240,7 +240,7 @@ export function genererMitoriNegatif(f) {
     const c = k + v;
     return {
       type: 'addsub', negatif: true, lignes, resultat: v,
-      astuce: `Le total passe sous zéro : on emprunte un 1 imaginaire de ${k.toLocaleString('fr-FR')}. Le soroban affiche ${c.toLocaleString('fr-FR')}, le complément : le résultat est −(${k.toLocaleString('fr-FR')} − ${c.toLocaleString('fr-FR')}) = ${v.toLocaleString('fr-FR')}.`,
+      astuce: `Le total passe sous zéro : on emprunte un 1 imaginaire de ${k.toLocaleString('fr-FR')}. Le soroban affiche ${c.toLocaleString('fr-FR')}, le complément : le résultat est −(${k.toLocaleString('fr-FR')} − ${c.toLocaleString('fr-FR')}) = ${v.toLocaleString('fr-FR').replace(/^[-\u2212]/, '−')}.`,
     };
   }
 }

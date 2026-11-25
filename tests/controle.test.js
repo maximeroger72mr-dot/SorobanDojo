@@ -306,7 +306,7 @@ test('0.21 : tables, produits à retravailler jusqu\'à 2,5 s', async () => {
 test('0.21 : positionnement, doigté et grades', async () => {
   const { PALIERS_TEST, leconsReussies, colonneTest } = await import('../src/core/positionnement.js');
   const { questionDe } = await import('../src/core/doigte.js');
-  assert.equal(PALIERS_TEST.length, 6);
+  assert.equal(PALIERS_TEST.length, 8); // 0.41 : × et ÷ en deux paliers chacun
   assert.ok(leconsReussies(1).includes('p1-4') && leconsReussies(1).includes('p0-2') && !leconsReussies(1).includes('p2-1'));
   assert.ok(leconsReussies(3).includes('p4-5') && leconsReussies(3).includes('p3-0'));
   for (const p of PALIERS_TEST) { const ex = colonneTest(p); assert.ok(ex.lignes ? ex.lignes.length >= 4 : ex.resultat !== undefined); }
@@ -318,5 +318,5 @@ test('0.21 : positionnement, doigté et grades', async () => {
   const f = frise({ records: { 'prekyu-20': { reussi: true }, 'prekyu-19': { reussi: true } }, paliers: {} });
   assert.equal(f.length, 20);
   assert.equal(f.filter((m) => m.officiel).length, 10);
-  assert.equal(f.find((m) => m.actuel).nom, '19e kyū prép.');
+  assert.equal(f.find((m) => m.actuel).nom, '19e kyū');
 });

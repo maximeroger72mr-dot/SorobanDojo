@@ -81,9 +81,11 @@ test('prof : argent pour passer à la leçon suivante, or pour passer à l\'éta
   assert.equal(decisionDuJour(base(1.2, jours(1)), '2026-03-04', prochain).type, 'lecon');
   assert.equal(decisionDuJour(base(2.5, jours(2)), '2026-03-05', prochain).type, 'lecon');
   // Sous l'argent, la leçon suivante attend toujours.
-  const lent = decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', prochain);
+  const lent = decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX - 1)), `2026-03-${String(3 + JOURS_ANCRAGE_MAX - 1).padStart(2, '0')}`, prochain);
   assert.equal(lent.type, 'automatiser');
   assert.equal(lent.cible, 'argent');
+  // 0.41 : au-delà de 7 jours de pratique, la leçon suivante s'ouvre (l'ancienne reste en rattrapage).
+  assert.equal(decisionDuJour(base(4, jours(JOURS_ANCRAGE_MAX)), `2026-03-${String(3 + JOURS_ANCRAGE_MAX).padStart(2, '0')}`, prochain).type, 'lecon');
   // --- En fin d'étape : toutes les leçons de l'étape passent en or avant la suivante.
   const etape = sousPalier('p2-1').palier.sousPaliers.map((x) => x.id);
   const fin = (tFaible, sessions) => ({ sessions, paliers: Object.fromEntries(etape.map((id, k) => [id, { valide: k === etape.length - 1 ? '2026-03-02' : '2026-03-01', hist: hist(id === 'p2-2' ? tFaible : 1.2) }])) });
@@ -92,10 +94,10 @@ test('prof : argent pour passer à la leçon suivante, or pour passer à l\'éta
   assert.equal(d.type, 'automatiser');
   assert.equal(d.sp.id, 'p2-2'); // la leçon de l'étape la moins avancée
   assert.equal(d.cible, 'or');
-  assert.equal(JOURS_ANCRAGE_MAX, 10);
+  assert.equal(JOURS_ANCRAGE_MAX, 7);
   // Tout en or : l'étape suivante s'ouvre ; au-delà de 10 jours de pratique, elle s'ouvre aussi.
   assert.equal(decisionDuJour(fin(1.2, jours(2)), '2026-03-05', suivante).type, 'lecon');
-  assert.equal(decisionDuJour(fin(2.5, jours(JOURS_ANCRAGE_MAX)), '2026-03-14', suivante).type, 'lecon');
+  assert.equal(decisionDuJour(fin(2.5, jours(JOURS_ANCRAGE_MAX)), `2026-03-${String(3 + JOURS_ANCRAGE_MAX).padStart(2, '0')}`, suivante).type, 'lecon');
 });
 
 test('examen de la semaine adapté au niveau', () => {

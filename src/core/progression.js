@@ -32,7 +32,7 @@ import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
 import { VERSION_APPLI, comparerVersions } from './version.js';
-import { SOUS_PALIERS, PALIERS } from './curriculum.js';
+import { SOUS_PALIERS, PALIERS, chiffresColonne } from './curriculum.js';
 import { apresFeuilleMarche } from './marches.js';
 
 const VERSION = 2;
@@ -173,12 +173,37 @@ export async function chargerProgression() {
     changerEtat({ etat: 'ancienne-copie', appli: donnees.appli });
   }
   heriterMarches(donnees);
-  const nettoyes = corrigerDrills(donnees);
+  const nettoyes = corrigerDrills(donnees) + compacterSessions(donnees, aujourdhui());
   appliquerEchelle(troisiemeKyuReussi(donnees));
   // Succès déjà mérités avant leur apparition : datés aujourd'hui, sans notification.
   for (const id of succesObtenus(donnees, aujourdhui())) donnees.succes[id] ??= aujourdhui();
   if ((lu && lu.version < VERSION) || nettoyes) await sauver();
   return donnees;
+}
+
+/**
+ * 0.41 : l'historique des séances ne grossit plus sans fin. Au-delà de 180 jours, les séances d'un
+ * même jour, module et mode sont fusionnées en une seule (total, justes, durée). Les drills, examens
+ * et épreuves restent entiers (les records et les validations s'y appuient). Renvoie le nombre de
+ * séances retirées.
+ */
+export const JOURS_SESSIONS_DETAILLEES = 180;
+export function compacterSessions(d, date) {
+  const limite = new Date(new Date(`${date}T12:00`).getTime() - JOURS_SESSIONS_DETAILLEES * 86400000).toISOString().slice(0, 10);
+  const garder = ['drills', 'examen', 'epreuves'];
+  const anciennes = d.sessions.filter((x) => x.date < limite && !garder.includes(x.module) && !x.agrege);
+  if (anciennes.length < 2) return 0;
+  const groupes = new Map();
+  for (const x of anciennes) {
+    const cle = `${x.date}|${x.module}|${x.mode ?? ''}`;
+    const g = groupes.get(cle) ?? { date: x.date, horodatage: x.horodatage, module: x.module, mode: x.mode, total: 0, justes: 0, dureeMs: 0, agrege: 0 };
+    g.total += x.total ?? 0; g.justes += x.justes ?? 0; g.dureeMs += Math.round(x.dureeMs ?? 0); g.agrege += 1;
+    groupes.set(cle, g);
+  }
+  const avant = d.sessions.length;
+  const ensemble = new Set(anciennes);
+  d.sessions = [...[...groupes.values()], ...d.sessions.filter((x) => !ensemble.has(x))].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.horodatage ?? 0) - (b.horodatage ?? 0)));
+  return avant - d.sessions.length;
 }
 
 /** Faux records des drills (0.40, voir core/drills.correctionsDrills) : appliqués aux données. */
@@ -280,7 +305,9 @@ export async function prendreAvis() {
 // ------------------------------------------------------------------ séances et records
 
 export async function enregistrerSession(s) {
-  donnees.sessions.push({ date: aujourdhui(), horodatage: Date.now(), ...s });
+  // 0.41 : durées arrondies à la milliseconde (avant : 2759.100000023842, 12 décimales inutiles).
+  const x = Number.isFinite(s.dureeMs) ? { ...s, dureeMs: Math.round(s.dureeMs) } : s;
+  donnees.sessions.push({ date: aujourdhui(), horodatage: Date.now(), ...x });
   await sauver();
 }
 
@@ -288,7 +315,7 @@ export async function enregistrerSession(s) {
 export async function proposerRecord(cle, dureeMs) {
   const actuel = donnees.records[cle];
   if (actuel && actuel.dureeMs <= dureeMs) return false;
-  donnees.records[cle] = { dureeMs, date: aujourdhui() };
+  donnees.records[cle] = { dureeMs: Math.round(dureeMs), date: aujourdhui() };
   await sauver();
   return true;
 }
@@ -526,7 +553,7 @@ export async function noterReconnu(id) {
   await sauver();
 }
 
-export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille);
+export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille, { chiffres: chiffresColonne(SOUS_PALIERS.find((s) => s.id === id)) });
 
 /**
  * 0.40.18 : les calculs d'une révision comptent dans l'historique de la leçon (sa médaille suit le
