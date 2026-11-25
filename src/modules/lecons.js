@@ -53,6 +53,7 @@ import { localiserErreur } from '../core/diagnostic.js';
 import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
 import { ajouterJours } from '../core/revision.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
+import { leconsSousArgent } from '../core/prof.js';
 import { PanneauDemo } from '../ui/panneauDemo.js';
 import { demoMultiplication, demoDivision, demoColonne } from '../ui/explication.js';
 import { creerSerie, encadreDiagnostic, listeErreurs } from '../ui/serie.js';
@@ -172,6 +173,8 @@ export default {
       );
       const diag = encadreDiagnostic(null, 3);
       if (diag) el.append(diag);
+      // 0.40.18 : leçons validées restées sous l'argent (repère « à repasser en argent »).
+      const aRepasser = new Set(leconsSousArgent(progression()).map((x) => x.id));
       for (const palier of PALIERS.filter((p) => piste !== 'anzan' || p.mental)) {
         el.append(h('h2', {}, palier.titre));
         if (palier.mental) el.append(h('p', { class: 'discret' }, 'Calcul de tête, à son rythme, en parallèle du soroban : chaque leçon s\'ouvre quand le geste est validé sur le vrai soroban, et ne bloque jamais le parcours. 5 minutes par jour suffisent.'));
@@ -182,7 +185,7 @@ export default {
           let statut;
           let icone;
           if (e.valide && sp.type === 'theorie') { icone = '✓'; statut = sp.quiz ? 'Compris' : 'Lu'; }
-          else if (e.valide) { icone = '✓'; statut = e.carte?.acquise ? 'Validé · acquis, sorti des révisions' : e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; }
+          else if (e.valide) { icone = '✓'; statut = e.carte?.acquise ? 'Validé · acquis, sorti des révisions' : e.carte ? `Validé · révision le ${dateFr(e.carte.echeance)} (boîte ${e.carte.boite})` : 'Validé'; if (aRepasser.has(sp.id)) statut += ' · à repasser en argent'; }
           else if (sp.type === 'theorie' && ouvert) { icone = '○'; statut = 'À lire'; }
           else if (!ouvert) { icone = '·'; statut = raisonVerrou(sp); }
           else if (testOuvertLecon(sp, e) || e.coupeFile) { icone = '●'; statut = e.coupeFile && !testOuvertLecon(sp, e) ? 'Coupe-file : mini-test disponible' : 'Mini-test disponible'; }

@@ -234,9 +234,16 @@ export function correctionsDrills(donnees) {
       const bons = tous.filter(ok);
       records[cle] = bons.length ? { ...rec, dureeMs: Math.min(...bons) } : null;
     }
+    // 0.40.18 : le compte est RECALCULÉ sur l'historique (passages justes, plausibles, sous le temps
+    // bronze). Avant, les passages impossibles étaient SOUSTRAITS à chaque chargement : un seul faux
+    // passage remettait le compteur à zéro à chaque lancement, et le drill ne se validait jamais
+    // (« 1 × 9 fois » proposé tous les jours, 8 passages justes sous l'or).
     const faux = tous.filter((t) => !ok(t) && classement(d, t)).length;
+    const bons = tous.filter((t) => ok(t) && classement(d, t)).length;
     const v = donnees.drills?.[d.id]?.validations ?? 0;
-    if (faux && v) validations[d.id] = Math.max(0, v - faux);
+    // Sans faux passage, on ne baisse jamais (un historique ancien a pu être allégé).
+    const cible = faux ? bons : Math.max(v, bons);
+    if (cible !== v && (v || cible)) validations[d.id] = cible;
   }
   return { records, validations };
 }

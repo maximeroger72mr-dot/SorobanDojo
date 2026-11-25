@@ -187,9 +187,11 @@ export function corrigerDrills(d) {
   let n = 0;
   for (const [cle, r] of Object.entries(c.records)) { if (r) d.records[cle] = r; else delete d.records[cle]; n += 1; }
   for (const [id, v] of Object.entries(c.validations)) {
-    const e = d.drills[id];
+    d.drills ??= {};
+    const e = (d.drills[id] ??= { validations: 0 });
     e.validations = v;
     if (v < 2) delete e.valide;
+    else e.valide ??= aujourdhui();
     n += 1;
   }
   return n;
@@ -525,6 +527,18 @@ export async function noterReconnu(id) {
 }
 
 export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille);
+
+/**
+ * 0.40.18 : les calculs d'une révision comptent dans l'historique de la leçon (sa médaille suit le
+ * niveau du moment ; avant, elle restait figée sur l'entraînement fait à l'apprentissage).
+ * @param {Array<{juste:boolean, t:number}>} essais  temps par unité (chiffre, produit…)
+ */
+export async function noterEssaisLecon(id, essais) {
+  const e = palier(id);
+  e.hist ??= [];
+  for (const x of essais) if (Number.isFinite(x.t)) ajouterEssai(e.hist, !!x.juste, x.t);
+  await sauver();
+}
 
 export async function compterRepetition(id, juste, t, format = null) {
   const e = palier(id);

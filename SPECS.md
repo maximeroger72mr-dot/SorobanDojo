@@ -1603,3 +1603,23 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - **Tests** : un test statistique (lignes de dizaines) qui échouait une fois sur dix par hasard est rendu
   robuste ; mini-test : 6 essais (avant 3) pour placer un geste encore absent en seconde moitié (0 mini-test
   incomplet sur 800). Planche « cascade+ » seule à 1 chiffre : repli vers tous les gestes appris rétabli.
+
+## Version 0.40.18 : drills bloqués, leçons restées sous l'argent
+
+- **Drills** : le compte de validations est RECALCULÉ sur l'historique (passages justes, plausibles,
+  sous le temps bronze). Avant, un passage impossible (soroban pas remis à zéro) était soustrait à
+  CHAQUE chargement : le compteur retombait à 0 et le drill revenait chaque jour (« 1 × 9 fois », 8
+  passages justes sous l'or). Les drills ainsi bloqués se valident à l'ouverture de la version.
+  Plus rien à valider qui tienne en 3 minutes : l'échauffement tourne entre les 4 derniers drills
+  validés (avant : toujours le dernier).
+- **Leçons sous l'argent** (moins de 90 % de justes sur leur PROPRE historique, ou trop lentes pour
+  l'argent), même quand leurs gestes sont en or ailleurs : ce qui manque alors, ce sont les nombres
+  longs (lecture, tige gardée).
+  - Rattrapage dans la séance, juste après la révision, un jour sur deux : 5 minutes d'entraînement
+    de la leçon, jusqu'à l'argent (la plus basse d'abord).
+  - Porte d'argent avant chaque nouvelle étape : toutes les leçons déjà faites au moins en argent
+    (20 jours de pratique au plus, puis on avance quand même). L'or reste visé par la dette de
+    vitesse, sans bloquer.
+  - Liste des leçons : « à repasser en argent ».
+  - Médaille à jour : les calculs des révisions (test flash, révision mélangée) comptent dans
+    l'historique de la leçon (avant : figée sur l'entraînement de l'apprentissage).

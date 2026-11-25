@@ -47,7 +47,8 @@ test('échauffement : le prochain drill à valider, jamais un geste pas encore a
   for (const x of avant) d.drills[x.id] = { validations: 2 };
   // Tout le groupe validé, mais pas de grands amis : le dernier drill accessible qui tient en
   // 3 minutes (0.40 : le tour des petits amis, 16 minutes au bronze, n'est plus un échauffement).
-  assert.equal(drillEchauffement(d).id, 'pendule-4-2');
+  // 0.40.18 : plus rien à valider : roulement entre les 4 derniers drills validés accessibles.
+  assert.ok(['r-2', 'pendule-4-2', 'r-1', 'pendule-4-3', 'pendule-3-2', 'pendule-2-1'].includes(drillEchauffement(d).id), drillEchauffement(d).id);
   for (const x of avant) assert.deepEqual(famillesDrill(x).filter((f) => f !== 'petit'), [], x.id);
   // Tout appris et tout validé : le plus long drill, pour améliorer son classement.
   for (const sp of SOUS_PALIERS) d.paliers[sp.id] = { valide: '2026-11-01' };
@@ -55,7 +56,11 @@ test('échauffement : le prochain drill à valider, jamais un geste pas encore a
   // Tout validé : le plus long drill qui tient en 3 minutes (0.40).
   const e = drillEchauffement(d);
   assert.ok(dureeEchauffement(d, e) <= 3 * 60000, e.id);
-  assert.equal(e.id, liste.filter((x) => dureeEchauffement(d, x) <= 3 * 60000).at(-1).id);
+  const tiennent = liste.filter((x) => dureeEchauffement(d, x) <= 3 * 60000 && !(x.entree && false));
+  assert.ok(tiennent.slice(-4).some((x) => x.id === e.id), e.id);
+  // Un jour de drill de plus : un autre drill.
+  d.sessions = [{ module: 'drills', date: '2026-11-20', mode: e.id }];
+  assert.notEqual(drillEchauffement(d).id, e.id);
 });
 
 test('classement des drills : bronze, argent, or, platine', () => {

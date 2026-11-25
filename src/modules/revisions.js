@@ -8,11 +8,12 @@
 
 import { verdictFlash } from '../core/fluidite.js';
 import { sousPalier, SOUS_PALIERS, genererExercice, familleLecon } from '../core/curriculum.js';
-import { formaterTemps } from '../core/maitrise.js';
+import { formaterTemps, tempsParUnite } from '../core/maitrise.js';
 import { genererColonneVariee, creerMemoire } from '../core/generateur.js';
 import { famille, nomMotif } from '../core/motifs.js';
 import { INTERVALLES, MELANGE_MAX, calculsMelange, ordreRevisions } from '../core/revision.js';
 import {
+  noterEssaisLecon,
   revisionsDues, etatPalier, enregistrerRevision, enregistrerSession, poidsAdaptatifs,
   motifsEnDifficulte, aujourdhui, statsTables, rouvrirPalier, absorbee, progression,
 } from '../core/progression.js';
@@ -21,6 +22,18 @@ import { questionDoigte } from '../ui/doigte.js';
 import { creerSerie, listeErreurs } from '../ui/serie.js';
 import { creerPlacement } from '../ui/placement.js';
 import { h, formaterDuree, remplir } from '../ui/dom.js';
+
+/** Premiers essais d'une série (juste, temps par unité), pour l'historique de la leçon. */
+function essaisLecon(resultats) {
+  const vus = new Set();
+  const essais = [];
+  for (const r of resultats ?? []) {
+    if (!r.ex || vus.has(r.ex) || r.autoEvalue || !Number.isFinite(r.dureeMs)) continue;
+    vus.add(r.ex);
+    essais.push({ juste: r.juste, t: tempsParUnite(r.ex, r.dureeMs) });
+  }
+  return essais;
+}
 
 const FLASH = { exercices: 10, reussitesMin: 9 };
 
@@ -125,6 +138,10 @@ export default {
         apresBilan: async (b) => {
           // 0.39 : 9 justes ET la vitesse habituelle de la leçon (85 % au moins, voir core/fluidite.js).
           const v = verdictFlash(sp, etatPalier(sp.id), b);
+          // 0.40.18 : les calculs de la révision comptent dans la médaille de la leçon (après les verdicts,
+          // qui se mesurent sur la vitesse habituelle d'AVANT la révision : ici et au contrôle à 90 jours).
+          const vc = etatPalier(sp.id).carte?.acquise ? verdictFlash(sp, etatPalier(sp.id), b, { plafondMedaille: false }) : null;
+          await noterEssaisLecon(sp.id, essaisLecon(b.resultats));
           const reussi = v.reussi || v.lent; // juste : la leçon n'est pas rouverte
           // Leçon validée par le test de positionnement : la première révision confirme ou rouvre.
           if (etatPalier(sp.id).parTest && !etatPalier(sp.id).confirme) {
@@ -138,7 +155,6 @@ export default {
           // Contrôle à 90 jours d'une leçon acquise : réussi et à sa vitesse (15 % de recul au plus),
           // elle reste acquise ; sinon, elle revient en révision.
           if (etatPalier(sp.id).carte?.acquise) {
-            const vc = verdictFlash(sp, etatPalier(sp.id), b, { plafondMedaille: false });
             const ok = vc.reussi;
             v.lent = vc.lent;
             await enregistrerControle(sp.id, ok);
@@ -183,6 +199,7 @@ export default {
             const fautes = res.filter((j) => !j).length;
             const reussi = fautes === 0 || (res.length >= 4 && fautes <= 1);
             await enregistrerRevision(sp.id, reussi);
+            await noterEssaisLecon(sp.id, essaisLecon(b.resultats.filter((r) => r.ex?.revision === sp.id)));
             const c = etatPalier(sp.id).carte;
             lignes.push(`${sp.titre} : ${res.length - fautes} / ${res.length}, ${reussi ? `boîte ${c.boite}` : `redescend en boîte ${c.boite}`}`);
           }

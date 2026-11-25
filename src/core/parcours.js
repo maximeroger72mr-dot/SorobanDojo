@@ -195,7 +195,16 @@ export function drillEchauffement(d) {
   // 0.40 : un échauffement de 3 minutes au plus (votre record, à défaut le temps bronze avec marge) ;
   // avant, un drill long pouvait prendre 6 minutes, 20 % d'une séance de 30.
   const ouverts = tous.filter((x) => dureeEchauffement(d, x) <= ECHAUFFEMENT_MAX_MS);
-  return ouverts.find((x) => !drillValide(d, x.id)) ?? ouverts.at(-1) ?? [...tous].sort((a, b) => dureeEchauffement(d, a) - dureeEchauffement(d, b))[0] ?? null;
+  const aValider = ouverts.find((x) => !drillValide(d, x.id));
+  if (aValider) return aValider;
+  // 0.40.18 : plus rien à valider qui tienne en 3 minutes : roulement entre les 4 derniers drills validés,
+  // un par jour de drill (avant : toujours le dernier, tous les jours).
+  if (ouverts.length) {
+    const recents = ouverts.slice(-4);
+    const jours = new Set((d.sessions ?? []).filter((s) => s.module === 'drills').map((s) => s.date)).size;
+    return recents[recents.length - 1 - (jours % recents.length)]; // le plus avancé d'abord
+  }
+  return [...tous].sort((a, b) => dureeEchauffement(d, a) - dureeEchauffement(d, b))[0] ?? null;
 }
 export const ECHAUFFEMENT_MAX_MS = 3 * 60000;
 /** Durée attendue d'un drill d'échauffement : le record de l'élève, sinon le temps bronze + 30 %. */

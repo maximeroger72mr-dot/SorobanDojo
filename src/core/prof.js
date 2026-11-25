@@ -41,6 +41,21 @@ export function derniereLecon(d) {
   return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide).sort(parValidation(d)).at(-1) ?? null;
 }
 
+/**
+ * 0.40.18 : leçons validées restées SOUS L'ARGENT sur leur propre historique (entraînement et
+ * révisions) : moins de 90 % de justes, ou trop lentes pour l'argent. Les gestes peuvent être en or
+ * ailleurs (planches, marathon) : la leçon, elle, mesure aussi la lecture des nombres longs, les tiges.
+ * La plus basse d'abord, puis la plus ancienne. `avant` : seulement les leçons d'avant ce sous-palier.
+ */
+export function leconsSousArgent(d, avant = null) {
+  return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && !['photo', 'tenir'].includes(sp.type) && d.paliers[sp.id]?.valide && (!avant || sp.ordre < avant.ordre))
+    .map((sp) => ({ sp, ev: evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp)) }))
+    .filter((x) => x.ev.essais >= 8 && x.ev.index < 2)
+    .sort((a, b) => a.ev.index - b.ev.index || a.sp.ordre - b.sp.ordre).map((x) => x.sp);
+}
+/** Porte d'argent : au plus 20 jours de pratique avant d'avancer quand même. */
+export const JOURS_PORTE_ARGENT_MAX = 20;
+
 /** Avant-dernière leçon du parcours soroban validée (null s'il n'y en a qu'une). */
 export function avantDerniereLecon(d) {
   return SOUS_PALIERS.filter((sp) => LECON_SOROBAN(sp) && d.paliers[sp.id]?.valide).sort(parValidation(d)).at(-2) ?? null;
@@ -164,6 +179,22 @@ export function decisionDuJour(d, date, prochain) {
           detail: `« ${sp.titre} » · porte de l'étape : ${enOr} leçon${enOr > 1 ? 's' : ''} sur ${total} en or`,
           raison: `L'étape « ${derniere.palier.titre} » est terminée : avant la suivante, on passe ses leçons en or (${aDorer.length} restante${aDorer.length > 1 ? 's' : ''}). L'étape suivante s'ouvre dès l'or partout${souple ? `, ou dès que tout est en argent avec le volume de l'étape fait (${vol.fait} exercices sur ${vol.vise})` : ''}, et au plus tard dans ${reste} jour${reste > 1 ? 's' : ''} de pratique.` };
       }
+    }
+  }
+  // 0.40.18 : porte d'argent avant chaque NOUVELLE étape : toutes les leçons déjà faites au moins en
+  // argent (justesse 90 %) sur leur propre historique. Avant, une leçon restée en bronze passait
+  // inaperçue dès que ses gestes étaient en or ailleurs, ou quand la leçon suivante était celle
+  // d'anzan de la même étape (petits amis 2-3 chiffres à 77 % de justes, puis les grands amis).
+  if (derniere && prochain && !prochain.mental && joursDepuisDerniereLecon(d, date) < JOURS_PORTE_ARGENT_MAX) {
+    const nouvelleEtape = !SOUS_PALIERS.some((x) => x.palier?.id === prochain.palier?.id && LECON_SOROBAN(x) && d.paliers[x.id]?.valide);
+    const bas = nouvelleEtape ? leconsSousArgent(d, prochain) : [];
+    if (bas.length) {
+      const sp = bas[0];
+      const ev = evaluer(d.paliers[sp.id]?.hist ?? [], familleLecon(sp));
+      const pct = Math.round((ev.reussite ?? 0) * 100);
+      return { type: 'automatiser', titre: 'Automatiser', aller: ['lecons', { sousPalier: sp.id, onglet: 'entrainement' }], sp, minutes: 10, cible: 'argent', porteArgent: true, cibles: sp.cibles,
+        detail: `« ${sp.titre} » · porte d'argent : ${bas.length} leçon${bas.length > 1 ? 's' : ''} à repasser`,
+        raison: `Avant « ${prochain.palier?.titre ?? prochain.titre} », toutes les leçons déjà faites passent au moins en argent. « ${sp.titre} » est à ${pct} % de justes : il en faut 90. Ses gestes, seuls, vont bien ; ce sont les nombres longs (lire, garder la tige) qui coûtent des erreurs.` };
     }
   }
   if (prochain) {

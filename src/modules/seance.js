@@ -30,7 +30,7 @@ import { nomMotif, diagnosticPincee, gesteMotif } from '../core/motifs.js';
 import { gesteTravaillable } from '../core/colonneGeste.js';
 import { ajouterJours, MELANGE_MAX, calculsMelange, ordreRevisions } from '../core/revision.js';
 import { prochainSousPalier, prochainAnzan } from './lecons.js';
-import { decisionDuJour, motDuProf, gestesLecon, derniereLecon } from '../core/prof.js';
+import { decisionDuJour, motDuProf, gestesLecon, derniereLecon, leconsSousArgent } from '../core/prof.js';
 import { exercicesBloc, jourVitesse, gesteDuJour, gesteExercice } from '../core/blocs.js';
 import { hakariActif, partieDuJour, calculsHakari, NOMS_PARTIES } from '../core/hakari.js';
 import { gradeOperation } from '../core/formatKyu.js';
@@ -201,6 +201,29 @@ export function plan(d, debut, seance0 = null) {
     : dec.aller[0] === 'anzan' ? s.module === 'anzan'
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && seance.decision.type === 'lecon' && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
+  // 0.40.18 : rattrapage. Une leçon validée restée sous l'argent (moins de 90 % de justes sur son
+  // propre historique) revient un jour sur deux, 5 minutes à son format, juste après la révision,
+  // jusqu'à l'argent. La leçon du jour (porte d'argent) n'y est pas reprise une seconde fois.
+  {
+    const r = leconsSousArgent(d).find((x) => x.id !== decision.sp?.id);
+    if (r) {
+      const hier = ajouterJours(date, -1);
+      const surR = (s) => s.module === 'lecons' && s.reglages?.sousPalier === r.id;
+      const faitAujourdhui = fait(surR);
+      if (faitAujourdhui || !d.sessions.some((s) => s.date === hier && surR(s))) {
+        const h0 = (d.paliers[r.id]?.hist ?? []).slice(-30);
+        const pct = h0.length ? Math.round((100 * h0.filter((x) => x.ok).length) / h0.length) : 0;
+        const apres = essentiel.findIndex((it) => it.titre === 'Révision');
+        const at = apres >= 0 ? apres + 1 : essentiel.findIndex((it) => it.titre === 'À revoir') + 1;
+        // (sans identifiant : il ne fait pas partie des blocs figés au début de la séance, il reste
+        // stable dans la journée et passe dans « Pour compléter » quand l'objectif est plein)
+        essentiel.splice(Math.max(1, at), 0, { titre: `Rattrapage · ${r.titre}`, minutes: 5, rattrapage: true, fait: faitAujourdhui,
+          detail: `quelques colonnes au format de la leçon, sans viser la vitesse : ${pct} % de justes, il en faut 90 pour l'argent`,
+          pourquoi: 'Une leçon validée mais encore fragile ne reste pas derrière : on y revient un peu, un jour sur deux, jusqu\'à l\'argent. C\'est la justesse qui compte ici.',
+          aller: ['lecons', { sousPalier: r.id, onglet: 'entrainement' }] });
+      }
+    }
+  }
   const difficiles = motifsEnDifficulte();
   // Budget de chaque bloc, sur l'objectif : la leçon garde une part fixe (5 à 10 min) ; le temps
   // en plus va au volume / vitesse et à l'anzan.
@@ -267,10 +290,11 @@ export function plan(d, debut, seance0 = null) {
       dureeEntiere: dureeLecon, tempsLecon, commencee: decisionFaite(decision), pourquoi: decision.raison, fait: decisionFaite(decision) && (!coupee || tempsLecon >= partLecon * 60000 || !!d.paliers[decision.sp.id]?.valide) });
   } else if (decision.type === 'automatiser') {
     const cibles = gestesLecon(decision.sp);
-    const items = cibles.length
+    // 0.40.18 : porte d'argent : l'entraînement de la leçon elle-même (c'est sa justesse qui manque).
+    const items = cibles.length && !decision.porteArgent
       ? exercicesBloc(d, date, { genres: [vitesse ? 'vitesse-isole' : 'volume-isole'], cibles, difficiles, minutes: partLecon, geste: seance?.gesteBloc, unParGeste: false })
       : [];
-    if (!items.length) items.push({ id: 'lecon', titre: decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, fait: decisionFaite(decision) });
+    if (!items.length) items.push({ id: 'lecon', titre: decision.porteArgent ? `porte d'argent · ${decision.sp.titre}` : decision.sp?.titre ?? decision.titre, detail: decision.detail, minutes: partLecon, aller: decision.aller, fait: decisionFaite(decision) });
     isolesBloc3 = items.filter((it) => it.genre?.endsWith('-isole')).length;
     items.forEach((it, i) => { exclus.push(it.id); essentiel.push({ ...it, titre: i ? it.titre : `${decision.titre} · ${it.titre}`, decision: i === 0, pourquoi: i ? it.pourquoi : `${decision.raison} ${it.pourquoi ?? ''}`.trim() }); });
   } else {
@@ -526,7 +550,7 @@ export function plan(d, debut, seance0 = null) {
   }
   // Les 5 blocs de la séance : chaque point appartient à l'un d'eux (dans cet ordre).
   for (const it of garde) {
-    it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) ? 'revision'
+    it.blocSeance = it.titre === 'Échauffement' ? 'echauffement' : ['À revoir', 'Révision'].includes(it.titre) || it.rattrapage ? 'revision'
       : it.examen || it.garder || it.decision || (decision.type === 'automatiser' && exclus.includes(it.id)) ? 'lecon' : it === itemAnzan ? 'anzan' : 'volume';
   }
   // 0.40.4 : un bloc de volume / vitesse de moins de 5 minutes (rien n'y est encore fait) passe dans
