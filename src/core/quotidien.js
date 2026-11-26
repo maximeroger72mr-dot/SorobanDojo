@@ -59,6 +59,8 @@ export function monnaie() {
 }
 
 const fmt = (v) => v.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+// 0.42 : un coefficient s'écrit en entier (0,125 ; 0,875 ; 1,055), jamais arrondi au centième.
+const coef = (v) => v.toLocaleString('fr-FR', { maximumFractionDigits: 4 });
 
 /** Méthode de tête pour p % de x euros (et le calcul au soroban). */
 function methode(p, x) {
@@ -76,7 +78,7 @@ function methode(p, x) {
     60: `10 % = ${fmt(dix)}, sextuplé (ou la moitié plus 10 %)`,
     12.5: `12,5 % = le huitième : la moitié de la moitié de la moitié de ${fmt(x)}`,
   }[p];
-  return `${m}. Au soroban : ${fmt(x)} × ${fmt(p / 100)}.`;
+  return `${m}. Au soroban : ${fmt(x)} × ${coef(p / 100)}.`;
 }
 
 /** Pourcentages : p % d'un prix, prix après remise, ou prix TTC. */
@@ -92,7 +94,7 @@ export function pourcentage() {
     return {
       type: 'quotidien', decimales: 2, euros: true, resultat: ttc, unites: chiffres(Math.round(ht)) + 2,
       texte: [`Prix hors taxes : ${fmt(ht)} €`, `TVA de ${fmt(taux)} %`, 'Prix TTC (en €) ?'],
-      astuce: `${fmt(taux)} % de ${fmt(ht)} = ${fmt(tvaM)}, donc ${fmt(ht)} + ${fmt(tvaM)} = ${fmt(ttc)}. Ou en un calcul : ${fmt(ht)} × ${fmt((100 + taux) / 100)}.`,
+      astuce: `${fmt(taux)} % de ${fmt(ht)} = ${fmt(tvaM)}, donc ${fmt(ht)} + ${fmt(tvaM)} = ${fmt(ttc)}. Ou en un calcul : ${fmt(ht)} × ${coef((100 + taux) / 100)}.`,
     };
   }
   const p = hasard([10, 20, 25, 50, 5, 15, 30, 75, 40, 60, 12.5]);
@@ -101,13 +103,13 @@ export function pourcentage() {
   if (sorte === 'remise') {
     return {
       type: 'quotidien', decimales: 2, euros: true, resultat: x - part, unites: chiffres(x) + 1,
-      texte: [`Prix affiché : ${x} €`, `Remise de ${p} %`, 'Prix payé (en €) ?'],
-      astuce: `La remise vaut ${p} % de ${x} = ${fmt(part)} (${methode(p, x).split('. Au')[0]}), donc ${x} − ${fmt(part)} = ${fmt(x - part)}. Ou directement : ${x} × ${fmt((100 - p) / 100)}.`,
+      texte: [`Prix affiché : ${x} €`, `Remise de ${fmt(p)} %`, 'Prix payé (en €) ?'],
+      astuce: `La remise vaut ${fmt(p)} % de ${x} = ${fmt(part)} (${methode(p, x).split('. Au')[0]}), donc ${x} − ${fmt(part)} = ${fmt(x - part)}. Ou directement : ${x} × ${coef((100 - p) / 100)}.`,
     };
   }
   return {
     type: 'quotidien', decimales: 2, euros: true, resultat: part, unites: chiffres(x) + 1,
-    texte: [`${p} % de ${x} €`, 'Combien (en €) ?'],
+    texte: [`${fmt(p)} % de ${x} €`, 'Combien (en €) ?'],
     astuce: methode(p, x),
   };
 }

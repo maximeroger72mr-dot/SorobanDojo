@@ -146,7 +146,14 @@ export const mediane = (xs) => {
 export const ERREUR_PAR_CHIFFRE = { debutant: 0.004, confirme: 0.002, expert: 0.001 };
 export const reussiteExigee = (n, chiffres) => (chiffres && ERREUR_PAR_CHIFFRE[n.id] ? Math.min(n.reussite, (1 - ERREUR_PAR_CHIFFRE[n.id]) ** chiffres) : n.reussite);
 
-export function evaluer(hist = [], famille = 'addsub', { chiffres = null } = {}) {
+/**
+ * @param {{ chiffres?: number|null, seuils?: Object<number, number> }} [o]
+ *   chiffres : nombre de chiffres par colonne (justesse exigée par chiffre, 0.41) ;
+ *   seuils : temps maximal par index de niveau, à la place de l'échelle (0.42 : argent et or des
+ *   leçons avancées à l'allure du grade qu'elles préparent, voir minitest.seuilsLecon).
+ */
+export function evaluer(hist = [], famille = 'addsub', { chiffres = null, seuils = null } = {}) {
+  const tempsMax = (i) => seuils?.[i] ?? NIVEAUX[i]?.temps?.[famille];
   const recents = hist.slice(-FENETRE);
   const essais = recents.length;
   const reussite = essais ? recents.filter((h) => h.ok).length / essais : 0;
@@ -156,7 +163,7 @@ export function evaluer(hist = [], famille = 'addsub', { chiffres = null } = {})
   if (essais >= MIN_ESSAIS) {
     for (let i = 2; i < NIVEAUX.length; i++) {
       const n = NIVEAUX[i];
-      if (reussite >= reussiteExigee(n, chiffres) - 1e-9 && temps !== null && n.temps[famille] != null && temps <= n.temps[famille]) index = i;
+      if (reussite >= reussiteExigee(n, chiffres) - 1e-9 && temps !== null && tempsMax(i) != null && temps <= tempsMax(i)) index = i;
     }
   }
   const prochain = NIVEAUX[index + 1] ?? null;
@@ -164,7 +171,8 @@ export function evaluer(hist = [], famille = 'addsub', { chiffres = null } = {})
   if (prochain?.reussite) {
     if (essais < MIN_ESSAIS) manque.push(`${MIN_ESSAIS - essais} essai${MIN_ESSAIS - essais > 1 ? 's' : ''} de plus`);
     if (reussite < reussiteExigee(prochain, chiffres) - 1e-9) manque.push(`réussite ≥ ${Math.round(reussiteExigee(prochain, chiffres) * 100)} %`);
-    if (temps === null || temps > prochain.temps[famille]) manque.push(famille === 'addsub' ? `≥ ${cpm(prochain.temps.addsub)} CPM` : `≤ ${prochain.temps[famille].toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
+    const tp = tempsMax(index + 1);
+    if (temps === null || temps > tp) manque.push(famille === 'addsub' ? `≥ ${cpm(tp)} CPM` : `≤ ${tp.toLocaleString('fr-FR')} s par ${UNITES_TEMPS[famille] ?? 'unité'}`);
   }
   return { niveau: NIVEAUX[index], index, essais, reussite, temps, prochain, manque };
 }

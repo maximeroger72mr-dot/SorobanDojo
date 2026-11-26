@@ -351,8 +351,13 @@ export const PALIERS = [
         pourquoi: 'Le format du 5e kyū : diviseur et quotient font 5 chiffres (5 832 ÷ 243 = 24, ou 8 694 ÷ 23 = 378). Même estimation qu\'avec 2 chiffres : on arrondit le diviseur sur son premier chiffre (243 → 200, 268 → 300), on estime, puis on corrige de ±1 si besoin. On compare le début du dividende au diviseur pour savoir où poser le quotient. Un chiffre trop grand peut ne se révéler qu\'au DERNIER produit : on retire alors 1 au quotient et on rend les produits déjà retirés.',
         demos: [{ a: 5832, b: 243 }, { a: 1950, b: 249, rattrapage: true }] },
       { id: 'p8-3', titre: '5 et 6 chiffres, 10 lignes (endurance)', cibles: TOUS_LES_MOTIFS, chiffres: 5, chiffresMax: 6, lignes: 10, repetitions: 20, cumul: true,
-        pourquoi: 'Le format du 4e kyū (10 lignes de 5 chiffres), puis du 3e (6 chiffres) : 10 lignes sans perdre le rythme. Repérez les tranches de 3 chiffres avec les points de la barre.',
+        pourquoi: 'Le format du 4e kyū (10 lignes de 5 chiffres, parfois 6) : 10 lignes sans perdre le rythme. Repérez les tranches de 3 chiffres avec les points de la barre.',
         demos: [{ depart: 52708, op: '+', n: 39415 }] },
+      // 0.42 : aucune leçon de colonnes ne préparait l'allure du 3e kyū (la vitesse exigée chutait
+      // d'un coup entre p8-3 et p9-1).
+      { id: 'p8-3c', titre: '6 et 7 chiffres, 10 lignes (format du 3e kyū)', cibles: TOUS_LES_MOTIFS, chiffres: 6, chiffresMax: 7, lignes: 10, repetitions: 20, cumul: true,
+        pourquoi: 'Le format du 3e kyū : 10 lignes de 6 à 7 chiffres, et une allure nettement plus rapide qu\'au 4e. Lisez chaque nombre en deux tranches (milliers, unités) repérées par les points de la barre, posez la première pendant que l\'œil prend la seconde, et gardez le même rythme jusqu\'à la dernière ligne.',
+        demos: [{ depart: 527083, op: '+', n: 394156 }] },
       { id: 'p8-5', titre: 'Multiplication à 7 chiffres au total (4 × 3, 5 × 2)', type: 'mul', m: 4, n: 3, formes: [[4, 3], [3, 4], [5, 2], [2, 5]], zerosFinaux: 0.15, repetitions: 30,
         pourquoi: 'Le format du 4e kyū : 7 chiffres au total (3 506 × 701, 74 213 × 25, 872 × 6 279). Plus le multiplicateur est court, plus le multiplicande est long : avec 5 × 2, ce sont 10 produits sur une seule ligne de tiges. L\'index gauche avance d\'une tige à chaque chiffre du multiplicande ; les produits du même chiffre glissent d\'une tige chacun.',
         demos: [{ a: 3506, b: 701 }, { a: 74213, b: 25 }] },
@@ -615,7 +620,12 @@ export function chiffresColonne(sp) {
   return Math.round(ch * li);
 }
 /** Niveau d'une leçon sur son historique, seuil de justesse par chiffre (0.41, voir maitrise.reussiteExigee). */
-export const evaluerLecon = (hist, sp) => evaluer(hist ?? [], familleLecon(sp), { chiffres: chiffresColonne(sp) });
+// 0.42 : l'argent et l'or d'une leçon avancée suivent l'allure du grade qu'elle prépare. Le calcul vit
+// dans minitest.js (il lui faut les grades et leurs prérequis), qui l'inscrit ici à son chargement
+// (parcours.js le charge toujours) : pas d'import circulaire au chargement des modules.
+let seuilsLecon = () => null;
+export function definirSeuilsLecon(f) { seuilsLecon = f; }
+export const evaluerLecon = (hist, sp) => evaluer(hist ?? [], familleLecon(sp), { chiffres: chiffresColonne(sp), seuils: sp ? seuilsLecon(sp) : null });
 
 export function familleLecon(sp) {
   if (sp.type === 'placement' || sp.type === 'table') return sp.type;

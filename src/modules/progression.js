@@ -235,7 +235,7 @@ export default {
       .sort((a, b) => a.ev.index - b.ev.index || b.f.dette - a.f.dette || b.f.essais - a.f.essais);
     if (motifs.length) {
       el.append(h('h2', {}, 'Gestes en détail'),
-        h('p', { class: 'discret' }, `Seuils : ${NIVEAUX.filter((n) => n.reussite).map((n) => `${n.nom} ≥ ${Math.round(n.reussite * 100)} % de justes et ≥ ${cpm(n.temps.addsub)} CPM (≤ ${n.temps.addsub.toLocaleString('fr-FR')} s par chiffre)`).join(' ; ')}.`),
+        h('p', { class: 'discret' }, `Seuils : ${NIVEAUX.filter((n) => n.reussite).map((n) => `${n.nom} ≥ ${Math.round(n.reussite * 100)} % de justes et ≥ ${cpm(n.temps.addsub)} CPM (≤ ${n.temps.addsub.toLocaleString('fr-FR')} s par chiffre)`).join(' ; ')}. Leçons après le 6e kyū : l'argent demande l'allure du grade préparé, l'or 20 % de mieux.`),
         h('table', {}, h('tr', {}, ['Geste', 'Essais', 'Erreurs avérées', 'Réussite récente', 'Cadence', 'Niveau', ''].map((x) => h('th', {}, x))),
           motifs.map(({ cle, f, ev }) => h('tr', { class: 'cliquable', onclick: () => detailGeste(app, cle) }, h('td', {}, nomMotif(cle)), h('td', {}, f.essais), h('td', {}, f.erreurs),
             h('td', {}, ev.essais ? `${Math.round(ev.reussite * 100)} %` : '—'), h('td', {}, formaterVitesse(ev.temps)), h('td', {}, badgeNiveau(ev)),

@@ -397,7 +397,7 @@ table.carte-maitrise th.libelle { text-align: right; padding-right: 8px; white-s
 table.carte-maitrise td { width: 40px; height: 30px; text-align: center; padding: 0; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 table.carte-maitrise td.vide { background: none; cursor: default; }
 table.carte-maitrise td.non-pratique { background: var(--surface); border: 1px dashed var(--tres-discret); color: var(--discret); font-weight: 400; }
-table.carte-maitrise td.pas-vu { opacity: 0.45; }
+table.carte-maitrise td.pas-vu { opacity: 0.75; } /* 0.42 : contraste ≥ 4,5:1 (0.45 : 2,4:1) */
 table.carte-maitrise td.geste:hover, table.carte-maitrise td.geste:focus { outline: 2px solid var(--texte); outline-offset: 1px; }
 tr.cliquable { cursor: pointer; }
 tr.cliquable:hover td { background: var(--survol); }
@@ -554,7 +554,7 @@ h1, h2, h3 { font-family: var(--police-titres); }
 .legende-frise .puce.prep { background: var(--niveau-debutant); }
 .legende-frise .puce.officiel { background: var(--niveau-confirme); }
 @media (max-width: 640px) { .frise-grades { grid-template-columns: repeat(10, minmax(0, 1fr)); } }
-.carte-hub.attenue { opacity: 0.62; }
+.carte-hub.attenue { opacity: 0.8; } /* 0.42 : 0.62 donnait 3,7:1 au texte grisé, sous les 4,5:1 */
 .carte-hub.attenue:hover { opacity: 0.9; }
 button.lien.terme { padding: 0; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
 .grille-doigte td.case { text-align: center; width: 90px; font-size: 1.2rem; }

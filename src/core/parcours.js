@@ -20,6 +20,7 @@ import { genererMultiplication, genererDivision } from './multiplication.js';
 import { avecGraine, semaineISO } from './hasard.js';
 import { allureGrade, vitesseEleve, formatColonnes } from './allure.js';
 import { ratioExamen, gainHebdo, semainesRatios, mesuresAuFormat, GAIN_REPERE } from './mesures.js';
+import './minitest.js'; // 0.42 : inscrit les seuils de vitesse des leçons (curriculum.evaluerLecon)
 
 const DIRECT = famille('direct');
 const ADDSUB = SOUS_PALIERS.filter((sp) => sp.type === 'addsub');
@@ -76,7 +77,7 @@ const K5 = [...K6, 'p8-t2', 'p8-1', 'p8-2', 'p8-4', 'p8-6', 'p8-5a', 'p8-7'];
 const K4 = [...K5, 'p8-3', 'p8-5', 'p8-8', 'p8-pl'];
 // Résultats négatifs : seulement aux 1er et 2e kyū (sujets modèles) ; décimaux et arrondis dès le 3e.
 const NEGATIFS = ['p8-n', 'p8-n2'];
-const K3 = [...K4, ...idsPaliers('pd').filter((id) => !NEGATIFS.includes(id))];
+const K3 = [...K4, 'p8-3c', ...idsPaliers('pd').filter((id) => !NEGATIFS.includes(id))]; // 0.42 : p8-3c, colonnes au format du 3e kyū
 const K2 = [...K3, ...NEGATIFS, 'p9-1', 'p9-3', 'p9-5'];
 const K1 = [...K2, 'p9-2', 'p9-4', 'p9-6', 'p9-pl'];
 export const PREREQUIS = { 10: K10, 9: K9, 8: K8, 7: K7, 6: K6, 5: K5, 4: K4, 3: K3, 2: K2, 1: K1 };
@@ -364,6 +365,32 @@ const niveauLeconCourt = (d, sp) => {
   const ge = g.length ? Math.min(...g.map((c) => evaluer(d.motifs?.[c]?.hist ?? [], 'addsub').index)) : 0;
   return Math.max(ev.essais >= 8 ? ev.index : 2, ge);
 };
+/** 0.42 : jours de pratique au plus derrière la porte × ÷ quand seul l'argent d'une leçon de gestes manque. */
+export const JOURS_PORTE_MULDIV = 7;
+const joursPratiqueDepuis = (d, date) => (date ? new Set((d.sessions ?? []).map((s) => s.date).filter((x) => x > date)).size : 0);
+
+/**
+ * 0.42 : quelle piste du soroban aujourd'hui, entre la prochaine leçon de colonnes `c` et celle de
+ * × ÷ `m` (ouvertes) ? Une leçon commencée se termine d'abord. Sinon on regarde les leçons qui
+ * manquent au prochain grade : s'il ne manque que des × ÷, on fait × ÷ ; que des colonnes, les
+ * colonnes ; on n'alterne (un jour sur deux) que quand les deux pistes ont des manques. La leçon des
+ * tables, une préparation, alterne toujours. Avant : un jour sur deux en toutes circonstances, et les
+ * colonnes partaient devant pendant que la division traînait (un grade exige les trois matières).
+ */
+export function choisirPiste(d, c, m, jourNum) {
+  if (!c || !m) return c ?? m;
+  const enCours = [c, m].find((x) => (d.paliers?.[x.id]?.reps ?? 0) > 0);
+  if (enCours) return enCours;
+  const alterne = jourNum % 2 ? m : c;
+  if (m.id === 'p6-a') return alterne;
+  const manquantes = grade(d).manquantes.filter(Boolean);
+  const manqueC = manquantes.some((x) => pisteDe(x) === 'colonnes');
+  const manqueM = manquantes.some((x) => pisteDe(x) === 'muldiv');
+  if (manqueM && !manqueC) return m;
+  if (manqueC && !manqueM) return c;
+  return alterne;
+}
+
 export function porteMulDiv(d, sp) {
   if (!sp || pisteDe(sp) !== 'muldiv') return { ok: true, raisons: [], conditions: [] };
   // 0.41.1 : chaque condition en clair, cochée ou non (liste affichée une fois, au-dessus de la
@@ -375,8 +402,12 @@ export function porteMulDiv(d, sp) {
   } else {
     const lecons = (ids, quoi) => {
       for (const x of ids.map((id) => SOUS_PALIERS.find((y) => y.id === id)).filter(Boolean)) {
-        const ok = estValide(d, x.id) && niveauLeconCourt(d, x) >= 2;
-        cond(ok, `« ${x.titre} » validée, au moins en argent`, quoi);
+        // 0.42 : la leçon doit être validée (vue, mini-test réussi) ; l'argent, lui, n'est attendu
+        // que 7 jours de pratique au plus après sa validation, comme les autres portes : ensuite elle
+        // passe en rattrapage (voir prof.leconsSousArgent) et la piste × ÷ s'ouvre quand même.
+        const valide = estValide(d, x.id);
+        const ok = valide && (niveauLeconCourt(d, x) >= 2 || joursPratiqueDepuis(d, d.paliers[x.id].valide) >= JOURS_PORTE_MULDIV);
+        cond(ok, valide ? `« ${x.titre} » en argent (ou ${JOURS_PORTE_MULDIV} jours de pratique après sa validation)` : `« ${x.titre} » validée`, quoi);
       }
     };
     lecons(GESTES_MUL, 'gestes d\'addition');
@@ -394,7 +425,7 @@ export function porteMulDiv(d, sp) {
   const court = [];
   for (const c of manque) {
     const k = manque.filter((x) => x.court === c.court).length;
-    const t = /^gestes/.test(c.court) ? `${k} leçon${k > 1 ? 's' : ''} de ${c.court} en argent` : c.court;
+    const t = /^gestes/.test(c.court) ? `${k} leçon${k > 1 ? 's' : ''} de ${c.court}` : c.court;
     if (!court.includes(t)) court.push(t);
   }
   return { ok: !manque.length, raisons: manque.map((c) => c.texte), court, conditions };

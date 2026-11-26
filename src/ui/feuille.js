@@ -75,14 +75,20 @@ export function creerFeuille(conteneur, o) {
   } }, 'Vérifier avant de corriger (見直し)') : null;
   // 0.41 : on n'imprime que la feuille (avant : tout l'écran, avec la charge, les gestes travaillés et
   // le tableau « Mes feuilles ») ; le corrigé sur une page à part ; cases Nom, Date, Temps.
-  const imprimer = () => {
-    const chemin = [];
+  // 0.42 : aussi par Ctrl+P (événement beforeprint), pas seulement par le bouton.
+  let chemin = [];
+  const finImpression = () => { document.body.classList.remove('imprime-feuille'); chemin.forEach((x) => x.classList.remove('chemin-impression')); chemin = []; };
+  const preparerImpression = () => {
+    if (!racine.isConnected || document.body.classList.contains('imprime-feuille')) return;
     for (let x = racine.parentElement; x && x.tagName !== 'BODY'; x = x.parentElement) { x.classList.add('chemin-impression'); chemin.push(x); }
     document.body.classList.add('imprime-feuille');
-    const fin = () => { document.body.classList.remove('imprime-feuille'); chemin.forEach((x) => x.classList.remove('chemin-impression')); window.removeEventListener('afterprint', fin); };
-    window.addEventListener('afterprint', fin);
+  };
+  window.addEventListener('beforeprint', preparerImpression);
+  window.addEventListener('afterprint', finImpression);
+  const imprimer = () => {
+    preparerImpression();
     window.print();
-    setTimeout(fin, 1000);
+    setTimeout(finImpression, 1000);
   };
   const btnImprimer = h('button', { class: 'btn', onclick: imprimer }, 'Imprimer');
   const bilan = h('div', {});
@@ -392,6 +398,9 @@ export function creerFeuille(conteneur, o) {
       fini = true;
       clearInterval(minuterie);
       sansRaccourcis();
+      window.removeEventListener('beforeprint', preparerImpression);
+      window.removeEventListener('afterprint', finImpression);
+      finImpression();
       racine.remove();
     },
   };

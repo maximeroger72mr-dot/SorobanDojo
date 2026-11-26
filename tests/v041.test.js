@@ -18,7 +18,7 @@ test('0.41 : seuils de justesse par chiffre, inchangés pour les colonnes courte
   assert.equal(reussiteExigee(NIVEAUX[2], 5), 0.9, 'colonne courte : 90 %');
   assert.ok(reussiteExigee(NIVEAUX[2], 55) < 0.81, 'colonne de 55 chiffres : environ 80 %');
   const h = hist(30, 5, 2.5); // 83 % de justes
-  assert.equal(evaluerLecon(h, sp('p8-3')).index, 2, 'argent sur une colonne longue');
+  assert.equal(evaluerLecon(hist(30, 5, 1.9), sp('p8-3')).index, 2, 'argent sur une colonne longue (à l\'allure du 4e kyū, 0.42)');
   assert.equal(evaluerLecon(h, sp('p2-1')).index, 1, 'bronze sur une colonne courte');
   assert.equal(evaluer(h).index, 1, 'sans nombre de chiffres : seuil habituel');
   assert.ok(colonnesPourNiveau({ paliers: { 'p2-1': { hist: h } } }, sp('p2-1')) > 0);

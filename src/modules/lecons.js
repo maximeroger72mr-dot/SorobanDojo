@@ -12,8 +12,8 @@
 
 import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, referenceMin, enduranceAvant, enduranceExigee } from '../core/phases.js';
 import { NIVEAUX } from '../core/maitrise.js';
-import { noterPhaseLecon } from '../core/progression.js';
-import { estValide, porteMulDiv } from '../core/parcours.js';
+import { noterPhaseLecon, noterPrecision } from '../core/progression.js';
+import { estValide, porteMulDiv, choisirPiste } from '../core/parcours.js';
 
 /** Objectif en gestes visés d'une leçon à phases (0.40). */
 const objectifLecon = (sp) => objectifGestes(sp, () => genererExercice(sp));
@@ -52,7 +52,7 @@ import { questionDoigte } from '../ui/doigte.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, unites } from '../core/maitrise.js';
 import { formatProbleme } from '../core/mesures.js';
 import { localiserErreur } from '../core/diagnostic.js';
-import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE } from '../core/minitest.js';
+import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE, modePrecision, seuilVitesseLecon } from '../core/minitest.js';
 import { ajouterJours } from '../core/revision.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { leconsSousArgent, colonnesPourNiveau } from '../core/prof.js';
@@ -138,12 +138,8 @@ export function JALONS() {
 export function prochainSousPalier() {
   // 0.41 : deux pistes sur le soroban, colonnes et × ÷. Une leçon commencée se termine ; sinon on
   // alterne d'un jour à l'autre entre les deux pistes quand les deux ont une leçon ouverte.
-  const c = prochainDePiste('colonnes');
-  const m = prochainDePiste('muldiv');
-  if (!c || !m) return c ?? m;
-  const enCours = [c, m].find((x) => (etatPalier(x.id).reps ?? 0) > 0);
-  if (enCours) return enCours;
-  return Math.floor(Date.parse(`${jourCourant()}T12:00`) / 86400000) % 2 ? m : c;
+  // 0.42 : la piste suit les manques du prochain grade (parcours.choisirPiste).
+  return choisirPiste(progression(), prochainDePiste('colonnes'), prochainDePiste('muldiv'), Math.floor(Date.parse(`${jourCourant()}T12:00`) / 86400000));
 }
 /** Prochaine leçon ouverte d'une piste du soroban ('colonnes' ou 'muldiv'). */
 export function prochainDePiste(piste) {
@@ -223,7 +219,7 @@ export default {
       } else el.append(
         h('h1', {}, 'Leçons guidées'),
         h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, à une vitesse au moins « acquis débutant »).`),
-        h('p', { class: 'discret' }, 'Niveaux : bronze → argent (l\'allure du 6e kyū) → or (4e kyū) → platine (2e kyū). Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
+        h('p', { class: 'discret' }, 'Niveaux : bronze → argent (l\'allure du 6e kyū) → or (4e kyū) → platine (2e kyū). Après le 6e kyū, l\'argent d\'une leçon demande l\'allure du grade qu\'elle prépare (la vitesse de son mini-test), et l\'or 20 % de mieux. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
       if (diag) el.append(diag);
@@ -706,14 +702,16 @@ export default {
             let n = 0;
             // Tranches de 10 exercices équilibrées : tous les gestes de la leçon y passent.
             const suivant = fluxEquilibre(sp, 10, () => poidsDe(sp));
-            // 0.41 : mode précision. Rapide (moitié du temps de l'argent ou mieux) mais sous la justesse
-            // de l'argent : le chrono disparaît, l'élève vérifie chaque colonne (見直し) avant de valider.
+            // 0.42 : mode précision (voir minitest.modePrecision) : seulement pour qui va vraiment vite
+            // sans la justesse de l'argent, 3 séances au plus par leçon ; le chrono reste visible.
             const evP = evaluerPalier(sp.id, famille(sp));
-            const seuilT = NIVEAUX[2]?.temps?.[famille(sp)];
-            const precision = sp.type === 'addsub' && evP.essais >= 8 && evP.temps != null && seuilT && evP.temps <= seuilT / 2 && evP.index < 2;
-            if (precision) zoneTravail.append(h('div', { class: 'carte avis' }, h('strong', {}, 'Mode précision. '), `Vous allez vite (${evP.temps.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} s par chiffre) mais ${Math.round(evP.reussite * 100)} % de justes seulement : le chrono est masqué. Relisez chaque colonne avant de valider (見直し, mi-naoshi). Objectif : 10 colonnes justes d'affilée.`));
+            const precision = modePrecision(sp, etatPalier(sp.id), evP, jourCourant());
+            if (precision) {
+              noterPrecision(sp.id, jourCourant());
+              const nf = (x) => x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+              zoneTravail.append(h('div', { class: 'carte avis' }, h('strong', {}, 'Mode précision. '), `Vous allez vite (${nf(evP.temps)} s par chiffre) mais ${Math.round(evP.reussite * 100)} % de justes seulement. Relisez chaque colonne avant de valider (見直し, mi-naoshi). Objectif : 10 colonnes justes d'affilée, à ${nf(precision.seuil)} s par chiffre au plus.`));
+            }
             courant = creerExercices(sp, zoneTravail, {
-              precision,
               generer: () => {
                 const ex = suivant({ ...ctxExercice(), ...ctxPhase() });
                 return planPh ? { ...ex, phase: phaseCourante(planPh, etatPh).id } : ex;
@@ -743,7 +741,7 @@ export default {
                   // Hors référence : la colonne compte pour la justesse et le volume, pas pour la médaille.
                   const ref = ex.phase === 'reference';
                   const avant = phaseCourante(planPh, etatPh);
-                  const rapide = res.t != null && res.t <= NIVEAUX.find((x) => x.id === 'debutant').temps.addsub;
+                  const rapide = res.t != null && res.t <= (seuilVitesseLecon(sp).seuil ?? NIVEAUX[2].temps.addsub); // 0.42 : l'argent de la leçon
                   const juste = res.juste && !res.aide;
                   // 0.40.2 : la jauge compte aussi les colonnes fausses (comme les anciennes répétitions).
                   const gestes = gestesVises(sp, ex);

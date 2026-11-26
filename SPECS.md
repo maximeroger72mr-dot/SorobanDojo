@@ -14,7 +14,7 @@ Contraintes non négociables :
 
 1. Le soroban physique est le support **exclusif**. Le soroban à l'écran ne sert qu'à montrer. Pas de glisser de boules, pas de physique.
 2. Le code reste en JavaScript (modules ES, JSDoc, `node --test`). Les types ci-dessous sont écrits en notation TypeScript pour la précision ; ils se traduisent en JSDoc, sans migration.
-3. `Soroban.html` est généré (`npm run html`). On ne le modifie jamais à la main.
+3. `Soroban.html` est généré (`npm run html`) et publié par la CI dans la release ; il n'est plus dans le dépôt (0.42). On ne le modifie jamais à la main.
 4. Référentiel d'examen : Chambre de commerce et d'industrie du Japon (1er au 3e kyū) et Ligue japonaise du soroban, 日本珠算連盟 (4e au 10e kyū).
 
 ---
@@ -1672,3 +1672,24 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - Liste des leçons : les conditions d'ouverture de la multiplication (puis de la division) sont listées une fois,
   cochées, au-dessus de la leçon qui ouvre la partie ; chaque ligne fermée ne montre qu'un résumé court
   (« attend : 3 leçons de gestes d'addition en argent, … ») ou la leçon d'avant.
+
+## Version 0.42.0 : vitesse grade par grade (audit 0.41)
+
+- Mini-test : 80 % de la cadence de l'examen du premier grade qui exige la leçon (`PART_CADENCE_LECON`, avant 70 %).
+- Médailles des leçons après le 6e kyū : l'argent = la vitesse du mini-test (allure du grade préparé), l'or 80 % de ce
+  seuil (jamais plus facile que l'or de l'échelle), le platine 80 % de l'or. Avant le 6e kyū : 3 s par chiffre, inchangé.
+  Seuils en s par chiffre : p8-t1 3,0 ; p8-1 et p8-2 2,67 ; p8-3 2,04 ; p8-3c 1,56 ; p9-1 et p8-n2 1,00 ; p9-2 0,71
+  (`minitest.seuilVitesseLecon`, inscrit dans `curriculum.evaluerLecon` sans import circulaire).
+- Nouvelle leçon p8-3c « 6 et 7 chiffres, 10 lignes (format du 3e kyū) » entre p8-3 et la suite, exigée au 3e kyū.
+  p8-3 prépare le 4e kyū (contrôle de synthèse : p8-3 au 4e, p8-3c au 3e).
+- Mini-test par chiffre : réussites exigées = ⌊15 × justesse de l'argent pour la longueur des colonnes⌋, 10 au moins
+  (13 jusqu'à 30 chiffres par colonne, 12 à 40 et 55, 11 à 75, 10 à 95).
+- Mode précision : seulement plus rapide que 60 % du seuil de la leçon et sous la justesse de l'argent ; 3 séances au
+  plus par leçon (`paliers[id].precision`) ; chrono visible, objectif chiffré.
+- Pistes : `parcours.choisirPiste` suit les leçons qui manquent au prochain grade (que des × ÷ : × ÷ ; que des
+  colonnes : colonnes ; sinon un jour sur deux ; la leçon des tables alterne toujours ; une leçon commencée d'abord).
+- Porte × ÷ : les leçons de gestes doivent être validées ; leur argent n'est attendu que 7 jours de pratique après la
+  validation (`JOURS_PORTE_MULDIV`), ensuite rattrapage. Les conditions sur les tables restent entières.
+- Bugs : coefficients des pourcentages en entier (0,125 ; 1,055) et « 12,5 % » ; planches : 5 s au total pour toutes
+  les tentatives (dernier repli : 1 s), affichage « Préparation de la planche… » ; contraste ≥ 4,5:1 (cartes
+  atténuées, gestes pas vus) ; Ctrl+P imprime la feuille seule (beforeprint) ; Soroban.html retiré du dépôt.

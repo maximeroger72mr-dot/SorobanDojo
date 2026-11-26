@@ -325,8 +325,15 @@ export default {
      * Crée et affiche une planche. `rejeu` : une planche déjà créée (bouton « Rejouer », ou code
      * tapé), reprise telle quelle : mêmes colonnes, même ordre.
      */
+    // 0.42 : une planche neuve se prépare après un premier affichage (« Préparation… ») : l'écran ne
+    // reste plus figé sans rien dire pendant la recherche des colonnes.
     function lancer(rejeu = null) {
       feuille?.detruire();
+      if (rejeu) { lancerMaintenant(rejeu); return; }
+      remplir(zone, h('p', { class: 'discret', role: 'status' }, 'Préparation de la planche…'));
+      setTimeout(() => lancerMaintenant(null), 20);
+    }
+    function lancerMaintenant(rejeu) {
       remplir(zone);
       const r = rejeu ? { ...rejeu.reglages } : { ...reglages };
       // 0.40.17 : planche minutée : colonnes d'après la vitesse (calcul + 5 s pour écrire chaque réponse).
@@ -341,6 +348,10 @@ export default {
        */
       const fabriquer = (r, c, graine) => {
         let planche = null;
+        // 0.42 : 5 s AU TOTAL pour toutes les tentatives (avant : 5 s par tentative, jusqu'à 15 s
+        // d'écran figé) ; le dernier repli garde 1 s.
+        const fin = Date.now() + DELAI_PLANCHE_MS;
+        const reste = (min = 200) => Math.max(min, fin - Date.now());
         // Genres d'examen (longueurs mêlées, négatifs, décimaux…) : pas de planificateur de gestes.
         if (GENRES_PLANCHE[r.genre]) {
           try {
@@ -363,7 +374,7 @@ export default {
         }
         // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
         if (!planche && r.genre !== 'additions' && gesteTravaillable(r.cible)) {
-          planche = avecDelai(DELAI_PLANCHE_MS, () => genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine));
+          planche = avecDelai(reste(), () => genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine));
           if (planche) {
             planche.parRoles = true;
             c = { cibles: [r.cible], libelle: libellesModes(r.cible)[mode] };
@@ -388,10 +399,10 @@ export default {
           // 0.40.17 : cascades à 1 chiffre : le total plafonne sous 100, une retenue en cascade n'y passe
           // presque jamais (1 à 2 s de recherche) : directement à 2 chiffres.
           const cascades = c.cibles.length && c.cibles.every((x) => x.startsWith('cascade'));
-          for (const [p, message] of replis) {
+          for (const [k, [p, message]] of replis.entries()) {
             if (cascades && p.chiffres < 2 && p.cibles.every((x) => x.startsWith('cascade'))) continue;
             try {
-              planche = avecDelai(DELAI_PLANCHE_MS, () => genererPlanche(p, graine));
+              planche = avecDelai(reste(k === replis.length - 1 ? 1000 : 200), () => genererPlanche(p, graine));
               if (message) zone.append(h('p', { class: 'retour' }, message));
               // Le titre et le résumé annoncent la planche réellement créée, pas la demande.
               Object.assign(r, { chiffres: p.chiffres, lignes: p.lignes });

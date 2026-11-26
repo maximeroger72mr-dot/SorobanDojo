@@ -4,13 +4,65 @@
  * réponses justes). Un mini-test réussi par chance mais trop lent ne valide pas la leçon.
  */
 
-import { TEST, familleLecon, genererExercice } from './curriculum.js';
-import { NIVEAUX, tempsParUnite, UNITES_TEMPS, unites, SURCOUT_S } from './maitrise.js';
+import { TEST, familleLecon, genererExercice, chiffresColonne, definirSeuilsLecon } from './curriculum.js';
+import { NIVEAUX, tempsParUnite, UNITES_TEMPS, unites, SURCOUT_S, reussiteExigee } from './maitrise.js';
 import { tempsLecon, PART_CADENCE_LECON } from './allure.js';
 import { GRADES_KYU as GRADES } from './epreuves.js';
 import { PREREQUIS } from './parcours.js';
 
-export const testMin = (sp) => sp.testMin ?? TEST.reussitesMin;
+/**
+ * 0.42 : réussites exigées au mini-test, calculées par chiffre comme l'argent : 15 × la justesse
+ * exigée pour l'argent sur des colonnes de cette longueur, arrondi en dessous, 10 au moins (13 sur
+ * 15 jusqu'à 30 chiffres par colonne, 12 à 40 et 55, 11 à 75, 10 à 95). Avant : 13 partout, deux fois
+ * plus sévère que l'argent sur les colonnes longues.
+ */
+const ARGENT_BASE = { id: 'debutant', reussite: 0.9 }; // l'argent de l'échelle de base, quelle que soit l'échelle
+export const testMin = (sp) => {
+  if (sp.testMin != null) return sp.testMin;
+  const ch = chiffresColonne(sp);
+  const n = sp.testNombre ?? TEST.exercices;
+  if (!ch || n !== TEST.exercices) return TEST.reussitesMin;
+  return Math.min(TEST.reussitesMin, Math.max(10, Math.floor(n * reussiteExigee(ARGENT_BASE, ch) + 1e-9)));
+};
+
+/**
+ * 0.42 : vitesse exigée d'une leçon (mini-test ET argent), en secondes par chiffre ou par produit :
+ * 80 % de la cadence de l'examen du premier grade qui l'exige, quand c'est plus strict que l'argent de
+ * l'échelle (3 s par chiffre : avant le 6e kyū, rien ne change). L'or de la leçon : 80 % de ce seuil.
+ * @returns {{ seuil: number, parGrade: boolean, cadence: object|null, seuils: Object<number, number>|null }}
+ */
+const cadences = new Map();
+export function seuilVitesseLecon(sp) {
+  const famille = familleLecon(sp);
+  const base = NIVEAUX[2].temps?.[famille];
+  if (!cadences.has(sp.id)) cadences.set(sp.id, ['addsub', 'muldiv'].includes(famille) && !sp.mental ? tempsLecon(sp, GRADES, (g) => PREREQUIS[g.id]) : null);
+  const cadence = cadences.get(sp.id);
+  const parGrade = !!cadence && base != null && cadence.temps < base;
+  if (!parGrade) return { seuil: base, parGrade, cadence, seuils: null };
+  const seuil = Math.round(cadence.temps * 100) / 100;
+  const or = Math.min(NIVEAUX[3].temps[famille], Math.round(seuil * 0.8 * 100) / 100);
+  const platine = Math.min(NIVEAUX[4].temps[famille], Math.round(or * 0.8 * 100) / 100);
+  return { seuil, parGrade, cadence, seuils: { 2: seuil, 3: or, 4: platine } };
+}
+definirSeuilsLecon((sp) => seuilVitesseLecon(sp).seuils);
+
+/**
+ * 0.42 : mode précision, pour l'élève qui va VRAIMENT vite (60 % du seuil de la leçon ou mieux) sans
+ * la justesse de l'argent. 3 séances au plus par leçon (`e.precision` : les jours où il a servi).
+ * Avant : dès 1,5 s par chiffre sous l'argent, soit 114 jours sur 180 pour un élève régulier en
+ * simulation ; le chrono était masqué. Il reste maintenant visible, avec l'objectif chiffré.
+ * @returns {{ seuil: number }|null}
+ */
+export const SEANCES_PRECISION_MAX = 3;
+export function modePrecision(sp, e, ev, date) {
+  if (sp.type !== 'addsub' || sp.mental || !ev || ev.essais < 8 || ev.temps == null) return null;
+  const { seuil } = seuilVitesseLecon(sp);
+  if (!seuil || ev.temps > 0.6 * seuil) return null;
+  if (ev.reussite >= reussiteExigee(NIVEAUX[2], chiffresColonne(sp)) - 1e-9) return null;
+  const jours = e?.precision ?? [];
+  if (!jours.includes(date) && jours.length >= SEANCES_PRECISION_MAX) return null;
+  return { seuil };
+}
 
 /** Leçons dont la vitesse compte au mini-test (pas l'anzan, ni la photo / image auto-évaluée). */
 const VITESSE_EXIGEE = ['addsub', 'addsubdec', 'negatif', 'placement', 'table', 'mul', 'div', 'muldiv'];
@@ -37,12 +89,7 @@ export function verdictMiniTest(sp, bilan) {
     return { reussi: false, justesOk, vitesseOk: false, temps: null, seuil: null, unite: null, raison: `Assez de justes, mais en ${s} s : il faut les ${sp.testNombre} réponses en ${sp.testSecondes} s.` };
   }
   const famille = familleLecon(sp);
-  // Leçons avancées : la vitesse exigée suit l'examen visé (70 % de sa cadence), dès qu'elle est
-  // plus stricte que le niveau « acquis débutant ».
-  const base = NIVEAUX[2].temps[famille];
-  const cadence = ['addsub', 'muldiv'].includes(famille) ? tempsLecon(sp, GRADES, (g) => PREREQUIS[g.id]) : null;
-  const parGrade = !!cadence && cadence.temps < base;
-  const seuil = parGrade ? Math.round(cadence.temps * 100) / 100 : base;
+  const { seuil, parGrade, cadence } = seuilVitesseLecon(sp);
   const unite = UNITES_TEMPS[famille] ?? 'unité';
   const mesures = (bilan.resultats ?? []).filter((r) => r.juste && !r.autoEvalue && r.ex && Number.isFinite(r.dureeMs));
   // `tempsJustes` : temps par unité déjà calculés (mini-test fait en plusieurs séries).

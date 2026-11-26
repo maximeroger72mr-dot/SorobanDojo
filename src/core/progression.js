@@ -32,7 +32,7 @@ import { succesObtenus, SUCCES } from './succes.js';
 import { instantane, bilanSeance } from './bilan.js';
 import { exporter, lireExport, fusionner } from './sauvegarde.js';
 import { VERSION_APPLI, comparerVersions } from './version.js';
-import { SOUS_PALIERS, PALIERS, chiffresColonne } from './curriculum.js';
+import { SOUS_PALIERS, PALIERS, chiffresColonne, evaluerLecon, familleLecon } from './curriculum.js';
 import { apresFeuilleMarche } from './marches.js';
 
 const VERSION = 2;
@@ -553,7 +553,8 @@ export async function noterReconnu(id) {
   await sauver();
 }
 
-export const evaluerPalier = (id, famille) => evaluer(etatPalier(id).hist ?? [], famille, { chiffres: chiffresColonne(SOUS_PALIERS.find((s) => s.id === id)) });
+// 0.42 : même calcul que curriculum.evaluerLecon (justesse par chiffre, vitesse du grade préparé).
+export const evaluerPalier = (id, famille) => { const sp = SOUS_PALIERS.find((s) => s.id === id); return sp && familleLecon(sp) === famille ? evaluerLecon(etatPalier(id).hist ?? [], sp) : evaluer(etatPalier(id).hist ?? [], famille, { chiffres: chiffresColonne(sp) }); };
 
 /**
  * 0.40.18 : les calculs d'une révision comptent dans l'historique de la leçon (sa médaille suit le
@@ -583,6 +584,15 @@ export async function memoriserDureePhoto(id, s) {
   const e = palier(id);
   if (e.dureePhoto === s) return;
   e.dureePhoto = s;
+  await sauver();
+}
+
+/** 0.42 : jour où le mode précision a servi sur une leçon (3 au plus, voir minitest.modePrecision). */
+export async function noterPrecision(id, date) {
+  const e = palier(id);
+  e.precision ??= [];
+  if (e.precision.includes(date)) return;
+  e.precision.push(date);
   await sauver();
 }
 
@@ -766,7 +776,7 @@ export function revisionsDues() {
  * kyū, endurance à 5 et 6 chiffres (p8-3) dès le 3e, × et ÷ longs (p9-4, p9-6) au 1er kyū. Un
  * examen de dan contient tout.
  */
-export const GRADE_SYNTHESE = { 'p5-5': 10, 'p8-3': 3, 'p9-4': 1, 'p9-6': 1 };
+export const GRADE_SYNTHESE = { 'p5-5': 10, 'p8-3': 4, 'p8-3c': 3, 'p9-4': 1, 'p9-6': 1 }; // 0.42 : p8-3 au 4e kyū, p8-3c au 3e
 export function formatCouvertParEpreuve(d, date) {
   const limite = ajouterJours(date, -30);
   const recentes = d.sessions.filter((s) => s.date >= limite && (s.module === 'epreuves' || (s.module === 'examen' && s.mode === 'kyu')));

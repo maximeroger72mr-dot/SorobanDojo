@@ -58,7 +58,7 @@ export const ordreRevisions = (etat) => (a, b) => {
  */
 export const CONTROLE_JOURS = 90;
 export const TYPES_REGLES_RARES = ['negatif', 'addsubdec', 'muldec', 'divdec', 'divarrondi', 'arrondiunite'];
-export const SYNTHESES_CONTROLE = ['p5-5', 'p8-3', 'p9-4', 'p9-6'];
+export const SYNTHESES_CONTROLE = ['p5-5', 'p8-3', 'p8-3c', 'p9-4', 'p9-6'];
 // 0.41 : TOUTES les leçons sont contrôlées après leur sortie des révisions (aucune n'est close pour
 // toujours) : tous les 90 jours pour les règles rares et les synthèses, tous les 180 jours pour les autres.
 export const aControler = (sp) => !!sp && !sp.mental && sp.type !== 'theorie';
