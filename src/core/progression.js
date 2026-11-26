@@ -587,6 +587,13 @@ export async function memoriserDureePhoto(id, s) {
   await sauver();
 }
 
+/** 0.42.1 : mini-test raté (voir parcours.leconBloquee). */
+export async function noterEchecTest(id) {
+  const e = palier(id);
+  e.echecsTest = (e.echecsTest ?? 0) + 1;
+  await sauver();
+}
+
 /** 0.42 : jour où le mode précision a servi sur une leçon (3 au plus, voir minitest.modePrecision). */
 export async function noterPrecision(id, date) {
   const e = palier(id);

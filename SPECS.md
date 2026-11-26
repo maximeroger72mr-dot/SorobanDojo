@@ -1693,3 +1693,16 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - Bugs : coefficients des pourcentages en entier (0,125 ; 1,055) et « 12,5 % » ; planches : 5 s au total pour toutes
   les tentatives (dernier repli : 1 s), affichage « Préparation de la planche… » ; contraste ≥ 4,5:1 (cartes
   atténuées, gestes pas vus) ; Ctrl+P imprime la feuille seule (beforeprint) ; Soroban.html retiré du dépôt.
+
+## Version 0.42.1 : sortie d'une leçon bloquée (audit 0.42)
+
+- `parcours.leconBloquee` : une leçon commencée avec 3 mini-tests ratés (`paliers[id].echecsTest`) ou 7 jours de
+  pratique depuis son début perd la priorité « leçon commencée » de `choisirPiste` ; les pistes alternent, et la
+  séance la propose chaque jour en rattrapage (5 min) jusqu'au mini-test réussi.
+- `choisirPiste` regarde le grade à PRÉPARER (`gradeAPreparer` : premier grade dont les leçons ne sont pas toutes
+  validées), et non le prochain grade réussi à l'examen.
+- Séance : « l'examen vous attend » seulement si le plan le propose ; sinon « l'examen se passe quand vous voulez »
+  et un lien pour le passer.
+- Planches : la première tentative prend 60 % du budget de 5 s ; un repli identique à la tentative précédente est sauté.
+- Textes : en-tête des leçons (réussites exigées selon la leçon), « Anzan : Anzan : » dans Apprendre, README
+  (Soroban.html), en-tête de colonne « À faire » dans Progression.

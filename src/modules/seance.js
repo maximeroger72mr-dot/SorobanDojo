@@ -21,7 +21,7 @@ import {
 } from '../core/progression.js';
 import { telechargerExport } from '../ui/exporter.js';
 import { serieJours, semainesTenues, JOURS_SEMAINE_TENUE } from '../core/regularite.js';
-import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide } from '../core/parcours.js';
+import { grade, drillEchauffement, gestesLents, verificationVitesse, anzanAdapte, placementDuJour, coursMultiplicationAtteint, prioriteDuJour, planObjectif, consolidationDuJour, ancrageDuJour, estValide, leconBloquee, ECHECS_TEST_MAX } from '../core/parcours.js';
 import { ENTRAINEMENTS_ERREUR } from '../core/diagnostic.js';
 import { GRADES_KYU as GRADES, minutesZenkoren, optionsChoisies } from '../core/epreuves.js';
 import { diagnosticTablesFait, produitsARetravailler } from '../core/tables.js';
@@ -37,7 +37,7 @@ import { gradeOperation } from '../core/formatKyu.js';
 import { chargeGrade } from '../core/allure.js';
 import { testEnSeries, CALCULS_SERIE } from '../core/minitest.js';
 import { etatMarches, NB_MARCHES, MINUTES_FEUILLE_MARCHE } from '../core/marches.js';
-import { sousPalier } from '../core/curriculum.js';
+import { sousPalier, SOUS_PALIERS } from '../core/curriculum.js';
 import { propositions, minutesPlanche, secondesParChiffre } from '../core/propositions.js';
 import { tempsClassement } from '../core/drills.js';
 import { prochainGradeFlash, meilleurGradeFlash, libelleGradeFlash, QUESTIONS_GRADE_FLASH, JUSTES_GRADE_FLASH } from '../core/flashGrades.js';
@@ -203,6 +203,19 @@ export function plan(d, debut, seance0 = null) {
     : dec.aller[0] === 'anzan' ? s.module === 'anzan'
     : s.module === 'rythme' && s.mode === 'marathon' && (!dec.cibles || (s.reglages?.cibles ?? []).includes(dec.cibles[0]))));
   const decision = seance?.decision && seance.decision.type === 'lecon' && decisionFaite(seance.decision) ? seance.decision : decisionDuJour(d, date, sp);
+  // 0.42.1 : leçon commencée qu'on n'arrive pas à passer (parcours.leconBloquee) : elle ne bloque plus
+  // l'autre piste, et revient chaque jour 5 minutes, jusqu'au mini-test réussi.
+  const bloquee = SOUS_PALIERS.find((x) => !x.mental && x.id !== decision.sp?.id && leconBloquee(d, x));
+  if (bloquee) {
+    const e = d.paliers[bloquee.id];
+    const apres = essentiel.findIndex((it) => it.titre === 'Révision');
+    const at = apres >= 0 ? apres + 1 : essentiel.findIndex((it) => it.titre === 'À revoir') + 1;
+    essentiel.splice(Math.max(1, at), 0, { titre: `Rattrapage · ${bloquee.titre}`, minutes: 5, rattrapage: true,
+      fait: fait((s) => s.module === 'lecons' && s.reglages?.sousPalier === bloquee.id),
+      detail: `${(e.echecsTest ?? 0) >= ECHECS_TEST_MAX ? `${e.echecsTest} mini-tests ratés` : 'commencée depuis plus d\'une semaine'} : 5 minutes d'entraînement, et le mini-test dès que vous vous sentez prêt`,
+      pourquoi: 'Une leçon qui résiste ne doit pas arrêter tout le reste : l\'autre piste reprend, et celle-ci revient un peu chaque jour jusqu\'au mini-test réussi.',
+      aller: ['lecons', { sousPalier: bloquee.id, onglet: 'entrainement' }] });
+  }
   // 0.40.18 : rattrapage. Une leçon validée restée sous l'argent (moins de 90 % de justes sur son
   // propre historique) revient un jour sur deux, 5 minutes à son format, juste après la révision,
   // jusqu'à l'argent. La leçon du jour (porte d'argent) n'y est pas reprise une seconde fois.
@@ -876,11 +889,16 @@ export default {
       // --- une ligne de statut compacte : série, minutes du jour (objectif réglable), grade
       // 0.41 : où j'en suis, en une phrase : le grade préparé, ce qui reste, la séance du jour.
       const jalon = prochainJalon(d, aujourdhui());
+      // 0.42.1 : « l'examen vous attend » seulement quand le plan du jour le propose ; sinon, un lien
+      // pour le passer quand on veut (avant : la phrase l'annonçait sans que le plan le propose).
+      const examAuPlan = [...p.essentiel, ...p.bonus, p.seanceLongue].some((it) => it?.examen);
+      const allerExamen = jalon && !jalon.restantes && !examAuPlan
+        ? h('button', { class: 'lien', onclick: () => (jalon.officiel ? app.aller('epreuves', { grade: jalon.id }) : app.aller('examen', {})) }, `Passer le ${jalon.nom} →`) : null;
       const phrase = jalon
-        ? `Vous préparez le ${jalon.nom}${jalon.restantes ? ` · encore ${jalon.restantes} leçon${jalon.restantes > 1 ? 's' : ''}` : ' · les leçons sont faites : l\'examen vous attend'}${jalon.jours ? ` (environ ${jalon.jours} jours à ce rythme)` : ''} · aujourd'hui : ${p.minutes} min.`
+        ? `Vous préparez le ${jalon.nom}${jalon.restantes ? ` · encore ${jalon.restantes} leçon${jalon.restantes > 1 ? 's' : ''}` : examAuPlan ? ' · les leçons sont faites : l\'examen vous attend dans le plan du jour' : ' · les leçons sont faites : l\'examen se passe quand vous voulez'}${jalon.jours ? ` (environ ${jalon.jours} jours à ce rythme)` : ''} · aujourd'hui : ${p.minutes} min. `
         : `Aujourd'hui : ${p.minutes} min.`;
       el.append(h('h1', {}, 'Séance du jour'),
-        h('p', { class: 'ou-jen-suis' }, phrase),
+        h('p', { class: 'ou-jen-suis' }, phrase, allerExamen),
         h('div', { class: 'statut-jour' },
           // La série de jours, écrite sur un petit soroban.
           // 0.38.3 : la régularité se compte en SEMAINES tenues (5 jours sur 7) ; la série de jours

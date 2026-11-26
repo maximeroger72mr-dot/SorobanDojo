@@ -43,7 +43,7 @@ export function frisePiste(d, { prochain, anzan, apres = [], jalon = null }) {
     h('p', { class: 'frise-suite' },
       prochain ? [h('strong', {}, 'Maintenant : '), prochain.titre] : 'Parcours soroban terminé.',
       apres.length ? [h('span', { class: 'discret' }, ' · ensuite : '), apres.map((x) => x.titre).join(', ')] : null,
-      anzan ? [h('br'), h('strong', {}, 'Anzan : '), anzan.titre] : null,
+      anzan ? [h('br'), h('strong', {}, 'Anzan : '), anzan.titre.replace(/^Anzan : /, '')] : null, // 0.42.1 : plus de « Anzan : Anzan : »
       jalon ? [h('br'), h('strong', {}, 'Prochain grade : '), jalon.nom,
         jalon.restantes ? ` · encore ${jalon.restantes} leçon${jalon.restantes > 1 ? 's' : ''}${jalon.jours ? `, soit environ ${jalon.jours} jour${jalon.jours > 1 ? 's' : ''} à votre rythme` : ''}` : ' · ses leçons sont validées : l\'examen blanc est ouvert'] : null));
 }

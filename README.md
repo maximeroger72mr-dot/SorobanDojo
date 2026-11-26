@@ -12,7 +12,7 @@ Page **Releases** du dépôt, « Dernière version » (reconstruite automatiquem
 | `Soroban-…-Windows.exe` | Windows | double-clic, aucune installation. Au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » : *Informations complémentaires* → *Exécuter quand même* (l'application n'est pas signée). |
 | `Soroban-…-Mac.dmg` | Mac | ouvrir, glisser Soroban dans Applications. Premier lancement : clic droit → *Ouvrir* (ou Réglages système → Confidentialité et sécurité → *Ouvrir quand même*). |
 
-`Soroban.html` est aussi présent à la racine du dépôt.
+`Soroban.html` n'est plus dans le dépôt : il est publié dans la release « derniere-version » (ou se reconstruit avec `npm run html`).
 
 ## Développer
 

@@ -29,6 +29,9 @@ import { h, formaterDuree, formaterPourcent, remplir } from '../ui/dom.js';
 // 0.40.16 : 2 s (avant 1 s) : à 1 chiffre, ±1 petit ami « seul » demande 0,5 à 0,8 s sur un ordinateur rapide.
 // 0.41 : 5 s (avant 2) : sur une machine lente, la même graine donnait plus souvent une planche de repli.
 const DELAI_PLANCHE_MS = 5000;
+// 0.42.1 : la première tentative ne prend que 60 % du budget : les replis gardent de quoi aboutir
+// (« additions seules + cascades, 8 chiffres, 20 lignes » n'aboutissait plus).
+const PREMIERE_PART = 0.6;
 
 const reglages = { pyramideDepart: 1, pyramide: 'non', partMoins: 0.4, genre: 'gestes', chiffres: 2, lignes: 5, cible: 'appris', colonnes: 10, duree: 0, mode: 'seul', selection: new Set() };
 const DIRECT = famille('direct');
@@ -374,7 +377,7 @@ export default {
         }
         // Un geste : colonnes construites par rôles (le geste 2 fois, un piège, des directs…).
         if (!planche && r.genre !== 'additions' && gesteTravaillable(r.cible)) {
-          planche = avecDelai(reste(), () => genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine));
+          planche = avecDelai(Math.min(reste(), PREMIERE_PART * DELAI_PLANCHE_MS), () => genererPlancheGeste({ cible: r.cible, mode, chiffres: r.chiffres, lignes: r.lignes, colonnes: r.colonnes, appris: motifsAppris() }, graine));
           if (planche) {
             planche.parRoles = true;
             c = { cibles: [r.cible], libelle: libellesModes(r.cible)[mode] };
@@ -394,15 +397,17 @@ export default {
             [config, null],
             [{ ...config, chiffres: Math.max(2, r.chiffres) }, `Ces colonnes demandent au moins 2 chiffres : planche à ${Math.max(2, r.chiffres)} chiffres.`],
             // (additions seules : le repli reste sans soustraction, avec moins de lignes s'il le faut)
-            c.ops ? [{ ...config, lignes: Math.min(3, r.lignes), chiffres: Math.max(2, r.chiffres) }, 'Avec les gestes appris, des additions seules ne tiennent pas sur autant de lignes (il faudrait des retenues, donc les grands amis) : planche à 3 lignes.'] : [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
+            c.ops ? [{ ...config, lignes: Math.min(3, r.lignes), chiffres: Math.max(2, r.chiffres) }, (estValide(progression(), 'p3-4') ? 'Des additions seules aussi longues, avec ces gestes, ne se forment pas assez vite : planche à 3 lignes.' : 'Avec les gestes appris, des additions seules ne tiennent pas sur autant de lignes (il faudrait des retenues, donc les grands amis) : planche à 3 lignes.')] : [{ ...config, ...(({ autorises, cibles }) => ({ autorises, cibles }))(contraintes('appris')) }, 'Impossible de former des colonnes avec ce geste et ces réglages : planche sur tous vos gestes appris.'],
           ];
           // 0.40.17 : cascades à 1 chiffre : le total plafonne sous 100, une retenue en cascade n'y passe
           // presque jamais (1 à 2 s de recherche) : directement à 2 chiffres.
           const cascades = c.cibles.length && c.cibles.every((x) => x.startsWith('cascade'));
           for (const [k, [p, message]] of replis.entries()) {
             if (cascades && p.chiffres < 2 && p.cibles.every((x) => x.startsWith('cascade'))) continue;
+            // 0.42.1 : un repli identique à la tentative d'avant (déjà 2 chiffres ou plus) ne refait pas la même recherche.
+            if (k > 0 && p.chiffres === replis[k - 1][0].chiffres && p.lignes === replis[k - 1][0].lignes && p.cibles === replis[k - 1][0].cibles) continue;
             try {
-              planche = avecDelai(reste(k === replis.length - 1 ? 1000 : 200), () => genererPlanche(p, graine));
+              planche = avecDelai(k === 0 ? Math.min(reste(), PREMIERE_PART * DELAI_PLANCHE_MS) : reste(k === replis.length - 1 ? 1000 : 200), () => genererPlanche(p, graine));
               if (message) zone.append(h('p', { class: 'retour' }, message));
               // Le titre et le résumé annoncent la planche réellement créée, pas la demande.
               Object.assign(r, { chiffres: p.chiffres, lignes: p.lignes });

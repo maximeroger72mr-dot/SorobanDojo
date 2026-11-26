@@ -372,18 +372,41 @@ const joursPratiqueDepuis = (d, date) => (date ? new Set((d.sessions ?? []).map(
 /**
  * 0.42 : quelle piste du soroban aujourd'hui, entre la prochaine leçon de colonnes `c` et celle de
  * × ÷ `m` (ouvertes) ? Une leçon commencée se termine d'abord. Sinon on regarde les leçons qui
- * manquent au prochain grade : s'il ne manque que des × ÷, on fait × ÷ ; que des colonnes, les
+ * manquent au grade à préparer : s'il ne manque que des × ÷, on fait × ÷ ; que des colonnes, les
  * colonnes ; on n'alterne (un jour sur deux) que quand les deux pistes ont des manques. La leçon des
  * tables, une préparation, alterne toujours. Avant : un jour sur deux en toutes circonstances, et les
  * colonnes partaient devant pendant que la division traînait (un grade exige les trois matières).
  */
+/**
+ * 0.42.1 : une leçon commencée qu'on n'arrive pas à passer (3 mini-tests ratés, ou 7 jours de pratique
+ * depuis qu'on l'a commencée) ne garde plus la priorité : sinon elle bloquait l'autre piste pour des
+ * mois (simulation : p9-2 ratée 115 fois en 4 mois, la division à l'arrêt, 7e kyū au lieu du 1er).
+ * Elle passe en rattrapage, 5 minutes par jour, jusqu'au mini-test réussi (voir la séance).
+ */
+export const ECHECS_TEST_MAX = 3;
+export const JOURS_LECON_MAX = 7;
+export function leconBloquee(d, sp) {
+  const e = d.paliers?.[sp.id];
+  if (!e || e.valide || !(e.reps > 0)) return false;
+  if ((e.echecsTest ?? 0) >= ECHECS_TEST_MAX) return true;
+  const surLecon = (d.sessions ?? []).filter((x) => x.module === 'lecons' && x.reglages?.sousPalier === sp.id).map((x) => x.date).sort();
+  if (!surLecon.length) return false;
+  return new Set((d.sessions ?? []).map((x) => x.date).filter((x) => x >= surLecon[0])).size >= JOURS_LECON_MAX;
+}
+
+/** 0.42.1 : le grade que l'élève prépare : le premier dont les leçons ne sont pas toutes validées. */
+export const gradeAPreparer = (d) => systemeChoisi(d).grades.find((g) => !gradeAccessible(d, g)) ?? null;
+
 export function choisirPiste(d, c, m, jourNum) {
   if (!c || !m) return c ?? m;
-  const enCours = [c, m].find((x) => (d.paliers?.[x.id]?.reps ?? 0) > 0);
+  const enCours = [c, m].find((x) => (d.paliers?.[x.id]?.reps ?? 0) > 0 && !leconBloquee(d, x));
   if (enCours) return enCours;
   const alterne = jourNum % 2 ? m : c;
   if (m.id === 'p6-a') return alterne;
-  const manquantes = grade(d).manquantes.filter(Boolean);
+  // 0.42.1 : le grade à PRÉPARER (leçons pas toutes validées), et non le prochain grade réussi à
+  // l'examen : sans examen passé dans l'application, on restait « au 10e kyū » et on alternait.
+  const g = gradeAPreparer(d);
+  const manquantes = g ? prerequis(g).filter((id) => !estValide(d, id)).map((id) => SOUS_PALIERS.find((x) => x.id === id)).filter(Boolean) : [];
   const manqueC = manquantes.some((x) => pisteDe(x) === 'colonnes');
   const manqueM = manquantes.some((x) => pisteDe(x) === 'muldiv');
   if (manqueM && !manqueC) return m;

@@ -12,7 +12,7 @@
 
 import { phasesLecon, etatInitial, phaseCourante, apresColonne, autorisesPhase, gestesVises, objectifGestes, referenceMin, enduranceAvant, enduranceExigee } from '../core/phases.js';
 import { NIVEAUX } from '../core/maitrise.js';
-import { noterPhaseLecon, noterPrecision } from '../core/progression.js';
+import { noterPhaseLecon, noterPrecision, noterEchecTest } from '../core/progression.js';
 import { estValide, porteMulDiv, choisirPiste } from '../core/parcours.js';
 
 /** Objectif en gestes visés d'une leçon à phases (0.40). */
@@ -218,7 +218,7 @@ export default {
             h('button', { class: 'lien', onclick: () => { piste = null; changer(carte); } }, 'Voir tout le parcours →')));
       } else el.append(
         h('h1', {}, 'Leçons guidées'),
-        h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, à une vitesse au moins « acquis débutant »).`),
+        h('p', { class: 'discret' }, `Les calculs se font sur votre soroban ; l'application corrige et explique. Chaque étape : comprendre, s'entraîner (le compteur indique le volume d'ancrage), puis un mini-test de ${TEST.exercices} calculs (${TEST.reussitesMin} réussites exigées, 10 à 12 sur les colonnes très longues, et la vitesse de la leçon : l'argent, l'allure du grade qu'elle prépare après le 6e kyū).`),
         h('p', { class: 'discret' }, 'Niveaux : bronze → argent (l\'allure du 6e kyū) → or (4e kyū) → platine (2e kyū). Après le 6e kyū, l\'argent d\'une leçon demande l\'allure du grade qu\'elle prépare (la vitesse de son mini-test), et l\'or 20 % de mieux. Un geste est acquis quand il est juste ET rapide ; le niveau se calcule sur vos 30 derniers exercices.'),
       );
       const diag = encadreDiagnostic(null, 3);
@@ -922,6 +922,7 @@ export default {
               const verdict = verdictMiniTest(sp, bilan);
               const reussi = verdict.reussi;
               if (reussi) await validerPalier(sp.id, !sp.sansRevision);
+              else await noterEchecTest(sp.id);
               const c = etatPalier(sp.id).carte;
               zone.append(h('div', { class: 'carte bilan' },
                 h('div', { class: 'grand' }, `${bilan.justes} / ${bilan.total}`),

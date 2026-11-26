@@ -201,8 +201,8 @@ export function prochainJalon(d, date) {
   const sys = systemeChoisi(d);
   const court = (id) => (id === '1' ? '1er' : `${id}e`);
   const chaine = [
-    ...PREKYU.map((g, i) => ({ nom: g.nom, court: court(g.id), lecons: PREKYU.slice(0, i + 1).flatMap((x) => x.lecons), obtenu: prekyuObtenu(d, g) })),
-    ...sys.grades.map((g) => ({ nom: g.nom, court: court(g.id), lecons: PREREQUIS[g.id] ?? [], obtenu: kyuPasse(d, sys, g) })),
+    ...PREKYU.map((g, i) => ({ id: g.id, nom: g.nom, court: court(g.id), lecons: PREKYU.slice(0, i + 1).flatMap((x) => x.lecons), obtenu: prekyuObtenu(d, g) })),
+    ...sys.grades.map((g) => ({ id: g.id, officiel: true, nom: g.nom, court: court(g.id), lecons: PREREQUIS[g.id] ?? [], obtenu: kyuPasse(d, sys, g) })),
   ];
   const palierDe = (x) => x.lecons.map((id) => SOUS_PALIERS.find((sp) => sp.id === id)).filter(Boolean).sort((a, b) => a.ordre - b.ordre).at(-1)?.palier.id ?? null;
   const manque = (x) => x.lecons.filter((id) => !estValide(d, id)).length;
@@ -218,7 +218,7 @@ export function prochainJalon(d, date) {
   const recentes = SOUS_PALIERS.filter((sp) => !sp.mental && (d.paliers[sp.id]?.valide ?? '') > depuis).length;
   const estime = restantes && recentes >= 2 ? Math.ceil(restantes / (recentes / 28)) : null;
   const dernier = chaine.findLast((y) => y.obtenu) ?? null;
-  return { nom: x.nom, court: x.court, palier: palierDe(x), restantes, jours: estime !== null && estime <= 60 ? estime : null, dernier: dernier ? { court: dernier.court, palier: palierDe(dernier) } : null };
+  return { id: x.id, officiel: !!x.officiel, nom: x.nom, court: x.court, palier: palierDe(x), restantes, jours: estime !== null && estime <= 60 ? estime : null, dernier: dernier ? { court: dernier.court, palier: palierDe(dernier) } : null };
 }
 
 /** Temps fixe : 2,5 s par chiffre + 3 s de lecture et d'écriture par colonne, arrondi à la minute. */
