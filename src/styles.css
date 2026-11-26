@@ -193,7 +193,12 @@ button.lien { background: none; border: none; color: var(--accent); font: inheri
 .ligne-palier .icone { width: 16px; text-align: center; color: var(--accent); }
 .ligne-palier.valide .icone { color: var(--ok); }
 .ligne-palier .titre { flex: 1; }
-.ligne-palier .statut { color: var(--discret); font-size: 0.9rem; }
+.ligne-palier .statut { color: var(--discret); font-size: 0.9rem; flex: 0 1 45%; text-align: right; }
+.ligne-palier .titre { min-width: 40%; }
+.conditions-porte { margin: 6px 0; font-size: 0.92rem; }
+.conditions-porte ul { margin: 6px 0 0; padding-left: 4px; list-style: none; }
+.conditions-porte li { margin: 2px 0; }
+.conditions-porte li.fait { color: var(--discret); }
 .pourquoi { line-height: 1.55; border-left: 3px solid var(--accent); }
 
 .enonce { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 4px 0 8px; min-height: 1.3em; }

@@ -47,13 +47,13 @@ export function planMois(d, date) {
   const muldiv = SOUS_PALIERS.filter((sp) => pisteDe(sp) === 'muldiv' && !valide(sp.id));
   // Alternance des deux pistes (la piste × ÷ seulement quand ses portes sont passées, ce qu'on ne peut
   // pas prévoir ici : on la montre à partir de la leçon des tables, une fois les grands amis faits).
-  let muldivPossible = valide('p4-5');
+  let muldivPossible = valide('p3-0');
   let mulOk = valide('p5-4');
   const file = [];
   let ic = 0;
   let im = 0;
   while (file.length < rythme * 4 && (ic < colonnes.length || (muldivPossible && im < muldiv.length))) {
-    if (ic < colonnes.length) { const x = colonnes[ic++]; file.push(x); if (x.id === 'p4-5') muldivPossible = true; if (x.id === 'p5-4') mulOk = true; }
+    if (ic < colonnes.length) { const x = colonnes[ic++]; file.push(x); if (x.id === 'p3-0') muldivPossible = true; if (x.id === 'p5-4') mulOk = true; }
     // (les tables dès les grands amis ; la multiplication sur le soroban après les cascades, voir porteMulDiv)
     if (muldivPossible && im < muldiv.length && file.length < rythme * 4 && (mulOk || muldiv[im].id === 'p6-a')) file.push(muldiv[im++]);
     else if (ic >= colonnes.length && muldivPossible && im < muldiv.length) file.push(muldiv[im++]);

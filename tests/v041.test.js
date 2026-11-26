@@ -31,9 +31,12 @@ test('0.41 : piste × ÷ : les tables d\'abord, puis la multiplication quand les
   const paliers = {};
   for (const s of SOUS_PALIERS.filter((x) => !x.mental && x.ordre <= sp('p4-5').ordre)) paliers[s.id] = { valide: '2026-11-01', hist: hist(30, 0, 1.2) };
   const d = { paliers, motifs: {}, tables: {}, records: {}, sessions: [] };
-  assert.ok(porteMulDiv(d, sp('p6-a')).ok, 'les tables s\'ouvrent dès les grands amis en soustraction');
+  assert.ok(porteMulDiv(d, sp('p6-a')).ok, 'les tables s\'ouvrent dès les grands amis');
+  assert.ok(!porteMulDiv({ paliers: {} }, sp('p6-a')).ok, 'mais pas avant les paires qui font 10');
+  assert.ok(porteMulDiv({ paliers: { 'p3-0': { valide: '2026-11-16' } } }, sp('p6-a')).ok, 'dès les paires qui font 10');
   const p = porteMulDiv(d, sp('p6-1a'));
-  assert.ok(!p.ok && p.raisons.some((r) => /addition/.test(r)) && p.raisons.some((r) => /diagnostic/.test(r)));
+  assert.ok(!p.ok && p.raisons.some((r) => /combinés/.test(r)) && p.raisons.some((r) => /diagnostic/.test(r)));
+  assert.ok(p.court.length <= 4 && p.court.join(', ').length < 120, p.court.join(', '));
   for (const id of ['p5-1', 'p5-2', 'p5-3', 'p5-4', 'p6-a']) paliers[id] = { valide: '2026-11-10', hist: hist(30, 0, 1.2) };
   for (let a = 1; a <= 9; a++) for (let b = a; b <= 9; b++) d.tables[cleProduit(a, b)] = { hist: [{ ok: 1, t: 1.2 }] };
   d.tables[cleProduit(7, 8)] = { hist: [{ ok: 0, t: 3 }] };

@@ -10,7 +10,7 @@
  */
 
 import { phasesLecon, objectifGestes } from '../core/phases.js';
-import { genererExercice } from '../core/curriculum.js';
+import { genererExercice, pisteDe } from '../core/curriculum.js';
 import { plateauOperation, formatExamen, reculs, dureeEchauffement } from '../core/parcours.js';
 import { vitesseEleve } from '../core/allure.js';
 import { leconsFluidite, forceVitesse } from '../core/fluidite.js';
@@ -338,7 +338,8 @@ export function plan(d, debut, seance0 = null) {
   // (et pendant « Combinaisons »), une séance sur deux, pour qu'elles soient automatiques en
   // ouvrant la multiplication : toute l'attention ira alors au placement et au geste.
   const multAtteinte = coursMultiplicationAtteint(d, sp);
-  const avantMult = (!multAtteinte && !!sp && ['p4', 'p5'].includes(sp.palier.id)) || (!!d.paliers['p6-a']?.valide && !d.paliers['p6-0']?.valide);
+  // 0.41.1 : les tables se préparent dès les grands amis (p3), pas seulement à partir de la soustraction.
+  const avantMult = (!multAtteinte && !!sp && (['p4', 'p5'].includes(sp.palier.id) || (sp.palier.id === 'p3' && estValide(d, 'p3-0')) || pisteDe(sp) === 'muldiv')) || (!!d.paliers['p6-a']?.valide && !d.paliers['p6-0']?.valide);
   const tablesFaites = fait((s) => s.module === 'drills' && String(s.mode).startsWith('tables'));
   const quotientFait = fait((s) => s.module === 'drills' && s.mode === 'quotient');
   const aRetravailler = produitsARetravailler(d.tables ?? {}).length;

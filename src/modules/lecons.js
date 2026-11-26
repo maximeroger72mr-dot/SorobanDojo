@@ -93,10 +93,29 @@ export const BASE_ANZAN = {
   'pa-5': 'p2-a', 'p5-a': 'pa-6', 'pa-m1': 'pa-0', 'pa-m2': 'pa-m1', 'pa-d1': 'pa-m1', 'pa-7': 'p5-a', 'pa-8': 'pa-7', 'pa-m3': 'pa-m2', 'pa-d2': 'pa-d1',
 };
 
+/** Leçons où s'ouvre une partie de la piste × ÷ (leur porte est détaillée dans la liste). */
+const PORTES_MULDIV = ['p6-a', 'p6-0', 'p7-0'];
+
+/** 0.41.1 : les conditions d'une porte × ÷, cochées, en une petite liste (une fois dans la liste des leçons). */
+function carteConditions(sp) {
+  const pm = porteMulDiv(progression(), sp);
+  if (pm.ok || etatPalier(sp.id).valide) return null;
+  const titre = sp.id === 'p6-a' ? 'Pour ouvrir les tables' : sp.id === 'p6-0' ? 'Pour ouvrir la multiplication sur le soroban' : 'Pour ouvrir la division';
+  return h('div', { class: 'carte conditions-porte' }, h('strong', {}, titre),
+    h('ul', {}, pm.conditions.map((c) => h('li', { class: c.ok ? 'fait' : '' }, h('span', { 'aria-hidden': 'true' }, c.ok ? '✓ ' : '○ '), h('span', { class: 'lecteur' }, c.ok ? 'fait : ' : 'à faire : '), c.texte))));
+}
+
 /** Pourquoi une leçon est fermée, en clair. */
 export function raisonVerrou(sp) {
   if (sp.mental && sp.apres && !etatPalier(sp.apres).valide) return `après « ${sousPalier(sp.apres).titre} » au soroban`;
-  if (pisteDe(sp) === 'muldiv') { const pm = porteMulDiv(progression(), sp); if (!pm.ok) return `attend ${pm.raisons.join(' ; ')}`; }
+  // 0.41.1 : piste × ÷ : la leçon d'avant si elle manque ; aux portes (tables, premier produit,
+  // premier quotient), un résumé court. Le détail des conditions est listé une fois (carteConditions).
+  if (pisteDe(sp) === 'muldiv') {
+    const pm = porteMulDiv(progression(), sp);
+    const p = sp.id === 'p6-a' ? null : precedente(sp);
+    if (p && !etatPalier(p.id).valide && sp.id !== 'p6-0') return `après « ${p.titre} »`;
+    if (!pm.ok) return `attend : ${pm.court.join(', ')}`;
+  }
   const b = sp.mental ? BASE_ANZAN[sp.id] : precedente(sp)?.id;
   return b ? `après « ${sousPalier(b).titre} »` : 'Verrouillé';
 }
@@ -239,11 +258,12 @@ export default {
           }, h('span', { class: `icone etat-${e.valide ? 'fait' : ouvert ? 'ouvert' : 'ferme'}` }, icone), h('span', { class: 'titre' }, sp.titre),
           e.reps ? badgeNiveau(evaluerPalier(sp.id, famille(sp))) : null,
           h('span', { class: 'statut' }, statut));
+          const conditions = PORTES_MULDIV.includes(sp.id) && !ouvert && (sp.id !== 'p7-0' || estDebloque(sousPalier('p6-0'))) ? carteConditions(sp) : null;
           const jalon = JALONS()[sp.id];
-          if (!jalon) return [ligne];
+          if (!jalon) return conditions ? [conditions, ligne] : [ligne];
           const pret = jalon.every((g) => PREREQUIS[g.id].every((id) => etatPalier(id).valide));
           const noms = jalon.map((g) => g.nom).join(' et ');
-          return [ligne, h('button', { class: `jalon-kyu${pret ? ' atteint' : ''}`, onclick: () => app.aller('epreuves') },
+          return [conditions, ligne, h('button', { class: `jalon-kyu${pret ? ' atteint' : ''}`, onclick: () => app.aller('epreuves') },
             `🎯 ${noms} (${systemeChoisi(progression()).nom}) ${pret ? `à votre portée : toutes ${jalon.length > 1 ? 'leurs' : 'ses'} leçons sont validées. Tentez l'épreuve →` : 'à votre portée après cette leçon'}`)];
         })));
       }

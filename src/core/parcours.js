@@ -347,8 +347,8 @@ export function anzanAdapte(d, minutes = 2) {
 /** L'élève est-il arrivé au cours de multiplication (ou au-delà) ? */
 /**
  * 0.41 : porte de la piste × ÷.
- *  - La leçon des tables (p6-a) s'ouvre dès les grands amis en soustraction validés (p4-5) : les
- *    tables se travaillent AVANT la première multiplication sur le soroban.
+ *  - La leçon des tables (p6-a) s'ouvre dès la leçon des paires qui font 10 (p3-0, début des grands
+ *    amis) : les tables se travaillent pendant les grands amis, AVANT la multiplication sur le soroban.
  *  - La multiplication sur le soroban (p6-0 et suite) attend : tous les gestes d'ADDITION qu'elle
  *    emploie (grands amis, combinaisons, cascades) validés et au moins en argent, la leçon des tables
  *    validée, le diagnostic des 81 produits fait, et 2 produits au plus encore faux ou lents.
@@ -365,30 +365,46 @@ const niveauLeconCourt = (d, sp) => {
   return Math.max(ev.essais >= 8 ? ev.index : 2, ge);
 };
 export function porteMulDiv(d, sp) {
-  if (!sp || pisteDe(sp) !== 'muldiv') return { ok: true, raisons: [] };
-  const raisons = [];
+  if (!sp || pisteDe(sp) !== 'muldiv') return { ok: true, raisons: [], conditions: [] };
+  // 0.41.1 : chaque condition en clair, cochée ou non (liste affichée une fois, au-dessus de la
+  // première leçon fermée), et un résumé court pour la ligne de la leçon.
+  const conditions = [];
+  const cond = (ok, texte, court) => conditions.push({ ok, texte, court });
   if (sp.id === 'p6-a') {
-    if (!estValide(d, 'p4-5')) raisons.push('les grands amis en soustraction validés (« Tous les grands amis »)');
-    return { ok: !raisons.length, raisons };
+    cond(estValide(d, 'p3-0'), 'la leçon « Les paires qui font 10 » validée', 'les paires qui font 10');
+  } else {
+    const lecons = (ids, quoi) => {
+      for (const x of ids.map((id) => SOUS_PALIERS.find((y) => y.id === id)).filter(Boolean)) {
+        const ok = estValide(d, x.id) && niveauLeconCourt(d, x) >= 2;
+        cond(ok, `« ${x.titre} » validée, au moins en argent`, quoi);
+      }
+    };
+    lecons(GESTES_MUL, 'gestes d\'addition');
+    cond(estValide(d, 'p6-a'), 'la leçon des tables « 1 × 1 » validée', 'leçon des tables');
+    const diag = diagnosticTablesFait(d.tables ?? {});
+    cond(diag, 'le diagnostic des 81 produits fait (Drills, Tables)', 'diagnostic des tables');
+    if (diag) {
+      const n = produitsARetravailler(d.tables ?? {}).length;
+      cond(n <= 2, `les tables : 2 produits faux ou lents au plus (encore ${n})`, `${n} produits des tables à revoir`);
+    }
+    if (sp.type === 'div' || (sp.ordre >= (SOUS_PALIERS.find((x) => x.id === 'p7-0')?.ordre ?? Infinity) && sp.id !== 'p5-6')) lecons(GESTES_DIV, 'gestes de soustraction');
   }
-  const lecons = (ids, quoi) => {
-    const manque = ids.map((id) => SOUS_PALIERS.find((x) => x.id === id)).filter((x) => x && (!estValide(d, x.id) || niveauLeconCourt(d, x) < 2));
-    if (manque.length) raisons.push(`${quoi} en argent au moins : ${manque.map((x) => `« ${x.titre} »`).join(', ')}`);
-  };
-  lecons(GESTES_MUL, 'les gestes d\'addition');
-  if (!estValide(d, 'p6-a')) raisons.push('la leçon des tables (« 1 × 1 »)');
-  if (!diagnosticTablesFait(d.tables ?? {})) raisons.push('le diagnostic des 81 produits (Tables)');
-  else {
-    const n = produitsARetravailler(d.tables ?? {}).length;
-    if (n > 2) raisons.push(`les tables : encore ${n} produits faux ou plus lents que 2,5 s à retravailler`);
+  const manque = conditions.filter((c) => !c.ok);
+  // Résumé : les gestes regroupés (« 3 gestes d'addition en argent »).
+  const court = [];
+  for (const c of manque) {
+    const k = manque.filter((x) => x.court === c.court).length;
+    const t = /^gestes/.test(c.court) ? `${k} leçon${k > 1 ? 's' : ''} de ${c.court} en argent` : c.court;
+    if (!court.includes(t)) court.push(t);
   }
-  if (sp.type === 'div' || (sp.ordre >= (SOUS_PALIERS.find((x) => x.id === 'p7-0')?.ordre ?? Infinity) && sp.id !== 'p5-6')) lecons(GESTES_DIV, 'les gestes de soustraction');
-  return { ok: !raisons.length, raisons };
+  return { ok: !manque.length, raisons: manque.map((c) => c.texte), court, conditions };
 }
 
 export function coursMultiplicationAtteint(d, prochain) {
-  const debut = SOUS_PALIERS.find((s) => s.id === 'p6-a').ordre;
-  return (prochain ? prochain.ordre >= debut : true) || !!d.paliers['p6-a'] || !!d.paliers['p6-0'];
+  // 0.41.1 : la leçon des tables s'ouvre dès les grands amis ; le « cours de multiplication » commence
+  // au placement du premier produit (p6-0).
+  const debut = SOUS_PALIERS.find((s) => s.id === 'p6-0').ordre;
+  return (prochain ? prochain.ordre >= debut : true) || !!d.paliers['p6-0'];
 }
 
 /**

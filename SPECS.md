@@ -1661,3 +1661,14 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   11 à 19 toujours à quotient de 2 chiffres ; pourcentages plus variés (bases non rondes, 12,5 %,
   TVA 10 et 5,5 %) ; × et ÷ des petites leçons moins répétés ; test de mémoire visuelle (empan de
   Corsi) qui règle le départ des chaînes d'anzan ; séances de plus de 180 jours fusionnées par jour.
+
+## Version 0.41.1 : piste × ÷ plus lisible, tables plus tôt
+
+- La leçon des tables (« 1 × 1 ») s'ouvre dès « Les paires qui font 10 » (début des grands amis), et non plus
+  après les grands amis en soustraction. La séance propose les tables chaque jour pendant les grands amis tant que
+  plus de 2 produits sont faux ou lents.
+- Le « cours de multiplication » (réflexe de placement) commence au placement du premier produit (p6-0), plus à
+  la leçon des tables.
+- Liste des leçons : les conditions d'ouverture de la multiplication (puis de la division) sont listées une fois,
+  cochées, au-dessus de la leçon qui ouvre la partie ; chaque ligne fermée ne montre qu'un résumé court
+  (« attend : 3 leçons de gestes d'addition en argent, … ») ou la leçon d'avant.
