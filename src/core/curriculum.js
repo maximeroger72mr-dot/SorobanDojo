@@ -399,7 +399,7 @@ export const PALIERS = [
         ],
         pourquoi: 'La méthode la plus rapide ne place pas la virgule à la fin : elle pose le premier produit directement au bon endroit. On compte les chiffres de chaque facteur AVEC SIGNE : 37,2 compte 2 (chiffres avant la virgule), 0,85 compte 0, 0,04 compte −1 (un zéro juste après la virgule). On additionne : la dizaine du premier produit va sur la tige de ce rang (2 → 2e tige avant la virgule ; 0 → 1re tige après la virgule ; −1 → 2e tige après). C\'est la règle « m + n » des entiers, prolongée.',
         demos: [] },
-      { id: 'pd-3', titre: 'Multiplier des décimaux', type: 'muldec', repetitions: 30,
+      { id: 'pd-3', titre: 'Multiplier des décimaux', type: 'muldec', repetitions: 30, decouverte: true,
         exemples: [
           ['6,4 × 1,25 en trois temps', [
             'Placer : comptes 1 et 1, somme 2. La dizaine du premier produit va sur la 2e tige à gauche de la virgule.',
@@ -409,7 +409,7 @@ export const PALIERS = [
         ],
         pourquoi: 'Compte des chiffres, puis 両落とし exactement comme avec des entiers. Le résultat se lit directement par rapport au point des unités. Vérification rapide : le nombre de décimales du résultat est la somme de celles des facteurs.',
         demos: [] },
-      { id: 'pd-4', titre: 'Diviser des décimaux', type: 'divdec', repetitions: 30,
+      { id: 'pd-4', titre: 'Diviser des décimaux', type: 'divdec', repetitions: 30, decouverte: true,
         exemples: [
           ['L\'idée, avant la règle', [
             'Diviser, c\'est l\'inverse : les tailles se SOUSTRAIENT. Un nombre « à 3 tiges » divisé par un nombre « à 1 tige » donne un quotient d\'environ 2 tiges.',

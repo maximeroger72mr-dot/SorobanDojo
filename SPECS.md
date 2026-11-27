@@ -1722,3 +1722,9 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
   de 8 chiffres sur 10 lignes : 5,6 s → 0,9 s ; emprunts en cascade à 5 chiffres : 23 s → 0,7 s.
 - Flash anzan : les 20 derniers flash ratés sont gardés (`flashRates`) et se rejouent à leur vitesse ; juste, un flash
   sort de la liste.
+
+## Version 0.43.1
+
+- Leçons de découverte : pd-3 (multiplier des décimaux) et pd-4 (diviser des décimaux) à l'allure du 4e kyū
+  (4,07 s par produit) ; pd-5, pd-6 et p8-2 gardent l'allure de leur grade.
+- Test des nombres ronds (0.40.17) stabilisé : 240 colonnes, seuil 13 %.

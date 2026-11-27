@@ -13,6 +13,9 @@ test('0.43 : leçons de découverte à l\'allure du grade précédent', () => {
   assert.equal(seuilVitesseLecon(sp('p8-n')).seuil, 1.56, 'négatifs : allure du 3e kyū (avant 1,00)');
   assert.equal(seuilVitesseLecon(sp('pd-1')).seuil, 2.04, 'décimaux : allure du 4e kyū (avant 1,56)');
   assert.equal(seuilVitesseLecon(sp('p8-n2')).seuil, 1, 'la leçon de format garde l\'allure de son grade');
+  assert.equal(seuilVitesseLecon(sp('pd-3')).seuil, 4.07, '0.43.1 : multiplier des décimaux, allure du 4e kyū');
+  assert.equal(seuilVitesseLecon(sp('pd-4')).seuil, 4.07, '0.43.1 : diviser des décimaux');
+  assert.equal(seuilVitesseLecon(sp('pd-5')).seuil, 3.12, 'les arrondis gardent l\'allure du 3e kyū');
 });
 
 test('0.43 : 2 mini-tests par jour, l\'écart après un échec pour lenteur, le lièvre à l\'allure visée', () => {
