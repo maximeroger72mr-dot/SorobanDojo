@@ -609,6 +609,16 @@ export function plan(d, debut, seance0 = null) {
   const complements = [...socle, ...(leconEnBonus && !leconEnBonus.fait ? [leconEnBonus] : []), ...reportes.filter((it) => !it.fait), ...propositions(d, date, difficiles, restant, gestesSeance([...garde, ...reportes], ciblesBloc)).filter((x) => !(feuilleHebdo && x.type === 'defi' && x.titre === 'Feuille de la semaine'))
     // 0.40.17 : pas de flash anzan en plus quand la séance a déjà son bloc d'anzan (il revenait chaque jour).
     .filter((x) => !(x.type === 'anzan' && garde.some((it) => it.blocSeance === 'anzan')))];
+  // 0.43 : une leçon n'apparaît qu'une fois dans la séance (la leçon bloquée revenait en leçon du jour
+  // ET en rattrapage) : on garde l'entrée principale, le rattrapage saute.
+  const leconDe = (it) => (it.aller?.[0] === 'lecons' ? it.aller[1]?.sousPalier : null);
+  const principales = new Set([...garde, ...complements].filter((it) => !it.rattrapage).map(leconDe).filter(Boolean));
+  if (decision.sp) principales.add(decision.sp.id);
+  for (const liste of [garde, complements]) {
+    for (let i = liste.length - 1; i >= 0; i--) if (liste[i].rattrapage && principales.has(leconDe(liste[i]))) liste.splice(i, 1);
+  }
+  const vus = new Set(garde.map(leconDe).filter(Boolean));
+  for (let i = complements.length - 1; i >= 0; i--) { const id = leconDe(complements[i]); if (id && vus.has(id)) complements.splice(i, 1); }
   return { essentiel: garde, bonus: complements, mot, minutes, decision, theme, gesteBloc: gesteDuJour(d, ciblesBloc, difficiles), blocIds: garde.filter((it) => it.id).map((it) => it.id),
     partie, seanceLongue: remplacee ? null : seanceLongue };
 }

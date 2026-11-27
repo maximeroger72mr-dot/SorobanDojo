@@ -6,7 +6,7 @@
 
 import { TEST, familleLecon, genererExercice, chiffresColonne, definirSeuilsLecon } from './curriculum.js';
 import { NIVEAUX, tempsParUnite, UNITES_TEMPS, unites, SURCOUT_S, reussiteExigee } from './maitrise.js';
-import { tempsLecon, PART_CADENCE_LECON } from './allure.js';
+import { tempsLecon, PART_CADENCE_LECON, allureGrade } from './allure.js';
 import { GRADES_KYU as GRADES } from './epreuves.js';
 import { PREREQUIS } from './parcours.js';
 
@@ -35,7 +35,20 @@ const cadences = new Map();
 export function seuilVitesseLecon(sp) {
   const famille = familleLecon(sp);
   const base = NIVEAUX[2].temps?.[famille];
-  if (!cadences.has(sp.id)) cadences.set(sp.id, ['addsub', 'muldiv'].includes(famille) && !sp.mental ? tempsLecon(sp, GRADES, (g) => PREREQUIS[g.id]) : null);
+  if (!cadences.has(sp.id)) {
+    let c = ['addsub', 'muldiv'].includes(famille) && !sp.mental ? tempsLecon(sp, GRADES, (g) => PREREQUIS[g.id]) : null;
+    // 0.43 : leçon de découverte (première rencontre d'une technique : négatifs p8-n, décimaux pd-1) :
+    // l'allure du grade PRÉCÉDENT ; les leçons de format qui suivent gardent celle de leur grade.
+    if (c && sp.decouverte) {
+      const i = GRADES.findIndex((g) => g.id === c.grade.id);
+      const avant = i > 0 ? GRADES[i - 1] : null;
+      if (avant) {
+        const a = allureGrade(avant);
+        c = { grade: avant, temps: (famille === 'muldiv' ? a.parProduit : a.parChiffre) / PART_CADENCE_LECON, decouverte: true };
+      }
+    }
+    cadences.set(sp.id, c);
+  }
   const cadence = cadences.get(sp.id);
   const parGrade = !!cadence && base != null && cadence.temps < base;
   if (!parGrade) return { seuil: base, parGrade, cadence, seuils: null };
@@ -45,6 +58,34 @@ export function seuilVitesseLecon(sp) {
   return { seuil, parGrade, cadence, seuils: { 2: seuil, 3: or, 4: platine } };
 }
 definirSeuilsLecon((sp) => seuilVitesseLecon(sp).seuils);
+
+/**
+ * 0.43 : au plus 2 mini-tests par jour sur une leçon pas encore validée (les ratés pour lenteur
+ * s'enchaînaient : 155 en 3 mois sur p9-2 en simulation). Un test en séries compte une fois.
+ */
+export const MINI_TESTS_PAR_JOUR = 2;
+export const testsDuJour = (d, id, date) => (d.sessions ?? []).filter((s) => s.date === date && s.module === 'lecons' && s.mode === 'test' && s.reglages?.sousPalier === id && (s.reglages?.serie ?? 1) === 1).length;
+
+/**
+ * 0.43 : après un mini-test raté pour LENTEUR : l'écart au seuil, la tendance des derniers essais
+ * (`paliers[id].essaisTest`), et le lièvre réglé sur le format de la leçon, qui part de la vitesse
+ * mesurée et accélère de 3 % par colonne juste jusqu'à l'allure visée (leçons de colonnes).
+ */
+export function apresLenteur(sp, e, verdict) {
+  if (!verdict || verdict.vitesseOk || verdict.temps == null || !verdict.seuil) return null;
+  const nf = (x) => x.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const derniers = (e?.essaisTest ?? []).filter((x) => x.temps != null).slice(-3).map((x) => x.temps);
+  const ecart = `Il vous manque ${nf(verdict.temps - verdict.seuil)} s par ${verdict.unite} (${nf(verdict.temps)} s, il faut ${nf(verdict.seuil)} s).`;
+  const tendance = derniers.length >= 2 ? ` Vos derniers mini-tests : ${derniers.map(nf).join(' → ')} s.` : '';
+  const lignes = sp.lignesMax ?? sp.lignes;
+  const chiffres = sp.chiffresMax ?? sp.chiffres;
+  const lievre = sp.type === 'addsub' && lignes && chiffres ? {
+    nom: `mini-test de « ${sp.titre} »`, lecon: sp.titre, lignes, chiffres, colonnes: 6,
+    cadence: Math.round(verdict.temps * (chiffresColonne(sp) / ((sp.lignes + lignes) / 2)) * 100) / 100,
+    vise: Math.round(verdict.seuil * (chiffresColonne(sp) / ((sp.lignes + lignes) / 2)) * 100) / 100,
+  } : null;
+  return { ecart: ecart + tendance, lievre };
+}
 
 /**
  * 0.42 : mode précision, pour l'élève qui va VRAIMENT vite (60 % du seuil de la leçon ou mieux) sans
@@ -99,7 +140,7 @@ export function verdictMiniTest(sp, bilan) {
   const nf = (x) => x.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
   let raison = '';
   if (!justesOk) raison = `Il faut ${testMin(sp)} réussites.`;
-  else if (!vitesseOk) raison = `Assez de justes, mais trop lent : ${nf(temps)} s par ${unite} en moyenne, il faut au plus ${nf(seuil)} s (${parGrade ? `${Math.round(PART_CADENCE_LECON * 100)} % de la cadence du ${cadence.grade.nom}` : 'niveau « acquis débutant »'}).`;
+  else if (!vitesseOk) raison = `Assez de justes, mais trop lent : ${nf(temps)} s par ${unite} en moyenne, il faut au plus ${nf(seuil)} s (${parGrade ? `${Math.round(PART_CADENCE_LECON * 100)} % de la cadence du ${cadence.grade.nom}${cadence.decouverte ? ', le grade d\'avant : leçon de découverte' : ''}` : 'niveau « acquis débutant »'}).`;
   return { reussi: justesOk && vitesseOk, justesOk, vitesseOk, temps, seuil, unite, raison };
 }
 

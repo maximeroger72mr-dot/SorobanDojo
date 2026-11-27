@@ -373,7 +373,8 @@ export const PALIERS = [
   {
     id: 'pd', titre: 'Décimaux et arrondis (3e kyū), négatifs (2e kyū)',
     sousPaliers: [
-      { id: 'pd-1', titre: 'Le point des unités : additions et soustractions de décimaux', type: 'addsubdec', repetitions: 30,
+      // 0.43 : `decouverte` : leçon qui introduit une technique, à l'allure du grade précédent (minitest.seuilVitesseLecon).
+      { id: 'pd-1', titre: 'Le point des unités : additions et soustractions de décimaux', type: 'addsubdec', repetitions: 30, decouverte: true,
         pourquoi: 'Les points de la barre servent de repère : on choisit l\'un d\'eux comme tige des unités, et TOUTES les virgules s\'alignent dessus. Les décimales se posent sur les tiges à sa droite (dixièmes, centièmes…). Pour 12,5 + 3,075 : 12 avant le point, 5 sur la 1re tige après ; puis 3 sur les unités, 0, 7, 5 sur les trois tiges suivantes. Rien d\'autre ne change : mêmes gestes, mêmes amis.',
         demos: [] },
       { id: 'pd-2', titre: 'Placer un produit décimal (compte des chiffres)', type: 'placement', op: 'muldec', repetitions: 30,
@@ -434,7 +435,7 @@ export const PALIERS = [
       { id: 'pd-6', titre: 'Arrondir à l\'unité (les montants)', type: 'arrondiunite', repetitions: 30,
         pourquoi: 'Dans la seconde moitié des multiplications et des divisions d\'examen, les nombres sont des montants : le résultat s\'arrondit à l\'UNITÉ. Même geste que pour le millième, un cran plus haut : on calcule UNE décimale (le dixième), on ajoute 5 sur sa tige, et on lit jusqu\'aux unités. En multiplication, les décimales du produit se posent normalement ; seul le premier chiffre après le point des unités décide de l\'arrondi. Lisez bien la consigne en tête de chaque série : l\'erreur la plus fréquente est d\'arrondir au mauvais rang.',
         demos: [] },
-      { id: 'p8-n', titre: 'Résultats négatifs : le complément', type: 'negatif', chiffres: 2, lignes: 4, repetitions: 20,
+      { id: 'p8-n', titre: 'Résultats négatifs : le complément', type: 'negatif', chiffres: 2, lignes: 4, repetitions: 20, decouverte: true,
         pourquoi: 'Aux 1er et 2e kyū, un problème de mitorizan (le 9e du sujet) finit sous zéro. Quand une soustraction « dépasse » (il faut retirer plus que ce qui est posé), on emprunte un 1 IMAGINAIRE sur la tige à gauche de la colonne (100 pour une colonne à 2 chiffres) et on continue normalement. À la fin, le soroban affiche le COMPLÉMENT du résultat : s\'il affiche 63 après un emprunt de 100, le résultat est −(100 − 63) = −37. Lecture rapide : complément à 9 de chaque chiffre, à 10 pour le dernier (63 → 3 et 7 → −37). Si le calcul repasse au-dessus de zéro, la retenue rend le 1 emprunté. Tapez le résultat avec le signe moins.',
         demos: [] },
       { id: 'p8-n2', titre: 'Résultats négatifs au format d\'examen (8 chiffres)', type: 'negatif', chiffres: 8, lignes: 6, repetitions: 20,

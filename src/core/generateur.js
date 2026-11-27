@@ -43,9 +43,16 @@ export function avecDelai(ms, fn) {
 }
 
 /** Clé du motif obtenu en appliquant `op d` sur une tige qui vaut c. */
+// 0.43 : 200 combinaisons possibles (sens, chiffre posé, chiffre ajouté) : calculées une fois.
+const clesGeste = new Map();
 export function cleDe(op, c, d) {
-  const regle = (op === '+' ? regleAjout : regleRetrait)(etatDepuisChiffre(c), d);
-  return `${op}${d}:${regle}`;
+  const k = (op === '+' ? 0 : 100) + c * 10 + d;
+  let cle = clesGeste.get(k);
+  if (cle === undefined) {
+    cle = `${op}${d}:${(op === '+' ? regleAjout : regleRetrait)(etatDepuisChiffre(c), d)}`;
+    clesGeste.set(k, cle);
+  }
+  return cle;
 }
 
 /** Tirage pondéré d'une clé. Poids absent = 1. */
@@ -217,8 +224,65 @@ export function scoreVariete(op, n, precedents, libre = true) {
  * Les contraintes ne sont JAMAIS relâchées : en cas d'impossibilité, ErreurGeneration.
  * @returns {{op, n, resultat, motifs}}
  */
+/**
+ * 0.43 : chiffres d'une ligne qui provoque une retenue (op '+') ou un emprunt (op '−') EN CASCADE
+ * sur la valeur posée. Les tiges sont lues de gauche à droite (`cDe(i)` : chiffre posé sous le i-e
+ * chiffre de la ligne ; i = −1 : la tige juste à gauche). On choisit une tige i :
+ *  - addition : la tige i reçoit d + c ≥ 10 (retenue), et la tige d'au-dessus vaut 9 une fois son propre
+ *    chiffre ajouté (chiffre 9 − c, ou déjà 9 à gauche de la ligne) : la retenue la traverse ;
+ *  - soustraction : la tige i doit emprunter (d > c), et la tige d'au-dessus vaut 0 une fois son propre
+ *    chiffre retiré : l'emprunt la traverse.
+ * Les autres chiffres sont libres (gestes permis) ; la ligne est ensuite vérifiée par le moteur comme
+ * toutes les autres. Rend les chiffres, ou false si aucune tige ne s'y prête depuis cette valeur.
+ */
+function chiffresCascade(op, cDe, chiffres, autorises, cache = {}) {
+  const permis = (i, d) => d === 0 || !autorises || autorises.has(cleDe(op, cDe(i), d));
+  const plus = op === '+';
+  if (cache[op] === undefined) cache[op] = placesCascade(op, cDe, chiffres, permis);
+  const places = cache[op];
+  if (!places.length) return false;
+  // Soustraction : la ligne ne doit pas dépasser la valeur posée (sinon l'emprunt ne trouve aucune
+  // tige pleine et le résultat passe sous zéro) : quelques tirages, puis on renonce.
+  for (let t = 0; t < 6; t++) {
+    const res = tirerCascade(hasard(places), plus, cDe, chiffres, permis);
+    if (res && (plus || Number(res.join('')) <= cache.valeur)) return res;
+  }
+  return false;
+}
+function tirerCascade(i, plus, cDe, chiffres, permis) {
+  const res = [];
+  for (let j = 0; j < chiffres; j++) {
+    if (j === i - 1) { res.push(plus ? 9 - cDe(j) : cDe(j)); continue; }
+    const c = cDe(j);
+    // (soustraction : les autres chiffres se retirent sans emprunt, d ≤ chiffre posé ; sinon la ligne
+    // tombait souvent sous zéro et était rejetée : 11 s pour 10 colonnes)
+    const choix = j === i ? ZERO_A_NEUF.filter((d) => (plus ? d >= 10 - c : d > c) && d > 0)
+      : (j === 0 ? ZERO_A_NEUF.slice(1) : ZERO_A_NEUF).filter((d) => (plus || d <= c) && permis(j, d));
+    if (!choix.length) return false;
+    res.push(hasard(choix));
+  }
+  return res;
+}
+function placesCascade(op, cDe, chiffres, permis) {
+  const plus = op === '+';
+  const places = [];
+  for (let i = 0; i < chiffres; i++) {
+    const c = cDe(i);
+    if (plus ? c === 0 : c === 9) continue;
+    if (i === 0) { if (cDe(-1) !== (plus ? 9 : 0)) continue; } else {
+      const dh = plus ? 9 - cDe(i - 1) : cDe(i - 1);
+      if ((i === 1 && dh === 0) || !permis(i - 1, dh)) continue;
+    }
+    places.push(i);
+  }
+  return places;
+}
+
 export function genererTerme(valeur, { chiffres, autorises = null, cibles = null, poids = {}, ops = ['+', '-'], nbTiges = tigesPour(chiffres) + 1, zeros = false, precedents = [], viser = true, plafond = null }) {
-  const cDe = (i) => Math.floor(valeur / 10 ** (chiffres - 1 - i)) % 10; // chiffre courant de la tige i de n
+  // (0.43 : chiffres calculés une fois, i = −1 compris : la tige à gauche de la ligne)
+  const chiffresValeur = Array.from({ length: chiffres + 1 }, (_, k) => Math.floor(valeur / 10 ** (chiffres - k)) % 10);
+  const cDe = (i) => chiffresValeur[i + 1]; // chiffre courant de la tige i de n
+  const cacheCascade = { valeur };
   let meilleur = null;
   let secours = null; // au-dessus du plafond : gardé seulement si rien d'autre n'est possible
   let identique = null; // chiffres identiques (0.40.11) : idem, avant le dépassement du plafond
@@ -249,9 +313,19 @@ export function genererTerme(valeur, { chiffres, autorises = null, cibles = null
       cible = null;
       op = hasard(ops);
     }
+    // 0.43 : retirer un nombre de `chiffres` chiffres d'une valeur plus courte passe toujours sous zéro
+    // (1 800 essais perdus à chaque fois, 23 s pour une planche d'emprunts en cascade) : on ajoute.
+    if (op === '-' && valeur < 10 ** (chiffres - 1) && ops.includes('+')) {
+      if (cible && analyserMotif(cible).op === '-') { preparer = cible; cible = null; }
+      op = '+';
+    }
     const pos = hasard(positions);
-    const chiffresN = [];
-    for (let i = 0; i < chiffres; i++) {
+    // 0.43 : retenue / emprunt en cascade : la ligne est CONSTRUITE (avant : tirée au hasard jusqu'à
+    // tomber sur une cascade, 5,6 s pour 10 colonnes d'additions de 8 chiffres sur 10 lignes).
+    const cascade = cible && dCible === null ? chiffresCascade(op, cDe, chiffres, autorises, cacheCascade) : null;
+    if (cascade === false) { preparer = cible; cible = null; }
+    const chiffresN = cascade || [];
+    for (let i = chiffresN.length; i < chiffres; i++) {
       if (cible && dCible !== null && i === pos) { chiffresN.push(dCible); continue; }
       const possibles = (i === 0 ? ZERO_A_NEUF.slice(1) : ZERO_A_NEUF)
         .filter((d) => d === 0 || !autorises || autorises.has(cleDe(op, cDe(i), d)));

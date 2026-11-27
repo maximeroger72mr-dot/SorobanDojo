@@ -587,10 +587,28 @@ export async function memoriserDureePhoto(id, s) {
   await sauver();
 }
 
+/**
+ * 0.43 : flash ratés à reprendre plus tard (les 20 derniers) : les nombres, la vitesse, la date. Un
+ * flash rejoué juste sort de la liste.
+ */
+export const FLASH_RATES_MAX = 20;
+export const flashRates = () => donnees.flashRates ?? [];
+export async function noterFlashRate(q) {
+  donnees.flashRates = [...flashRates(), { id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, date: aujourdhui(), ...q }].slice(-FLASH_RATES_MAX);
+  await sauver();
+}
+export async function retirerFlashRate(id) {
+  const avant = flashRates().length;
+  donnees.flashRates = flashRates().filter((x) => x.id !== id);
+  if (donnees.flashRates.length !== avant) await sauver();
+}
+
 /** 0.42.1 : mini-test raté (voir parcours.leconBloquee). */
-export async function noterEchecTest(id) {
+export async function noterEchecTest(id, essai = null) {
   const e = palier(id);
   e.echecsTest = (e.echecsTest ?? 0) + 1;
+  // 0.43 : les 5 derniers essais ratés (temps médian, seuil) pour montrer la tendance.
+  if (essai) { e.essaisTest = [...(e.essaisTest ?? []), { date: aujourdhui(), temps: essai.temps ?? null, seuil: essai.seuil ?? null, lent: !!essai.lent }].slice(-5); }
   await sauver();
 }
 

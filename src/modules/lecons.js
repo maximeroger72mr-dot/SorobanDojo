@@ -52,7 +52,7 @@ import { questionDoigte } from '../ui/doigte.js';
 import { tempsParUnite, SURCOUT_FEUILLE_S, unites } from '../core/maitrise.js';
 import { formatProbleme } from '../core/mesures.js';
 import { localiserErreur } from '../core/diagnostic.js';
-import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE, modePrecision, seuilVitesseLecon } from '../core/minitest.js';
+import { verdictMiniTest, testMin, exigeVitesse, testEnSeries, seriesValables, bilanSeries, CALCULS_SERIE, modePrecision, seuilVitesseLecon, testsDuJour, MINI_TESTS_PAR_JOUR, apresLenteur } from '../core/minitest.js';
 import { ajouterJours } from '../core/revision.js';
 import { badgeNiveau, texteEvaluation } from '../ui/niveau.js';
 import { leconsSousArgent, colonnesPourNiveau } from '../core/prof.js';
@@ -854,6 +854,19 @@ export default {
             h('button', { class: 'btn principal', onclick: () => afficher('reconnaitre') }, 'Faire « Reconnaître »')));
           return null;
         }
+        // 0.43 : 2 mini-tests par jour au plus sur une leçon pas encore validée (séries en cours exceptées).
+        const enCoursSeries = (et.testSeries?.series?.length ?? 0) > 0 && (et.testSeries?.debut ?? '') >= ajouterJours(jourCourant(), -1);
+        if (!et.valide && !enCoursSeries && testsDuJour(progression(), sp.id, jourCourant()) >= MINI_TESTS_PAR_JOUR) {
+          const dernier = (et.essaisTest ?? []).at(-1);
+          const lent = dernier?.lent && dernier.date === jourCourant() ? apresLenteur(sp, et, { vitesseOk: false, temps: dernier.temps, seuil: dernier.seuil, unite: verdictMiniTest(sp, { justes: 0 }).unite }) : null;
+          zone.append(h('div', { class: 'carte' },
+            h('p', {}, `Deux mini-tests aujourd'hui sur cette leçon : le prochain, demain. Un test raté de plus ne fait pas gagner de vitesse ; l'entraînement, si.`),
+            lent ? h('p', {}, lent.ecart) : null,
+            h('div', { class: 'ligne' },
+              lent?.lievre ? h('button', { class: 'btn principal', onclick: () => app.aller('rythme', { jeu: 'lievre', format: lent.lievre, auto: true }) }, 'Le lièvre à l\'allure visée →') : null,
+              h('button', { class: lent?.lievre ? 'btn' : 'btn principal', onclick: () => afficher('entrainement') }, 'Continuer l\'entraînement'))));
+          return null;
+        }
         let serie = null;
         // 0.38 : mini-test long (plus de 12 min au seuil) : en séries de 5, sur deux jours au plus.
         const enSeries = testEnSeries(sp, nombreTest(sp));
@@ -922,18 +935,21 @@ export default {
               const verdict = verdictMiniTest(sp, bilan);
               const reussi = verdict.reussi;
               if (reussi) await validerPalier(sp.id, !sp.sansRevision);
-              else await noterEchecTest(sp.id);
+              else await noterEchecTest(sp.id, { temps: verdict.temps, seuil: verdict.seuil, lent: verdict.justesOk && !verdict.vitesseOk });
+              const lenteur = reussi ? null : apresLenteur(sp, etatPalier(sp.id), verdict);
               const c = etatPalier(sp.id).carte;
               zone.append(h('div', { class: 'carte bilan' },
                 h('div', { class: 'grand' }, `${bilan.justes} / ${bilan.total}`),
                 h('p', {}, `Temps : ${formaterDuree(bilan.dureeMs)}`),
                 reussi
                   ? h('p', { class: 'retour ok' }, c ? `Leçon validée. Première révision le ${dateFr(c.echeance)}.` : 'Leçon validée.')
-                  : h('p', {}, `${verdict.raison} Reprenez un peu d'entraînement, puis retentez.`),
+                  : h('p', {}, lenteur ? `Assez de justes, mais trop lent. ${lenteur.ecart}` : `${verdict.raison} Reprenez un peu d'entraînement, puis retentez.`),
+                lenteur?.lievre ? h('p', { class: 'discret' }, `Plutôt qu'un nouveau mini-test tout de suite : le lièvre au format de la leçon. Il part de votre allure (${lenteur.lievre.cadence.toLocaleString('fr-FR')} s par ligne) et accélère de 3 % à chaque colonne juste, jusqu'à l'allure visée (${lenteur.lievre.vise.toLocaleString('fr-FR')} s par ligne).`) : null,
                 h('div', { class: 'ligne' },
                   reussi && suivant && estDebloque(suivant) ? h('button', { class: 'btn principal', onclick: () => changer(() => vueSousPalier(suivant)) }, `Leçon suivante : ${suivant.titre} →`) : null,
                   // 0.41 : raté en justesse : 5 colonnes ciblées sur les gestes fautifs, puis le test, le jour même.
                   !reussi && fautifs(bilan).length ? h('button', { class: 'btn principal', onclick: () => repriseCiblee(fautifs(bilan)) }, `Reprise ciblée (${fautifs(bilan).map(nomMotif).join(', ')}), puis retenter →`) : null,
+                  lenteur?.lievre ? h('button', { class: 'btn principal', onclick: () => app.aller('rythme', { jeu: 'lievre', format: lenteur.lievre, auto: true }) }, 'Le lièvre à l\'allure visée →') : null,
                   h('button', { class: 'btn', onclick: () => afficher(reussi ? 'test' : 'entrainement') }, reussi ? 'Repasser le test' : 'Retour à l\'entraînement'),
                   h('button', { class: 'btn', onclick: () => changer(carte) }, 'Toutes les leçons'))),
               // Premier mini-test de la leçon : une question de doigté (l'application ne voit pas les doigts).

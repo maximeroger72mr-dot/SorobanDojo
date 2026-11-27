@@ -409,9 +409,13 @@ export function choisirPiste(d, c, m, jourNum) {
   const manquantes = g ? prerequis(g).filter((id) => !estValide(d, id)).map((id) => SOUS_PALIERS.find((x) => x.id === id)).filter(Boolean) : [];
   const manqueC = manquantes.some((x) => pisteDe(x) === 'colonnes');
   const manqueM = manquantes.some((x) => pisteDe(x) === 'muldiv');
-  if (manqueM && !manqueC) return m;
-  if (manqueC && !manqueM) return c;
-  return alterne;
+  let choix = manqueM && !manqueC ? m : manqueC && !manqueM ? c : alterne;
+  // 0.43 : la leçon désignée est bloquée (elle est en rattrapage chaque jour) : l'autre piste avance,
+  // sur les leçons du grade suivant s'il le faut. Avant, quand le grade ne manquait que de colonnes, la
+  // leçon bloquée revenait chaque jour (simulation : 26 jours de suite sur p8-n ; 155 mini-tests ratés sur p9-2).
+  const autre = choix === c ? m : c;
+  if (leconBloquee(d, choix) && !leconBloquee(d, autre)) choix = autre;
+  return choix;
 }
 
 export function porteMulDiv(d, sp) {

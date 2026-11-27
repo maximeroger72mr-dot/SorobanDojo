@@ -20,7 +20,7 @@ const memoirePhoto = creerMemoire(6);
 import { genererMultiplication } from '../core/multiplication.js';
 import { famille } from '../core/motifs.js';
 import { motifsAppris } from '../core/parcours.js';
-import { progression, enregistrerSession, noterReponse, proposerMeilleurScore, reglagesUtilisateur, modifierReglages } from '../core/progression.js';
+import { progression, enregistrerSession, noterReponse, proposerMeilleurScore, reglagesUtilisateur, modifierReglages, flashRates, noterFlashRate, retirerFlashRate } from '../core/progression.js';
 import { parler, taire } from '../ui/voix.js';
 import { lireReponse } from '../core/nombres.js';
 import { Soroban } from '../core/soroban.js';
@@ -152,13 +152,21 @@ export default {
       }
       elements.push(select('questions', [[5, '5 questions'], [10, '10 questions']]),
         h('button', { class: 'btn principal', onclick: () => lancer() }, 'Commencer ', h('kbd', {}, 'Entrée')));
+      // 0.43 : les flash ratés, à reprendre (les 10 plus anciens d'abord, à leur vitesse).
+      const rates = flashRates();
+      if (rates.length) {
+        elements.push(h('p', { class: 'discret', style: 'flex-basis:100%;margin:0' }, `Flash à reprendre : ${rates.length} calcul${rates.length > 1 ? 's' : ''} raté${rates.length > 1 ? 's' : ''} (le plus ancien du ${rates[0].date.split('-').reverse().join('/')}), à rejouer à la vitesse où ${rates.length > 1 ? 'ils ont été ratés' : 'il a été raté'}. Rejoué juste, un calcul sort de la liste. `,
+          h('button', { class: 'lien', onclick: () => lancer(rates.slice(0, 10)) }, `Rejouer ${Math.min(10, rates.length) > 1 ? `les ${Math.min(10, rates.length)}` : 'le'} plus ancien${Math.min(10, rates.length) > 1 ? 's' : ''} →`)));
+      }
       remplir(zoneReglages, elements);
     }
 
-    function lancer() {
+    function lancer(fileRejeu = null) {
       nettoyerMode?.();
       remplir(zone);
-      const r = { ...reglages };
+      const r = fileRejeu
+        ? { ...reglages, mode: 'flash', fileRejeu, questions: fileRejeu.length, auto: false, profil: 'constant', distractVisuel: false, distractVoix: false, chiffres: Math.max(...fileRejeu.map((x) => x.chiffres ?? 1)), termes: Math.max(...fileRejeu.map((x) => x.nombres ?? x.lignes.length)) }
+        : { ...reglages };
       if (['mitori', 'mul', 'photo', 'tenir'].includes(r.mode)) {
         // Colonne fixe, multiplication ou visualisation : une série classique, de tête.
         const generer = {
@@ -286,7 +294,14 @@ export default {
         majBouton('');
         saisie.style.display = 'none';
         remplir(retour);
-        if (!reprise) { question = r.gradeFlash || r.formatFlash ? questionFlash(r.gradeFlash ?? r.formatFlash) : colonne(r.chiffres, r.termes, r.soustractions); reprises = 0; }
+        if (!reprise) {
+          // 0.43 : reprise des flash ratés : le même calcul, à la vitesse où il a été raté.
+          const rejeu = r.fileRejeu?.[serie.index];
+          if (rejeu) { r.duree = rejeu.duree; majInfo(); }
+          question = rejeu ? { type: rejeu.type ?? 'addsub', lignes: rejeu.lignes, resultat: rejeu.resultat, rejeuId: rejeu.id }
+            : r.gradeFlash || r.formatFlash ? questionFlash(r.gradeFlash ?? r.formatFlash) : colonne(r.chiffres, r.termes, r.soustractions);
+          reprises = 0;
+        }
         zone.classList.add('flash-en-cours');
         // Sans image d'aide : plein écran, le nombre au centre exact de la fenêtre.
         if (r.mode !== 'image') ecran.classList.add('plein');
@@ -492,6 +507,9 @@ export default {
           if (juste) serie.justes += 1;
           serie.index += 1;
           await noterReponse(juste);
+          // 0.43 : un flash raté est gardé pour plus tard ; rejoué juste, il sort de la liste.
+          if (question.rejeuId) { if (juste) await retirerFlashRate(question.rejeuId); }
+          else if (!juste) await noterFlashRate({ type: question.type, lignes: question.lignes.map((l) => ({ op: l.op, n: l.n })), resultat: question.resultat, duree: dureeCourante(), chiffres: r.chiffres, nombres: question.lignes.length });
           pastilles.append(h('span', { class: `pastille-res ${juste ? 'ok' : 'ko'}` }, juste ? '✓' : '✗'));
           if (!r.gradeFlash) ajusterVitesse(juste);
           if (r.mode === 'instantane') {
@@ -530,6 +548,12 @@ export default {
           const vitesse = await garderVitesse();
           remplir(retour, `Réussite ${formaterPourcent(serie.justes, serie.index)}. ${vitesse || conseil}`);
           majBouton('Nouvelle série');
+          return;
+        }
+        if (etat === 'fin' && r.fileRejeu) {
+          const f = flashRates().slice(0, 10);
+          afficherReglages();
+          if (f.length) lancer(f); else remplir(zone, h('p', { class: 'retour ok' }, 'Plus aucun flash à reprendre.'));
           return;
         }
         if (etat === 'fin') { serie.index = 0; serie.justes = 0; serie.debut = performance.now(); remplir(pastilles); defiler(); }

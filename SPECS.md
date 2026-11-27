@@ -1706,3 +1706,19 @@ soustractions et des colonnes jusqu'à 4 000 ; en p3-1 à p3-3 : 10 à 15 %, auc
 - Planches : la première tentative prend 60 % du budget de 5 s ; un repli identique à la tentative précédente est sauté.
 - Textes : en-tête des leçons (réussites exigées selon la leçon), « Anzan : Anzan : » dans Apprendre, README
   (Soroban.html), en-tête de colonne « À faire » dans Progression.
+
+## Version 0.43.0 : leçons qui résistent, cascades construites (audit 0.42.1)
+
+- `choisirPiste` : quand la leçon désignée (par le grade à préparer ou l'alternance) est bloquée, l'autre piste avance,
+  sur les leçons du grade suivant s'il le faut ; la leçon bloquée reste en rattrapage 5 min par jour.
+- Séance : une leçon n'apparaît qu'une fois (le rattrapage saute quand la leçon est déjà au plan).
+- Leçons de découverte (`decouverte: true`, p8-n et pd-1) : allure du grade précédent (p8-n 1,56 s, pd-1 2,04 s par
+  chiffre) ; les leçons de format qui suivent gardent l'allure de leur grade.
+- Mini-tests : 2 par jour au plus sur une leçon non validée (`MINI_TESTS_PAR_JOUR`, un test en séries compte une fois) ;
+  après un échec pour lenteur, l'écart au seuil et la tendance des derniers essais (`paliers[id].essaisTest`), et le
+  lièvre au format de la leçon, de l'allure mesurée vers l'allure visée (+3 % par colonne juste).
+- Générateur : la retenue / l'emprunt en cascade est construit (`chiffresCascade`) au lieu d'être cherché au hasard ;
+  `cleDe` mis en cache ; une soustraction d'un nombre plus long que la valeur n'est plus tentée. 10 colonnes d'additions
+  de 8 chiffres sur 10 lignes : 5,6 s → 0,9 s ; emprunts en cascade à 5 chiffres : 23 s → 0,7 s.
+- Flash anzan : les 20 derniers flash ratés sont gardés (`flashRates`) et se rejouent à leur vitesse ; juste, un flash
+  sort de la liste.
